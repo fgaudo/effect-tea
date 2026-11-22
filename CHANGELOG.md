@@ -28,8 +28,10 @@ version, and everything else, features included, the patch version.
 
 - The guide's "Inputs the user types into" is now "Inputs", and a value that an element reports, as the offset of a
   scroll, is an input too: its rule is promised, and nothing of the element ("What an element reports").
-- An input's `set` changes its place and nothing else; one that does more is not supported ("Composition", "Where a
-  child lives").
+- An input's `set` changes its place and nothing else; one that does more is not supported ("Inputs", "Rules").
+- A value that the user writes belongs to the program whose rules use it: the parent's where it changes or locks it,
+  and otherwise the child's, whose `output` gives the parent what the child concludes from it ("Structuring a
+  program").
 - `rehearse`'s `hear` takes any message of the program, as `send` does, where it refused one shaped as a write into
   an input: a wrapper built by a parent's constructor, or a value typed as the whole message, now compiles.
 

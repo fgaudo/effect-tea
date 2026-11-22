@@ -119,7 +119,7 @@ type CheckedChild<P> = unknown extends Lacking<P> ? P : P & Lacking<P>
 /**
  * A child that the library keeps: the number of its start, what it was started from, and its state.
  *
- * @see The guide, "Composition", "What the library derives".
+ * @see The guide, "Composition", "Each start of a child is an instance".
  */
 export type Instance<State> = {
   /** The number of this start, among the starts of the parent's children: no other instance of the parent has it. */
@@ -136,7 +136,7 @@ export type Instance<State> = {
  * The parent's functions are given its own state alone. A test makes a whole state with `stateOf`, of
  * `@fgaudo/effect-tea/testing`, or by folding messages from `init`.
  *
- * @see The guide, "Composition", "What the library derives".
+ * @see The guide, "Composition", "The parent's state".
  */
 export type Kept<Own, Children> = {
   /** The parent's own state: all that its functions are given. */
@@ -159,7 +159,7 @@ export type Kept<Own, Children> = {
  * export const clock: Child<State, typeof Clock.clock, 'always'> = child(Clock.clock)
  * ```
  *
- * @see The guide, "Composition", "Declaring children".
+ * @see The guide, "Composition", "When a child is there".
  * @see The guide, "Composition", "When the child is not there".
  */
 export type Child<State, P, There extends "always" | "sometimes"> = {
@@ -394,7 +394,7 @@ type ReadOutput<C> = C extends ChildByIdOf<infer Id, infer P> ? (id: Id) => Outp
  * update: (message, children) => (state) => ({ state: { ...state, running: children.Clock.output() } }),
  * ```
  *
- * @see The guide, "Composition", "What the library derives".
+ * @see The guide, "Events and external messages", "Outputs".
  */
 type Outputs<C> = {
   readonly [K in keyof C & string as [OutputOf<ProgramOf<C[K]>>] extends [never] ? never : K]: Readonly<{
@@ -490,6 +490,8 @@ type OutputHandlerOf<State, C, Output> = [Output] extends [never] ? Readonly<{ o
      * outputs last.
      *
      * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
+     * @see The guide, "Events and external messages", "A child may declare an `output`".
+     * @see The guide, "Events and external messages", "A parent reads it as `children.Row.output(id)`".
      */
     output: (state: State, ...children: Reading<C>) => Output
   }>
@@ -1495,6 +1497,7 @@ export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T
    *
    * @see The guide, "Composition", "The parent's own messages, commands and subscriptions".
    * @see The guide, "Events and external messages", "A parent sends an external message".
+   * @see The guide, "Events and external messages", "What a step tells arrives after the step".
    */
   readonly make: MakeParent<T, C>
 }

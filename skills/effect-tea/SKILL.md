@@ -73,9 +73,11 @@ where the summary says less.
 | a message that may arrive, and does not apply in the state      | `reject`                                         |
 | a message that only a bug can bring                             | `defect`                                         |
 | an expected failure of a command                                | a message, as the success is                     |
-| a part that the parent reads, or enables from its own state     | not a child: the parent's state, or its input    |
+| a part whose controls the parent enables from its own state     | not a child: the parent's state, or its input    |
+| a value that the user writes, and a parent reads                | an input of the program whose rules use it       |
+| what holds in a child, that its parent reads                    | the child's `output`                             |
 | what a child asks of its parent                                 | an event                                         |
-| a fact that several children must see as one                    | an external message, which the parent sends down |
+| a fact that several children must see as one                    | an external message, which the parent tells down |
 
 The guide, "Structuring a program", "What kind of thing is it": its rows name the page of each.
 
@@ -90,9 +92,11 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   meant to run, as on a server. Write `const { app, run } = start(program)`, so that a linter can report a `run` left
   unused. The guide, "Guarantees", "Whoever starts a program runs it". The guide, "Running", "A program is started,
   then run".
-- **`update`, `external`, `makeModel` and `subscriptions` are pure, and a state is never mutated.** `update` may be
-  called at any time: never assume it runs once per message. A child's `external` runs in its parent's `update`. The
-  library reuses a child's model and subscriptions while the child's state is the same object. The guide, "Update",
+- **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and a state is never mutated.** So are
+  `there`, `key`, `flags`, `ids` and `listening`, which say which children are there and when they listen. `update`
+  may be called at any time: never assume it runs once per message. A child's `external` runs in its parent's
+  `update`. The library reuses a child's model and subscriptions while the child's state is the same object. The
+  guide, "Guarantees", "What is left to you". The guide, "Update",
   "Keep it pure". The guide, "Update", "It may be called at any time". The guide, "Update", "Never mutate the state".
   The guide, "Events and external messages", "A child answers its external messages in every state".
 - **One state machine per concern, and no flags.** Each concern is a union with a case per state. Each case holds only
@@ -122,19 +126,25 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   it. A `makeModel` that throws reaches it once, as the run ends. The guide, "Guarantees", "With the bridge to React,
   the run lives as long as the effect that starts it". The guide, "Guarantees", "With the bridge to React, a run that
   dies is thrown to the nearest error boundary".
-- **A parent never reads a child's state to decide.** A child gets what it needs from its own services and
-  subscriptions. The guide, "Structuring a program", "A parent never reads a child's state to decide".
-- **A `set` changes its place, and nothing else.** A place given as `get` and `set`, a child's or an input's, has a
-  `set` that puts the value it is given where `get` reads it, as an optic does. What follows a write is computed where
-  the state is read. An input's `set` may store the value in another form, the one exception. The guide,
-  "Composition", "Where a child lives". The guide, "Inputs", "What is typed, in another form".
+- **A value that the user writes belongs to the program whose rules use it.** Where the parent changes it, locks it or
+  submits it, it is an input of the parent, by id for rows, and a row is no child. Where only a child's rules use it,
+  it is the child's input, and the parent reads what the child concludes from it, through the child's `output`: a
+  valid count, not the text. Nothing checks it: an `output` that gives the text compiles. The guide, "Structuring a
+  program", "A value that the user writes belongs to the program whose rules use it".
+- **Flags and keys are compared with `Equal`.** Other flags, or another key, start a child again, as another
+  instance. A function made anew in `flags` or `key` is other flags each time, since `Equal` compares a function by
+  reference: give plain values. The guide, "Composition", "Ids are compared by value". The guide, "Composition",
+  "When the children are compared".
+- **A `set` changes its place, and nothing else.** An input's place given as `get` and `set` has a `set` that puts the
+  value it is given where `get` reads it, as an optic does. What follows a write is computed where the state is read.
+  A `set` may store the value in another form, the one exception. The guide, "Inputs", "Rules". The guide, "Inputs", "What is typed, in another form".
 - **Whatever a subscription depends on is in its key.** A new subscription under a kept key is not used. A value that
   stays the same while the key is kept, as a child's own id, can stay out. The guide, "Subscriptions", "A subscription
   sees the state only through its key". The guide, "Subscriptions", "A value that stays the same while the key is kept
   can stay out of the key".
 - **A function of the program never interrupts the fiber it runs in.** An `init` that takes flags runs in the call of
-  `start`, in the fiber of whoever starts the program, if any, and the `init` of a parent without flags in the call of
-  `make`. `update`, `subscriptions` and the options run where the message was sent, and `makeModel` where the model is
+  `start`, in the fiber of whoever starts the program, if any, and the children of a parent without flags start in the
+  call of `make`. `update`, `subscriptions` and the options run where the message was sent, and `makeModel` where the model is
   read. Each could reach that fiber with `Fiber.getCurrent`. An interruption of a fiber that is no command's or
   subscription's is no defect, so no defect says it happened. The guide, "Guarantees", "A function of the program
   never interrupts the fiber it runs in".
@@ -156,7 +166,9 @@ The run does not check these. A test does, with the tool named.
 A break of these rules does not compile, so they need no remembering. A state is always an object, never a number or a
 string. A program names its types, then is made, and a type it does not name is one it does not have. An execution
 cannot fail: an expected failure becomes a message. A subscription is a `Channel` whose end value is a message. A
-child answers an external message in `external`, in every state, never with `reject`. The guide lists the rest:
+child answers an external message in `external`, in every state, never with `reject`. A parent is given no child's
+state: it reads only what a child declares as its `output`, and tells a child only its external messages, in the
+`tell` of a step. The guide lists the rest:
 The guide, "Anatomy of a program", "What does not compile". The guide, "Composition", "Precisely". The guide, "Anatomy
 of a program", "Its state is always an object". The guide, "Anatomy of a program", "Its types are named first, then it
 is made". The guide, "Commands", "An execution cannot fail". The guide, "Subscriptions", "The type says all of it".
@@ -182,12 +194,12 @@ Each sign breaks the rule named after it.
   of the program".
 - `defect` on a message of the view. The guide, "Rejections and defects", "What the view draws never rules a message
   out".
-- A child's `init` read by hand, as `Clock.clock.init.state`: it leaves the child's commands behind. The guide,
-  "Composition", "Do and don't".
-- The `.state` of a step taken by hand: it drops that step's commands and its events. The guide, "Events and external
-  messages", "Combining steps".
-- A parent that reads a child's state. The guide, "Structuring a program", "A parent never reads a child's state to
-  decide".
+- A copy in the parent's state of what holds in a child, changed at each change of the child: read the child's
+  `output` instead. The guide, "Events and external messages", "Read a condition of a child, do not copy it".
+- The `.state` of a step taken by hand: it drops that step's commands, its events and what it tells. The guide,
+  "Events and external messages", "Combining steps".
+- An `output` that gives a child's text for its parent to parse, or a lock of the parent copied into each child. The
+  guide, "Structuring a program", "A value that the user writes belongs to the program whose rules use it".
 - A rejection asserted as "the state did not change". The guide, "Testing", "Do and don't".
 - An attempt to cancel a command. The guide, "Commands", "Commands cannot be cancelled".
 - A `start` whose `run` is never run, outside a server: the program changes its state and does nothing else. The

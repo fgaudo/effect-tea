@@ -42,9 +42,20 @@ In general, a view writes the value that the element holds, through the input's 
 - **What the user gives an input is no message of the program.** No `update` of the program sees it (see
   [why](#why-what-the-user-types-is-no-message)).
 - **The program declares where it goes**: `inputs: { Name: input({ at }) }` in `make`.
-  - `at` is an optic to a plain value of the program's state. In place of `at`, you can give `get` and `set` (see
-    [where a child lives](./composition.md#where-a-child-lives), which says when to give each).
+  - `at` is an optic to a plain value of the program's state, an `Optic` of Effect:
+    `Optic.id<State>().key('name')`. In place of `at`, you can give the two functions that an optic is: `get` and
+    `set`.
+  - Give an optic where the place is a path into the state: a field, a case of a tagged union, a key of a record.
+  - Give `get` and `set` where the place must be found: an element of an array that a predicate picks, such as a row
+    found by its id. No path leads to such an element, because its index changes as the array does.
   - An optic that may focus nothing, as one composed with `Optic.some()`, declares an input that is not always there.
+- **A `set` changes its place, and nothing else.** A `set` puts the value it is given at the place that `get` reads,
+  and changes nothing else of the state, as an optic does.
+  - A `set` that does more is not supported. The library need not call `set` where nothing is to be stored, as for a
+    write equal to the value held. So what else a `set` did would follow some writes and not others.
+  - Compute what follows a write where the state is read, in `update` and `makeModel`.
+  - A `set` may store the value in another form. This is the one exception (see
+    [what is typed, in another form](#what-is-typed-in-another-form)).
   - `inputById` declares an input by id, one for each row. The view writes into it through
     `forwardTo(dispatch, 'Count', id)` (see [inputs by id](#inputs-by-id)).
 - **The view writes what the element holds**: `{ _tag: 'Written', value: text }`, through
@@ -108,7 +119,7 @@ value in another form has four ways:
 - **Change the text as it is stored, in `set`.** A `set` may store another value than the one written: for example,
   the text in capitals. The element is then drawn with the value stored, at once, and keeps its focus. Where the caret
   goes then is the browser's, and is not promised: Chromium puts it at the end of the text. This is the one exception
-  to the rule of a `set` (see [where a child lives](./composition.md#where-a-child-lives)). The input gives `get` and
+  to the rule of a `set` (see [the rules](#rules)). The input gives `get` and
   `set` in place of `at`:
 
   ```ts
@@ -124,10 +135,10 @@ value in another form has four ways:
 
 ## Inputs by id
 
-A value that the user types into each row, such as the count of each item, is an input by id. Use `inputById` instead
-of `input`. Give the place of each id in the same ways as for a child by id (see
-[children by id](./composition.md#children-by-id)): an optic that is a function of the id, or `get` and `set` that take
-the id.
+A value that the user types into each row, such as the count of each item, is an input by id where the program that
+holds the rows uses it (see [splitting a program](./structuring-a-program.md#splitting-a-program)). Use `inputById`
+instead of `input`. Give the place of each id in the same ways as for an input alone, as functions of the id: an optic
+that is a function of the id, or `get` and `set` that take the id.
 
 Rows kept in a record by id are reached with an optic of the id:
 
@@ -193,8 +204,9 @@ optic that always focuses is read from the state, as `state.name`.
 In the same states, the parent's `update` rejects the parent's own messages for a row, such as a choice from a list.
 
 Like an input, an input by id is not a child (see [the parent's inputs](./composition.md#the-parents-inputs)). Its
-values are part of the parent's own state. The parent's `update` reads them to total or submit them. The parent never
-reads the state of a child (see [splitting a program](./structuring-a-program.md#splitting-a-program)).
+values are part of the parent's own state. The parent's `update` reads them to total or submit them. Where a row is a
+child instead, with an input of its own, the parent reads only what the row declares as its `output` (see
+[outputs](./events-and-external-messages.md#outputs)).
 
 See [`stocktake`](../../examples/stocktake/stocktake.ts).
 

@@ -28,9 +28,9 @@ number unused.
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. what is wrong in what is released: step 36, the guide for the store of step 34 and the `output` of step 35, which
-   the owner put first though they break the API, since the other decisions that break it are weighed against what
-   they leave, and step 27, which looks for more of its kind;
+1. what is wrong in what is released: step 36, a reader's check of the guide written for the store of step 34 and
+   the `output` of step 35, which the owner put first though they break the API, since the other decisions that
+   break it are weighed against what they leave, and step 27, which looks for more of its kind;
 2. what is small and waits for nothing: step 26;
 3. the other decisions that break the API, steps 29, 30 and 9, so that one release takes what they break, while the
    library has few users, and step 10 with them, which waits for the owner alone;
@@ -49,98 +49,36 @@ None is open.
 
 ## Next, in order
 
-### 36. The guide, the tutorial and the skill, for the store and `output`
+### 36. A reader's check of the guide, for the store and `output`
 
-**Model and effort.** Opus 5.5, `high`: a page of the guide is a specification.
+**Model and effort.** Opus 5.5, `high`: the reader's report is weighed against the guide as a specification.
 
-**Depends on** steps 34 and 35, done. It comes before the release that has them.
+**Depends on** nothing: the pages for steps 34 and 35 are written. It comes before the release that has them.
 
-**Why.** Steps 34 and 35 change what a parent writes, and the guide still describes the children of 0.8.0. The pages
-are written once, for both: the owner asked for `output` to be decided with the store so that nothing is written
-twice.
+**Why.** The guide, the tutorial, the README, the skill and the doc comments were written again for the children that
+the library keeps and for `output`, in one pass, and checked by `bun run comments`, the site's build, the typecheck and
+the tests. No reader has built a program from them yet, and the owner asked for one before the release.
 
-**How.** One section at a time, as `AGENTS.md` says of the guide's prose: each sentence is a promise or a description,
-and is checked against `src/` and its tests before it is written (the last section of
-[`guide-reader`](.agents/skills/guide-reader/SKILL.md)). The pages:
+**How.** As [`guide-reader`](.agents/skills/guide-reader/SKILL.md) says, asking the owner first whether the reader is a
+subagent, and the mode. The pages most changed are "Composition", "Events and external messages" (its new "Outputs"),
+"Structuring a program", "Guarantees", "Inputs", "Testing" ("The model of any state", for `stateOf` and the number of
+an instance), and the tutorial's third and fourth steps. A requirement that needs them: children by id with an output
+that the parent reads, a child that comes back and starts again, and a value typed into a row that a child's own rules
+use. What was decided for the pages, and the code does not say:
 
-- **"Composition" and "Events and external messages"**, which are written again, with `inDialog`.
-- **"Structuring a program"**: "A parent never reads a child's state to decide" holds by construction, and a parent
-  reads what its child declares as its `output`. The page says which of the two a value is that the user writes and
-  the parent reads: an input of the parent's own, as the owner decided on 16 November 2026 (`docs/rejected.md`, "A
-  parent that reads its children's inputs"), or a child's `output`. It is asked of the owner first.
-- **"Guarantees"**. "What is left to you" loses the rules that the store keeps by construction, the rows of the table
-  of "One cause" in the record; the rule of a `set` stays for an input's place. "What you can rely on" gains what a
-  user now builds on, as that an answer reaches the instance that asked for it, or is rejected: each item added is
-  named by the mutations of its checks (`bun run comments`).
-- **What a user may not expect**, said where its rule is: flags are a key, so other flags by `Equal` are another
-  child, which starts again, and a `flags` that builds a function anew starts its child again at each step of the
-  parent's own; what a step tells its children arrives after the step; and a child that comes back starts again.
-- **"Anatomy of a program"**, for `output`; **"Testing" and "Testing tools"**, for `stateOf` and for the number of an
-  instance in a lifted command and in a lifted key; the glossary; "Coming from Elm or React"; the tutorial's third and
-  fourth steps; the README; and the skill, with its "Rules that nothing checks".
+- **Who holds a value that the user writes.** The owner took, on 22 November 2026, the rule that a session advised: it
+  belongs to the program whose rules use it, the one that says what the text means, changes it or locks it. The
+  parent's where the parent changes or locks it (`stocktake`), and the child's where only the child's rules use it: the
+  parent then reads what the child concludes from it, through `output`, not the text. "Structuring a program" states
+  it, and the note under the three entries of 16 November 2026 in `docs/rejected.md` says what it narrows. Nothing
+  checks it: an `output` that gives the text compiles. No example yet shows a child's input read through `output`.
+- **A message of a view names no instance**, so a click on a view drawn for a row removed reaches a new row listed at
+  the same id. "Composition", "Ids that come back", says so, and the tutorial keeps its ids unique for it.
+- **Descriptions, not promises**: the order of the starts and the numbers of the instances, when the children are
+  compared (after a step of the parent's own, or a write, that changes its own state), and the order inside a step in
+  which a handler of `onEvent` reads the outputs.
 
-Then the doc comments of steps 34 and 35 are read again against the sections they name, and name the new ones: those
-of `src/compose.ts`, `src/update.ts` and `src/testing/state-of.ts` name sections of the guide of 0.8.0, which
-describe the old children.
-
-What step 34 left that the pages need, and the code does not say:
-
-- **`Equal` compares by value what Effect documents** (`Equal.equals`, stable): primitives, arrays, plain objects,
-  `Map`, `Set`, dates, regular expressions, and values that implement `Equal`, as `Option` and `Data` do; a function
-  by reference. The spike also saw instances of a class compared by value, which the documentation does not say: no
-  page promises it of flags, keys or ids.
-- **A child alone has `there` and `key`**: `there` alone says whether it is there, and `key` is a plain value, read
-  only where it is there (`docs/rejected.md`, "A child's `key` that says whether the child is there"). A child with
-  flags is there where `flags` gives `Some`, so its model is an `Option`, also where its parent always gives flags.
-- **What a hover prints.** A parent's state prints as `Kept<Own, { readonly Clock: Opt.Option<Instance<…>>; … }>`, the
-  children's states alone, with no type that only prints; the own state is spelled out inside it, not named by its
-  alias, and the smoke test counts 14 spellings of the consumer's state. A child without messages still adds `{ _tag:
-  <child>; message: never; instance?: number }` to its parent's messages.
-- **An id listed twice in an `init` that is a step** is a `CompositionDefect` that `make` throws, as the module that
-  makes the parent loads, since `make` starts the children of the first state: "When the parent's `init` is called"
-  says it of `init` today.
-- **A parent's undo by snapshot is gone**, which `registers.md` called legitimate: the bridges' tests and
-  `src/input.test.ts` moved the draft's Keep and Undo into the draft's own messages, and the parent starts the draft
-  again by a `key` after a send. "Inputs" and its examples are read against them.
-- **The probe of the record** is a test of `src/compose.test.ts`, "a child started again while its command waits",
-  and the search has the property "an answer reaches the row that asked for it, or is rejected"
-  (`src/interleaving.test.ts`): the item of "Guarantees" that this step adds names them through the mutations of its
-  checks.
-
-What step 35 left that the pages need, and the code does not say:
-
-- **The name.** The owner chose `output` on 22 November 2026, over `exposed` and `status`, which the step weighed: a
-  common word that fits any value. Its cost, which the pages answer: it reads as the opposite of an input, and is not.
-  An input is a place that the view writes into; an output is what a parent reads of its child.
-- **Where a parent reads it, and when.** In a last parameter `children` of `update`, `external`, the handlers of
-  `onEvent` and its own `output`, which holds the outputs alone, and in `makeModel` as `children.Row.output(id)`, beside
-  the model, so that `children.Row` is there a function with a property. A program without children has no such
-  parameter. In `update` and `external`, the outputs are of the children as they were before the step; in a handler of
-  `onEvent`, of the children as they are when the handler is called, after the child's step and the handlers of its
-  earlier events (`outputsOf` in `src/compose.ts`, and the mutation "a handler of onEvent reads the outputs of before
-  the child's step"). Whether each is a promise or a description is the page's to decide, by `AGENTS.md`.
-- **An id that is not listed** is a `CompositionDefect`, "The output of "Row", which is not in this state", as for a
-  model: "What is a defect" says it of the model alone today.
-- **`output` is pure**, as `makeModel` is: the item of "Guarantees" "`update`, `external`, `makeModel` and
-  `subscriptions` are pure, and states are never mutated" names it, and the doc comment of `Program`, which already
-  lists `output`, names the new title (`bun run comments`).
-- **No tool reads the output of a program that has no parent**, nor the handle of `start`: a test reads
-  `program.output(state)`, as it reads `program.makeModel(state)`. Decided in step 35, with no export added: "Anatomy
-  of a program" and "Testing" say it.
-- **A child can give its parent the value of an input of its own through `output`.** "Structuring a program" says
-  which of the two a value is that the user writes and the parent reads (above), and the note under the three entries
-  of 16 November 2026 in `docs/rejected.md`, which says that a parent "reads no input of the child's", is read again
-  with the owner's answer.
-- **The doc comments of step 35 name sections of 0.8.0**: `OutputOf`, "Anatomy of a program", "Its type lists the types
-  it is made of"; the `output` of `make`, "Its types are named first, then it is made"; the outputs of a parent,
-  "Composition", "What the library derives". They name the new sections once these are written.
-- **`examples/list`** offers "Stop all" only while a stopwatch runs, and tells only those that run: the pages that link
-  it ("Composition", "Events and external messages") are read against it. Its row of the README's table is in the new
-  form; the row of `pages` still names optics and `subscribed`, which step 34 removed.
-
-**Done when** `bun run comments` and the site's build pass, every code block of the guide, of the tutorial, of the
-README and of the skill is in the new form, and the owner has weighed a reader's check
-([`guide-reader`](.agents/skills/guide-reader/SKILL.md)) before the release.
+**Done when** the owner has weighed the reader's report, and each gap it found is fixed as `guide-reader` says.
 
 ### 27. What the guide says of each function a program gives the library
 

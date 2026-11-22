@@ -129,7 +129,7 @@ export const entriesOf = (dispatch: object, name: string): number => {
  * @see The guide, "Composition", "A child's view gets a dispatch of its own".
  * @see The guide, "Composition", "That dispatch is the same function in every draw".
  * @see The guide, "Composition", "A grandchild's dispatch is made from its parent's".
- * @see The guide, "Composition", "`children.Row(state, id)` is a row's model".
+ * @see The guide, "Composition", "`children.Row(id)` is a row's model".
  * @see The guide, "Composition", "Ids are compared by value".
  * @see The guide, "Inputs", "The view writes what the element holds".
  */

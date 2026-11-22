@@ -18,6 +18,7 @@ import { dual } from "effect/Function"
  *
  * @see The guide, "Commands", "In short".
  * @see The guide, "Events and external messages", "A child raises an event".
+ * @see The guide, "Events and external messages", "What a step tells arrives after the step".
  */
 export type Step<State, Command = never, Event = never, Tell = never> = {
   /** The next state. */

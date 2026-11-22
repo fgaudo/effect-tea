@@ -9,7 +9,7 @@ example shows, with a link to try it in the browser.
 - [`counter/`](counter): one program and the cheapest tests. Read it first. It is started once, and drawn twice, by
   snabbdom and by React, over the same `App`. A program with one renderer is drawn by that one alone, as
   [`timer/`](timer) is.
-- [`pages/`](pages): a parent and its children, placed with optics, started from flags, and talking through events.
+- [`pages/`](pages): a parent and its children, kept by the library, one there while its flags are, and talking through events.
 - [`timer/`](timer): the application of the [tutorial](../site/tutorial/index.md), one module for each step.
 
 ## What an example holds

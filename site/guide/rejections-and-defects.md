@@ -71,11 +71,11 @@ A message of the view that is not a write into an input is rejected by `update` 
 Three other kinds of message may arrive for a state that has left them behind. Each kind is settled by whoever knows
 what the message was for:
 
-| A late message                                         | Who settles it                                                                         | How                                                                                                                                                                     | `onIgnored`                            |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| **A subscription's message once its key is gone**      | The run. The run stops that subscription.                                              | The run drops the message before `update`, even if the key has come back since.                                                                                         | Does not hear it.                      |
-| **A command's answer for what has since changed**      | `update`. Only the program knows what the answer was for.                              | The answer reaches `update`, which rejects it. The answer's message says what it was for (see ids that come back in [children by id](./composition.md#children-by-id)). | Hears it, as it hears every rejection. |
-| **A write into a place the program has since removed** | The library. The input's place is declared to the library (see [inputs](./inputs.md)). | The library rejects the write, from the state and the message alone.                                                                                                    | Hears it, as it hears every rejection. |
+| A late message                                         | Who settles it                                                                         | How                                                                                                                                                                                                                                                                                 | `onIgnored`                            |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| **A subscription's message once its key is gone**      | The run. The run stops that subscription.                                              | The run drops the message before `update`, even if the key has come back since.                                                                                                                                                                                                     | Does not hear it.                      |
+| **A command's answer for what has since changed**      | `update`. Only the program knows what the answer was for. For a child, the library.    | The answer reaches `update`, which rejects it: its message says what it was for. An answer for an instance of a child that is no longer there is rejected by the library, since it names that instance (see [what the library derives](./composition.md#what-the-library-derives)). | Hears it, as it hears every rejection. |
+| **A write into a place the program has since removed** | The library. The input's place is declared to the library (see [inputs](./inputs.md)). | The library rejects the write, from the state and the message alone.                                                                                                                                                                                                                | Hears it, as it hears every rejection. |
 
 None of these late messages is a defect. They are the price of commands that cannot be cancelled, of keys that come and
 go, and of a screen older than the state.
@@ -97,18 +97,12 @@ Each pair sums up a rule of this page. The rule itself is above.
 
 ```ts
 // Don't: the type of a handler of `onEvent` has no `reject`, so this does not compile
-Clock: (event, children) => (state) => {
-  if (Opt.isSome(state.maybeAbout)) return reject
-  const about = children.About.init({ openedAt: event.at })
-  return { state: { ...state, maybeAbout: Opt.some(about.state) }, commands: about.commands }
-},
+Clock: (event) => (state) =>
+  Opt.isSome(state.about) ? reject : { state: { about: Opt.some({ openedAt: event.at }) } },
 
 // Do: a handler that does not apply answers `{ state }`
-Clock: (event, children) => (state) => {
-  if (Opt.isSome(state.maybeAbout)) return { state }
-  const about = children.About.init({ openedAt: event.at })
-  return { state: { ...state, maybeAbout: Opt.some(about.state) }, commands: about.commands }
-},
+Clock: (event) => (state) =>
+  Opt.isSome(state.about) ? { state } : { state: { about: Opt.some({ openedAt: event.at }) } },
 ```
 
 ## Precisely

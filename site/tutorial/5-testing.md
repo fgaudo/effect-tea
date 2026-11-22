@@ -98,8 +98,10 @@ moment.
 A parent is a program like any other: `timers.update`, `timers.makeModel` and `timers.init` are tested with the
 same tools.
 
-What changes is the wrapping. Its messages for a child are `{ _tag: 'Timer', id, message }`, and so are its commands
-and the keys of its children's subscriptions. That is what `timers.subscriptions`, `rehearsal.run` and `rehearsal.hear`
+What changes is the wrapping. Its messages for a child are `{ _tag: 'Timer', id, message }`. Its commands and the keys
+of its children's subscriptions also name the instance of the timer, the number of its start:
+`{ _tag: 'Timer', id, instance, command }` and `['Timer', id, instance, 'ticks']` (see
+[the number of an instance](../guide/testing.md#the-model-of-any-state)). That is what `timers.subscriptions`, `rehearsal.run` and `rehearsal.hear`
 see. The tests of
 [`examples/timer/timers.test.ts`](../../examples/timer/timers.test.ts)
 name its messages:

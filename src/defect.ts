@@ -107,9 +107,10 @@ type CompositionFields = Readonly<{
 /**
  * A parent that breaks what it declared of a child.
  *
- * It is thrown when a parent sends an external message to a child that is not there.
- * Among other cases, it is thrown for a parent's subscription key that a child uses too, and for a `subscribed` that
- * lists an id twice, for a child that listens to something then. `on` names the message by its tags. `id` is the
+ * It is thrown when a step of a parent tells a child that is not there once the step is taken.
+ * Among other cases, it is thrown for a parent's subscription key that a child uses too, for children by id whose
+ * `ids` or `flags` list an id twice, and for the model or the output of a child that is not there. `on` names the
+ * message by its tags. `id` is the
  * child's id as it is, and may hold the program's data. Only `program` makes one: a test reads it, and the types
  * refuse a `new` of it.
  *

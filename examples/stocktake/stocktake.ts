@@ -1,6 +1,7 @@
 // The stock-take of one aisle, as one program: the items are loaded from the server, a scanner feed adds to the item
 // it scans, and the counts are submitted once every item holds a whole number. The count of each item is an input by
-// id: what is typed is stored by the library, and no `update` sees it. An item is no child: the sheet reads its count.
+// id: what is typed is stored by the library, and no `update` sees it. An item is no child: the sheet adds to its
+// count on a scan, and locks and submits it.
 import { defect, type MessageOf, type ModelOf, program, reject } from "@fgaudo/effect-tea"
 import * as Arr from "effect/Array"
 import * as Channel from "effect/Channel"

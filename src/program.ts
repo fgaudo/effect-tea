@@ -97,7 +97,7 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * @see The guide, "Events and external messages", "`external` is required exactly when the program names external messages".
  * @see The guide, "Anatomy of a program", "A test makes a model as the run does".
  * @see The guide, "Anatomy of a program", "What a program listens to".
- * @see The guide, "Guarantees", "`update`, `external`, `makeModel` and `subscriptions` are pure, and states are never mutated".
+ * @see The guide, "Guarantees", "`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and states are never mutated".
  */
 export type Program<T extends ProgramTypes> = Shape<
   Field<T, "state">,

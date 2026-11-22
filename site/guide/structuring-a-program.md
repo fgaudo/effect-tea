@@ -7,8 +7,8 @@ title: Structuring a program
 ## In short
 
 The pages before this one say what the library does. This page says how to write a program so that what the program
-promises holds, and so that its tests can check it. The library does not enforce these rules. The examples follow
-them.
+promises holds, and so that its tests can check it. The library enforces only one of these rules, and the rule says
+so. The examples follow them all.
 
 ## What kind of thing is it
 
@@ -27,7 +27,9 @@ where the row says less.
 | A message that may arrive, and does not apply in the state                      | `reject`                                                       | [rejections and defects](./rejections-and-defects.md)                                                          |
 | A message that only a bug can bring                                             | `defect`                                                       | [rejections and defects](./rejections-and-defects.md)                                                          |
 | An expected failure of a command                                                | A message, as the success is                                   | [commands](./commands.md)                                                                                      |
-| A part that the parent reads, or whose controls it enables from its own state   | Not a child: the parent's own state, or an input of the parent | [splitting a program](#splitting-a-program), [composition](./composition.md#the-parents-inputs)                |
+| A part whose controls the parent enables from its own state                     | Not a child: the parent's own state, or an input of the parent | [splitting a program](#splitting-a-program), [composition](./composition.md#the-parents-inputs)                |
+| A value that the user writes, and a parent reads                                | An input of the program whose rules use it                     | [splitting a program](#splitting-a-program)                                                                    |
+| What holds in a child, that its parent reads                                    | The child's output                                             | [outputs](./events-and-external-messages.md#outputs)                                                           |
 | What a child asks of its parent                                                 | An event                                                       | [events and external messages](./events-and-external-messages.md)                                              |
 | A fact that several children must see as one                                    | An external message, which the parent sends down               | [splitting a program](#splitting-a-program), [events and external messages](./events-and-external-messages.md) |
 
@@ -100,17 +102,24 @@ program of its own. Split a program this way:
 - **Split by concern, never by kind.** Modules named `messages`, `state` and `update` would import each other in cycles.
 - **What spans the children stays in the parent**, such as a menu or the back button. What concerns one child stays in
   that child, even how the user learns that the child failed.
-- **A parent never reads a child's state to decide.** A child gets what it needs from its own services and
+- **A parent never reads a child's state to decide.** The library holds this by construction: a parent is given no
+  child's state, and reads of a child only what the child declares as its `output` (see
+  [outputs](./events-and-external-messages.md#outputs)). A child gets what it needs from its own services and
   subscriptions. A fact belongs to the parent only when several children must see the fact as one truth. The parent
-  sends that fact down to the children as an external message.
+  tells that fact down to the children as an external message.
 - **Children that read each other's state are one child**, whatever the size of that child. When a parent grows logic
   between two siblings, this is a sign that the two siblings are one child.
 - **Not every part is a child.** These parts are not children:
   - a part whose controls the parent would enable from the parent's own state;
   - a part whose state the parent would copy down and back up.
 
-  A value that the user writes and the parent reads is an input of the parent. Where the user writes one value into
-  each row, the value is an input by id (see [inputs by id](./inputs.md#inputs-by-id)).
+- **A value that the user writes belongs to the program whose rules use it**: the program that says what the text
+  means, changes it, or locks it.
+  - In a stock-take, that program is the parent: a scan adds to a count, and the sheet locks the counts and submits
+    them. So each count is an input of the parent, by id (see [inputs by id](./inputs.md#inputs-by-id)), and a row is
+    no child. See [`stocktake`](../../examples/stocktake/stocktake.ts).
+  - Where only a child's own rules use the value, the value is an input of the child. The parent then reads what the
+    child concludes from it, through the child's `output`: a valid count, not the text.
 
 ## Do and don't
 

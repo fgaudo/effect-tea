@@ -14,46 +14,46 @@ The code is [`examples/timer/timers.ts`](../../examples/timer/timers.ts).
 
 ## The parent's state
 
-The parent keeps each timer's state with its id, and the next id to give. Adding and removing are the parent's own
-messages:
+The parent's own state is the ids of its timers, in their order, and the next id to give. It does not keep the
+timers' states: the library keeps them. Adding and removing are the parent's own messages:
 
 {@includeCode ../../examples/timer/timers.ts#state}
 
-Ids are never reused, so that a removed timer's id never goes to another timer. Otherwise a message meant for the old
-timer could reach the new one (see [children by id](../guide/composition.md#children-by-id)).
+Ids are never reused, so that a removed timer's id never goes to another timer. Otherwise a click on a view drawn for
+the old timer could reach the new one (see [children by id](../guide/composition.md#children-by-id)).
 
 ## Declaring the children
 
 A parent does not route messages by hand. It declares its children, and the library does the routing (see
 [composition](../guide/composition.md)).
 
-`program<{ … }>()` gives the functions that declare children, beside `make`. `childById` declares children by id,
-and asks three things:
+`program<{ … }>()` gives the functions that declare children. `childById` declares children by id, and asks two
+things:
 
-- where each one lives in the parent's state: `get` and `set`, by id;
-- which of them may listen: `subscribed`;
-- which program they are: `Timer.timer`.
+- which program they are: `Timer.timer`;
+- which of them are there: `ids`, a function of the parent's own state.
+
+`withChildren` takes the children by name, and gives the `make` of the parent:
 
 {@includeCode ../../examples/timer/timers.ts#compose}
 
-The timers are kept in an array, so a timer is found by its id: that is what `get` and `set` do. A place that is a
-path into the state, such as a field, is given as an optic instead, as step 4 does (see
-[where a child lives](../guide/composition.md#where-a-child-lives)).
-
 What the parent gets from the declaration:
 
-- **Starting a child:** `children.Timer.init(id)` is a timer's first step, its state and its commands. The parent's
-  own `init` is a function of `children` for this.
+- **Its children, kept:** a timer whose id the state lists anew is started, from its `init`, with its first commands.
+  A timer whose id the state no longer lists is dropped. The parent's `init` is a step of its own state, and the
+  library starts the timer it lists.
 - **Its messages:** its own, plus `{ _tag: 'Timer', id, message }` for each timer's. `MessageOf` names them.
-- **Its commands:** each timer's, as `{ _tag: 'Timer', id, command }`, run by the timer's `runCommand`.
-- **Its subscriptions:** each running timer's `'ticks'`, under `['Timer', id, 'ticks']`.
-- **Its children's models:** `children.Timer(state, id)` in `makeModel`. It is the same object while the timer's
-  state is the same object.
+- **Its commands:** each timer's, as `{ _tag: 'Timer', id, instance, command }`, run by the timer's `runCommand`. The
+  `instance` names the start of the timer that asked (see
+  [what the library derives](../guide/composition.md#what-the-library-derives)).
+- **Its subscriptions:** each running timer's `'ticks'`, under `['Timer', id, instance, 'ticks']`.
+- **Its children's models:** `children.Timer(id)` in `makeModel`. It is the same object while the timer's state is
+  the same object.
 
-A timer that is not there is `None` in `get`. So a click on a removed timer, from a model drawn before, is rejected:
-the rule of step 1, with nothing more to write.
+A timer that is not there takes no message. So a click on a removed timer, from a model drawn before, is rejected: the
+rule of step 1, with nothing more to write.
 
-Notice what the parent does not do: it never reads a timer's state to decide. It only adds and removes (see
+Notice what the parent does not do: it is given no timer's state. It only adds and removes (see
 [splitting a program](../guide/structuring-a-program.md#splitting-a-program)).
 
 ## The view

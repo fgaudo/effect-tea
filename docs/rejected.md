@@ -588,7 +588,12 @@ answer, and saying so in the proposal.
   of the child's; a model has one reader, the view; and a parent that reads keeps no copy. But a third channel between
   a parent and its children, which the second entry refused, is taken: it is `output`, which is no model. And their
   "Reopen if" is answered by it: a value that the parent must read, and that cannot be an input of its own, is one that
-  the child declares.
+  the child declares. The owner then narrowed the decision of 16 November, on a session's advice, for step 36 of
+  `ROADMAP.md`: a value that the user writes belongs to the program whose rules use it, the one that says what the text
+  means, changes it or locks it. It is the parent's where the parent changes or locks it, as in the stock-take, and the
+  child's where only the child's rules use it: the parent then reads what the child concludes from it, through
+  `output`, and not the text ("Structuring a program", "A value that the user writes belongs to the program whose rules
+  use it").
 - **An input declared as a bare optic, and an input by id as a function of the id that gives one**
   (`inputs: { Name: at, Count: (id) => at }`, told apart by the `getResult` an optic's type declares), in place of
   `input(at)`. Implemented and committed on 16 November 2026 (`38b3ac6`, with `41d788d`), and replaced on the 17th,

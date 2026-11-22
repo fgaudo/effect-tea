@@ -26,6 +26,18 @@ bridge's to promise (see [view](./view.md#rules)).
   - A command's answer is applied as the command ends, once its scope has closed.
 - **Outdated clicks are harmless.** A message that `update` rejects is ignored: the state stays as it was.
   - This holds however many messages came in between.
+- **A parent's children are those its own state lists.** The library keeps them, and gives the parent no child's state.
+  - A child that a step of the parent lists anew is started, with its first commands.
+  - A child that the parent's state no longer lists is dropped: its subscriptions stop, and a message for it is
+    rejected.
+  - Other flags, or another key, by `Equal`, start a child again, as another instance (see
+    [composition](./composition.md#when-a-child-is-there)).
+- **An answer reaches the instance that asked for it, or is rejected.** Each start of a child is an instance of its
+  own, and the commands of an instance name it.
+  - Where that instance is no longer there, its answer is rejected, even when the child, or a child at the same id, is
+    there again.
+  - The subscriptions of an instance are under keys of that instance, so a child started again starts its
+    subscriptions again (see [what the library derives](./composition.md#what-the-library-derives)).
 - **Subscriptions follow their keys.** A subscription starts when a new state brings its key. It is interrupted when a
   new state takes its key away.
   - Both happen once that state is current, and before any start of a later state. A later message may be applied
@@ -75,8 +87,8 @@ bridge's to promise (see [view](./view.md#rules)).
     variable that is never used, which a linter can report. This helps, and checks nothing.
 - **Commands run to their end, or to the end of the run.** The end of the run interrupts the commands under way.
   - Until then, their answer goes where it is addressed, even if the state has moved on.
-  - `update` decides whether the answer still applies. See [commands](./commands.md), and ids that come back in
-    [children by id](./composition.md#children-by-id).
+  - `update` decides whether the answer still applies (see [commands](./commands.md)). For a child, the library first
+    rejects an answer for an instance that is no longer there (see [what you can rely on](#what-you-can-rely-on)).
 - **Nothing is bounded, and nothing times out.**
   - The run applies every message as it is sent, and queues the effects of every state, however many wait. So the
     effects may lag behind the state without a bound: a step's commands may start after messages that came after it,
@@ -88,8 +100,8 @@ bridge's to promise (see [view](./view.md#rules)).
     defects that the run would die with.
   - What is done does not pile up. While the run goes on, it lets go of what a finished step used: its message and
     what `onApplied` heard of it, the state it replaced and that state's model, a command that ended, a subscription
-    that was stopped or that ended, what they acquired, a listener that was removed, and a child that the state no
-    longer holds, with its model and its dispatch. The JavaScript engine then frees them when it chooses. What waits
+    that was stopped or that ended, what they acquired, a listener that was removed, and a child that the parent's
+    state no longer lists, with its model and its dispatch. The JavaScript engine then frees them when it chooses. What waits
     is still kept, and so is what your program holds.
 - **The program runs on the stack of whoever sends the message.** `update`, `subscriptions`, the options and the
   listeners of the `App` run in the call that sends the message: a handler of the view, a command's fiber, or a
@@ -143,18 +155,24 @@ bridge's to promise (see [view](./view.md#rules)).
   `Cause.squash` of what the run ended with, which keeps one defect. To see the whole cause, wrap the run in the `fork`
   that you give `Host`: what the `fork` handles is not thrown or reported again.
 - **The rules of [structuring a program](./structuring-a-program.md).** The library does not enforce them: the shape
-  of the state, a view that draws and never decides, a parent that never reads a child's state to decide.
-- **A `set` changes its place, and nothing else.** A place given as `get` and `set`, a child's or an input's, has a
-  `set` that puts the value it is given where `get` reads it. The library does not check it (see
-  [where a child lives](./composition.md#where-a-child-lives)).
+  of the state, a view that draws and never decides, a value that the user writes held by the program whose rules use
+  it. The one it enforces is that a parent never reads a child's state: a parent is given none.
+- **A `set` changes its place, and nothing else.** An input's place given as `get` and `set` has a `set` that puts the
+  value it is given where `get` reads it. The library does not check it (see [inputs](./inputs.md#rules)).
+- **Flags and keys made of values that `Equal` compares by value.** Other flags, or another key, start a child again.
+  A function made anew in `flags` or `key` is other flags each time, since `Equal` compares a function by reference.
+  Nothing says so: the child starts again, and loses its state (see
+  [composition](./composition.md#children-by-id)).
 - **Whatever a subscription depends on is in its key.** A new value left out of the key is not used while the key is
   kept (see [subscriptions](./subscriptions.md)).
-- **`update`, `external`, `makeModel` and `subscriptions` are pure, and states are never mutated.** A child's
-  `external` runs in its parent's `update`. The library reuses a child's model, and its subscriptions, while the
-  child's state is the same object.
+- **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and states are never mutated.** So are
+  the functions that say which children are there and when they listen: `there`, `key`, `flags`, `ids` and
+  `listening`. The library calls them when it chooses. A child's `external` runs in its parent's `update`. The library
+  reuses a child's model, and its subscriptions, while the child's state is the same object.
 - **A function of the program never interrupts the fiber it runs in.** An `init` that takes flags, and `subscriptions`
   on the first state, run in the call of `start`: in the fiber of whoever starts the program, or in no fiber at all. The
-  `init` of a parent without flags runs in the call of `make` (see [composition](./composition.md#precisely)). `update`,
+  children of a parent without flags are started in the call of `make`, their `init` with them (see
+  [composition](./composition.md#precisely)). `update`,
   `subscriptions` and the options run where the message was sent: in a command's fiber, a subscription's, a fiber that
   calls the dispatch, or in no fiber at all. `makeModel` runs where the model is read. A function could reach that fiber
   (`Fiber.getCurrent`). One that interrupts the fiber of a command or of a subscription is a defect of that command or
@@ -168,13 +186,14 @@ The library's tests check each guarantee.
 The run keeps the guarantee of the order with one synchronous step, and a queue of the messages sent during it. The
 tests of the run check it.
 
-[`src/interleaving.test.ts`][interleaving] checks it too, with the other seven. It runs them under random orders of
+[`src/interleaving.test.ts`][interleaving] checks it too, with most of the others. It runs them under random orders of
 clicks, writes into an input (current and stale), command answers, subscription messages and ends, releases, defects,
 and interruptions by the program. It checks:
 
 - that messages are applied one at a time, each when the call that sends it returns, and that a message a listener
   sends is the next one applied;
 - that outdated clicks leave the state as it was;
+- that an answer reaches the row that asked for it, or is rejected, when the row has been removed and added again;
 - that subscriptions follow their keys;
 - that what a subscription or a command acquires does not outlive it, and that the subscriptions a state
   stops are released before any start of that state or a later one;

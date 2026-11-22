@@ -710,7 +710,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a message for a child that is not there is applied as a step that keeps the state",
-    guarantees: ["Outdated clicks are harmless"],
+    guarantees: ["Outdated clicks are harmless", "A parent's children are those its own state lists"],
     file: "src/compose.ts",
     from: "      if (Opt.isNone(entry)) return reject\n",
     to: "      if (Opt.isNone(entry)) return { state }\n",
@@ -749,7 +749,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "an answer for another instance at the place reaches the instance there",
-    guarantees: ["Outdated clicks are harmless"],
+    guarantees: ["An answer reaches the instance that asked for it, or is rejected"],
     file: "src/compose.ts",
     from: "      if (instance !== undefined && instance !== entry.value.instance) return reject\n",
     to: "",
@@ -770,7 +770,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "every start has the same number",
-    guarantees: ["Outdated clicks are harmless"],
+    guarantees: ["An answer reaches the instance that asked for it, or is rejected"],
     file: "src/compose.ts",
     from: "    const instance = ++gathered.starts\n",
     to: "    const instance = gathered.starts\n",
@@ -849,7 +849,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a step of the parent's own is not reconciled",
-    guarantees: ["Outdated clicks are harmless"],
+    guarantees: ["A parent's children are those its own state lists"],
     file: "src/compose.ts",
     from: "    if (!Object.is(step.state, before)) reconcile(gathered, Opt.some(before))\n",
     to: "",
@@ -863,7 +863,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a write into the parent's input is not reconciled",
-    guarantees: ["Outdated clicks are harmless"],
+    guarantees: ["A parent's children are those its own state lists"],
     file: "src/compose.ts",
     from: "    reconcile(gathered, Opt.some(own))\n",
     to: "",
@@ -873,6 +873,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "init starts no child",
+    guarantees: ["A parent's children are those its own state lists"],
     file: "src/compose.ts",
     from: "      events: []\n    }\n    reconcile(gathered, Opt.none())\n    return {\n",
     to: "      events: []\n    }\n    return {\n",
@@ -885,7 +886,10 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a child alone that the state no longer lists is kept",
-    guarantees: ["Outdated clicks are harmless"],
+    guarantees: [
+      "A parent's children are those its own state lists",
+      "An answer reaches the instance that asked for it, or is rejected"
+    ],
     file: "src/compose.ts",
     from: "          if (Opt.isSome(current)) gathered.children = { ...gathered.children, [name]: Opt.none() }\n",
     to: "",
@@ -898,7 +902,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a child by id that the state no longer lists is kept",
-    guarantees: ["Outdated clicks are harmless"],
+    guarantees: ["A parent's children are those its own state lists"],
     file: "src/compose.ts",
     from: "      if (!same || HashMap.size(next) !== HashMap.size(current)) {\n",
     to: "      if (!same) {\n",
@@ -908,6 +912,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a child alone is started again for a key equal by Equal",
+    guarantees: ["A parent's children are those its own state lists"],
     file: "src/compose.ts",
     from: "!Equal.equals(current.value.key, wanted.value)",
     to: "current.value.key !== wanted.value",
@@ -920,6 +925,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a child by id is started again for flags equal by Equal",
+    guarantees: ["A parent's children are those its own state lists"],
     file: "src/compose.ts",
     from: "Equal.equals(found.value.key, key)",
     to: "found.value.key === key",

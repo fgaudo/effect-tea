@@ -30,8 +30,9 @@ The name is a plain string of the state:
 
 ## Declaring it
 
-A program with inputs is made with `program`, as a parent is. Here the named timer declares the timer as a child at
-`timer`, and the input `Name` at `name`, both with an optic into its state:
+A program with inputs is made with `program`, as a parent is. Here the named timer declares the timer as a child that
+is always there, with `child`, and the input `Name` at `name`, with an optic into its own state. The library keeps
+the timer, so the named timer's own state is the name alone:
 
 {@includeCode ../../examples/timer/named.ts#compose}
 
@@ -68,10 +69,13 @@ the one of step 3, with `Named.named` in place of `Timer.timer`. Nothing else ch
 - a keystroke in the name of a timer already removed, from a model drawn before, is rejected as a click is;
 - its view, `namedTimersView`, draws each timer with `namedView`.
 
-The name belongs to the named timer: the list never reads it. A value that the parent reads is different. An example
-is the count of each item of a stock-take, which the parent totals and submits. Such a value is the parent's own state:
-an input by id, which the parent declares with `inputById` (see [inputs by id](../guide/inputs.md#inputs-by-id), and
-the example [`examples/stocktake`](../../examples/stocktake)).
+The name belongs to the named timer: the list never reads it. A value that the parent reads is different. It belongs
+to the program whose rules use it (see [splitting a program](../guide/structuring-a-program.md#splitting-a-program)).
+An example is the count of each item of a stock-take, which the parent adds to on a scan, locks and submits. Such a
+value is the parent's own state: an input by id, which the parent declares with `inputById` (see
+[inputs by id](../guide/inputs.md#inputs-by-id), and the example [`examples/stocktake`](../../examples/stocktake)).
+Where only a child's rules use the value, the child keeps it, and the parent reads what the child concludes from it
+through the child's `output` (see [outputs](../guide/events-and-external-messages.md#outputs)).
 
 ## Running it
 
