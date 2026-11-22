@@ -614,6 +614,35 @@ answer, and saying so in the proposal.
   recognised), and the run would check at run time what a view sends, as it checked the offers against `update`
   before they were removed ("Offers as tokens, checked against `update`" above). _Reopen if_ the parked "What reaches
   `update`, declared as data" is taken up, whose declarations would say it.
+- **A `set` free to change the state, promised as the code calls it**: the guide would say that the `set` of an input
+  is called exactly on a write of another value that has a place, and may change any field. Reasoned, 22 November
+  2026, on a report of an application's upgrade ([`application-report.md`](records/application-report.md), point 2),
+  with a probe of when a `set` is called. Refused by the owner: such a `set` is an `update` under another name, which
+  decides on a write where the guide says that there is nothing to decide. It cannot reject, nor ask for a command. No
+  test of the model sees it. A write equal to the value held skips it, so what it does follows some writes and not
+  others. And each such input would have a rule of its own, where the rule is the same for every input. It is the
+  neighbour of "A write that `update` sees and may reject" above. The rule taken is of every place, a child's too: a
+  `set` changes its place and nothing else. _Reopen if_ the parked "What reaches `update`, declared as data" is taken
+  up.
+- **A place as an optic alone**, with the `get` and the `set` written by hand removed from `child`, `childById`,
+  `input` and `inputById`, so that no `set` can change more than its place. Reasoned, 22 November 2026, on the owner's
+  question of what a signature could hold by construction, with the declarations of `effect/Optic` 4.1.4 read. No
+  signature of `set` holds the rule: a function that returns the state can change all of it. An optic composed of
+  Effect's own (`key`, `tag`, `at`, `some`) keeps its place by construction, and `input({ at })` takes one already.
+  But Effect has none for the element of an array that a predicate picks, the place of the rows of `list`, of the
+  timers and of the stock-take: a user would write `Optic.makeOptional` by hand, the same two functions with the same
+  freedom, over `Result` and `SchemaIssue` where the library asks for an `Option`. The hole would move into a type of
+  Effect's, and the examples of a list would be harder to write. What was taken in its place, with a spike first, is
+  the form of a value out of `set`, and a check of a place's laws
+  ([`application-report.md`](records/application-report.md), "What the owner decided"). _Reopen if_ Effect gives an
+  optic for the element of an array that a predicate picks.
+- **The form's place kept while it saves, with its writes `withheld`**, and a sentence of "Testing" that a place shown
+  read-only on purpose is `withheld`. Reasoned, 22 November 2026, as the advice of the record
+  ([`application-report.md`](records/application-report.md), point 3), which kept the first example of an input on a
+  lens. Refused by the owner, for the lock by the shape of the state: the form would do what the "Don't" of its own
+  page says, the sentence would be a rule that an example brings to be allowed, and a place that is kept holds only
+  with a renderer that draws each state before the next event, where a lock by the shape holds with any. _Reopen if_
+  a program must keep a place that its model shows read-only, for a reason that no shape of its state can say.
 - **The wrapping of a child's message as a public function** (`{ _tag, id?, message }`, for `dispatchTo` and a
   test's reader to share), **and as an internal one** for the two places of `src/` that build it. Reasoned, with a
   scratch probe of `tsc` against the `list` and `pages` examples, outside the repository and deleted, 15 November

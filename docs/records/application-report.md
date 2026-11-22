@@ -2,7 +2,9 @@
 
 **Status:** proposed, 22 November 2026, at commit `ac24824`, by a session of Fable 5.2 that the owner asked to weigh a
 report. Steps 22 to 27 of [`ROADMAP.md`](../../ROADMAP.md) come from it, with a point of its steps 16 and 26 and two
-items of its "Any time". Nothing of the library, of the guide or of the examples was changed.
+items of its "Any time". Nothing of the library, of the guide or of the examples was changed. Points 1 to 3 were
+decided by the owner the same day, with another session of Fable 5.2: "What the owner decided", below. Points 4 and 5
+are steps 25 and 26, not decided yet.
 
 ## Where the report came from
 
@@ -186,6 +188,33 @@ what the guide says of each function that a program gives the library (step 27);
 no check has met, and an upgrade as a mode of the check; and the examples read against the guide (both under "Any
 time"). The first three are checks that stay. The last two are readings, which find only while someone repeats them.
 None shows that nothing else is left.
+
+## What the owner decided
+
+On 22 November 2026, as step 23 of `ROADMAP.md`, with a session of Fable 5.2 that read the points again against the
+code and the guide. Nothing was written of the guide or of the examples: steps 24, 28 and 29 do it.
+
+- **Point 1, as advised, and the page renamed.** The page says the general rule, and promises of a value that the
+  program cannot give back the rule of an input and nothing of the element. Against the advice above, the page is
+  renamed "Inputs": under the general rule, "Inputs the user types into" reads as a part of it, and the cost is each
+  `@see`, which `bun run comments` checks. With the rule, the line between a write and a subscription: what is there
+  whatever is drawn is a subscription. The session added what a model shows of a value that is reported, and what a
+  write at each event costs, as descriptions (step 24).
+- **A fact that comes with a value is shown**, as advised. It is also how a value is written once, as a scroll ends.
+- **Point 2: a `set` changes its place and nothing else**, as advised, and the rule is of every place, a child's too.
+  The owner then asked whether a signature of `set` could hold it by construction. None can, and a place as an optic
+  alone moves the hole into a type of Effect's (`rejected.md`, "A place as an optic alone"). What can be done is two
+  things, taken as a step with a spike (step 29): the form of a value as a function of the value alone, so that a
+  `set` stores exactly what it is given; and a check of the three laws of a lens in `./testing`, which a `set` that
+  does more than its place fails.
+- **Point 3, against the advice: the form locks by the shape of its state** (step 28). The advice kept the first
+  example small. But the form would do what the "Don't" of its own page says, the sentence on `withheld` would be a
+  rule that an example brings to be allowed, and a lock by the shape holds whatever the renderer. Read in the code: a
+  write that arrives while the form saves is stored, then lost when the save succeeds and kept when it fails; and the
+  view gives the disabled input its handler in every state.
+- **Asked last: whether a `set` is the last such hole.** It is not known to be. The rules that nothing checks are
+  listed in "What is left to you", and a `set` was not among them until an application asked. Step 27 is the reading
+  that looks for the others, a function of the user's at a time.
 
 ## Found beside the report
 
