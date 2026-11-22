@@ -1,9 +1,9 @@
 # The form of a value out of `set`, and a check of a place's laws: the spike
 
 **Status:** spiked, 22 November 2026, by a session of Fable 5.2, on the branch `claude/spike-set-form` at `d647b52`,
-never to be merged. It is step 29 of [`ROADMAP.md`](../../ROADMAP.md), which the owner took from
-[`application-report.md`](application-report.md), "What the owner decided". For the owner to decide: "What is left for
-the owner to decide", at the end. Last read against the code at `78d6b11`.
+never to be merged. It was step 29 of [`ROADMAP.md`](../../ROADMAP.md), which the owner took from
+[`application-report.md`](application-report.md), "What the owner decided". Taken by the owner the same day, both
+parts ("Decided", at the end), to be done as step 37. Last read against the code at `78d6b11`.
 
 ## In short
 
@@ -221,3 +221,21 @@ of the API, a dimension of the inference matrix, and the export of the stock-tak
 
 If taken, one step for `ROADMAP.md`, for Opus 5.5, `high` (`change-api`): the two parts in one change, since the rule
 of a `set` is stated once, without its exception and with what checks it, and one release takes what breaks.
+
+## Decided
+
+By the owner, 22 November 2026, each as advised:
+
+1. **Part 1 is taken.** The form of a value is a field of `input` and of `inputById`, and "a `set` may store another
+   value than the one written" is taken back.
+2. **Its name is `store`.**
+3. **It is given the value alone**, never the state.
+4. **Part 2 is taken**: `placeViolations`, in `./testing`.
+5. **With the fourth check**, `ReachesAnother`.
+6. **A call that checks nothing returns no violation**, and the guide says that a test gives at least one state where
+   the place is there.
+7. **The names stay**: `placeViolations`, `Changes`, `StoresAnother`, `Remembers`, `ReachesAnother`.
+
+It is step 37 of `ROADMAP.md`, in two stages where the advice above was one change: the form first, then the check.
+Each fits one session and leaves every check green, and one release takes both. After the first, the rule of a `set`
+has no exception, and is still left to the user until the second.

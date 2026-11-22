@@ -22,13 +22,14 @@ a probe found two rules of the guide that contradict each other, which was step 
 the guide alone, asked how the relation of a parent and its children should be set right, and took a direction to
 spike, which was step 33. After the spike the owner took both of its parts, the store of the children and `output`,
 with the choices under them ([`kept-children.md`](docs/records/kept-children.md), "What the owner decides"): steps 34
-to 36 write them. From the same weighing come a paragraph of step 9 and an item of "Any time". A step done leaves its
+to 36 write them. From the same weighing come a paragraph of step 9 and an item of "Any time". Step 37 writes what
+the owner took of step 29, after its spike ([`stored-form.md`](docs/records/stored-form.md)). A step done leaves its
 number unused.
 
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. the other decisions that break the API, steps 29, 30 and 9, so that one release takes what they break, while the
+1. the other decisions that break the API, steps 37, 30 and 9, so that one release takes what they break, while the
    library has few users, and step 10 with them, which waits for the owner alone;
 2. the checks, steps 16 and 6: of the types, once the decisions that change them are taken, and of the bridges in a
    real browser;
@@ -45,51 +46,59 @@ None is open.
 
 ## Next, in order
 
-### 29. The form of a value out of `set`, and a check of a place's laws
+### 37. The form of a value as a field, and `placeViolations`
 
-**Model and effort.** Fable 5.2, `high`: the shape of an API is decided, with a spike, and a promise of 0.8.0 is taken
-back. What the owner takes is then written as a step of its own, for Opus 5.5, `high`
-([`change-api`](.agents/skills/change-api/SKILL.md)).
+**Model and effort.** Opus 5.5, `high`, for each of its two stages: a change of the API that takes back a promise of
+0.8.0, then a new testing tool ([`change-api`](.agents/skills/change-api/SKILL.md),
+[`change-engine`](.agents/skills/change-engine/SKILL.md), [`release`](.agents/skills/release/SKILL.md)).
 
-**Depends on** nothing. Step 27 left the table of what a `get`, a `set` and an `at` of an id are asked
-([`given-functions.md`](docs/records/given-functions.md)): each is pure, and runs in `update` ("Guarantees", "What is
-left to you"), and the rule of a `set` is in "Inputs", "A `set` changes its place, and nothing else". An `at` of an id
-runs inside the `get` and the `set` of that id (`placedById` in `src/compose.ts`), so a check that draws ids holds it
-too. The table found no other rule of the same kind for the check to hold. Step 34 is done: a child has no `get` and
-no `set`, and this step is of an input's place alone.
+**Depends on** nothing. It writes what the owner took of step 29, on 22 November 2026, after its spike:
+[`stored-form.md`](docs/records/stored-form.md) has what the spike ran, what it found, and each decision ("Decided").
+The spike is the branch `claude/spike-set-form` at `d647b52`, never to be merged: its code is read, and written anew on
+`main` with the tests, the doc comments and the guide that a spike leaves out.
 
-**Why.** The rule of the guide, that a `set` changes its place and nothing else, is checked by nothing. For a child's
-place the store answers it, since no `set` of a child is written (step 34): it stays for an input's. No signature of
-`set` holds the rule: a function that returns the state can change all of it, and a place as an optic alone was
-refused (`docs/rejected.md`, "A place as an optic alone"). The owner asked on 22 November 2026 for what can be correct
-by construction, and took the two parts below as a step
-([`application-report.md`](docs/records/application-report.md), "What the owner decided").
+**Why.** "A `set` changes its place, and nothing else" is checked by nothing, and has one exception, a `set` that
+stores another form of the value. With the form apart, a `set` stores exactly what it is given, for every place, and
+the three laws of a lens say the whole rule: a test can check them.
 
-**How.** A spike first, on a branch that is never merged, with what it ran in a record. Two parts:
+**How.** Two stages, in order. Each fits one session and leaves every check green, and one release takes both.
 
-1. **The form of a value, as a function of the value alone.** A `set` of an input does two jobs today: it finds the
-   place, and it may store another form of the value, as a text in capitals. The second is the one reason why an input
-   on a plain field leaves its optic for a `get` and a `set` written by hand. It would be a field of `input` and of
-   `inputById`, beside `at` or beside `get` and `set`, as `store: (note) => note.toUpperCase()`: it is not given the
-   state, so it cannot change it. A `set` then stores exactly what it is given, for every place, with no exception. To
-   decide in the spike: its name; whether it may read the state, as for a maximum that the state holds, and still
-   return the value alone; what a write does whose stored form is equal to the value held, where the element must
-   still be given its value back (the bridges' tests); and what the types infer with each form of place
-   (`bun run inference`). It takes back a promise of 0.8.0, "A `set` may store another value than the one written":
-   a breaking change (`release`).
-2. **A check of a place's laws, in `./testing`.** Where a `set` is written by hand, as for an element of an array, the
-   rule is the three laws of a lens, on the states where `get` gives `Some`: a `set` of what `get` gives leaves an
-   equal state, a `get` after a `set` gives what was set, and two `set`s leave what the second alone does. A `set`
-   that marks the state as changed fails the first, and one that counts the writes fails the third. They also find a
-   `set` that writes the wrong row. A test draws the states, so it is a check and no proof, as `dispatchViolations` is
-   for a model. The second law needs part 1, or the check must be told the form. To decide in the spike: how the check
-   is given a place, since what `input` returns has the `get` alone; its name and what it returns, beside
-   `dispatchViolations`; whether it is asked of an optic made with `Optic.makeLens` or `Optic.makeOptional`; and
-   how the ids are drawn, which an `at` of an id needs.
+- **37a. The form.** `input` and `inputById` take `store?: (value: A) => A`, beside `at` or beside `get` and `set`. A
+  write stores `store(value)`, a stored form equal to the value held, by `Equal`, leaves the very same state, and a
+  `set` is given exactly what is stored. What the owner decided, which the code will not show:
+  - the name is `store`, and it is given the value alone, never the state: a second parameter can come later without a
+    break, and a form that reads the state is a lock that no `get` shows;
+  - the form needs no law: one that is not idempotent leaves the behaviour defined, so the guide asks for none;
+  - "A `set` may store another value than the one written" is taken back: `**Breaking**:` in the changelog, with how
+    to upgrade (the change of the form moves from `set` into `store`).
 
-**Done when** the record has what the spike ran, the owner has decided each part, and what was taken is a step here,
-or an entry of `docs/rejected.md`. A part taken moves the rule of a `set` from "What is left to you" to what a test
-checks, in the guide ("Guarantees", "Composition") and in the skill's "Rules that nothing checks".
+  With it: the tests of the rule of a write and of its types, where the form must stand after a `get` written by hand
+  for its parameter to be inferred, as a `set` must today; the note in capitals of `bridges/bridge.test_suite.ts` on
+  `at` and `store`, with the test of a key whose form is the value held; the mutation of `written`, and one for the
+  form; the form as a dimension of an input's place in `tools/inference/generate.ts`, run in all twelve configurations
+  (the spike ran four); the smoke test's consumer and the reports of the API; `docs/invariants.md` on the rule of a
+  write; and the two entries of `docs/rejected.md` that the record names. The guide, the skill and the doc comments,
+  section by section, are listed in the record ("What the guide would say"). After this stage the rule of a `set` has
+  no exception, and is still in "What is left to you".
+- **37b. The check.** `placeViolations` and `PlaceViolation` in `./testing`, in a module of their own, as the spike has
+  them. It is given what `input` or `inputById` returns, with `states`, `values`, and `ids` for inputs by id, whose
+  types are the input's alone (`NoInfer`). What the owner decided:
+  - four checks, `Changes`, `StoresAnother`, `Remembers` and `ReachesAnother`, by these names, the last for inputs by
+    id alone: without it a `set` that writes every row passes on rows that hold one value;
+  - for `Remembers`, the value held is a second write too, which the check adds itself;
+  - a call in which no state has the place returns no violation, as `dispatchViolations` does for no message held, and
+    the guide says that a test gives at least one state where the place is there.
+
+  With it: its tests, from the sixteen of the spike; the stock-take exports its `counts`, and its test checks them
+  ([`add-example`](.agents/skills/add-example/SKILL.md), and the README's table of what each example shows); the
+  guide's "Testing tools" and "Testing"; and the rule of a `set` moves from "What is left to you" to what a test
+  checks, in "Guarantees", in "Composition" and in the skill, from "Rules that nothing checks" to "Rules that a test
+  checks". The row of a `set` in the second table of [`given-functions.md`](docs/records/given-functions.md) is of
+  the day it was written, and stays.
+
+**Done when** both stages are on `main` with every check of `AGENTS.md` passing, `bun run mutations`, `bun run smoke`,
+`bun run api --check`, `bun run comments` and `bun run inference` among them, the guide states the rule of a `set`
+without an exception and with what checks it, and the record's status says done.
 
 ### 30. A subscription made from its key alone
 
@@ -130,7 +139,8 @@ lacks. To find:
 
 **Model and effort.** Fable 5.2, `high`: each entry is a design weighed again.
 
-**Depends on** steps 29 and 30, whose decisions it is weighed with: each parked entry is taken or kept
+**Depends on** step 30, whose decision it is weighed with, as with those of step 29, which are taken
+([`stored-form.md`](docs/records/stored-form.md)) and which step 37 writes: each parked entry is taken or kept
 against what they change. Steps 2 to 4, which took the changes that the review of the architecture found, are done.
 
 **Why.** A user who adopts the library asks that its API stays, and a change that breaks it costs less the fewer users

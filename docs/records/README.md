@@ -30,4 +30,4 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`application-report.md`](application-report.md)         | proposed: what an application's upgrade to 0.8.0 found   |
 | [`kept-children.md`](kept-children.md)                   | taken, to be done: children that the library keeps       |
 | [`given-functions.md`](given-functions.md)               | done: when the library calls what a program gives it     |
-| [`stored-form.md`](stored-form.md)                       | spiked: the form of a value, and a place's laws checked  |
+| [`stored-form.md`](stored-form.md)                       | taken, to be done: a value's form, and a place's laws    |
