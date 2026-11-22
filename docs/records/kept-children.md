@@ -8,7 +8,8 @@ Everything below is reasoned from the code and the documents read, and not run, 
 
 **Spiked** the same day, by another session of Fable 5.2: `91d03d2` on `spike/kept-children`, never to be merged.
 What it ran and found is under "The spike, run", and what is left to the owner under "What the owner decides". Both
-parts ran as proposed, and the probe no longer dies. The owner has not decided yet.
+parts ran as proposed, and the probe no longer dies. The owner took both parts the same day, the store and `output`:
+the choices under them are still open.
 
 ## What the owner asked
 
@@ -494,6 +495,9 @@ which a declaration in two calls removes; the reconciliation of a step of the pa
 where the ids are the same object; and the declarations, which print each child's program once more.
 
 ## What the owner decides
+
+**Decided**, 22 November 2026: the owner took points 1 and 2, the store and `output`, both to be written anew from
+`main`. Points 3 and 4 are still open.
 
 1. **The store**: taken, to be written anew from `main` as a step of its own, or refused, with an entry of
    `docs/rejected.md`.
