@@ -419,7 +419,10 @@ answer, and saying so in the proposal.
   events, as the children's models given to `update` would have been (below). `init: { state }`, `applyAll` and the
   testing tools take whole states, so the part kept apart would need a shape that users write all the same. And what
   it saves is the `at` of each child, one line. _Reopen if_ an application shows that keeping its children in its state
-  costs more than that line.
+  costs more than that line. Reopened on 22 November 2026, as step 33 of `ROADMAP.md`, to be spiked, in a form that
+  this entry did not weigh: the children are listed by the parent's state and reconciled inside `update`, and their
+  states are a part of the composed state. What that form answers of the reasons above, and what it costs, is in
+  [`kept-children.md`](records/kept-children.md).
 - **`renderToString`, a first frame for server-side rendering.** Reasoned, 16 November 2026, on the idea of
   `ROADMAP.md`, by "A function earns its place" (`AGENTS.md`). The first frame is data a program already gives:
   `program.makeModel(program.init.state)`, or `program.makeModel(program.init(flags).state)`, whose view a server calls
