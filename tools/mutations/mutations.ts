@@ -1677,6 +1677,105 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
+    name: "placeViolations lets a set that changes more than its place pass",
+    file: "src/testing/place-violations.ts",
+    from: "...(Equal.equals(set(state, held.value), state) ? [] : [{ _tag: \"Changes\" as const, state, ...named }]),",
+    to: "",
+    killedBy: [
+      ["src/testing/place-violations.test.ts", "reports Changes for a set that marks the state at each write"],
+      ["src/testing/place-violations.test.ts", "reports Changes and Remembers for a set that counts the writes"]
+    ]
+  },
+  {
+    name: "placeViolations lets a set that stores another value than it is given pass",
+    file: "src/testing/place-violations.ts",
+    from: "Equal.equals(get(after), Opt.some(value))",
+    to: "true",
+    killedBy: [
+      [
+        "src/testing/place-violations.test.ts",
+        "reports StoresAnother for a set that stores another form, on the values that are not their own form"
+      ],
+      [
+        "src/testing/place-violations.test.ts",
+        "reports StoresAnother for a get that reads another place than its set writes"
+      ],
+      ["src/testing/place-violations.test.ts", "reports StoresAnother for a set that writes the row after"]
+    ]
+  },
+  {
+    name: "placeViolations lets a set at an id that changes another id pass",
+    file: "src/testing/place-violations.ts",
+    from: "...reached(state, after, value),",
+    to: "",
+    killedBy: [
+      [
+        "src/testing/place-violations.test.ts",
+        "reports ReachesAnother for a set that writes every row, where the three laws pass on rows that hold one value"
+      ]
+    ]
+  },
+  {
+    name: "placeViolations lets a set that keeps something of an earlier write pass",
+    file: "src/testing/place-violations.ts",
+    from: "Equal.equals(set(after, second), set(state, second))",
+    to: "true",
+    killedBy: [
+      [
+        "src/testing/place-violations.test.ts",
+        "reports Remembers for a set that marks the state only on another value, by the write back of the value held"
+      ],
+      ["src/testing/place-violations.test.ts", "reports Remembers alone for a set that keeps the value that was there"],
+      ["src/testing/place-violations.test.ts", "reports Changes and Remembers for a set that counts the writes"]
+    ]
+  },
+  {
+    name: "placeViolations writes back only the values given, not the value held",
+    file: "src/testing/place-violations.ts",
+    from: "? values : [...values, held.value]",
+    to: "? values : values",
+    killedBy: [
+      [
+        "src/testing/place-violations.test.ts",
+        "reports Remembers for a set that marks the state only on another value, by the write back of the value held"
+      ]
+    ]
+  },
+  {
+    name: "placeViolations checks a state where the place is not there",
+    file: "src/testing/place-violations.ts",
+    from: "if (Opt.isNone(held)) return []",
+    to: "if (false) return []",
+    killedBy: [
+      [
+        "src/testing/place-violations.test.ts",
+        "checks nothing in a state where the place is not there, and returns no violation"
+      ]
+    ]
+  },
+  {
+    name: "placeViolations takes an id equal to the one written for another, by reference",
+    file: "src/testing/place-violations.ts",
+    from: "!Equal.equals(other, id)",
+    to: "other !== id",
+    killedBy: [
+      [
+        "src/testing/place-violations.test.ts",
+        "compares the ids with Equal: an id equal to the one written is no other"
+      ]
+    ]
+  },
+  {
+    name: "placeViolations compares the state a set leaves by reference",
+    file: "src/testing/place-violations.ts",
+    from: "Equal.equals(set(state, held.value), state)",
+    to: "set(state, held.value) === state",
+    killedBy: [
+      ["src/testing/place-violations.test.ts", "compares states and values with Equal, not by reference"],
+      ["src/testing/place-violations.test.ts", "passes a get and a set that change the place alone"]
+    ]
+  },
+  {
     name: "scopedIn leaves what its effect dies of without a site",
     guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",

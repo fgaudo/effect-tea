@@ -138,11 +138,6 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   instance. A function made anew in `flags` or `key` is other flags each time, since `Equal` compares a function by
   reference: give plain values. The guide, "Composition", "Ids are compared by value". The guide, "Composition",
   "When the children are compared".
-- **A `set` changes its place, and nothing else.** An input's place given as `get` and `set` has a `set` that puts the
-  value it is given where `get` reads it, exactly as it is given, as an optic does. What follows a write is computed
-  where the state is read. A value stored in another form than the one written is declared with `store`, a function
-  of the value alone, beside the place: `input({ at, store: (note) => note.toUpperCase() })`. The guide, "Inputs",
-  "Rules". The guide, "Inputs", "What is typed, in another form".
 - **Whatever a subscription depends on is in its key.** A new subscription under a kept key is not used. A value that
   stays the same while the key is kept, as a child's own id, can stay out. The guide, "Subscriptions", "A subscription
   sees the state only through its key". The guide, "Subscriptions", "A value that stays the same while the key is kept
@@ -162,6 +157,12 @@ The run does not check these. A test does, with the tool named.
   guide, "Testing tools", "dispatchViolations".
 - **A message sent twice from one model acts once**, unless it is marked `repeatable`: `dispatchViolations`, with
   `ActsTwice`. The guide, "Testing tools", "Each message must act once when sent twice".
+- **A `set` changes its place, and nothing else**: `placeViolations`, given the input, in states where its place is
+  there and, for inputs by id, at several ids. An input's place given as `get` and `set` has a `set` that puts the
+  value it is given where `get` reads it, exactly as it is given, as an optic does. What follows a write is computed
+  where the state is read. A value stored in another form than the one written is declared with `store`, a function
+  of the value alone, beside the place: `input({ at, store: (note) => note.toUpperCase() })`. The guide, "Inputs",
+  "Rules". The guide, "Inputs", "What is typed, in another form". The guide, "Testing tools", "placeViolations".
 - **A view sends only the messages its model holds**: your renderer's tools, as `messagesSentBy` for snabbdom. The
   guide, "Testing", "The view". The guide, "Model", "Precisely".
 - **A rejection is asserted as `reject` itself**, with `toBe(reject)`. The guide, "Testing", "Do and don't".

@@ -20,7 +20,7 @@ import {
   type Update
 } from "@fgaudo/effect-tea"
 import * as Library from "@fgaudo/effect-tea"
-import { applyAll, rehearse, simulate, stateOf } from "@fgaudo/effect-tea/testing"
+import { applyAll, placeViolations, rehearse, simulate, stateOf } from "@fgaudo/effect-tea/testing"
 import * as Testing from "@fgaudo/effect-tea/testing"
 import * as Arr from "effect/Array"
 import * as Channel from "effect/Channel"
@@ -549,6 +549,15 @@ const placedModel = app.makeModel(placed)
 assert(placedModel.main.count === 2 && placedModel.rows[1]?.model.count === 1, "stateOf puts the children in place")
 // @ts-expect-error
 stateOf(app, first, { Main: { count: "2" } })
+
+// The laws of an input's place, with the types of the input exported beside the program.
+assert(
+  placeViolations(inputs.Fulls, { states: [first], values: [0, 2] }).length === 0
+    && placeViolations(inputs.Label, { states: [first], ids: [1, 2], values: ["", "Ada"] }).length === 0,
+  "placeViolations passes a set that changes its place alone"
+)
+// @ts-expect-error
+placeViolations(inputs.Label, { states: [first], values: [""] })
 
 const lampsLit = stateOf(lamps, { ids: [1, 2], lit: 0 }, { Lamp: [[2, { on: true }]] })
 const read = lamps.update({ _tag: "ResetAll" })(lampsLit)

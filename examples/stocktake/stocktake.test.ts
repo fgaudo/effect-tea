@@ -1,6 +1,6 @@
 import { InvariantDefect, reject } from "@fgaudo/effect-tea"
 import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
-import { applyAll, dispatchViolations, drive, rehearse, simulate } from "@fgaudo/effect-tea/testing"
+import { applyAll, dispatchViolations, drive, placeViolations, rehearse, simulate } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
 import * as Effect from "effect/Effect"
 import * as Equal from "effect/Equal"
@@ -12,6 +12,7 @@ import {
   Command,
   type Counted,
   Counts,
+  counts,
   Listening,
   Load,
   type Message,
@@ -279,6 +280,14 @@ describe("the model", () => {
         held: writesOf(model, true),
         candidates: writesOf(model, false)
       })).toEqual([])
+    }))
+  })
+
+  // A count is written by its `get` and `set`, not by an optic, so nothing but a test checks that the `set` changes its
+  // place and nothing else. The open sheets drawn have counts at both ids, and an id that is no item's is skipped.
+  test("its counts are a place: a set changes the count at its id, and nothing else", () => {
+    fc.assert(fc.property(fc.array(states(), { minLength: 1 }), fc.array(text, { minLength: 1 }), (drawn, values) => {
+      expect(placeViolations(counts, { states: drawn, ids: ["i1", "i2", "missing"], values })).toEqual([])
     }))
   })
 

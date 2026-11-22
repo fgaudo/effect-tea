@@ -160,8 +160,10 @@ bridge's to promise (see [view](./view.md#rules)).
   of the state, a view that draws and never decides, a value that the user writes held by the program whose rules use
   it. The one it enforces is that a parent never reads a child's state: a parent is given none.
 - **A `set` changes its place, and nothing else.** An input's place given as `get` and `set` has a `set` that puts the
-  value it is given where `get` reads it, exactly as it is given. The library does not check it (see
-  [inputs](./inputs.md#rules)).
+  value it is given where `get` reads it, exactly as it is given (see [inputs](./inputs.md#rules)). The run does not
+  check it.
+  - `placeViolations` checks it, in tests, in the states and at the ids that a test gives (see
+    [testing tools](./testing-tools.md#placeviolations)).
 - **Flags and keys made of values that `Equal` compares by value.** Other flags, or another key, start a child again.
   A function made anew in `flags` or `key` is other flags each time, since `Equal` compares a function by reference.
   Nothing says so: the child starts again, and loses its state (see

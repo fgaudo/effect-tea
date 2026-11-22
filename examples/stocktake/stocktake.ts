@@ -184,8 +184,9 @@ const withText = (id: string, text: (was: string) => string) => (counts: Open): 
 const { make, inputById } = program<{ state: State; command: Command; flags: Flags; message: Own }>()
 
 // Only an open count is a place to write into: a write over a locked one finds no place, and is rejected. The model
-// reads the same place, so a line is drawn editable exactly where a write is stored.
-const counts = inputById({
+// reads the same place, so a line is drawn editable exactly where a write is stored. It is exported for its test, which
+// checks that its `set` changes its place and nothing else.
+export const counts = inputById({
   get: (state, id: string) =>
     Opt.flatMap(
       read(atOpen)(state),

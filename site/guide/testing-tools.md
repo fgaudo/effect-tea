@@ -6,11 +6,12 @@ title: Testing tools
 
 ## In short
 
-This page is the reference of the five tools of `@fgaudo/effect-tea/testing`. Come here with a question about one tool:
-its section says what the tool does, what fails the test and what the tool ignores. [Testing](./testing.md) says how a
-program is tested with them.
+This page is the reference of the testing tools of `@fgaudo/effect-tea/testing`. Come here with a question about one
+tool: its section says what the tool does, what fails the test and what the tool ignores. [Testing](./testing.md) says
+how a program is tested with them.
 
 - `applyAll` and `dispatchViolations` test `update` and the model as plain functions.
+- `placeViolations` tests the place of an input as plain functions.
 - `simulate` and `rehearse` play a flow without running the program.
 - `drive` plays a scenario on the running program.
 
@@ -71,6 +72,38 @@ Without candidates, `dispatchViolations` checks only the messages it is given.
 
 `dispatchViolations` returns a list of the violations it finds, empty when there is none. Each violation holds its kind
 (`_tag`: `Rejected`, `ActsTwice` or `Missing`) and the `message` that breaks the rule.
+
+### placeViolations
+
+`placeViolations` tests the rule of a place: a `set` changes its place, and nothing else (see
+[inputs](./inputs.md#rules)). An optic composed of Effect's own keeps the rule. An input given as `get` and `set`, or as
+an optic made by hand, needs a test. [`stocktake`](../../examples/stocktake/stocktake.test.ts) checks its counts with
+it. `placeViolations` checks four things, in each state and at each id where `get` gives `Some`:
+
+- **A `set` of the value that `get` gives leaves an equal state** (`Changes`). A `set` that marks the state at each
+  write breaks it.
+- **After a `set` of a value, `get` gives that value** (`StoresAnother`). A `set` that writes another place breaks it,
+  and so does a `set` that stores another form of the value. A form is declared with `store` (see
+  [inputs](./inputs.md#what-is-typed-in-another-form)).
+- **A `set` of a value, then of another, leaves the state that the second alone leaves** (`Remembers`). A `set` that
+  keeps something of an earlier write breaks it. The second value is each value given, and the value held too. So a
+  `set` that marks the state only on another value is found: by writing back what was there.
+- **A `set` at an id leaves what `get` gives at each other id given** (`ReachesAnother`), for inputs by id. A `set` that
+  writes every row breaks it. The three checks above miss such a `set` where every row holds the same value, as in an
+  empty sheet.
+
+States and values are compared with `Equal`. Where `get` gives `None`, `placeViolations` checks nothing, since the
+library calls no `set` there. So give at least one state where the place is there: a call that checks nothing returns
+no violation.
+
+`placeViolations` takes what `input` or `inputById` returns. So the program declares the input beside `make`, and
+exports it for its test. Then it takes one object: `states`, the states to check in; `values`, the values to write;
+and, for inputs by id, `ids`, the ids to write at. An id that no state has is skipped where `get` gives `None`.
+
+`placeViolations` returns a list of the violations it finds, empty when there is none. Each violation holds its kind
+(`_tag`: `Changes`, `StoresAnother`, `Remembers` or `ReachesAnother`), the `state` that was written, and the `id` for
+inputs by id. `StoresAnother` holds the `value` written, `Remembers` the two `values` in the order they were written,
+and `ReachesAnother` the `value` and the `other` id.
 
 ### simulate
 
@@ -174,6 +207,8 @@ wherever the tool calls the program: `init`, `update`, `makeModel`, `subscriptio
 (`simulate` calls no `init` and no `makeModel`, and runs no subscription.)
 
 **`applyAll` and `dispatchViolations` call `update` without a run**, and fail with the defect itself.
+
+**`placeViolations` calls `get` and `set` without a run**, and fails with what they throw.
 
 ## Precisely
 

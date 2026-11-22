@@ -48,12 +48,16 @@ import { reject, type Rejected, type Step, type Transition, type Update } from "
  * ```
  *
  * @see The guide, "Inputs", "The program declares where it goes".
+ * @see The guide, "Inputs", "A `set` changes its place, and nothing else".
  */
 type Placement<State, A> =
   | Readonly<{
     /** The input's value, or `None` where the input is not there: what `set` put, read from the state alone. */
     get: (state: State) => Opt.Option<A>
-    /** The state with the value put where `get` finds it, and nothing else of it changed. */
+    /**
+     * The state with the value put where `get` finds it, and nothing else of it changed. A test checks it with
+     * `placeViolations`.
+     */
     set: (state: State, value: A) => State
     at?: never
     /**
@@ -79,12 +83,16 @@ type Placement<State, A> =
  * which take the id, and the form its value is stored in, `store`, where it has one.
  *
  * @see The guide, "Inputs", "A write into an input by id names its id".
+ * @see The guide, "Inputs", "A `set` changes its place, and nothing else".
  */
 type PlacementById<State, Id, A> =
   | Readonly<{
     /** The value of the input at `id`, or `None` where it is not there. */
     get: (state: State, id: Id) => Opt.Option<A>
-    /** The state with the value of the input at `id` put where `get` finds it, and nothing else changed. */
+    /**
+     * The state with the value of the input at `id` put where `get` finds it, and nothing else changed. A test checks it
+     * with `placeViolations`.
+     */
     set: (state: State, id: Id, value: A) => State
     at?: never
     /**

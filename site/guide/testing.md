@@ -10,6 +10,7 @@ This page shows you how to test a program, step by step, and which tool to use a
 pure, so most tests need no runtime:
 
 - `applyAll` and `dispatchViolations` test `update` and the model as plain functions.
+- `placeViolations` tests the place of an input as plain functions.
 - `simulate` and `rehearse` play a flow without running the program.
 - `drive` plays a scenario on the running program.
 
@@ -26,6 +27,7 @@ The tests of a program follow its shape, in four steps:
    - that `update` answers every message with a step or `reject`, the same each time;
    - that the model holds what `update` accepts (`dispatchViolations`);
    - that the model is data;
+   - that the `set` of each input given as `get` and `set` changes its place, and nothing else (`placeViolations`);
    - what the program listens to (`program.subscriptions`).
 3. **Write one test per message.** Assert the next state, the commands and the events by value. The state includes
    the inputs, which hold what the program wrote. Assert a rejection as `reject` itself, with `toBe(reject)`. Never
@@ -124,6 +126,28 @@ time. They keep the candidates in a record that the compiler checks against the 
 says what a user could ask for with it, even if that is nothing. This is the examples' way to keep the list. The library
 does not ask for it.
 
+### The place of an input
+
+**A `set` changes its place, and nothing else** (see [inputs](./inputs.md#rules)). An input given as `get` and `set`
+needs a test of it, and `placeViolations` is that test:
+
+```ts
+test("its counts are a place: a set changes the count at its id, and nothing else", () => {
+  fc.assert(fc.property(fc.array(states(), { minLength: 1 }), fc.array(text, { minLength: 1 }), (drawn, values) => {
+    expect(placeViolations(counts, { states: drawn, ids: ["i1", "i2", "missing"], values })).toEqual([])
+  }))
+})
+```
+
+- The test is given the input itself. So the program declares it beside `make`, and exports it, as
+  [`stocktake`](../../examples/stocktake/stocktake.ts) exports `counts`.
+- The states are drawn from the arbitrary of the program's states. Among them, give at least one where the place is
+  there: where `get` gives `None`, `placeViolations` checks nothing.
+- For inputs by id, give ids of several rows, and one that no row has. Rows that hold different values find more than
+  rows that hold the same.
+
+What `placeViolations` checks is in [testing tools](./testing-tools.md#placeviolations).
+
 ### The view
 
 **That the view draws what its model holds is not checked here.** This means that the view draws each control once,
@@ -192,6 +216,7 @@ From `@fgaudo/effect-tea/testing`:
 | ------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | [`applyAll`](./testing-tools.md#applyall)                     | `update`'s rules: apply messages, check the state, commands and events                  |
 | [`dispatchViolations`](./testing-tools.md#dispatchviolations) | that the model holds what `update` accepts, all of it, and a double tap acts once       |
+| [`placeViolations`](./testing-tools.md#placeviolations)       | that an input's `set` changes its place, and nothing else                               |
 | [`simulate`](./testing-tools.md#simulate)                     | a flow with its commands answered at once, without running the program                  |
 | [`rehearse`](./testing-tools.md#rehearse)                     | a user's scenario without running the program, the test deciding when each command runs |
 | [`drive`](./testing-tools.md#drive)                           | a user's scenario on the running program, subscriptions included                        |

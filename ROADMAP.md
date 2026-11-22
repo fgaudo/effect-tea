@@ -29,7 +29,7 @@ number unused.
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. the other decisions that break the API, steps 37, 30 and 9, so that one release takes what they break, while the
+1. the other decisions that break the API, steps 30 and 9, so that one release takes what they break, while the
    library has few users, and step 10 with them, which waits for the owner alone;
 2. the checks, steps 16 and 6: of the types, once the decisions that change them are taken, and of the bridges in a
    real browser;
@@ -45,44 +45,6 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 None is open.
 
 ## Next, in order
-
-### 37. `placeViolations`, a check of a place's laws
-
-**Model and effort.** Opus 5.5, `high`: a new testing tool ([`change-api`](.agents/skills/change-api/SKILL.md),
-[`change-engine`](.agents/skills/change-engine/SKILL.md), [`release`](.agents/skills/release/SKILL.md)).
-
-**Depends on** nothing. It writes the second part of what the owner took of step 29, on 22 November 2026, after its
-spike: [`stored-form.md`](docs/records/stored-form.md) has what the spike ran, what it found, and each decision
-("Decided"). The spike is the branch `claude/spike-set-form` at `d647b52`, never to be merged: its
-`src/testing/place-violations.ts` and its sixteen tests are read, and written anew on `main` with the doc comments and
-the guide that a spike leaves out. The first part, the form of a value as `store`, is on `main` (stage 37a): a `set`
-now stores exactly what it is given, for every place, "Inputs", "Rules" says so, and the rule of a `set` is still in
-"Guarantees", "What is left to you". The release that takes the breaking entry of `store` takes this step too.
-
-**Why.** "A `set` changes its place, and nothing else" is checked by nothing. With the form apart, the three laws of a
-lens say the whole rule, and a test can check them.
-
-**How.** `placeViolations` and `PlaceViolation` in `./testing`, in a module of their own, as the spike has them. It is
-given what `input` or `inputById` returns, with `states`, `values`, and `ids` for inputs by id, whose types are the
-input's alone (`NoInfer`). What `input` returns has `store` beside `get` and `set`; the check reads `get` and `set`
-alone, since the laws are theirs. What the owner decided:
-
-- four checks, `Changes`, `StoresAnother`, `Remembers` and `ReachesAnother`, by these names, the last for inputs by id
-  alone: without it a `set` that writes every row passes on rows that hold one value;
-- for `Remembers`, the value held is a second write too, which the check adds itself;
-- a call in which no state has the place returns no violation, as `dispatchViolations` does for no message held, and
-  the guide says that a test gives at least one state where the place is there.
-
-With it: its tests, from the sixteen of the spike; the stock-take exports its `counts`, and its test checks them
-([`add-example`](.agents/skills/add-example/SKILL.md), and the README's table of what each example shows); the guide's
-"Testing tools" and "Testing"; the changelog's `Added`, beside the entry of `store`; and the rule of a `set` moves from
-"What is left to you" to what a test checks, in "Guarantees", in "Composition" and in the skill, from "Rules that
-nothing checks" to "Rules that a test checks". The row of a `set` in the second table of
-[`given-functions.md`](docs/records/given-functions.md) is of the day it was written, and stays.
-
-**Done when** it is on `main` with every check of `AGENTS.md` passing, `bun run mutations`, `bun run smoke`,
-`bun run api --check` and `bun run comments` among them, the guide states the rule of a `set` with what checks it, and
-the record's status says done.
 
 ### 30. A subscription made from its key alone
 
@@ -124,7 +86,7 @@ lacks. To find:
 **Model and effort.** Fable 5.2, `high`: each entry is a design weighed again.
 
 **Depends on** step 30, whose decision it is weighed with, as with those of step 29, which are taken
-([`stored-form.md`](docs/records/stored-form.md)) and which step 37 writes: each parked entry is taken or kept
+([`stored-form.md`](docs/records/stored-form.md)) and written as step 37: each parked entry is taken or kept
 against what they change. Steps 2 to 4, which took the changes that the review of the architecture found, are done.
 
 **Why.** A user who adopts the library asks that its API stays, and a change that breaks it costs less the fewer users

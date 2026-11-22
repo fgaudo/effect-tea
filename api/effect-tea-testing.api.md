@@ -123,6 +123,22 @@ type Ignored<State, Message> = {
 type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, Command> : (flags: Flags) => Step<State, Command>;
 
 // @public
+type Input<State, A> = {
+    readonly kind: "one";
+    readonly get: (state: State) => Opt.Option<A>;
+    readonly set: (state: State, value: A) => State;
+    readonly store?: (value: A) => A;
+};
+
+// @public
+type InputById<State, Id, A> = {
+    readonly kind: "byId";
+    readonly get: (state: State, id: Id) => Opt.Option<A>;
+    readonly set: (state: State, id: Id, value: A) => State;
+    readonly store?: (value: A) => A;
+};
+
+// @public
 type Instance<State> = {
     readonly instance: number;
     readonly key: unknown;
@@ -154,6 +170,42 @@ type Origin = {
 } | {
     readonly _tag: "Subscription";
     readonly key: unknown;
+};
+
+// @public
+export type PlaceViolation<State, A, Id = never> = {
+    readonly _tag: "Changes";
+    readonly state: State;
+    readonly id?: Id;
+} | {
+    readonly _tag: "StoresAnother";
+    readonly state: State;
+    readonly id?: Id;
+    readonly value: A;
+} | {
+    readonly _tag: "Remembers";
+    readonly state: State;
+    readonly id?: Id;
+    readonly values: readonly [A, A];
+} | {
+    readonly _tag: "ReachesAnother";
+    readonly state: State;
+    readonly id: Id;
+    readonly value: A;
+    readonly other: Id;
+};
+
+// @public
+export const placeViolations: {
+    <State, A>(input: Input<State, A>, options: Readonly<{
+        states: Iterable<NoInfer<State>>;
+        values: Iterable<NoInfer<A>>;
+    }>): ReadonlyArray<PlaceViolation<State, A>>;
+    <State, Id, A>(inputs: InputById<State, Id, A>, options: Readonly<{
+        states: Iterable<NoInfer<State>>;
+        ids: Iterable<NoInfer<Id>>;
+        values: Iterable<NoInfer<A>>;
+    }>): ReadonlyArray<PlaceViolation<State, A, Id>>;
 };
 
 // @public (undocumented)

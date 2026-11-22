@@ -8,6 +8,7 @@
 export { applyAll } from "./apply-all.ts"
 export { type DispatchViolation, dispatchViolations } from "./dispatch-violations.ts"
 export { drive, type DriveOptions, type Driver } from "./drive.ts"
+export { type PlaceViolation, placeViolations } from "./place-violations.ts"
 export { type Rehearsal, rehearse } from "./rehearse.ts"
 export { simulate, type Simulation } from "./simulate.ts"
 export { stateOf } from "./state-of.ts"

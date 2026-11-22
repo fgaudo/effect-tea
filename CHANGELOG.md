@@ -13,6 +13,8 @@ version, and everything else, features included, the patch version.
   `children.X.output()` in `makeModel` and in a last parameter of its `update`, `external` and `onEvent`; `OutputOf`.
 - `store` in `input` and `inputById`: the form a value written is stored in, a function of the value alone
   ("Inputs", "What is typed, in another form").
+- `placeViolations(input, { states, ids, values })`, in `@fgaudo/effect-tea/testing`, checks in a test that an input's
+  `set` changes its place and nothing else, and returns each `PlaceViolation` it finds ("Testing tools").
 
 ### Changed
 

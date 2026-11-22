@@ -3,8 +3,8 @@
 **Status:** spiked, 22 November 2026, by a session of Fable 5.2, on the branch `claude/spike-set-form` at `d647b52`,
 never to be merged. It was step 29 of [`ROADMAP.md`](../../ROADMAP.md), which the owner took from
 [`application-report.md`](application-report.md), "What the owner decided". Taken by the owner the same day, both
-parts ("Decided", at the end), to be done as step 37. Part 1 is done, as stage 37a: `store` is on `main`. Last read
-against the code at `78d6b11`.
+parts ("Decided", at the end), to be done as step 37. Done, 23 November 2026: part 1 as stage 37a, `store`, and part 2
+as `placeViolations`, both on `main`. Last read against the code at `78d6b11`.
 
 ## In short
 

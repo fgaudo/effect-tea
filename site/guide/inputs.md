@@ -60,6 +60,8 @@ In general, a view writes the value that the element holds, through the input's 
   - A `set` that does more is not supported. The library need not call `set` where nothing is to be stored, as for a
     write equal to the value held. So what else a `set` did would follow some writes and not others.
   - A `set` stores exactly the value it is given. That value is already in the form that `store` gives.
+  - The run does not check the rule. A test checks it with `placeViolations` (see
+    [testing](./testing.md#the-place-of-an-input)).
   - Compute what follows a write where the state is read, in `update` and `makeModel`.
   - `inputById` declares an input by id, one for each row. The view writes into it through
     `forwardTo(dispatch, 'Count', id)` (see [inputs by id](#inputs-by-id)).
