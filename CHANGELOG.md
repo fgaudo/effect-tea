@@ -34,6 +34,10 @@ version, and everything else, features included, the patch version.
   program").
 - `rehearse`'s `hear` takes any message of the program, as `send` does, where it refused one shaped as a write into
   an input: a wrapper built by a parent's constructor, or a value typed as the whole message, now compiles.
+- `react-dom` is no longer a peer: the bridge to React imports `react` alone. Where there is no `reportError`, as on
+  React Native, it reports a run that dies after `Host` unmounts as React reports an error itself ("Guarantees").
+- The package's JavaScript is ES2022, as the README now says, without the class `static {}` blocks that some
+  toolchains, as Metro for Hermes, need a plugin for.
 
 ## 0.8.0 (2026-11-21)
 

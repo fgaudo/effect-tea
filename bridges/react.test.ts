@@ -880,6 +880,34 @@ describe("Host", () => {
       }
     })
 
+    // React Native has no `reportError`, the browser's: the bridge falls back as React does, here to an `error` event of
+    // the window, which the listener cancels, so that nothing reaches the console.
+    test("gives what it dies of once Host has unmounted to an error event, where there is no reportError", async () => {
+      const reported = witness<unknown>()
+      const reportError = globalThis.reportError
+      const listener = (event: ErrorEvent) => {
+        event.preventDefault()
+        reported.settled(event.error)
+      }
+      Reflect.deleteProperty(globalThis, "reportError")
+      window.addEventListener("error", listener)
+      try {
+        expect(typeof globalThis.reportError).toBe("undefined")
+        const released = new Error("A release that cannot complete")
+        const root = await hostInto(host({
+          program: counter,
+          fork: (effect) => heldFork(effect.pipe(Effect.ensuring(Effect.die(released)))),
+          children: counterView
+        }))
+        await started()
+        await unmount(root)
+        expect(await reported.promise).toBe(released)
+      } finally {
+        window.removeEventListener("error", listener)
+        globalThis.reportError = reportError
+      }
+    })
+
     // Found by the review of the premises before 0.8.0: the run dies while `Host` is mounted, and its parent removes
     // `Host` in the same batch, as a button that dispatches and then closes the view would. `Host` kept the defect in a
     // state it never rendered again, and its cleanup, which comes after, found the run already ended.

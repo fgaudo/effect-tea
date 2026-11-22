@@ -94,14 +94,16 @@ bun add @fgaudo/effect-tea effect
 npm install @fgaudo/effect-tea effect
 ```
 
-`effect` is a peer dependency: 4.1.4, or a newer 4.1.x. The package ships JavaScript with declarations. Use
-`moduleResolution` `nodenext` or `bundler`, and TypeScript 5.9 or newer, as Effect 4 does. Keep the compiler option
+`effect` is a peer dependency: 4.1.4, or a newer 4.1.x. The package ships JavaScript with declarations. Its
+JavaScript is ES2022, without the class `static {}` blocks that some toolchains need a plugin for.
+Use `moduleResolution` `nodenext` or `bundler`, and TypeScript 5.9 or newer, as Effect 4 does. Keep the compiler option
 `strict` on: the library's types are checked under it alone. Under Bun, the `bun` export condition loads the TypeScript
 sources instead.
 
 The bridges, `@fgaudo/effect-tea/snabbdom` and `@fgaudo/effect-tea/react`, need their renderer, which you install
-beside the package: `snabbdom` 3.6.4 or a newer 3.x, or `react` and `react-dom` 19.3.1 or a newer 19.x. The package
-does not install them, and the rest of it needs neither.
+beside the package: `snabbdom` 3.6.4 or a newer 3.x, or `react` 19.3.1 or a newer 19.x. The bridge to React imports
+`react` alone, and no renderer of React; what it says of a controlled element is checked with `react-dom`.
+The package installs no renderer, and the rest of it needs none.
 
 ## Quick start
 

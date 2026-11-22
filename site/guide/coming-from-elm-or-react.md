@@ -73,6 +73,6 @@ With the package's bridge to React, React hosts the program: `<Host program={cou
 the program (see [view](./view.md#rules)). The run lives as long as `Host`'s effect (see
 [what is left to you](./guarantees.md#what-is-left-to-you)). What the bridge leaves out is in
 [what is left out](./writing-a-bridge.md#what-is-left-out). The bridge is the entry `@fgaudo/effect-tea/react`
-([`bridges/react.ts`](../../bridges/react.ts)), with `react` and `react-dom` installed beside the package. The examples
+([`bridges/react.ts`](../../bridges/react.ts)), with `react` installed beside the package. The examples
 [`counter`](../../examples/counter) and [`form`](../../examples/form) are drawn with it, and with the bridge to snabbdom
 too.

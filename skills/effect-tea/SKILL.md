@@ -24,7 +24,7 @@ versions. The paths below are relative to this file.
 - **The bridges**, entries of the package: `@fgaudo/effect-tea/snabbdom`
   ([`bridges/snabbdom.ts`](../../bridges/snabbdom.ts)), with `messagesSentBy` in `@fgaudo/effect-tea/snabbdom/testing`,
   and `@fgaudo/effect-tea/react` ([`bridges/react.ts`](../../bridges/react.ts)). The library draws nothing. A bridge
-  needs its renderer installed beside the package: `snabbdom`, or `react` and `react-dom`. Import a bridge, or write
+  needs its renderer installed beside the package: `snabbdom`, or `react` (the bridge imports nothing else of React). Import a bridge, or write
   one for another renderer ("Writing a bridge" in the guide). Their tests are
   [`bridges/snabbdom.test.ts`](../../bridges/snabbdom.test.ts),
   [`bridges/react.test.ts`](../../bridges/react.test.ts) and the suite both run,

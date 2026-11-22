@@ -5,11 +5,11 @@
 // returns, as a controlled element asks. No store of frames, no `flushSync`, no animation frame, and no rule of the
 // library's for an input's element. Two components: `Host`, which starts the program as it first renders and runs it
 // while it is mounted, and `Draw`, which draws a program the application starts itself, from its `App`.
-// Checked with react and react-dom 19.3.1, the start of their peer range; the daily job runs its tests with the newest
-// React 19.
+// Checked with react 19.3.1, the start of its peer range, and react-dom of the same version in its tests; the daily job
+// runs them with the newest React 19. It imports `react` alone, and no renderer of React.
 /**
- * The bridge to React: draws a program with React and React DOM 19.3.1 or a newer 19.x, which you install beside the
- * package.
+ * The bridge to React: draws a program with React 19.3.1 or a newer 19.x, which you install beside the package. It
+ * imports `react` alone, and no renderer of React.
  *
  * @module @fgaudo/effect-tea/react
  *
@@ -109,6 +109,45 @@ export type HostProps<State extends object, Model, Message, Command, RC, RS, Fla
 
 type Died = { readonly error: unknown }
 
+// The globals the bridge reads, each by name: it is typechecked without the browser's (`bridges/tsconfig.react.json`),
+// so that a new one does not compile until it is weighed. Each but `queueMicrotask` may be missing where it runs.
+declare const queueMicrotask: (callback: () => void) => void
+declare const reportError: ((error: unknown) => void) | undefined
+declare const window:
+  | {
+    readonly ErrorEvent?: new(type: string, init: ErrorEventInit) => unknown
+    readonly dispatchEvent: (event: unknown) => boolean
+  }
+  | undefined
+declare const process: { readonly emit?: (event: string, error: unknown) => unknown } | undefined
+declare const console: { readonly error: (error: unknown) => void }
+
+type ErrorEventInit = {
+  readonly bubbles: boolean
+  readonly cancelable: boolean
+  readonly message: string
+  readonly error: unknown
+}
+
+// Reports what no render can throw any more. `reportError` is the browser's, and React Native and Node have none:
+// there the bridge falls back as React does for an error it reports itself (`reportGlobalError` in React's sources),
+// read as it is called, so that a test can take the global away.
+const report = (error: unknown): void => {
+  if (typeof reportError === "function") return reportError(error)
+  if (typeof window === "object" && typeof window.ErrorEvent === "function") {
+    const message = typeof error === "object" && error !== null && "message" in error &&
+        typeof error.message === "string"
+      ? error.message
+      : String(error)
+    const event = new window.ErrorEvent("error", { bubbles: true, cancelable: true, message, error })
+    if (!window.dispatchEvent(event)) return
+  } else if (typeof process === "object" && typeof process.emit === "function") {
+    process.emit("uncaughtException", error)
+    return
+  }
+  console.error(error)
+}
+
 /**
  * Starts a program as it first renders, runs it while it is mounted, and draws the model of its current state with
  * `children`.
@@ -123,7 +162,8 @@ type Died = { readonly error: unknown }
  * - On a server, it draws the first model, and nothing of `init` starts.
  * - A run that fails, or dies, throws what it ended with (`Cause.squash`: a `ProgramDefect` for a defect) as `Host`
  *   renders, for the nearest error boundary. One that `Host` has not thrown when its effect ends, as it unmounts or
- *   `<Activity>` hides it, or that ends so after, is given to `reportError`, and is not thrown again.
+ *   `<Activity>` hides it, or that ends so after, is given to `reportError`, and is not thrown again. Where the
+ *   platform has no `reportError`, as React Native, it is reported as React reports an error itself.
  *   Whatever `fork` handles around the run is not thrown or reported again.
  * - A `makeModel` that throws is such a defect, thrown once: until the run has ended, `Host` draws the model it drew
  *   last. A first model that throws reaches the boundary as `Host` first renders, and the run never starts.
@@ -188,7 +228,7 @@ export const Host = <
           if (mounted) {
             set = { error }
             setDied(set)
-          } else reportError(error)
+          } else report(error)
         })))
     })
     // A parent that removes `Host` in the batch that sets the death leaves no render to throw it. One that hides it with
@@ -196,7 +236,7 @@ export const Host = <
     return () => {
       mounted = false
       if (set !== undefined && thrown.current !== set) {
-        reportError(set.error)
+        report(set.error)
         setDied(undefined)
       }
       if (fiber !== undefined) Effect.runFork(Fiber.interrupt(fiber))

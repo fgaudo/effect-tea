@@ -28,13 +28,12 @@ number unused.
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. what is small and waits for nothing: step 26;
-2. the other decisions that break the API, steps 29, 30 and 9, so that one release takes what they break, while the
+1. the other decisions that break the API, steps 29, 30 and 9, so that one release takes what they break, while the
    library has few users, and step 10 with them, which waits for the owner alone;
-3. the checks, steps 16 and 6: of the types, once the decisions that change them are taken, and of the bridges in a
+2. the checks, steps 16 and 6: of the types, once the decisions that change them are taken, and of the bridges in a
    real browser;
-4. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
-5. the engine, steps 18 to 21, which change nothing that a user writes.
+3. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
+4. the engine, steps 18 to 21, which change nothing that a user writes.
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
 
@@ -45,44 +44,6 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 None is open.
 
 ## Next, in order
-
-### 26. The entry for React outside a browser, and the syntax the package ships
-
-**Model and effort.** Opus 5.5, `high`: a premise to check before a change rests on it, and what the package asks of
-whoever installs it.
-
-**Depends on** no other step. The owner is asked first for points 1, 3 and 4, which change the peers, a page of the
-guide and what the README promises.
-
-**Why.** `bridges/react.ts` imports `react` alone, and an application on React Native draws its programs with it.
-The guide says that the repository has no bridge to React Native, and asks for `react-dom`
-([`application-report.md`](docs/records/application-report.md), point 5).
-
-**How.**
-
-1. **`react-dom` among the peers.** To decide: it leaves `peerDependencies` (advised), and the README, "Writing a
-   bridge", "Coming from Elm or React" and the skill say that the entry needs `react`, and that what it promises of a
-   controlled element is checked with `react-dom`.
-2. **`reportError`**, which the bridge calls for a run that dies once the effect of `Host` has ended, is a global of
-   the browser. A lead, not run: whether React Native has it is read in its documentation, or run there. If it lacks
-   it, the bridge falls back as React does, with a test of `bridges/react.test.ts` that takes the global away.
-3. **A renderer that draws after the next event**, as one whose elements live in another thread. To decide: whether
-   "Writing a bridge" describes what holds there. The state holds every write. A value that the program leaves in a
-   place may be written over by a key typed before its draw. A lock by the shape of the state holds whatever the
-   renderer. It is a description, and it is run under such a renderer before a sentence is written: the repository has
-   none, so the owner says where.
-4. **The syntax.** The build targets ES2022, and the README does not say so. The three `static {}` blocks of
-   `src/defect.ts` are the one syntax the package adds to what Effect's `dist/` asks of a toolchain. To decide: the
-   README says the level, and the three are written another way (advised). Then `bun run smoke` parses `dist/` at the
-   level the README says, with a parser to be chosen: a level that nothing checks is one that the next class drifts
-   from.
-5. **What the entry for React asks of where it runs.** `bridges/` is typechecked with `DOM`, so a global of the
-   browser compiles in an entry that needs no browser, as `reportError` did. To try: `bridges/react.ts` typechecked
-   with the `lib` of `src/`, and each global it uses declared by name, so that a new one does not compile until it is
-   weighed. The bridge to snabbdom needs a DOM, and keeps it.
-
-**Done when** each point is decided, and done or written in `docs/rejected.md`, with the changelog entry of what a
-consumer notices.
 
 ### 29. The form of a value out of `set`, and a check of a place's laws
 

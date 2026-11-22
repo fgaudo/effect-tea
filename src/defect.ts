@@ -37,11 +37,11 @@ const described: Readonly<Record<DefectSite, string>> = {
   render: "makeModel or the renderer"
 }
 
-// The constructors are private, so that each class keeps the one meaning the library gives it: these, set in each
-// class's static block, are the only way to build one, and are not exported by the package.
-let makeProgramDefect: (fields: Fields) => ProgramDefect
-let makeCompositionDefect: (fields: CompositionFields) => CompositionDefect
-let makeInvariantDefect: (reason: string) => InvariantDefect
+// The constructors are private, so that each class keeps the one meaning the library gives it: the types refuse a
+// `new` of one outside its class. The functions at the end of this module are the only way to build one, and are not
+// exported by the package. They call each constructor through the type it has at run time, and not from a `static {}`
+// block of the class: that syntax is the one the package would add to what Effect's own `dist/` asks of a toolchain.
+type Constructor<A, Fields> = new(fields: Fields) => A
 
 type Fields = Readonly<{
   /** Where the defect happened. */
@@ -80,10 +80,6 @@ type Fields = Readonly<{
  * @see The guide, "Running", "The app around the run chooses what leaves the device".
  */
 export class ProgramDefect extends Data.TaggedError("ProgramDefect")<Fields & Readonly<{ message: string }>> {
-  static {
-    makeProgramDefect = (fields) => new ProgramDefect(fields)
-  }
-
   private constructor(fields: Fields) {
     super({
       ...fields,
@@ -125,10 +121,6 @@ type CompositionFields = Readonly<{
  * @see The guide, "Running", "The app around the run chooses what leaves the device".
  */
 export class CompositionDefect extends Data.TaggedError("CompositionDefect")<CompositionFields> {
-  static {
-    makeCompositionDefect = (fields) => new CompositionDefect(fields)
-  }
-
   private constructor(fields: CompositionFields) {
     super(fields)
   }
@@ -157,10 +149,6 @@ export class InvariantDefect extends Data.TaggedError("InvariantDefect")<
     message: string
   }>
 > {
-  static {
-    makeInvariantDefect = (reason) => new InvariantDefect(reason)
-  }
-
   private constructor(reason: string) {
     super({ reason, message: reason })
   }
@@ -188,11 +176,13 @@ export class InvariantDefect extends Data.TaggedError("InvariantDefect")<
  * @see The guide, "Update", "A message that cannot arrive is a defect".
  */
 export const defect = (reason: string): never => {
-  throw makeInvariantDefect(reason)
+  throw new (InvariantDefect as unknown as Constructor<InvariantDefect, string>)(reason)
 }
 
 /** Builds the `ProgramDefect` the run dies with: only the engine does. */
-export const programDefect = (fields: Fields): ProgramDefect => makeProgramDefect(fields)
+export const programDefect = (fields: Fields): ProgramDefect =>
+  new (ProgramDefect as unknown as Constructor<ProgramDefect, Fields>)(fields)
 
 /** Builds the `CompositionDefect` of a parent that breaks what it declared: only `program` does. */
-export const compositionDefect = (fields: CompositionFields): CompositionDefect => makeCompositionDefect(fields)
+export const compositionDefect = (fields: CompositionFields): CompositionDefect =>
+  new (CompositionDefect as unknown as Constructor<CompositionDefect, CompositionFields>)(fields)

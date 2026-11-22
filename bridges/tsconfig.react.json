@@ -1,0 +1,15 @@
+{
+  // The bridge to React, typechecked with the `lib` of `src/`: it needs no browser, so a global of one that it reads is
+  // declared by name in it, and a new one does not compile until it is weighed. Its tests run in a DOM, and are not
+  // checked here but with the other bridges (`tsconfig.json`).
+  "$schema": "../node_modules/@effect/tsgo/schema.json",
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": [],
+    "customConditions": ["bun"],
+    "jsx": "react-jsx"
+  },
+  "include": [],
+  "files": ["react.ts"]
+}

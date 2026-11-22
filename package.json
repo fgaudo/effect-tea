@@ -55,6 +55,7 @@
     "bridges",
     "!bridges/tsconfig.json",
     "!bridges/tsconfig.build.json",
+    "!bridges/tsconfig.react.json",
     "skills",
     "README.md",
     "CHANGELOG.md"
@@ -62,7 +63,7 @@
   "scripts": {
     "build": "bun tools/build.ts",
     "prepack": "bun tools/build.ts",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p examples && tsc --noEmit -p bridges",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p examples && tsc --noEmit -p bridges && tsc --noEmit -p bridges/tsconfig.react.json",
     "lint": "oxlint --deny-warnings && dprint check",
     "format": "oxlint --fix && dprint fmt",
     "test": "bun test --path-ignore-patterns=src/interleaving.test.ts",
@@ -83,14 +84,10 @@
   "peerDependencies": {
     "effect": "~4.1.4",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1",
     "snabbdom": "^3.6.4"
   },
   "peerDependenciesMeta": {
     "react": {
-      "optional": true
-    },
-    "react-dom": {
       "optional": true
     },
     "snabbdom": {
@@ -105,6 +102,7 @@
     "@types/bun": "^1.4.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "acorn": "^8.19.0",
     "dprint": "^0.65.0",
     "effect": "~4.1.4",
     "expect": "^30.5.2",

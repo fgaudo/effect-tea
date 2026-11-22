@@ -2,12 +2,13 @@
 // own outside the repository, runs the README's quick start and `consumer.ts` with Node (the `default` condition,
 // `dist/`), and typechecks both against the declarations (`types`) under each TypeScript of `--typescript`, with
 // `moduleResolution` `nodenext` and `bundler`, emitting their own. Under Bun the `bun` condition loads `src/`:
-// nothing else imports `dist/`. It also checks that the documentation the package ships finds in it every file it
+// nothing else imports `dist/`. It parses `dist/` at the syntax the README promises, and checks that the documentation the package ships finds in it every file it
 // links. Then it installs the renderers, which the package takes as optional peers, and runs and typechecks
 // `bridges.ts`, a consumer of the bridges, the same way.
 //
 //   bun tools/smoke/smoke.ts [--effect <version>] [--typescript 5.9,6.0,7.0] [--keep]
 //   bun tools/smoke/smoke.ts --help     the same, as the command describes itself
+import { parse } from "acorn"
 import * as Command from "effect/cli/Command"
 import * as Flag from "effect/cli/Flag"
 import * as Console from "effect/Console"
@@ -17,6 +18,11 @@ import * as Opt from "effect/Option"
 import * as Path from "effect/Path"
 import * as ChildProcess from "effect/process/ChildProcess"
 import { exec, Failed, main, repository, step } from "../cli.ts"
+
+// Whether a node of an ESTree, or any node under it, is a class's `static {}` block.
+const staticBlockIn = (node: unknown): boolean =>
+  typeof node === "object" && node !== null &&
+  ((node as { readonly type?: unknown }).type === "StaticBlock" || Object.values(node).some(staticBlockIn))
 
 const readJson = Effect.fnUntraced(function*(path: string) {
   const fs = yield* FileSystem.FileSystem
@@ -160,6 +166,16 @@ const command = Command.make(
       (path) => Effect.map(fs.readFileString(join(installed, path)), (text) => tsImport.test(text))
     )
     if (Opt.isSome(importing)) return yield* new Failed({ message: `dist/${importing.value} imports a .ts file` })
+    // The README promises ES2022 with no `static {}` block: the syntax of Effect's own `dist/`, which a toolchain that
+    // installs Effect already takes. A block is ES2022 too, so the parser at that level does not refuse one alone.
+    for (const path of yield* fs.glob("**/*.js", { root: installed })) {
+      const text = yield* fs.readFileString(join(installed, path))
+      const refused = yield* Effect.try({
+        try: () => staticBlockIn(parse(text, { ecmaVersion: 2022, sourceType: "module" })),
+        catch: (error) => new Failed({ message: `dist/${path} is not ES2022: ${String(error)}` })
+      })
+      if (refused) return yield* new Failed({ message: `dist/${path} has a static {} block` })
+    }
     // The guide, the tutorial, the skill and the examples' README are read in the package, at the version installed:
     // what they link relatively, and the files whose code the tutorial includes, must be in it. The root README's links
     // are left out, since npm sends them to the repository.
@@ -213,9 +229,10 @@ const command = Command.make(
         message: `The declarations do not typecheck, or spell out what program returns, with ${failed.join("; ")}`
       })
     }
-    // The renderers are optional peers: installed only now, so that what is checked above needs none of them.
+    // The renderers are optional peers: installed only now, so that what is checked above needs none of them. React's
+    // bridge gets `react` alone, as an application on another renderer of React would install it.
     const renderers = yield* Effect.forEach(
-      ["snabbdom", "react", "react-dom", "@types/react", "@types/react-dom"],
+      ["snabbdom", "react", "@types/react"],
       (name) =>
         Effect.map(readJson(join(root, `node_modules/${name}/package.json`)), ({ version }) => `${name}@${version}`)
     )

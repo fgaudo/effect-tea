@@ -192,6 +192,86 @@ describe("a step of the program", () => {
   })
 })
 
+// A renderer that draws a new state after the next event, as one whose elements live in another thread: the element
+// keeps what it was drawn with until the test draws, and a key appends to what the element holds, then writes it.
+describe("under a renderer that draws after the next event", () => {
+  type Note = Readonly<{ _tag: "Editing"; text: string }> | Readonly<{ _tag: "Saving"; text: string }>
+  const note = program<{ state: Note; message: "SaveClicked" | "Saved" }>()
+  const tested = note.make({
+    init: { state: { _tag: "Editing", text: "" } },
+    // The lock is the shape of the state: only `Editing` is a place to write into.
+    inputs: { Text: note.input({ at: Optic.id<Note>().tag("Editing").key("text") }) },
+    update: (message: "SaveClicked" | "Saved") => (state) =>
+      message === "SaveClicked"
+        ? state._tag === "Editing" ? { state: { _tag: "Saving", text: state.text } } : reject
+        : state._tag === "Saving"
+        ? { state: { _tag: "Editing", text: "" } }
+        : reject,
+    makeModel: (state) => state.text
+  })
+  const late = () => {
+    let state = tested.init.state
+    let element = tested.makeModel(state)
+    const send = (message: MessageOf<typeof tested>) => {
+      const result = tested.update(message)(state)
+      if (result !== reject) state = result.state
+    }
+    return {
+      key: (typed: string) => {
+        element = `${element}${typed}`
+        send({ _tag: "Text", message: { _tag: "Written", value: element } })
+      },
+      send,
+      draw: () => {
+        element = tested.makeModel(state)
+      },
+      state: () => state,
+      element: () => element
+    }
+  }
+
+  test("each key typed between two draws is stored: the state holds the last", () => {
+    const screen = late()
+    screen.key("A")
+    screen.key("d")
+    screen.key("a")
+    expect(screen.state()).toEqual({ _tag: "Editing", text: "Ada" })
+    screen.draw()
+    expect(screen.element()).toBe("Ada")
+  })
+
+  test("a value the program leaves in the place is written over by a key typed before its draw", () => {
+    const screen = late()
+    screen.key("Ada")
+    screen.send("SaveClicked")
+    screen.send("Saved")
+    expect(screen.state()).toEqual({ _tag: "Editing", text: "" })
+    screen.key("!")
+    expect(screen.state()).toEqual({ _tag: "Editing", text: "Ada!" })
+  })
+
+  test("once drawn, the value the program left is shown, and the next key is typed over it", () => {
+    const screen = late()
+    screen.key("Ada")
+    screen.send("SaveClicked")
+    screen.send("Saved")
+    screen.draw()
+    expect(screen.element()).toBe("")
+    screen.key("B")
+    expect(screen.state()).toEqual({ _tag: "Editing", text: "B" })
+  })
+
+  test("a lock by the shape of the state rejects a key typed before its draw", () => {
+    const screen = late()
+    screen.key("Ada")
+    screen.send("SaveClicked")
+    screen.key("!")
+    expect(screen.state()).toEqual({ _tag: "Saving", text: "Ada" })
+    screen.draw()
+    expect(screen.element()).toBe("Ada")
+  })
+})
+
 describe("an input among the subscriptions", () => {
   type Ticks = Readonly<{ ticks: number }>
   const ticking: Program<{ state: Ticks; model: number; message: "Tick" }> = {

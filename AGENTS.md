@@ -42,7 +42,8 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   `effect` (v4) is the only dependency of `.` and `./testing`, as a peer. The bridges are the one part of the package
   that knows a renderer, each an entry of its own (`./snabbdom`, `./snabbdom/testing`, `./react`), whose renderer is an
   optional peer: nothing else may import them. Oxlint forbids renderer imports, and `lib` (`ES2022`, no `DOM`) rejects
-  browser APIs, everywhere but in `examples/` and `bridges/`.
+  browser APIs, everywhere but in `examples/` and `bridges/`. The bridge to React needs no browser: it is typechecked
+  with that `lib` too (`bridges/tsconfig.react.json`), and declares by name each global it reads.
 - **An API of its own.** The API is exactly what `src/index.ts` and `src/testing/index.ts` export, and the bridges,
   `bridges/snabbdom.ts`, `bridges/snabbdom-testing.ts` and `bridges/react.ts`; every other module is internal. It is
   judged on its own terms, from the library's concepts, its examples and its users in general: coherent, symmetric where

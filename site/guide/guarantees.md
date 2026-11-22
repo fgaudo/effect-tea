@@ -150,12 +150,12 @@ bridge's to promise (see [view](./view.md#rules)).
   starts the program and draws its first model, and nothing of `init` starts. Nothing is promised of hydration.
 - **With the bridge to React, a run that dies is thrown to the nearest error boundary.** `Host` throws it as it
   renders, while its effect runs. One that `Host` has not thrown when the effect ends, as `Host` unmounts or
-  `<Activity>` hides it, or that ends after, is given to `reportError` instead, and is not thrown again. A `makeModel`
-  that
-  throws is thrown this way too, once: until the run has ended, `Host` draws the model it drew last. A first model that
-  throws reaches the boundary as `Host` first renders, and the run never starts. What is thrown is
-  `Cause.squash` of what the run ended with, which keeps one defect. To see the whole cause, wrap the run in the `fork`
-  that you give `Host`: what the `fork` handles is not thrown or reported again.
+  `<Activity>` hides it, or that ends after, is given to `reportError` instead, and is not thrown again. Where the
+  platform has no `reportError`, as React Native, the bridge reports it as React reports an error itself: this is
+  described, not promised. A `makeModel` that throws is thrown this way too, once: until the run has ended, `Host`
+  draws the model it drew last. A first model that throws reaches the boundary as `Host` first renders, and the run
+  never starts. What is thrown is `Cause.squash` of what the run ended with, which keeps one defect. To see the whole
+  cause, wrap the run in the `fork` that you give `Host`: what the `fork` handles is not thrown or reported again.
 - **The rules of [structuring a program](./structuring-a-program.md).** The library does not enforce them: the shape
   of the state, a view that draws and never decides, a value that the user writes held by the program whose rules use
   it. The one it enforces is that a parent never reads a child's state: a parent is given none.

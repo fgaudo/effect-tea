@@ -162,6 +162,10 @@ What a bridge does, from the walkthrough above:
 - **Each new state is drawn before the browser handles the next event**, as React renders a store. So is each message
   that a handler sends, whether it made a new state or not. Otherwise a handler runs on a view older than the state: a
   key is typed over a value that the program has replaced since, and the write stores the old value back.
+  A renderer that draws after the next event, as one whose elements live in another thread, breaks this rule. What
+  holds then is described, not promised. The state holds every write, the last one typed. A lock by the shape of the
+  state rejects a key typed before the draw, as it rejects any write (see [inputs by id](./inputs.md#inputs-by-id)).
+  But a value that the program leaves in an input's place may be written over by a key typed before its draw.
 - **The renderer keeps an element drawn in the same place from one draw to the next**, as snabbdom and React do.
   Otherwise the element is made anew, and loses its focus.
 
@@ -176,8 +180,9 @@ has two bridges, each an entry of its own:
   `messagesSentBy` in `@fgaudo/effect-tea/snabbdom/testing`;
 - `@fgaudo/effect-tea/react` ([`bridges/react.ts`](../../bridges/react.ts)), the bridge to React.
 
-A bridge needs its renderer, which you install beside the package: `snabbdom` 3.6.4 or a newer 3.x, or `react` and
-`react-dom` 19.3.1 or a newer 19.x. The package does not install them. The rest of the package needs neither.
+A bridge needs its renderer, which you install beside the package: `snabbdom` 3.6.4 or a newer 3.x, or `react` 19.3.1
+or a newer 19.x. The bridge to React imports `react` alone, and no renderer of React. What it says of a controlled
+element is checked with `react-dom`. The package installs no renderer, and the rest of it needs none.
 
 Each bridge is small, and a start for a bridge of your own: for another renderer, or for what they leave out. Each
 bridge:
