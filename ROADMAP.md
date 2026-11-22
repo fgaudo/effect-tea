@@ -16,18 +16,20 @@ inference matrix and the tests. Steps 22 to 31 come from
 [`application-report.md`](docs/records/application-report.md), a report of an application's upgrade to 0.8.0 that the
 owner asked to weigh on 22 November 2026. From the same record, "Why no check found them", come step 27, point 5 of
 step 16, point 5 of step 26, and two items of "Any time"; and from "What the owner decided", steps 28 to 30, and a step
-31 that step 33 took in. Step 33 comes from a second opinion on the design, which the owner asked for in a session on
-an application that uses the library, and asked to weigh here the same day, on the library's own examples: a probe
-found two rules of the guide that contradict each other, which was step 32. The owner refused a fix of it by the guide
-alone, asked how the relation of a parent and its children should be set right, and took a direction to spike
-([`kept-children.md`](docs/records/kept-children.md)): step 33 closes step 32 and takes in step 31. From the same
-weighing come a paragraph of step 9 and an item of "Any time". A step done leaves its number unused.
+31 that step 33 took in. Steps 34 to 36 come from a second opinion on the design, which the owner asked for in a
+session on an application that uses the library, and asked to weigh here the same day, on the library's own examples:
+a probe found two rules of the guide that contradict each other, which was step 32. The owner refused a fix of it by
+the guide alone, asked how the relation of a parent and its children should be set right, and took a direction to
+spike, which was step 33. After the spike the owner took both of its parts, the store of the children and `output`,
+with the choices under them ([`kept-children.md`](docs/records/kept-children.md), "What the owner decides"): steps 34
+to 36 write them. From the same weighing come a paragraph of step 9 and an item of "Any time". A step done leaves its
+number unused.
 
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. what is wrong in what is released: step 33, which the owner put first though it breaks the API, since the other
-   decisions that break it are weighed against what it leaves, and step 27, which looks for more of its kind;
+1. what is wrong in what is released: steps 34 to 36, which the owner put first though they break the API, since the
+   other decisions that break it are weighed against what they leave, and step 27, which looks for more of its kind;
 2. what is small and waits for nothing: step 26;
 3. the other decisions that break the API, steps 29, 30 and 9, so that one release takes what they break, while the
    library has few users, and step 10 with them, which waits for the owner alone;
@@ -46,62 +48,194 @@ None is open.
 
 ## Next, in order
 
-### 33. Children that the library keeps, declared from the parent's state
+### 34. The store: children that the library keeps
 
-**Model and effort.** Fable 5.2, `high`: a design with a spike, of a change that breaks the central API and questions
-invariants. What the owner takes is then written as a step of its own, for Opus 5.5, `high`
+**Model and effort.** Opus 5.5, `high`: code that keeps the invariants, in a change that breaks the central API
 ([`change-api`](.agents/skills/change-api/SKILL.md), [`change-engine`](.agents/skills/change-engine/SKILL.md)).
 
-**Depends on** no other step. Steps 29, 30, 9 and 16 are weighed after it: each changes or checks `src/compose.ts`.
+**Depends on** no other step. Steps 35 and 36 follow it, and no release is made before step 36 is done: until then the
+guide describes the children of 0.8.0, and a doc comment that this step writes names the sections that the guide has
+today.
 
-**Why.** A run dies in which no code is wrong by the guide. `examples/form` as it is, at an optional place, under a
-parent that closes it and starts it again while its save waits, gets the answer of the form before, and its `update`
-calls `defect`: run with `start` on 22 November 2026 ([`kept-children.md`](docs/records/kept-children.md), "The probe,
-run"). The record finds one cause under it and under five rules that nothing checks: a parent stores its child's state.
-And it finds no form between a rule of the guide and a store of the library's: an instance across a gap is named only
-by state, which the parent keeps or the library does. The owner refused the rule, and took the store as the direction
-to spike.
+**Why.** A run dies in which no code is wrong by the guide: `examples/form`, under a parent that closes it and starts
+it again while its save waits, gets the answer of the form before, and its `update` calls `defect`. One cause lies
+under it and under five rules that nothing checks: a parent stores its child's state
+([`kept-children.md`](docs/records/kept-children.md), "The probe, run", "One cause"). The owner refused a rule of the
+guide for it, and took the store on 22 November 2026, after a spike.
 
-**How.** Read first the record, then in `docs/rejected.md` "Children declared apart from the parent's own state", which
-this reopens in a form it did not weigh, and "Whoever steps replaces what is below". Then a spike, on a branch that is
-never merged, with what it ran written in the record. Two parts, decided apart:
+**How.** Read first the record: "The proposal", "Against, by the session itself" and "The spike, run", which has the
+form that ran, what it found, and what it did not run. Then `docs/rejected.md`, for each entry that speaks of a
+child's `at`, `get`, `set`, `subscribed` or handles: an entry whose reason the store changes is written again in this
+step. The store is written anew from `main`, in `src/compose.ts`. `91d03d2` on the branch `spike/kept-children`, which
+is local and never merged, is a guide and no design: `src/kept.ts`, the five examples with their tests, and `spike/`.
+The spike wrote its `program` beside the one of `compose.ts`, so that the tests of both passed: the step may do the
+same from one commit to the next, and its last commit leaves one.
 
-1. **The store.** A parent's state says which children exist, as it says which subscriptions run: a child alone by its
-   flags, children by id by their ids. The composed `update` starts and drops them after each step of the parent's
-   own, and keeps their states in a part of the composed state that the parent's functions are not given. Each start
-   has a number, which its commands, their answers and its lifted keys carry. What a parent tells a child is data of
-   its step. No `at`, `get`, `set` nor `children.X.init` is written for a child, and `subscribed` is optional.
-2. **A value that a parent reads**, `output`: a function of a child's state that the child declares, which its parent
-   reads where it reads its children's models, and in its `update`. Spiked on the same branch, after the first part,
-   with `examples/list` and a "Stop all" that is there only while a stopwatch runs.
+The form, in short. A parent's state says which children exist, and the composed `update` starts and drops them after
+each step of the parent's own code. The state of a composed program is `{ own, starts, children }`, and the parent's
+functions are given `own` alone. Each start has a number, which its lifted commands, their answers and its lifted keys
+carry: an answer for an instance that is not there is rejected. What a parent tells a child is data of its step,
+`tell`. No `at`, `get`, `set`, `children.X.init` nor `children.X.external` is written for a child, and `subscribed`
+gives way to `listening`, which is optional.
 
-What the spike must find is listed in the record ("What the spike must find"), with what the session held against the
-form ("Against, by the session itself"). A premise that it would rest on is asked of the owner first (`AGENTS.md`).
+The owner's choices under it, of 22 November 2026:
 
-**The spike was run** on 22 November 2026: `91d03d2` on `spike/kept-children`, in the worktree
-`.claude/worktrees/spike-kept-children`, never to be merged. Both parts ran as proposed, and the probe no longer dies.
-What it ran and found is in the record ("The spike, run"). The owner took both parts the same day, the store and
-`output`. What is left of this step: the owner's choices under them, points 3 and 4 of the record's "What the owner
-decides", and then the steps and the entries that "Done when" asks for, below, written by a session that removes this
-step.
+1. **A `tell` for a child that an earlier `tell` of the same step dropped, or started again, is dropped**, and is no
+   defect: a parent could not otherwise tell all its children where the answer of one removes another. A `tell` for a
+   child that is not there once the step is reconciled is a `CompositionDefect`, as today.
+2. **The model of a child by id is the model**, with a `CompositionDefect` for an id that the state does not list, and
+   no `Option`. A child alone that may not be there gives an `Option` of its model.
+3. **A child without flags has `there` and `key`.** Left to this step: the form of `key` beside `there`. In the spike
+   each of them can say that the child is not there, `there` by `false` and `key` by `none`.
+4. **The children are declared in a call before the pieces that tell them**, so that a `tell` needs no `as const`. The
+   spike ran it only with the children given as a type argument, by hand, with TypeScript 7.0.2
+   (`spike/tell-fixed.ts`, and `spike/tell-matrix.ts` for what widens without it). So this is done first: the name and
+   the shape of the call, run with each TypeScript that the package supports. If a literal still widens with one of
+   them, the owner is asked before the rest is written. A parent is written in one way, and no second: read in
+   `docs/rejected.md` "`child`, `childById`, `input` and `inputById` as free functions, and `make` as `program`
+   itself", for what was weighed of the calls.
+5. **The reconciliation has a shortcut that adds no field to the state.** Reasoned by the session that wrote this
+   step, and not run: where `ids` gives the very same object for the own state of before and for the new one, the
+   children by id are the same, and nothing is reconciled. `ids` is pure, so it is called freely, as `update` is. The
+   spike kept the last listing in the state (`spike/kept-shortcut.ts`), which is derived data in a state. It is
+   measured as the spike measured (`spike/bench.ts`, `spike/bench-shortcut.ts`): a step of the parent's own cost 171
+   microseconds at 1000 children by id, and 0.2 to 0.4 with the spike's shortcut. If it does not hold, the owner is
+   asked: the field, or no shortcut.
+6. **`andThen` stays, and folds a `tell`** in order, as it folds the commands and the events. **`forEach` goes**: it
+   was admitted for `examples/list`, which now tells its children by a `tell`. It gets an entry of `docs/rejected.md`,
+   and `AGENTS.md` ("What belongs here", "Tests") no longer names it.
+7. **The state's type names the children's states alone, if a type that only prints holds**: as
+   `Kept<Own, { Clock: Instance<ClockState> }>`, where the spike printed the whole program of each child, at each
+   level. It is tried by the four conditions of `AGENTS.md` ("A type for how a consumer's types print"), with its
+   check in the smoke test. If a condition fails, the state prints in full, and an entry of `docs/rejected.md` says
+   so.
+8. **`init` tells nothing**: its step has no `tell`, as it has no events. A child is given what it starts from by its
+   flags.
 
-Left for the owner, with this step: whether "Handlers of `update` by the case of the state", which step 32 and the
-record advise against, gets an entry of `docs/rejected.md`.
+What the spike left to this step:
 
-**Done when** the record has what the spike ran, and the owner has decided each part: a step here that writes it anew
-from `main`, or an entry of `docs/rejected.md`. If the store is taken, the entry "Children declared apart from the
-parent's own state" goes, the three entries of 16 November 2026 on what a parent reads are weighed against `output`,
-and step 29 is of an input's place alone. If it is not, the two forms of step 32 and step 31 are weighed again, as the
-record keeps them ("Weighed beside it, and set aside", "What becomes of the steps").
+- **`stateOf`**, with which a test writes a composed state, is of `./testing`. It reaches what `make` keeps to itself
+  through a key of the program, named as `AGENTS.md` names keys. A state written by hand may list a child and hold
+  none: the library's behaviour is defined there (a `CompositionDefect` for a child that is always there, a message
+  rejected for the others), and a test says so.
+- **What `Equal.equals` compares by value** was run with Effect 4.1.4 (`spike/equal.ts`), and not read in Effect's
+  documentation. The flags and the keys rest on it, as ids and subscription keys do today. It is read there first: if
+  the documentation does not say it, the owner is asked for a premise before the code rests on it (`AGENTS.md`,
+  "Invariants").
+- **The probe is a test**: the form under a parent that closes it and opens it again while its save waits, and one
+  that starts it again in one step by a new key, each run with `start`. And the search has a property for it
+  (`src/interleaving.test.ts`): an answer reaches the instance that asked for it, or is rejected.
+- **Each check has its mutation** (`tools/mutations/mutations.ts`): the number of an answer, a child started and a
+  child dropped, the order of a `tell`, the `tell` that is dropped, `listening`, and an id listed twice, which is now
+  a defect in `update` and in `init`. The 19 mutations of `compose.ts` are written on the new text, or go.
+- **Not run by the spike**: `bun run lint`, `bun run test:node`, `bun run interleavings`, `bun run mutations`, the
+  inference matrix, whose generator (`tools/inference/generate.ts`) writes parents in the form of today, the smoke
+  test's consumer, `tools/bench/subscriptions.ts`, and the examples' views in a browser.
+- **`AGENTS.md` and `docs/invariants.md`** say what is true of the new code. Two invariants change: "Every program
+  keeps its state in an object", which speaks of a child's model and of its lifted subscriptions, kept by the
+  instance's object in the spike, and "A parent and its children talk only through external messages and events". The
+  owner is shown the sentences of `AGENTS.md` before the commit that changes them.
+- **The changelog** has the breaking entry, with how a parent is written again, and with what changes under a program
+  that still compiles ("Against, by the session itself"): what a step tells its children arrives after the step, a
+  child whose flags change starts again, and a parent can no longer copy a child's state, nor put an old one back.
+
+Left to the owner, found by the session that wrote this step, and not run: a child with flags has no `key`, so it
+cannot start again in one step with equal flags. The step leaves it so: such a child starts again by other flags, or
+by a step in which it is not there.
+
+**Done when** the checks of `change-api` and `change-engine` pass, `bun run mutations`, `bun run inference`,
+`bun run smoke` and `bun run api` among them; `pages`, `list`, `timers`, `named-timers` and `named` are in the new
+form, with their tests; the changelog has the entry; and steps 35 and 36 have what they need that the code does not
+show.
+
+### 35. `output`: a value of a child that its parent reads
+
+**Model and effort.** Opus 5.5, `high` ([`change-api`](.agents/skills/change-api/SKILL.md),
+[`change-engine`](.agents/skills/change-engine/SKILL.md)).
+
+**Depends on** step 34.
+
+**Why.** A child can tell its parent a moment, by an event, and not a condition that holds over time: the parent
+would copy it into its own state at each change, which is derived data in a state. `examples/list` pays for it: it
+offers "Stop all" also when no stopwatch runs, a control that does nothing, against "Show less than `update` accepts,
+never more" ([`kept-children.md`](docs/records/kept-children.md), "A value that a parent reads"). And once the library
+keeps the children, what a parent is not told by an event it cannot know. The owner took `output` on 22 November
+2026, after the spike.
+
+**How.** As the spike ran it (the record, "What it found, for `output`"), written anew from `main` over the store of
+step 34:
+
+- A program names `output` with its other types, `program<{ …; output: Output }>()`, and gives the piece
+  `output: (state) => Output`. `Program` has the piece exactly when the type is named.
+- A parent reads it in `update`, in `external` and in the handlers of `onEvent`, as a last parameter `children` that
+  holds the outputs alone; and in `makeModel` and in its own `output`, as `children.Stopwatch.output(id)`, beside the
+  model. It is read as the model is: a value for a child that is always there and for a listed id, an `Option` for a
+  child alone that may not be there.
+- In `update`, the outputs are of the children as they were before the step. In a handler of `onEvent`, they are of
+  the children as the child's step left them.
+- The types refuse the output of a child that declares none, and a child's model in `update`.
+
+To decide in the step:
+
+- **The name.** The spike did not weigh `output` against others. The step lists the names it weighed, and the owner
+  chooses.
+- **What reads the `output` of a program that has no parent.** A test reads `program.output(state)`, as it reads
+  `program.makeModel(state)`. Whether a testing tool or the handle of `start` gives it is weighed with the symmetry of
+  the tools (`change-api`), and asked of the owner if it adds an export.
+- **`examples/list`**: "Stop all" is there only while a stopwatch runs, `update` rejects it where none does, and only
+  the stopwatches that run are told. Its test that the model holds what `update` accepts passes with no exception for
+  it.
+- **`docs/rejected.md`**: the three entries of 16 November 2026 on what a parent reads stay rejected, by the note
+  under them. The step reads them, and the note, against the code it wrote.
+
+**Done when** the checks of `change-api` and `change-engine` pass, `list` is in that form, the tests of the types hold
+the two refusals, the checks have their mutations, and the changelog has the entry.
+
+### 36. The guide, the tutorial and the skill, for the store and `output`
+
+**Model and effort.** Opus 5.5, `high`: a page of the guide is a specification.
+
+**Depends on** steps 34 and 35. It comes before the release that has them.
+
+**Why.** Steps 34 and 35 change what a parent writes, and the guide still describes the children of 0.8.0. The pages
+are written once, for both: the owner asked for `output` to be decided with the store so that nothing is written
+twice.
+
+**How.** One section at a time, as `AGENTS.md` says of the guide's prose: each sentence is a promise or a description,
+and is checked against `src/` and its tests before it is written (the last section of
+[`guide-reader`](.agents/skills/guide-reader/SKILL.md)). The pages:
+
+- **"Composition" and "Events and external messages"**, which are written again, with `inDialog`.
+- **"Structuring a program"**: "A parent never reads a child's state to decide" holds by construction, and a parent
+  reads what its child declares as its `output`. The page says which of the two a value is that the user writes and
+  the parent reads: an input of the parent's own, as the owner decided on 16 November 2026 (`docs/rejected.md`, "A
+  parent that reads its children's inputs"), or a child's `output`. It is asked of the owner first.
+- **"Guarantees"**. "What is left to you" loses the rules that the store keeps by construction, the rows of the table
+  of "One cause" in the record; the rule of a `set` stays for an input's place. "What you can rely on" gains what a
+  user now builds on, as that an answer reaches the instance that asked for it, or is rejected: each item added is
+  named by the mutations of its checks (`bun run comments`).
+- **What a user may not expect**, said where its rule is: flags are a key, so other flags by `Equal` are another
+  child, which starts again, and a `flags` that builds a function anew starts its child again at each step of the
+  parent's own; what a step tells its children arrives after the step; and a child that comes back starts again.
+- **"Anatomy of a program"**, for `output`; **"Testing" and "Testing tools"**, for `stateOf` and for the number of an
+  instance in a lifted command and in a lifted key; the glossary; "Coming from Elm or React"; the tutorial's third and
+  fourth steps; the README; and the skill, with its "Rules that nothing checks".
+
+Then the doc comments of steps 34 and 35 are read again against the sections they name, and name the new ones.
+
+**Done when** `bun run comments` and the site's build pass, every code block of the guide, of the tutorial, of the
+README and of the skill is in the new form, and the owner has weighed a reader's check
+([`guide-reader`](.agents/skills/guide-reader/SKILL.md)) before the release.
 
 ### 27. What the guide says of each function a program gives the library
 
 **Model and effort.** Opus 5.5, `high`: a review, of the guide against the API.
 
-**Depends on** no other step. What a `set` may do is in the guide, "Composition", "Where a child lives": it changes
-its place and nothing else, and "the library need not call `set`" where nothing is stored, which promises nothing of
-when it is called. Whether that is described is this step's to weigh. The rows of a child's `get`, `set`, `at` and
-`subscribed` wait for the decision of step 33, which would remove those functions.
+**Depends on** step 36: the table is of the guide as that step leaves it. What a `set` may do is in the guide,
+"Composition", "Where a child lives": it changes its place and nothing else, and "the library need not call `set`"
+where nothing is stored, which promises nothing of when it is called. Whether that is described is this step's to
+weigh. The store (step 34) removes a child's `get`, `set`, `at` and `subscribed`: the table has no row of them, and
+has the rows of what a parent gives in their place.
 
 **Why.** What a `set` may do, and when it is called, was a question that no sentence answered. The checks of the
 documentation start from the sentences the guide has ([`promises-and-tests.md`](docs/records/promises-and-tests.md)),
@@ -112,8 +246,9 @@ November 2026, whether a `set` was the last place where the API lets a user writ
 is not known to be: so the table also says what refuses a misuse.
 
 **How.** A table, in a record, of every function that a user gives: `init` in each of its forms, `update`, `external`,
-`makeModel`, `subscriptions`, `runCommand`, `subscribed`, the `get` and the `set` of a child and of an input, alone and
-by id, `at` as a function of the id, a handler of `onEvent`, `onApplied` and `onIgnored`, a listener of the `App`, a
+`makeModel`, `subscriptions`, `runCommand`, `output`, what declares a child (`there`, `key`, `flags`, `ids`, `starts`
+and `listening`, as step 34 names them), the `get` and the `set` of an input, alone and by id, `at` as a function of
+the id, a handler of `onEvent`, `onApplied` and `onIgnored`, a listener of the `App`, a
 view and the `fork` of `Host`, and in the testing tools `repeatable`, `withheld`, what `send` selects by, what `run`
 matches by and a scenario. For each: when it is called, how many times, whether it may be called more, what it may
 change or throw, and what becomes of what it returns. A cell names the sentence of the guide that says it, or is
@@ -136,11 +271,14 @@ first, and designed in a step of its own.
 Leads of the session that closed step 23, reasoned and not run, with what the owner said of each the same day:
 
 - **To be checked here: rules of the same kind as a `set`'s, which no sentence was found for**: a `get` that is not
-  pure, or that does not read what its `set` stored; an `at` of an id that gives another place for the same id; a
-  `subscribed` that gives a state that is not the child's ("Composition" names only an id listed twice); an optic made
-  by hand with `Optic.makeLens` or `Optic.makeOptional`, which reaches `at` with the freedom of a `set`; an `Equal`
-  written wrong for a value of the state or for an id, which the skip of an equal write and the cache of `forwardTo`
-  rest on. Step 29 weighs a check for the first four.
+  pure, or that does not read what its `set` stored; an `at` of an id that gives another place for the same id; an
+  optic made by hand with `Optic.makeLens` or `Optic.makeOptional`, which reaches `at` with the freedom of a `set`; an
+  `Equal` written wrong for a value of the state or for an id, which the skip of an equal write and the cache of
+  `forwardTo` rest on. Step 29 weighs a check for the first three, of an input's place: the store (step 34) removes
+  them for a child's, and `subscribed` with them. And of the store, run by its spike
+  ([`kept-children.md`](docs/records/kept-children.md), "Flags are the key"): a `flags` or a `key` that gives a value
+  which `Equal` does not hold equal from one call to the next, as one that builds a function anew, starts its child
+  again at each step of the parent's own.
 - **Axioms, by the owner**: that `update`, `external`, `makeModel` and `subscriptions` are pure, that a state is never
   mutated, and that a model holds no function. The library is defined on them, and no construction nor check is
   looked for: their rows say so, and they stay in "What is left to you". Reasoned, with them: TypeScript has no type
@@ -154,7 +292,7 @@ Leads of the session that closed step 23, reasoned and not run, with what the ow
 - **Accepted, by the owner: `start` apart from `run`.** A pure part is fitted to a place that is not pure: a server
   draws the first model of a program that never runs.
 - **To explore, by the owner**: a subscription made from its key alone (step 30), and a child's state that its parent
-  cannot read (step 33, which took it in).
+  cannot read, which the store gives (step 34).
 - **Not spoken of**: that a function of the program never interrupts the fiber it runs in. No type says it, as far as
   was reasoned.
 
@@ -207,15 +345,15 @@ back. What the owner takes is then written as a step of its own, for Opus 5.5, `
 ([`change-api`](.agents/skills/change-api/SKILL.md)).
 
 **Depends on** step 27, the rule being in the guide ("Composition", "Where a child lives"): the table of step 27 says
-what a `get`, a `set`, an `at` of an id and a `subscribed` are asked, and may find other rules of the same kind, which
-the same check could hold. And on the decision of step 33: if the library keeps the children, a child has no `get` and
-no `set`, and this step is of an input's place alone.
+what a `get`, a `set` and an `at` of an id are asked, and may find other rules of the same kind, which the same check
+could hold. And on step 34: the library keeps the children, so a child has no `get` and no `set`, and this step is of
+an input's place alone.
 
-**Why.** The rule of the guide, that a `set` changes its place and nothing else, is checked by nothing, for a child's
-place as for an input's. A `set` of a child that changes another field of its parent tells the parent of each step of
-the child, past the events. No signature of `set` holds the rule: a function that returns the state can change all of
-it, and a place as an optic alone was refused (`docs/rejected.md`, "A place as an optic alone"). The owner asked on 22
-November 2026 for what can be correct by construction, and took the two parts below as a step
+**Why.** The rule of the guide, that a `set` changes its place and nothing else, is checked by nothing. For a child's
+place the store answers it, since no `set` of a child is written (step 34): it stays for an input's. No signature of
+`set` holds the rule: a function that returns the state can change all of it, and a place as an optic alone was
+refused (`docs/rejected.md`, "A place as an optic alone"). The owner asked on 22 November 2026 for what can be correct
+by construction, and took the two parts below as a step
 ([`application-report.md`](docs/records/application-report.md), "What the owner decided").
 
 **How.** A spike first, on a branch that is never merged, with what it ran in a record. Two parts:
@@ -238,7 +376,7 @@ November 2026 for what can be correct by construction, and took the two parts be
    for a model. The second law needs part 1, or the check must be told the form. To decide in the spike: how the check
    is given a place, since what `input` returns has the `get` alone; its name and what it returns, beside
    `dispatchViolations`; whether it is asked of an optic made with `Optic.makeLens` or `Optic.makeOptional`; and
-   whether an `at` of an id and a `subscribed` fall under it (step 27).
+   whether an `at` of an id falls under it (step 27).
 
 **Done when** the record has what the spike ran, the owner has decided each part, and what was taken is a step here,
 or an entry of `docs/rejected.md`. A part taken moves the rule of a `set` from "What is left to you" to what a test
@@ -250,9 +388,10 @@ checks, in the guide ("Guarantees", "Composition") and in the skill's "Rules tha
 a subscription ([`change-api`](.agents/skills/change-api/SKILL.md),
 [`change-engine`](.agents/skills/change-engine/SKILL.md)).
 
-**Depends on** the decision of step 33, which changes how a parent lifts a child's subscriptions, and would make a
-child from its flags alone, as this step makes a subscription from its key. What the owner takes is written as a step
-of its own, and placed against steps 18 and 19, which write anew what starts and stops a subscription.
+**Depends on** step 34, which changes how a parent lifts a child's subscriptions, whose keys carry the number of
+their instance, and makes a child from its flags alone, as this step makes a subscription from its key. What the owner
+takes is written as a step of its own, and placed against steps 18 and 19, which write anew what starts and stops a
+subscription.
 
 **Why.** "Whatever a subscription depends on is in its key" is left to the user ("Guarantees", "What is left to
 you"): `subscriptions` gives each key with a subscription already made from the state, so a subscription may use what
@@ -282,8 +421,8 @@ lacks. To find:
 
 **Model and effort.** Fable 5.2, `high`: each entry is a design weighed again.
 
-**Depends on** steps 33, 29 and 30, whose decisions it is weighed with: each parked entry is taken or kept against
-what they change. Steps 2 to 4, which took the changes that the review of the architecture found, are done.
+**Depends on** steps 34 to 36, 29 and 30, whose decisions it is weighed with: each parked entry is taken or kept
+against what they change. Steps 2 to 4, which took the changes that the review of the architecture found, are done.
 
 **Why.** A user who adopts the library asks that its API stays, and a change that breaks it costs less the fewer users
 it has. The API looks close to stable, but what `docs/rejected.md` parks would change it.
@@ -293,12 +432,13 @@ is weighed again with the owner: taken now, in a 0.x release, or kept parked. Wi
 [`architecture-review.md`](docs/records/architecture-review.md): `init` means two things in the config of `make`.
 
 For "What reaches `update`, declared as data", a narrower form to weigh, from the second opinion of 22 November 2026
-(step 33): a message of the model with one value left for the element to give, for what an element reports and the
-program decides by, as the end of a scroll with its offset. Inputs stay as they are, for a value that the element
-holds and the program gives back. The guide's answer today is a write, then a message ("Inputs", "What an element
-reports"), decided the same day ([`application-report.md`](docs/records/application-report.md), point 1): two steps
-for one fact, and a place in the state for a value that is read once. By the guide's own table ("Structuring a
-program"), something that happened is a message, and `update` decides what it means. The first spike of
+([`kept-children.md`](docs/records/kept-children.md)): a message of the model with one value left for the element to
+give, for what an element reports and the program decides by, as the end of a scroll with its offset. Inputs stay as
+they are, for a value that the element holds and the program gives back. The guide's answer today is a write, then a
+message ("Inputs", "What an element reports"), decided the same day
+([`application-report.md`](docs/records/application-report.md), point 1): two steps for one fact, and a place in the
+state for a value that is read once. By the guide's own table ("Structuring a program"), something that happened is a
+message, and `update` decides what it means. The first spike of
 [`declared-inputs.md`](docs/records/declared-inputs.md) ran an offer with a value to fill, for an input and for a key,
 and five entries of `docs/rejected.md` name the parked entry as what reopens them. As the second opinion reported, and
 not read here: in one application, every input of a page held a value that is reported, and three of six `set`s were
@@ -334,8 +474,9 @@ whether `@fgaudo/effect-tea/snabbdom` stays beside it.
 **Model and effort.** Opus 5.5, `high`: checks of the types that keep the three rules of "What belongs here", and the
 generator they run in.
 
-**Depends on** no other step. It changes nothing a user writes. It adds a rule to `AGENTS.md` (the first point
-below), so the owner is asked first.
+**Depends on** step 34 for what it reads of `src/compose.ts`: `child` and `childById` take other arguments there, and
+a parent declares its children in a call of their own, a form that the matrix writes too. It changes nothing a user
+writes. It adds a rule to `AGENTS.md` (the first point below), so the owner is asked first.
 
 **Why.** api-1, api-2 and api-4 lived in one form of a program, an object not typed `Program<…>`, which `child`,
 `childById`, `start` and the testing tools take as it is. The inference matrix (`tools/inference/generate.ts`) writes
@@ -646,10 +787,12 @@ otherwise.
   no child. So the guide has no page for a large program whose parts read each other. Its parts are plain code: an
   `update` and a `makeModel` of each concern, as functions of the whole state in modules of their own, with their
   steps chained by `andThen`, which the guide shows only between a parent and a child ("Events and external
-  messages"). Reasoned, from the second opinion of 22 November 2026 (step 33), and not tried: it is tried first on a
-  copy of an example that is not kept, as `stocktake`, for what it costs with the types of a `Step`. Then the owner is
-  asked: it adds to a rule of the guide, and an example never brings the rule that allows it (`AGENTS.md`). It is
-  weighed before step 33 is decided. Opus 5.5, `high`: a page of the guide is a specification.
+  messages"). Reasoned, from the second opinion of 22 November 2026
+  ([`kept-children.md`](docs/records/kept-children.md)), and not tried: it is tried first on a copy of an example that
+  is not kept, as `stocktake`, for what it costs with the types of a `Step`. Then the owner is asked: it adds to a
+  rule of the guide, and an example never brings the rule that allows it (`AGENTS.md`). It is weighed against the page
+  as step 36 leaves it: with `output` (step 35), a parent reads a value that its child declares, so "a part that the
+  parent reads is no child" is written again there. Opus 5.5, `high`: a page of the guide is a specification.
 
 ## Low priority
 

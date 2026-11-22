@@ -8,8 +8,9 @@ Everything below is reasoned from the code and the documents read, and not run, 
 
 **Spiked** the same day, by another session of Fable 5.2: `91d03d2` on `spike/kept-children`, never to be merged.
 What it ran and found is under "The spike, run", and what is left to the owner under "What the owner decides". Both
-parts ran as proposed, and the probe no longer dies. The owner took both parts the same day, the store and `output`:
-the choices under them are still open.
+parts ran as proposed, and the probe no longer dies. The owner took both parts the same day, the store and `output`,
+and then each choice under them ("What the owner decides"). They are to be written anew from `main`: steps 34 to 36
+of the roadmap.
 
 ## What the owner asked
 
@@ -497,7 +498,8 @@ where the ids are the same object; and the declarations, which print each child'
 ## What the owner decides
 
 **Decided**, 22 November 2026: the owner took points 1 and 2, the store and `output`, both to be written anew from
-`main`. Points 3 and 4 are still open.
+`main`, and then, asked by the session that closed step 33, each choice of points 3 and 4, as "Decided, under the
+store" has them below.
 
 1. **The store**: taken, to be written anew from `main` as a step of its own, or refused, with an entry of
    `docs/rejected.md`.
@@ -515,6 +517,43 @@ where the ids are the same object; and the declarations, which print each child'
 4. Whether "Handlers of `update` by the case of the state" gets an entry of `docs/rejected.md`, as step 33 leaves to
    the owner.
 
+### Decided, under the store
+
+Each as the session that closed step 33 advised, on 22 November 2026. The reasons are that session's, and what it did
+not run says so.
+
+- **A `tell` for a child that an earlier `tell` of the same step dropped, or started again, is dropped**, as the spike
+  chose. With a defect, a parent could not tell all its children where the answer of one removes another: a correct
+  program could not be written. A `tell` is for the instance that was there once the step was reconciled.
+- **The model of a child by id is the model**, with a defect for an id not listed, as the spike chose. The ids come
+  from the parent's own state, which `makeModel` is given, so an id not listed is the parent's own mistake. An
+  `Option` makes a parent filter a list whose every id is there, and hides that mistake.
+- **A child without flags has `there` and `key`.** That a child is there or not is the common case, and `there` reads
+  as what it is: with `key` alone, a parent that needs no key writes a value for one. Left to step 34: the form of
+  `key` beside `there`, since in the spike each can say that the child is not there.
+- **The children are declared in a call before the pieces that tell them**, and a `tell` has no `as const`. A literal
+  that loses its type is met as an error of `_tag: string`, which names no rule, and `program<T>()` is a call of its
+  own already. Run by the spike only with the children as a type argument given by hand, with TypeScript 7.0.2: step
+  34 finds the call, and runs it with each TypeScript that the package supports, before the rest.
+- **The shortcut of the reconciliation, with no field in the state**, which the spike did not try: where `ids` gives
+  the very same object for the own state of before and for the new one, nothing is reconciled. Reasoned, and not run:
+  `ids` is pure, so the library may call it again, and the state holds no derived data. Step 34 measures it, and asks
+  the owner if it does not hold: the field, or no shortcut.
+- **`andThen` stays, and folds a `tell`; `forEach` goes.** `andThen` is the one place where the rule of how two steps
+  of one program combine is applied. `forEach` was admitted for `examples/list` (`AGENTS.md`, "What belongs here"),
+  which tells its children by a `tell`. An export taken out later breaks its users, and one added later does not.
+- **The state's type names the children's states alone, if a type that only prints holds.** It is the same type once
+  resolved, and it changes what a hover and an emitted declaration print: the spike's prints the whole program of each
+  child inside the state, at each level. Not tried by the spike. Step 34 tries it by the four conditions of
+  `AGENTS.md`, and keeps it only if they hold.
+- **`init` tells nothing.** Its step has no events either, and a child is given what it starts from by its flags. Not
+  spiked, and a `tell` in `init` can be added later with no break.
+- **"Handlers of `update` by the case of the state" has an entry of `docs/rejected.md`**, so that a later review does
+  not propose it as new.
+
+Found by the same session, and left open: a child with flags has no `key`, so it cannot start again in one step with
+equal flags. Step 34 leaves it so, and names it for the owner.
+
 ## What becomes of the steps
 
 - **Step 32** is closed by this record and the owner's decision. Its two forms are kept above in short, and in full in
@@ -523,3 +562,7 @@ where the ids are the same object; and the declarations, which print each child'
   comes back as it was written at `15b9b87`.
 - **Step 29** stays, for the place of an input alone if the store is taken.
 - **Steps 30, 9 and 16** are weighed after step 33: each changes or checks `compose.ts`.
+- **Step 33** is done, since the owner decided each part and each choice: the store is step 34, `output` step 35, and
+  the guide, the tutorial and the skill for both step 36. In `docs/rejected.md`, "Children declared apart from the
+  parent's own state" is gone, a note under the three entries of 16 November 2026 on what a parent reads says what
+  `output` changes of them, and "Handlers of `update` by the case of the state" has its entry.

@@ -28,4 +28,4 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`library-review.md`](library-review.md)                 | done: a review of the whole library, its findings open   |
 | [`one-engine.md`](one-engine.md)                         | taken, to be done: `rehearse` over the engine itself     |
 | [`application-report.md`](application-report.md)         | proposed: what an application's upgrade to 0.8.0 found   |
-| [`kept-children.md`](kept-children.md)                   | taken, to be spiked: children that the library keeps     |
+| [`kept-children.md`](kept-children.md)                   | taken, to be done: children that the library keeps       |

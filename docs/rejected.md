@@ -410,19 +410,16 @@ answer, and saying so in the proposal.
   `make`, whose children are themselves inferred, on an order of inference no documentation states (as the check of
   external messages in `make`, above). And a place of the wrong state would fail inside `make`, not where it is
   declared. _Reopen if_ TypeScript infers the type arguments that a call does not give (microsoft/TypeScript#26242).
-- **Children declared apart from the parent's own state**, kept by `program` in a part of the state of its own, with
-  no `at`, `get` or `set`, and children born and removed by something other than the parent's state. Reasoned, 17
-  November 2026, from `ROADMAP.md`, the owner deciding; not spiked. The ids of children by id, and their order, stay in
-  the parent's state, which its view draws: the states kept apart would be a second record of the same list, which can
-  disagree with the first (an id with no child, a child with no id), where one array cannot. Birth and removal would
-  need a part of a step of their own, a third way between a parent and its children beside external messages and
-  events, as the children's models given to `update` would have been (below). `init: { state }`, `applyAll` and the
-  testing tools take whole states, so the part kept apart would need a shape that users write all the same. And what
-  it saves is the `at` of each child, one line. _Reopen if_ an application shows that keeping its children in its state
-  costs more than that line. Reopened on 22 November 2026, as step 33 of `ROADMAP.md`, to be spiked, in a form that
-  this entry did not weigh: the children are listed by the parent's state and reconciled inside `update`, and their
-  states are a part of the composed state. What that form answers of the reasons above, and what it costs, is in
-  [`kept-children.md`](records/kept-children.md).
+- **Handlers of `update` by the case of the state**, with an answer given only to the case that asked for it, in place
+  of one `update` over every message. Reasoned, 22 November 2026, from a second opinion on the design, the owner
+  deciding; not spiked. `update` would no longer be one function that a test calls with any message in any state,
+  which `dispatchViolations` and the testing tools rest on. And what it was for is held another way. Between programs,
+  the number of an instance gives an answer only to the child that asked (step 34 of `ROADMAP.md`). Inside one
+  program, the state machine holds it, once nothing but the program's own `update` replaces its state: work that stops
+  with its state is a subscription under a key, whose late messages the run drops, and a command is for an answer
+  that must arrive when the state has moved on. [`kept-children.md`](records/kept-children.md), "What was not taken
+  from the second opinion". _Reopen if_ an answer reaches, inside one program, a state that its `update` cannot tell
+  from the one that asked.
 - **`renderToString`, a first frame for server-side rendering.** Reasoned, 16 November 2026, on the idea of
   `ROADMAP.md`, by "A function earns its place" (`AGENTS.md`). The first frame is data a program already gives:
   `program.makeModel(program.init.state)`, or `program.makeModel(program.init(flags).state)`, whose view a server calls
@@ -550,6 +547,14 @@ answer, and saying so in the proposal.
   16 November 2026, with the entries above: the parent would keep a copy of the value, two truths of one input, and a
   function of the program for what the user types, which inputs replaced, would come back in the child's `update`.
   _Reopen if_ the same.
+
+  The three entries above were weighed again on 22 November 2026, when the owner took `output`, a value that a child
+  declares from its state and its parent reads ([`kept-children.md`](records/kept-children.md), "A value that a parent
+  reads"; step 35 of `ROADMAP.md`). Each stays rejected. A parent is not given its child's state, so it reads no input
+  of the child's; a model has one reader, the view; and a parent that reads keeps no copy. But a third channel between
+  a parent and its children, which the second entry refused, is taken: it is `output`, which is no model. And their
+  "Reopen if" is answered by it: a value that the parent must read, and that cannot be an input of its own, is one that
+  the child declares.
 - **An input declared as a bare optic, and an input by id as a function of the id that gives one**
   (`inputs: { Name: at, Count: (id) => at }`, told apart by the `getResult` an optic's type declares), in place of
   `input(at)`. Implemented and committed on 16 November 2026 (`38b3ac6`, with `41d788d`), and replaced on the 17th,
