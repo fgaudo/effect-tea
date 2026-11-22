@@ -243,8 +243,9 @@ Leads of the session that closed step 23, reasoned and not run, each to be check
 - **Not by construction, as far as was reasoned**: that a function is pure, and that it never interrupts its fiber,
   since TypeScript has no type for either; that a state is never mutated, since a deep `readonly` of the library's
   would refuse Effect's own types and print in every hover, and a freeze at run time would rest on whether Effect
-  writes into its own objects, which was not read; that a model holds no function, since the types cannot tell a method of a `Data` class from a
-  field that is a function. A testing tool could call a pure function twice and compare.
+  writes into its own objects, which was not read; that a model holds no function, since the types cannot tell a
+  method of a `Data` class from a field that is a function. A testing tool could call a pure function twice and
+  compare.
 - **Weighed already, and refused**: a view that can send only what its model holds (`docs/rejected.md`, "Offers as
   tokens, checked against `update`", "An entry of each input in the model, which a view writes through"). And `start`
   apart from `run` is meant: a server draws the first model of a program that never runs.
