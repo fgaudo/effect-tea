@@ -16,7 +16,11 @@ inference matrix and the tests. Steps 22 to 31 come from
 [`application-report.md`](docs/records/application-report.md), a report of an application's upgrade to 0.8.0 that the
 owner asked to weigh on 22 November 2026. They come first: each is small, and none waits for the steps of the engine.
 From the same record, "Why no check found them", come step 27, point 5 of step 16, point 5 of step 26, and two items
-of "Any time"; and from "What the owner decided", steps 28 to 31. A step done leaves its number unused.
+of "Any time"; and from "What the owner decided", steps 28 to 31. Step 32 comes from a second opinion on the design,
+which the owner asked for in a session on an application that uses the library, and asked to weigh here the same day,
+on the library's own examples: a probe found two rules of the guide that contradict each other. It comes before steps
+29 to 31, and step 31 is weighed with it. From the same weighing come two points of step 31, a paragraph of step 9
+and an item of "Any time". A step done leaves its number unused.
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
 
@@ -133,6 +137,77 @@ Leads of the session that closed step 23, reasoned and not run, with what the ow
 refuses is in "What is left to you" or is a candidate under "Waiting for the owner". The owner then weighs whether a
 tool keeps the table, as `bun run comments` keeps the `guarantees`.
 
+### 32. A child that its parent starts again, and the answer of the one before
+
+**Model and effort.** Fable 5.2, `high`: two rules of the guide contradict each other, and a promise of a command's
+answer is questioned. What the owner takes is then written as a step of its own: for Opus 5.5, `high`, where it
+changes the guide alone.
+
+**Depends on** no other step.
+
+**Why.** Two rules of the guide, kept together, end a run in which no code is wrong. "Structuring a program" and
+"Rejections and defects" say that a completion outside the state that only its completion leaves is a `defect`.
+"Inputs", "A limit", says that a message drawn for an old instance of a child reaches the new one, and
+`docs/invariants.md` declares it a limit: a message names a place, not an instance. A probe of 22 November 2026, a
+throwaway file under `examples/form/`, run with Bun and deleted, put `examples/form` as it is at an optional place
+(`Optic.some()`), under a parent whose own messages close it and start it again with `children.Form.init`. It called
+the `update` of the composed program: a name written, `SaveClicked`, closed, opened, then
+`{ _tag: 'Form', message: { _tag: 'SaveSucceeded', name } }`, the answer of the save that the first form asked for.
+`update` threw `InvariantDefect: A save completed while nothing was saving`. Closed and not opened, the answer was
+rejected, as "Where a child lives" says. Nothing was run with `start`: that the answer of a command under way is
+addressed so is read in the guide ("Ids that come back").
+
+So "cannot arrive" rests on a third thing, which "What 'cannot arrive' rests on" does not name: that nothing but the
+program's own `update` replaces its state. A child's author cannot know it. By the page's own question, whether a
+fast finger is enough, such a completion is a `reject`, and the page's table says `defect`. "Ids that come back" gives
+the remedy for rows alone: ids that are never reused, or an answer that says which row it is for. For a child alone at
+an optional place the guide gives none: the recipe, a child by id whose id is a generation that its parent keeps, is in
+[`registers.md`](docs/records/registers.md) alone ("Whoever steps replaces what is below", run then). Read, and not
+run: `examples/pages` cannot die of it, since its About takes `SayingPicked` in every state. The owner's rule for a
+hole (step 27) does not sort the case: the behaviour is defined, and neither program has a bug by the guide.
+
+**How.** Read first, in `registers.md`, "What it does not close" and "Refused, by the review" under "Whoever steps
+replaces what is below", which refused a generation of instances as a concept of the library, and a rule that a parent
+restarts a child only through a message of the child's; and in `docs/rejected.md`, "Children declared apart from the
+parent's own state". Then the probe is written again, and run with `start` too, with a save that waits. The forms to
+weigh, in a record with what was reasoned or run:
+
+1. **The guide alone.** "What 'cannot arrive' rests on" names the third thing. "Ids that come back" becomes the rule
+   of every child that comes back to its place, a child alone too: it is placed by id, with an id that is never
+   reused, or its answers say what they were for, and its `update` rejects the others. The rule is listed in "What is
+   left to you", and first in the skill, since nothing checks it. To decide with it: whether a completion outside its
+   operation stays a `defect` in the guide's table, with that condition, or is a `reject` for a program that may be a
+   child; and whether a parent's test finds the case with the tools as they are, as a rehearsal that starts the child
+   again while a command of the child's waits, which "Testing" would then show.
+2. **The run drops the answer of a command whose child was not there in some state since the command started**, as
+   it drops what a subscription sent once its key is gone. Reasoned, and not run. The engine would keep, for each
+   command under way, the place of the child that asked for it: a change of the engine and of each testing tool
+   ([`change-engine`](.agents/skills/change-engine/SKILL.md)), placed against steps 18 and 19. It takes back, for such
+   a child, "their answer goes where it is addressed, even if the state has moved on" ("Guarantees", "What is left to
+   you"): a breaking change (`release`). And it does not hold for a child that one step replaces, whose place is never
+   missing, as a row's keys stay when one step removes the row and adds another with its id. So the first form is
+   needed with it.
+
+Weighed by the session that wrote this step, and advised against, two forms that the second opinion proposed so that
+an answer reaches only the instance that asked for it. The owner decides whether each gets an entry of
+`docs/rejected.md`:
+
+- **Children whose states the run keeps**, listed by keys that the parent's state gives, and reconciled as
+  subscriptions are. It is "Children declared apart from the parent's own state" in a form that the entry did not
+  weigh: with the keys derived from the state, the two records of one list cannot disagree. The entry's other reasons
+  stand. The state would no longer be the fold of `update` over the messages; `init: { state }`, `applyAll` and the
+  testing tools take whole states; and `make` would no longer give a program like any other, of whose children the
+  engine and the tools know nothing. To weigh with it: the entry reopens if keeping its children in its state costs
+  an application more than a line, and the library's own count has grown since, by the rule of a `set` (step 29), a
+  child's state that its parent can read (step 31), and this step.
+- **Handlers of `update` by the case of the state**, with an answer given only to the case that asked for it. Work
+  that stops with its state is a subscription under a key already, whose late messages the run drops. A command is for
+  an answer that must arrive when the state has moved on. And `update` would no longer be one function that a test
+  calls with any message in any state.
+
+**Done when** the record has what was reasoned or run, the owner has decided, and what was taken is a step here, or
+an entry of `docs/rejected.md`.
+
 ### 29. The form of a value out of `set`, and a check of a place's laws
 
 **Model and effort.** Fable 5.2, `high`: the shape of an API is decided, with a spike, and a promise of 0.8.0 is taken
@@ -213,7 +288,7 @@ lacks. To find:
 
 **Model and effort.** Fable 5.2, `high`: a design that the types must hold, weighed before a spike.
 
-**Depends on** no other step.
+**Depends on** step 32, which is weighed with it: both ask what the library knows of a child's state at its place.
 
 **Why.** "A parent never reads a child's state to decide" is left to the user ("Structuring a program", and
 "Guarantees", "What is left to you"): a parent's state holds its child's state under a type that the parent can read.
@@ -228,7 +303,13 @@ state under a type that its parent holds, passes to `get`, `set` and `subscribed
 - what the type prints in a consumer's hover and declarations (`AGENTS.md`, the four conditions);
 - what a parent may still do by the guide: "a part that the parent reads" is no child, so the rule has no exception
   to keep;
-- whether a cast is the one way past it, as for the other rules of the types.
+- whether a cast is the one way past it, as for the other rules of the types;
+- whether such a type gives the library a place to name an instance of a child (step 32). By `registers.md` ("Whoever
+  steps replaces what is below", "The proposal"), an instance across a gap is named only by state that the parent
+  holds;
+- what is left for a part that its parent must read. The guide makes it the parent's own state ("Not every part is a
+  child"), and has no page for a program too large for one module that is not split into children (an item of "Any
+  time"). A rule that the types hold raises the price of a child: so that page is weighed first.
 
 **Done when** a record has what was reasoned or run, and the owner has decided: a step here, or an entry of
 `docs/rejected.md`.
@@ -437,6 +518,19 @@ it has. The API looks close to stable, but what `docs/rejected.md` parks would c
 is weighed again with the owner: taken now, in a 0.x release, or kept parked. With them, a smaller point of
 [`architecture-review.md`](docs/records/architecture-review.md): `init` means two things in the config of `make`.
 
+For "What reaches `update`, declared as data", a narrower form to weigh, from the second opinion of 22 November 2026
+(step 32): a message of the model with one value left for the element to give, for what an element reports and the
+program decides by, as the end of a scroll with its offset. Inputs stay as they are, for a value that the element
+holds and the program gives back. The guide's answer today is a write, then a message ("Inputs", "What an element
+reports"), decided the same day ([`application-report.md`](docs/records/application-report.md), point 1): two steps
+for one fact, and a place in the state for a value that is read once. By the guide's own table ("Structuring a
+program"), something that happened is a message, and `update` decides what it means. The first spike of
+[`declared-inputs.md`](docs/records/declared-inputs.md) ran an offer with a value to fill, for an input and for a key,
+and five entries of `docs/rejected.md` name the parked entry as what reopens them. As the second opinion reported, and
+not read here: in one application, every input of a page held a value that is reported, and three of six `set`s were
+written to decide on a write. What one application uses decides nothing (`AGENTS.md`): it is evidence for this step,
+and reopens nothing before it.
+
 **Done when** each such entry is taken or kept parked by the owner's decision.
 
 ### 10. A view of the library's own
@@ -576,6 +670,15 @@ otherwise.
   an application that exists to the new version, from the package and its changelog alone, and report as a reader
   does. `release` would name it, for where the owner has such an application. What it finds is weighed on the
   library's own terms, as the record did. The owner is asked first: it changes a skill. Done when the skill has both.
+- **A program too large for one module that is not split into children.** "Structuring a program" says that a program
+  lives in one module until it is too large, and then splits into children, and that a part that the parent reads is
+  no child. So the guide has no page for a large program whose parts read each other. Its parts are plain code: an
+  `update` and a `makeModel` of each concern, as functions of the whole state in modules of their own, with their
+  steps chained by `andThen`, which the guide shows only between a parent and a child ("Events and external
+  messages"). Reasoned, from the second opinion of 22 November 2026 (step 32), and not tried: it is tried first on a
+  copy of an example that is not kept, as `stocktake`, for what it costs with the types of a `Step`. Then the owner is
+  asked: it adds to a rule of the guide, and an example never brings the rule that allows it (`AGENTS.md`). It is
+  weighed before step 31 is decided. Opus 5.5, `high`: a page of the guide is a specification.
 
 ## Low priority
 
