@@ -14,6 +14,7 @@ import type { Written } from "./input.ts"
 import type { MessageOf, Program } from "./program.ts"
 import type { Subscription } from "./subscription.ts"
 import { dispatchViolations } from "./testing/dispatch-violations.ts"
+import { stateOf } from "./testing/state-of.ts"
 import { reject, type Step, type Transition } from "./update.ts"
 
 const idle = <M>(): Subscription<M, never> => Channel.never
@@ -151,20 +152,23 @@ describe("a step of the program", () => {
       subscriptions: () => HashMap.empty(),
       makeModel: (state: Button) => state
     }
-    type Form = Readonly<{ name: string; reset: Button }>
+    type Form = Readonly<{ name: string }>
     const form = program<{ state: Form; event: "Reset" }>()
-    const tested = form.make({
-      init: (children) => ({ state: { name: "", reset: children.Reset.init.state } }),
-      children: { Reset: form.child(button, { at: Optic.id<Form>().key("reset") }) },
+    const tested = form.withChildren({ Reset: form.child(button) }).make({
+      init: { state: { name: "" } },
       inputs: { Name: form.input({ at: Optic.id<Form>().key("name") }) },
       onEvent: { Reset: (event) => (state) => ({ state: { ...state, name: "" }, events: [event] }) },
       makeModel: (state) => state
     })
-    const result = tested.update({ _tag: "Reset", message: "Pressed" })({ name: "Ada", reset: { pressed: 0 } })
-    expect(result).toEqual({ state: { name: "", reset: { pressed: 1 } }, commands: [], events: ["Reset"] })
+    const result = tested.update({ _tag: "Reset", message: "Pressed" })(stateOf(tested, { name: "Ada" }))
+    expect(result).toEqual({
+      state: stateOf(tested, { name: "" }, { Reset: { pressed: 1 } }),
+      commands: [],
+      events: ["Reset"]
+    })
     expect(
       stepped(tested.update({ _tag: "Name", message: { _tag: "Written", value: "Eve" } })(stepped(result).state)).state
-    ).toEqual({ name: "Eve", reset: { pressed: 1 } })
+    ).toEqual(stateOf(tested, { name: "Eve" }, { Reset: { pressed: 1 } }))
   })
 
   test("that puts a subscription's value into an input is followed by a write over it: the last one stays", () => {
@@ -196,38 +200,38 @@ describe("an input among the subscriptions", () => {
     subscriptions: () => HashMap.make(["ticks", idle<"Tick">()]),
     makeModel: ({ ticks }) => ticks
   }
-  type Page = Readonly<{ name: string; ticking: Ticks }>
-  const onPage = Optic.id<Page>()
+  type Page = Readonly<{ name: string }>
   const pages = program<{ state: Page }>()
-  const page = pages.make({
-    init: (children) => ({ state: { name: "", ticking: children.Ticking.init.state } }),
-    children: { Ticking: pages.child(ticking, { at: onPage.key("ticking") }) },
-    inputs: { Name: pages.input({ at: onPage.key("name") }) },
+  const page = pages.withChildren({ Ticking: pages.child(ticking) }).make({
+    init: { state: { name: "" } },
+    inputs: { Name: pages.input({ at: Optic.id<Page>().key("name") }) },
     subscriptions: () => HashMap.make(["own", idle<never>()]),
     makeModel: (state) => state.name
   })
+  type PageState = typeof page.init.state
 
   test("lifts no key: the program keeps its own and its children's, and none is under the input's name", () => {
-    const keys = page.subscriptions({ name: "Ada", ticking: { ticks: 0 } })
+    const keys = page.subscriptions(stateOf(page, { name: "Ada" }))
     expect(HashMap.size(keys)).toBe(2)
     expect(HashMap.has(keys, "own")).toBe(true)
-    expect(HashMap.has(keys, ["Ticking", "ticks"])).toBe(true)
+    expect(HashMap.has(keys, ["Ticking", 1, "ticks"])).toBe(true)
   })
 
   test("a write into it keeps every subscription the same object, the children's lifted ones included", () => {
-    const before: Page = { name: "", ticking: { ticks: 0 } }
+    const before = page.init.state
     const written = stepped(
       page.update({ _tag: "Name", message: { _tag: "Written", value: "Ada" } })(before)
     )
-    expect(written.state.ticking).toBe(before.ticking)
-    const lifted = (state: Page) => Opt.getOrThrow(HashMap.get(page.subscriptions(state), ["Ticking", "ticks"]))
+    expect(written.state.children.Ticking).toBe(before.children.Ticking)
+    const lifted = (state: PageState) => Opt.getOrThrow(HashMap.get(page.subscriptions(state), ["Ticking", 1, "ticks"]))
     expect(lifted(written.state)).toBe(lifted(before))
   })
 })
 
-// A desk whose draft is sent, kept and brought back, and drafts by id, where an id leaves and comes back. Each history
-// ends with a write after the desk replaced the draft: it is stored into the place as the state holds it then, from the
-// state and the message alone. No bridge lets a handler run on a view older than the state ("Writing a bridge").
+// A desk whose draft is sent and started again, closed and opened again, and drafts by id, where an id leaves and
+// comes back. Each history ends with a write after the desk replaced the draft: it is stored into the draft that the
+// state holds then, from the state and the message alone. No bridge lets a handler run on a view older than the state
+// ("Writing a bridge").
 describe("a write into an input its parent has replaced", () => {
   type Sent = Readonly<{ _tag: "Sent"; text: string }>
   type Text = Readonly<{ text: string }>
@@ -244,69 +248,50 @@ describe("a write into an input its parent has replaced", () => {
     makeModel: (state) => state.text
   })
   type DeskOwn =
-    | Readonly<{ _tag: "Kept" }>
-    | Readonly<{ _tag: "Undone" }>
+    | Readonly<{ _tag: "Closed" }>
+    | Readonly<{ _tag: "Opened" }>
     | Readonly<{ _tag: "RowAdded"; id: number }>
     | Readonly<{ _tag: "RowRemoved"; id: number }>
-  type Desk = Readonly<{
-    draft: Text
-    kept: Opt.Option<Text>
-    rows: ReadonlyArray<Readonly<{ id: number; draft: Text }>>
-    sent: ReadonlyArray<string>
-  }>
+  type Desk = Readonly<{ open: boolean; rows: ReadonlyArray<number>; sent: ReadonlyArray<string> }>
   const deskOf = program<{ state: Desk; message: DeskOwn }>()
-  const rowAt = (state: Desk, id: number) =>
-    Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.draft)
-  const desk = deskOf.make({
-    init: (children) => ({ state: { draft: children.Draft.init.state, kept: Opt.none(), rows: [], sent: [] } }),
-    children: {
-      Draft: deskOf.child(textDraft, { at: Optic.id<Desk>().key("draft") }),
-      Row: deskOf.childById(textDraft, {
-        get: rowAt,
-        set: (state, id, draft) => ({
-          ...state,
-          rows: Arr.map(state.rows, (row) => row.id === id ? { id, draft } : row)
-        }),
-        subscribed: (state) => Arr.map(state.rows, ({ id, draft }) => [id, draft] as const)
-      })
-    },
-    update: (message: DeskOwn, children) => (state) => {
+  const desk = deskOf.withChildren({
+    // Sent, the draft is started again: another count of what was sent is another key.
+    Draft: deskOf.child(textDraft, { there: (state) => state.open, key: (state) => state.sent.length }),
+    Row: deskOf.childById(textDraft, { ids: (state) => state.rows })
+  }).make({
+    init: { state: { open: true, rows: [], sent: [] } },
+    update: (message) => (state) => {
       switch (message._tag) {
-        case "Kept":
-          return { state: { ...state, kept: Opt.some(state.draft) } }
-        case "Undone":
-          return Opt.match(state.kept, {
-            onNone: () => reject,
-            onSome: (draft) => ({ state: { ...state, draft, kept: Opt.none() } })
-          })
+        case "Closed":
+          return state.open ? { state: { ...state, open: false } } : reject
+        case "Opened":
+          return state.open ? reject : { state: { ...state, open: true } }
         case "RowAdded":
-          return {
-            state: { ...state, rows: [...state.rows, { id: message.id, draft: children.Row.init(message.id).state }] }
-          }
+          return { state: { ...state, rows: [...state.rows, message.id] } }
         case "RowRemoved":
-          return { state: { ...state, rows: Arr.filter(state.rows, (row) => row.id !== message.id) } }
+          return { state: { ...state, rows: Arr.filter(state.rows, (id) => id !== message.id) } }
       }
     },
     onEvent: {
-      // Sent, the draft is started again: the state its parent puts back is the one it starts with.
-      Draft: (event, children) => (state) => ({
-        state: { ...state, draft: children.Draft.init.state, sent: [...state.sent, event.text] }
-      }),
+      Draft: (event) => (state) => ({ state: { ...state, sent: [...state.sent, event.text] } }),
       Row: () => (state) => ({ state })
     },
     makeModel: (state, children) => ({
-      draft: children.Draft(state),
-      rows: Arr.map(state.rows, ({ id }) => ({ id, text: children.Row(state, id) }))
+      draft: children.Draft(),
+      rows: Arr.map(state.rows, (id) => ({ id, text: children.Row(id) }))
     })
   })
   type DeskMessage = MessageOf<typeof desk>
+  type DeskState = typeof desk.init.state
   const typing = (value: string, id?: number): DeskMessage =>
     id === undefined
       ? { _tag: "Draft", message: { _tag: "Text", message: { _tag: "Written", value } } }
       : { _tag: "Row", id, message: { _tag: "Text", message: { _tag: "Written", value } } }
-  const after = (messages: ReadonlyArray<DeskMessage>, from: Desk = desk.init.state): Desk =>
+  const after = (messages: ReadonlyArray<DeskMessage>, from: DeskState = desk.init.state): DeskState =>
     messages.reduce((state, message) => stepped(desk.update(message)(state)).state, from)
-  const textOf = (state: Desk, id?: number) => (id === undefined ? state.draft : Opt.getOrThrow(rowAt(state, id))).text
+  const keptAt = (state: DeskState, id?: number) =>
+    Opt.getOrThrow(id === undefined ? state.children.Draft : HashMap.get(state.children.Row, id))
+  const textOf = (state: DeskState, id?: number) => keptAt(state, id).state.text
 
   test("a text typed into the input on screen is stored", () => {
     const typedOnce = after([typing("hel")])
@@ -315,15 +300,18 @@ describe("a write into an input its parent has replaced", () => {
 
   test("after the desk started the draft again, it is stored into the new draft", () => {
     const sent = after([typing("hello"), { _tag: "Draft", message: "SendClicked" }])
-    expect(sent).toEqual({ ...desk.init.state, sent: ["hello"] })
+    expect(sent.own).toEqual({ ...desk.init.state.own, sent: ["hello"] })
+    expect(keptAt(sent).instance).not.toBe(keptAt(desk.init.state).instance)
+    expect(textOf(sent)).toBe("")
     expect(textOf(after([typing("h")], sent))).toBe("h")
   })
 
-  test("after the desk brought a kept draft back, it is stored into the draft brought back", () => {
-    const kept = after([typing("Ada"), { _tag: "Kept" }])
-    const undone = after([typing("Adam"), { _tag: "Draft", message: "DiscardClicked" }, { _tag: "Undone" }], kept)
-    expect(textOf(undone)).toBe("Ada")
-    expect(textOf(after([typing("Adax")], undone))).toBe("Adax")
+  test("after the desk closed the draft and opened it again, it is stored into the draft opened", () => {
+    const closed = after([typing("Ada"), { _tag: "Closed" }])
+    expect(desk.update(typing("Adam"))(closed)).toBe(reject)
+    const opened = after([{ _tag: "Opened" }], closed)
+    expect(textOf(opened)).toBe("")
+    expect(textOf(after([typing("Adax")], opened))).toBe("Adax")
   })
 
   test("into a row, it is stored into the row that holds its id then", () => {
@@ -349,19 +337,11 @@ describe("an input in a child by id", () => {
     inputs: { Text: note.input({ at: Optic.id<Note>().key("text") }) },
     makeModel: (state) => state
   })
-  type Notes = Readonly<{ notes: ReadonlyArray<Readonly<{ id: number; note: Note }>> }>
+  type Notes = Readonly<{ ids: ReadonlyArray<number> }>
   const notes = program<{ state: Notes }>()
-  const tested = notes.make({
-    init: () => ({ state: { notes: [] } }),
-    children: {
-      Note: notes.childById(noteProgram, {
-        get: (state, id: number) =>
-          Opt.map(Arr.findFirst(state.notes, (entry) => entry.id === id), (entry) => entry.note),
-        set: (state, id, note) => ({ notes: Arr.map(state.notes, (entry) => entry.id === id ? { id, note } : entry) }),
-        subscribed: () => []
-      })
-    },
-    makeModel: (state, children) => Arr.map(state.notes, ({ id }) => ({ id, note: children.Note(state, id) }))
+  const tested = notes.withChildren({ Note: notes.childById(noteProgram, { ids: (state) => state.ids }) }).make({
+    init: { state: { ids: [] } },
+    makeModel: (state, children) => Arr.map(state.ids, (id) => ({ id, note: children.Note(id) }))
   })
   type NotesMessage = MessageOf<typeof tested>
   const typing = (id: number, text: string): NotesMessage => ({
@@ -369,14 +349,18 @@ describe("an input in a child by id", () => {
     id,
     message: { _tag: "Text", message: { _tag: "Written", value: text } }
   })
-  const state: Notes = { notes: [{ id: 1, note: { text: "a" } }, { id: 2, note: { text: "b" } }] }
+  const state = stateOf(tested, { ids: [1, 2] }, { Note: [[1, { text: "a" }], [2, { text: "b" }]] })
 
-  test("is written into through the child's place, and no other note changes", () => {
-    expect(tested.update(typing(2, "bc"))(state)).toEqual({
-      state: { notes: [{ id: 1, note: { text: "a" } }, { id: 2, note: { text: "bc" } }] },
+  test("is written into the note at its id, and leaves the other note the very same", () => {
+    const result = tested.update(typing(2, "bc"))(state)
+    expect(result).toEqual({
+      state: stateOf(tested, { ids: [1, 2] }, { Note: [[1, { text: "a" }], [2, { text: "bc" }]] }),
       commands: [],
       events: []
     })
+    expect(Opt.getOrThrow(HashMap.get(stepped(result).state.children.Note, 1))).toBe(
+      Opt.getOrThrow(HashMap.get(state.children.Note, 1))
+    )
   })
 
   test("rejects what was written into a note that is gone", () => {
@@ -662,15 +646,14 @@ describe("the types of an input", () => {
       inputs: { Text: note.input({ at: Optic.id<Note>().key("text") }) },
       makeModel: (state) => state
     })
-    type Board = Readonly<{ note: Note }>
+    type Board = Readonly<{ loads: number }>
     const board = program<{ state: Board; command: "Load"; message: "Loaded" }>()
     const written = {
       _tag: "Note" as const,
       message: { _tag: "Text" as const, message: { _tag: "Written" as const, value: "Ada" } }
     }
-    board.make({
-      init: (children) => ({ state: { note: children.Note.init.state } }),
-      children: { Note: board.child(noteProgram, { at: Optic.id<Board>().key("note") }) },
+    board.withChildren({ Note: board.child(noteProgram) }).make({
+      init: { state: { loads: 0 } },
       update: () => (state) => ({ state, commands: ["Load"] }),
       // @ts-expect-error: what is written into the child's input is no own message of the parent
       runCommand: () => Effect.succeedSome(written),

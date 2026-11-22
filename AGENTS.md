@@ -52,8 +52,8 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   (`Subscription` is a `Channel`, `Execution` an `Effect`): it is built and transformed with Effect's own
   combinators, and the library defines no function over it. One of the library's own has a shape the library
   defines and documents, public where it is meant to be written by hand (an `update` writes a `Step`,
-  `{ state, commands?, events? }`, as data) and hidden where it is not (a program that `program` makes); the
-  library gives the functions over it (`andThen` and `forEach` over `Step`). An alias with a few helpers over it
+  `{ state, commands?, events?, tell? }`, as data) and hidden where it is not (a program that `program` makes); the
+  library gives the functions over it (`andThen` over `Step`). An alias with a few helpers over it
   has the costs of both and keeps neither promise: users still write the representation everywhere else, so it
   cannot change. A type moves to the library's side only when the library must do with it what Effect alone
   cannot: inspect it in tests without running it, keep it the same from one draw to the next by a cache of its own (as
@@ -84,9 +84,8 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   `isRejected` and `raise` went by it too. A type that already imposes a rule (`Execution` cannot fail, a
   `Subscription` ends with a message) makes the function that would remind of it superfluous. A form of a
   declaration that takes a standard type of Effect in place of hand-written functions (`at`, an `Optic`, for `get` and
-  `set`) is not a function, and may stay. `forEach` over `Step`, the n-ary `andThen`, is a fold the rule admits: with
-  it, a parent tells one message to each of its children by id (the `list` example). Both are dual (`Function.dual`),
-  for a chain of steps written in a `pipe`.
+  `set`) is not a function, and may stay. `andThen` is dual (`Function.dual`), for a chain of steps written in a
+  `pipe`; `forEach`, its n-ary form, went once a parent told its children in the `tell` of a step.
 - **Only stable APIs.** A module or function marked `@stability unstable` in Effect's declarations may change
   under the library's users: never build on one, not even as an option, and not in `examples/` or `bridges/`
   either, since users import the bridges and copy the examples. The same holds for React's `unstable_` and
@@ -172,10 +171,15 @@ this summary says less. What every change keeps, an example's and a document's t
 - **`reject` means one thing: the message does not apply in the state.** Never add a runtime check of the model
   against `update`, nor a way for a model to ask `update` what it accepts. A `defect` is only for a message the state
   and the engine together rule out: an example never dies on a message of its view, nor on an event raised for one.
-- **A parent and its children talk only through external messages and events**: a break of what a parent declared
-  is a `CompositionDefect`, and the types enforce what it declares.
-- **Every program keeps its state in an object**, replaced and never mutated: a child's model and its lifted
-  subscriptions are kept by it. Never add a cache for primitive states, nor hold a child's dispatch strongly.
+- **A parent and its children talk only through external messages and events**: a parent is not given its children's
+  states, and tells them what to do in the `tell` of its step. A break of what a parent declared is a
+  `CompositionDefect`, and the types enforce what it declares.
+- **The library keeps a parent's children**: they are those that the parent's own state lists, reconciled after each
+  step of the parent's own code, and an answer reaches the instance that asked for it, or is rejected. Never give a
+  parent a way to write a child's state.
+- **Every program keeps its state in an object**, replaced and never mutated: a child's model is kept by it, and its
+  lifted subscriptions by the instance the library keeps it in. Never add a cache for primitive states, nor hold a
+  child's dispatch strongly.
 - **A dispatch is a function that applies its message before it returns, and needs no services**: a renderer calls
   it from a plain callback as it is, and the library exports no helper for it.
 - **Defects always die, and the run dies with them.** Nothing in the library may retry, swallow, log or turn them
@@ -210,7 +214,7 @@ this summary says less. What every change keeps, an example's and a document's t
   the loop that does its jobs one at a time).
 - `runCommand`, missing from a program without commands, is read through `runCommandOf`, never directly: the engine
   always gets the complete set. Likewise `init`, a step or a function of the flags, is read through `startOf`: a step
-  is never a function, so `typeof` tells them apart, and so does `make` for a child's handle. Both are internal. A
+  is never a function, so `typeof` tells them apart, and so does `make` for a parent's `init`. Both are internal. A
   program always has `subscriptions`: `make` is the one place where a config without them means listening to nothing,
   and a test reads `program.subscriptions(state)` as it reads `program.makeModel(state)`.
 - A key or symbol of the library is named `@fgaudo/effect-tea/<Type>` after the type it belongs to (`Rejected`, the
@@ -269,8 +273,8 @@ this summary says less. What every change keeps, an example's and a document's t
   transition of `core.ts` or of `testing/ledger.ts`), never what it keeps to itself. An export made for a test alone
   says so (`entriesOf` in `dispatch.ts`).
 - A test of the library is of one of five kinds, and a test of none of them is not added:
-  - **the semantics of the pure pieces**: what a function that runs nothing returns, as a `Step` and `andThen`,
-    `forEach` and `reject` over it, a parent's composition, how a child's message is wrapped, how a message is named
+  - **the semantics of the pure pieces**: what a function that runs nothing returns, as a `Step` and `andThen` and
+    `reject` over it, a parent's composition, how a child's message is wrapped, how a message is named
     by its tags, `defect`, `applyAll` and `dispatchViolations`, what the core makes of a cause and of the keys of a
     state. They lie in the test file of their module (`compose.test.ts`, which holds those of a `Step` too,
     `dispatch.test.ts`, `input.test.ts`, `log.test.ts`, `defect.test.ts`, `core.test.ts`, `src/testing/`).

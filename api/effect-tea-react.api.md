@@ -165,10 +165,11 @@ type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = neve
 } & Interpreter<Command, Message, RC> & ExternalHandler<External, State, Command, Event>;
 
 // @public
-type Step<State, Command = never, Event = never> = {
+type Step<State, Command = never, Event = never, Tell = never> = {
     readonly state: State;
     readonly commands?: ReadonlyArray<Command>;
     readonly events?: ReadonlyArray<Event>;
+    readonly tell?: ReadonlyArray<Tell>;
 };
 
 // @public
@@ -178,7 +179,7 @@ type Subscription<Message, R = never> = Channel.Channel<Message, never, Message,
 type Subscriptions<State, Message, R = never, K = unknown> = (state: State) => HashMap.HashMap<K, Subscription<Message, R>>;
 
 // @public
-type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected;
+type Transition<State, Command = never, Event = never, Tell = never> = Step<State, Command, Event, Tell> | Rejected;
 
 // @public
 type Update<State, Message, Command = never, Event = never> = (message: Message) => (state: State) => Transition<State, Command, Event>;

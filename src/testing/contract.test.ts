@@ -17,6 +17,7 @@ import { CompositionDefect, ProgramDefect } from "../defect.ts"
 import type { Applied, Ignored } from "../engine.ts"
 import type { Program } from "../program.ts"
 import { start } from "../run.ts"
+import type { Subscription } from "../subscription.ts"
 import { reject, type Update } from "../update.ts"
 import { applyAll } from "./apply-all.ts"
 import { drive } from "./drive.ts"
@@ -567,8 +568,8 @@ describe("a subscription that depends on more of the state than its key", () => 
 })
 
 describe("what the run dies of, and the tools fail on", () => {
-  // A row by id, listening under `ticks`; `Doubled` makes the parent's `subscribed` list its id twice, which the
-  // run's reconciliation of the parent's subscriptions finds in the state `Doubled` leaves.
+  // A row by id, listening under `ticks`; `Doubled` makes the parent listen under the key that the row's subscription
+  // is lifted to, `["Row", 1, 1, "ticks"]`, which the parent's subscriptions find in the state `Doubled` leaves.
   type Row = Readonly<{ seen: number }>
   const row: Program<{ state: Row; model: number; message: "Seen" }> = {
     init: { state: { seen: 0 } },
@@ -576,19 +577,16 @@ describe("what the run dies of, and the tools fail on", () => {
     subscriptions: () => HashMap.make(["ticks", Channel.never]),
     makeModel: ({ seen }) => seen
   }
-  type Table = Readonly<{ row: Row; twice: boolean }>
-  const { childById, make } = program<{ state: Table; message: "Doubled" }>()
-  const table = make({
-    init: (children) => ({ state: { row: children.Row.init(1).state, twice: false } }),
-    children: {
-      Row: childById(row, {
-        get: (state, id: number) => id === 1 ? Opt.some(state.row) : Opt.none(),
-        set: (state, _, row) => ({ ...state, row }),
-        subscribed: (state) => state.twice ? [[1, state.row], [1, state.row]] : [[1, state.row]]
-      })
-    },
-    update: (_: "Doubled") => (state) => ({ state: { ...state, twice: true } }),
-    makeModel: ({ twice }) => ({ double: twice ? Opt.none<"Doubled">() : Opt.some<"Doubled">("Doubled") })
+  type Table = Readonly<{ clashing: boolean }>
+  const { childById, withChildren } = program<{ state: Table; message: "Doubled" }>()
+  const table = withChildren({ Row: childById(row, { ids: () => [1] }) }).make({
+    init: { state: { clashing: false } },
+    update: (_: "Doubled") => (state) => ({ state: { ...state, clashing: true } }),
+    subscriptions: (state) =>
+      state.clashing
+        ? HashMap.make([["Row", 1, 1, "ticks"] as ReadonlyArray<unknown>, Channel.never as Subscription<"Doubled">])
+        : HashMap.empty<ReadonlyArray<unknown>, Subscription<"Doubled">>(),
+    makeModel: ({ clashing }) => ({ double: clashing ? Opt.none<"Doubled">() : Opt.some<"Doubled">("Doubled") })
   })
 
   const isCompositionDefect = (exit: Exit.Exit<unknown>) => {
@@ -616,16 +614,16 @@ describe("what the run dies of, and the tools fail on", () => {
   // The run makes the state current before it reads its subscriptions: what the test reads of the state after the
   // defect is the state the message left.
   test("rehearse keeps the state whose subscriptions are a defect, as the run makes it current", async () => {
-    const twice: Array<boolean> = []
+    const clashing: Array<boolean> = []
     const exit = await Effect.runPromiseExit(rehearse(
       table,
       Effect.fnUntraced(function*(rehearsal) {
         yield* Effect.exit(rehearsal.send(({ double }) => double))
-        twice.push((yield* rehearsal.state).twice)
+        clashing.push((yield* rehearsal.state).own.clashing)
       })
     ))
     expect(isCompositionDefect(exit)).toBe(true)
-    expect(twice).toEqual([true])
+    expect(clashing).toEqual([true])
   })
 
   test("simulate fails, as the run dies, on a state whose subscriptions are a defect", async () => {

@@ -263,20 +263,14 @@ describe("a program whose start throws", () => {
     makeModel: () => null
   }
 
-  const leafAt = {
-    get: (state: Readonly<{ leaf: Leaf }>) => Opt.some(state.leaf),
-    set: (state: Readonly<{ leaf: Leaf }>, leaf: Leaf) => ({ ...state, leaf })
-  }
-
-  // A parent's `init` without flags makes a step, which a program without flags starts from, as data: `make` calls
-  // it as it makes the program, so what it throws is no defect of a run ("Composition", "Precisely").
-  test("in the init of a parent with a child and no flags: make throws the defect as it is", () => {
-    const Parent = program<{ state: Readonly<{ leaf: Leaf }> }>()
+  // A parent without flags is started as `make` makes it: the children that its first state lists are started then,
+  // so what a function of their places throws, `make` throws as it is ("Composition", "Precisely").
+  test("in a child's place, in a parent with no flags: make throws the defect as it is", () => {
+    const Parent = program<{ state: Readonly<{ on: boolean }> }>()
     let thrown: unknown
     try {
-      Parent.make({
-        init: () => defect("no parent starts"),
-        children: { Leaf: Parent.child(leaf, leafAt) },
+      Parent.withChildren({ Leaf: Parent.child(leaf, { there: () => defect("no parent starts") }) }).make({
+        init: { state: { on: true } },
         makeModel: () => null
       })
     } catch (caught) {
@@ -287,11 +281,9 @@ describe("a program whose start throws", () => {
   })
 
   test("in the init of a parent with a child and flags: the handle is made, model() throws the defect, and run dies of it", async () => {
-    const Parent = program<{ state: Readonly<{ leaf: Leaf }>; flags: number }>()
-    const made = Parent.make({
-      init: (children) => (flags) =>
-        flags < 0 ? defect("no parent starts") : { state: { leaf: children.Leaf.init.state } },
-      children: { Leaf: Parent.child(leaf, leafAt) },
+    const Parent = program<{ state: Readonly<{ flags: number }>; flags: number }>()
+    const made = Parent.withChildren({ Leaf: Parent.child(leaf) }).make({
+      init: (flags) => flags < 0 ? defect("no parent starts") : { state: { flags } },
       makeModel: () => null
     })
     const { app, run } = start(made, { flags: -1 })

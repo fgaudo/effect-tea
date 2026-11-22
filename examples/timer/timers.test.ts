@@ -1,8 +1,9 @@
 import { reject } from "@fgaudo/effect-tea"
 import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
-import { applyAll, dispatchViolations } from "@fgaudo/effect-tea/testing"
+import { applyAll, dispatchViolations, stateOf } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
 import * as HashMap from "effect/HashMap"
+import * as Opt from "effect/Option"
 import * as fc from "fast-check"
 import { timerMessages } from "./timer.test_reader.ts"
 import * as Timer from "./timer.ts"
@@ -42,7 +43,14 @@ const state: fc.Arbitrary<State> = fc
     }),
     { selector: (entry) => entry.id, maxLength: 4 }
   )
-  .map((entries) => ({ nextId: 21, entries }))
+  .map((entries) =>
+    stateOf(timers, { nextId: 21, ids: entries.map((entry) => entry.id) }, {
+      Timer: entries.map((entry) => [entry.id, entry.timer] as const)
+    })
+  )
+
+/** The timers that the library keeps, in the order the list holds their ids in. */
+const kept = (state: State) => state.own.ids.map((id) => Opt.getOrThrow(HashMap.get(state.children.Timer, id)).state)
 
 // What a user could ask of a timer, a tag at a time: everything but the ticks, which only the clock sends.
 const timerClicks: ReadonlyArray<Timer.Message> = Object.values(
@@ -63,8 +71,8 @@ const userMessages = (state: State): ReadonlyArray<Message> =>
   Object.values(
     {
       AddClicked: [{ _tag: "AddClicked" }],
-      RemoveClicked: state.entries.map(({ id }) => ({ _tag: "RemoveClicked", id })),
-      Timer: state.entries.flatMap(({ id }) => timerClicks.map((message) => ({ _tag: "Timer", id, message })))
+      RemoveClicked: state.own.ids.map((id) => ({ _tag: "RemoveClicked", id })),
+      Timer: state.own.ids.flatMap((id) => timerClicks.map((message) => ({ _tag: "Timer", id, message })))
     } satisfies { [Tag in Message["_tag"]]: ReadonlyArray<Extract<Message, { _tag: Tag }>> }
   ).flat()
 
@@ -72,19 +80,19 @@ describe("timers", () => {
   // #region update
   test("each timer keeps its own state", () => {
     const { state } = applyAll(timers.update)([added, to(2, { _tag: "StartClicked" })], timers.init.state)
-    expect(state.entries.map((entry) => entry.timer.phase._tag)).toEqual(["Setting", "Running"])
+    expect(kept(state).map((timer) => timer.phase._tag)).toEqual(["Setting", "Running"])
   })
 
   test("a removed timer is gone, and a second click on \"Remove\" is rejected", () => {
     const { state } = applyAll(timers.update)([added, removed(1)], timers.init.state)
-    expect(state.entries.map((entry) => entry.id)).toEqual([2])
+    expect(state.own.ids).toEqual([2])
     expect(timers.update(removed(1))(state)).toBe(reject)
     expect(timers.update(to(1, { _tag: "StartClicked" }))(state)).toBe(reject)
   })
 
   test("only running timers tick, each under its own key", () => {
     const { state } = applyAll(timers.update)([added, to(2, { _tag: "StartClicked" })], timers.init.state)
-    expect(Array.from(HashMap.keys(timers.subscriptions(state)))).toEqual([["Timer", 2, "ticks"]])
+    expect(Array.from(HashMap.keys(timers.subscriptions(state)))).toEqual([["Timer", 2, 2, "ticks"]])
   })
   // #endregion update
 

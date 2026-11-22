@@ -339,13 +339,10 @@ describe("rehearse", () => {
       subscriptions: () => HashMap.make(["ping", Channel.never]),
       makeModel: (state) => state
     })
-    type Form = Readonly<{ name: string; notes: Readonly<Record<string, string>>; field: Field; pings: number }>
+    type Form = Readonly<{ name: string; notes: Readonly<Record<string, string>>; pings: number }>
     const Form = program<{ state: Form; message: "Pinged" }>()
-    const form = Form.make({
-      init: (children) => ({ state: { name: "", notes: { a: "" }, field: children.Field.init.state, pings: 0 } }),
-      children: {
-        Field: Form.child(field, { get: (state) => Opt.some(state.field), set: (state, f) => ({ ...state, field: f }) })
-      },
+    const form = Form.withChildren({ Field: Form.child(field) }).make({
+      init: { state: { name: "", notes: { a: "" }, pings: 0 } },
       inputs: {
         Name: Form.input({ at: Optic.id<Form>().key("name") }),
         Note: Form.inputById({ at: (id: string) => Optic.id<Form>().key("notes").at(id) })
@@ -367,14 +364,16 @@ describe("rehearse", () => {
       Effect.fnUntraced(function*(rehearsal) {
         for (const message of heard) {
           yield* rehearsal.hear(
-            typeof message === "object" && message._tag === "Field" ? ["Field", "ping"] : "ping",
+            // The child's subscription is lifted under its instance, the first the parent started.
+            typeof message === "object" && message._tag === "Field" ? ["Field", 1, "ping"] : "ping",
             message
           )
         }
         return yield* rehearsal.state
       })
     ))
-    expect(state).toEqual({ name: "Ada", notes: { a: "Ada" }, field: { text: "Ada", pings: 1 }, pings: 1 })
+    expect(state.own).toEqual({ name: "Ada", notes: { a: "Ada" }, pings: 1 })
+    expect(Opt.map(state.children.Field, (kept) => kept.state)).toEqual(Opt.some({ text: "Ada", pings: 1 }))
   })
 
   describe("hearNext", () => {

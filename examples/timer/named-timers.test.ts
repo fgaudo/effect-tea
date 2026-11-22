@@ -1,11 +1,11 @@
 import { reject } from "@fgaudo/effect-tea"
 import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
-import { applyAll, dispatchViolations } from "@fgaudo/effect-tea/testing"
+import { applyAll, dispatchViolations, stateOf } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
 import * as fc from "fast-check"
 import { type Message, type Model, namedTimers, type State } from "./named-timers.ts"
 import { namedMessages } from "./named.test_reader.ts"
-import type * as Named from "./named.ts"
+import * as Named from "./named.ts"
 import * as Timer from "./timer.ts"
 import { namedTimersView } from "./view.ts"
 
@@ -46,7 +46,14 @@ const state: fc.Arbitrary<State> = fc
     }),
     { selector: (entry) => entry.id, maxLength: 4 }
   )
-  .map((entries) => ({ nextId: 21, entries }))
+  // A named timer is a parent too: its state is made as the list's is, from its own and from its timer's.
+  .map((entries) =>
+    stateOf(namedTimers, { nextId: 21, ids: entries.map((entry) => entry.id) }, {
+      Timer: entries.map((entry) =>
+        [entry.id, stateOf(Named.named, { name: entry.timer.name }, { Timer: entry.timer.timer })] as const
+      )
+    })
+  )
 
 // What a user could ask of a named timer, a tag at a time: its timer's clicks, and nothing of the name's, since what
 // is typed is the input's, which the library rules on.
@@ -73,8 +80,8 @@ const userMessages = (state: State): ReadonlyArray<Message> =>
   Object.values(
     {
       AddClicked: [{ _tag: "AddClicked" }],
-      RemoveClicked: state.entries.map(({ id }) => ({ _tag: "RemoveClicked", id })),
-      Timer: state.entries.flatMap(({ id }) => namedClicks.map((message) => ({ _tag: "Timer", id, message })))
+      RemoveClicked: state.own.ids.map((id) => ({ _tag: "RemoveClicked", id })),
+      Timer: state.own.ids.flatMap((id) => namedClicks.map((message) => ({ _tag: "Timer", id, message })))
     } satisfies { [Tag in Message["_tag"]]: ReadonlyArray<Extract<Message, { _tag: Tag }>> }
   ).flat()
 
@@ -83,7 +90,7 @@ describe("named timers", () => {
     const added = applyAll(namedTimers.update)([{ _tag: "AddClicked" }], namedTimers.init.state).state
     const drawn = namedTimers.makeModel(added)
     const { state } = applyAll(namedTimers.update)([typing(drawn, 1, "Tea"), typing(drawn, 2, "Pasta")], added)
-    expect(state.entries.map((entry) => entry.timer.name)).toEqual(["Tea", "Pasta"])
+    expect(namedTimers.makeModel(state).timers.map((entry) => entry.model.name)).toEqual(["Tea", "Pasta"])
   })
 
   test("a name typed into a removed timer is rejected", () => {

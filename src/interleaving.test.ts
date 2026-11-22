@@ -15,7 +15,7 @@ import type * as Scope from "effect/Scope"
 import type * as Tracer from "effect/Tracer"
 import fc from "fast-check"
 import { idle, prioritizedSchedules, unpreempted } from "../test/scheduled.test_scheduler.ts"
-import { program } from "./compose.ts"
+import { type Instance, type Kept, program } from "./compose.ts"
 import { type DefectSite, ProgramDefect } from "./defect.ts"
 import { type Dispatch, forwardTo } from "./dispatch.ts"
 import type { Applied, Ignored } from "./engine.ts"
@@ -28,9 +28,10 @@ import { reject } from "./update.ts"
 // The search of the interleavings, in which a dispatch applies its message before it returns. Run apart:
 // `bun run interleavings`.
 // The program is a list of rows by id, from a pool of two so that ids come back, which starts with none, one or both
-// of them. Each row is born anew when it is added, works with a command that acquires something and completes when
-// the scheduler says (working mutes the row, so that one step both stops a subscription and starts a command), can be
-// poked, which leaves it as it is, and, while it listens, hears two ticks from a subscription that then stays open,
+// of them. Each row is a child that the library keeps, started anew from its flags when it is added, so that an answer
+// of its command may arrive once the row has been removed and added again at its id. It works with a command that
+// acquires something and completes when the scheduler says (working mutes the row, so that one step both stops a
+// subscription and starts a command), can be poked, which leaves it as it is, and, while it listens, hears two ticks from a subscription that then stays open,
 // ends with a last message, or dies; each time it starts listening again is a new session. The list can clear all its
 // rows at once, stopping their subscriptions together. The list has a field, which is the place of one of two inputs,
 // a note or a title, and which a swap turns into the other's place, the text kept. The user types into the element of
@@ -83,7 +84,11 @@ type RowModel = Readonly<{
 
 /** The field, the place of the input its tag names: `Swap` turns it into the place of the other. */
 type Field = Readonly<{ _tag: "Note"; text: string }> | Readonly<{ _tag: "Title"; text: string }>
-type ListState = Readonly<{ rows: ReadonlyArray<Readonly<{ id: Id; row: Row }>>; born: number; field: Field }>
+/** What a row starts from: its id, and the number of the addition that made it, which no other row has. */
+type RowFlags = Readonly<{ id: Id; born: number }>
+type ListOwn = Readonly<{ rows: ReadonlyArray<RowFlags>; born: number; field: Field }>
+/** The whole state of the list: its own, and the rows that the library keeps. */
+type ListState = Kept<ListOwn, Readonly<{ Rows: HashMap.HashMap<Id, Instance<Row>> }>>
 type Own =
   | Readonly<{ _tag: "Add"; id: Id }>
   | Readonly<{ _tag: "Remove"; id: Id }>
@@ -352,22 +357,30 @@ const later = <A>(value: A) => Effect.as(Effect.yieldNow, value)
 const waits = (fates: Fates, index: number) =>
   Effect.replicateEffect(later(undefined), fateOf(fates.waits, index), { discard: true })
 
-const initial: Row = {
-  id: 1,
-  born: 0,
+const rowOf = ({ born, id }: RowFlags): Row => ({
+  id,
+  born,
   working: false,
   attempts: 0,
   listening: true,
   session: 1,
   heard: 0,
   finished: false
-}
+})
 
-/** The state the list starts with: as many rows as the fates say, each born anew, as an added one is. */
-const initialStateOf = (fates: Fates): ListState => {
-  const rows = ids.slice(0, fates.rows).map((id, index) => ({ id, row: { ...initial, id, born: index + 1 } }))
+/** The list's own first state: as many rows as the fates say, each born anew, as an added one is. */
+const initialOwnOf = (fates: Fates): ListOwn => {
+  const rows = ids.slice(0, fates.rows).map((id, index) => ({ id, born: index + 1 }))
   return { rows, born: rows.length, field: emptyField }
 }
+
+/** The rows that the library keeps in a state. */
+const rowsOf = (state: ListState): ReadonlyArray<Row> =>
+  Array.from(HashMap.values(state.children.Rows), (kept) => kept.state)
+
+/** The row that the library keeps at `id` in a state, if any. */
+const rowAt = (state: ListState, id: Id): Row | undefined =>
+  Opt.getOrUndefined(Opt.map(HashMap.get(state.children.Rows, id), (kept) => kept.state))
 
 const makeList = (fates: Fates, events: Array<Event>) => {
   const ticking = (id: Id, born: number, session: number): Subscription<RowMessage, never> => {
@@ -423,9 +436,16 @@ const makeList = (fates: Fates, events: Array<Event>) => {
     ).pipe(Channel.onExit(endsAs(events, `subscription ${key}`)))
   }
   const row: Program<
-    { state: Row; model: RowModel; message: RowMessage; command: RowCommand; commandServices: Scope.Scope }
+    {
+      state: Row
+      model: RowModel
+      message: RowMessage
+      command: RowCommand
+      commandServices: Scope.Scope
+      flags: RowFlags
+    }
   > = {
-    init: { state: initial },
+    init: (flags) => ({ state: rowOf(flags) }),
     update: (message) => (state) => {
       switch (message._tag) {
         case "WorkClicked":
@@ -433,10 +453,10 @@ const makeList = (fates: Fates, events: Array<Event>) => {
             state: { ...state, working: true, attempts: state.attempts + 1, listening: false },
             commands: [{ _tag: "Work", born: state.born, attempt: state.attempts }]
           }
-        // Commands carry no generation: a completion for an earlier row at this id would reach this one, so
-        // the row tells its own completions apart.
+        // Accept any completion, working or not: whether one of an earlier row at this id can reach this one is what
+        // the test checks.
         case "Done":
-          return state.working && message.born === state.born ? { state: { ...state, working: false } } : reject
+          return { state: { ...state, working: false } }
         case "MuteClicked":
           return state.listening ? { state: { ...state, listening: false } } : reject
         case "ListenClicked":
@@ -495,23 +515,19 @@ const makeList = (fates: Fates, events: Array<Event>) => {
         Effect.onInterrupt(() => Effect.sync(() => events.push({ _tag: "SearchStopped", text })))
       )
     )
-  const List = program<{ state: ListState; message: Own }>()
-  return List.make({
-    init: () => ({ state: initialStateOf(fates) }),
-    children: {
-      Rows: List.childById(row, {
-        get: (state, id: Id) => Opt.map(Arr.findFirst(state.rows, (entry) => entry.id === id), (entry) => entry.row),
-        set: (state, id, row) => ({ ...state, rows: state.rows.map((entry) => entry.id === id ? { id, row } : entry) }),
-        subscribed: (state) => state.rows.map(({ id, row }) => [id, row] as const)
-      })
-    },
+  const List = program<{ state: ListOwn; message: Own }>()
+  // A row is there while its id is listed, started from the flags listed with it: one added again at its id is
+  // another row.
+  return List.withChildren({
+    Rows: List.childById(row, { flags: (state) => state.rows.map((flags) => [flags.id, flags] as const) })
+  }).make({
+    init: { state: initialOwnOf(fates) },
     update: (message: Own) => (state) => {
       switch (message._tag) {
         case "Add": {
           if (state.rows.some((entry) => entry.id === message.id)) return reject
           const born = state.born + 1
-          const added = { id: message.id, row: { ...initial, id: message.id, born } }
-          return { state: { ...state, rows: [...state.rows, added], born } }
+          return { state: { ...state, rows: [...state.rows, { id: message.id, born }], born } }
         }
         case "Remove":
           return state.rows.some((entry) => entry.id === message.id)
@@ -530,8 +546,8 @@ const makeList = (fates: Fates, events: Array<Event>) => {
       }
     },
     inputs: {
-      Note: List.input({ at: Optic.id<ListState>().key("field").tag("Note").key("text") }),
-      Title: List.input({ at: Optic.id<ListState>().key("field").tag("Title").key("text") })
+      Note: List.input({ at: Optic.id<ListOwn>().key("field").tag("Note").key("text") }),
+      Title: List.input({ at: Optic.id<ListOwn>().key("field").tag("Title").key("text") })
     },
     subscriptions: ({ field: { text } }) =>
       text === "" ? HashMap.empty() : HashMap.make([["search", text], searching(text)]),
@@ -540,7 +556,7 @@ const makeList = (fates: Fates, events: Array<Event>) => {
       swap: { _tag: "Swap" } as Own,
       add: ids.filter((id) => !state.rows.some((entry) => entry.id === id)).map((id): Own => ({ _tag: "Add", id })),
       clear: state.rows.length > 0 ? Opt.some<Own>({ _tag: "Clear" }) : Opt.none<Own>(),
-      rows: state.rows.map(({ id }) => ({ id, remove: { _tag: "Remove", id } as Own, row: children.Rows(state, id) }))
+      rows: state.rows.map(({ id }) => ({ id, remove: { _tag: "Remove", id } as Own, row: children.Rows(id) }))
     })
   })
 }
@@ -732,7 +748,7 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
   const last = fiber.pollUnsafe() !== undefined ? undefined : app.model()
   yield* Fiber.interrupt(fiber)
   const exit = yield* Fiber.await(fiber)
-  return { exit, events, settled, last, made, stateOf, caller, first: initialStateOf(fates) }
+  return { exit, events, settled, last, made, stateOf, caller, first: list.init.state }
 })
 
 type Outcome = Effect.Success<ReturnType<typeof runScenario>>
@@ -789,7 +805,7 @@ const searches = (events: ReadonlyArray<Event>, count = events.length) => {
 }
 
 const listeners = (state: ListState) =>
-  state.rows.filter(({ row }) => row.listening).map(({ row }) => listener(row.born, row.session)).sort()
+  rowsOf(state).filter((row) => row.listening).map((row) => listener(row.born, row.session)).sort()
 
 const deaths = (events: ReadonlyArray<Event>) =>
   events.flatMap((event) => event._tag === "Died" ? [`${event.where}: ${event.defect}`] : [])
@@ -896,6 +912,18 @@ describe("interleavings of the user, commands and subscriptions", () => {
         if (Opt.isSome(answerOf(event)) && given(events.slice(0, index)).has(Opt.getOrThrow(answerOf(event)))) {
           reached.add("an answer after its release")
         }
+        const answered = Opt.getOrUndefined(heardOf(event))?.message
+        if (answered?._tag === "Rows" && answered.message._tag === "Done") {
+          const state = event._tag === "Applied"
+            ? event.applied.before
+            : event._tag === "Ignored"
+            ? event.ignored.state
+            : undefined
+          const there = state === undefined ? undefined : rowAt(state, answered.id)
+          if (there !== undefined && there.born !== answered.message.born) {
+            reached.add("an answer for a row added again at its id")
+          }
+        }
         if (event._tag === "Spanned") reached.add("a span of the program")
         if (event._tag === "Reentering") reached.add("a message a listener sends")
         if (event._tag === "Typed") reached.add("a write typed into the element")
@@ -905,7 +933,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
         if (event._tag !== "Applied") return
         const { message } = event.applied
         reached.add(message._tag === "Rows" ? message.message._tag : message._tag)
-        if (!isWrite(message) && event.applied.before.field.text !== event.applied.after.field.text) {
+        if (!isWrite(message) && event.applied.before.own.field.text !== event.applied.after.own.field.text) {
           reached.add("a text replaced")
         }
         if (event.applied.before === event.applied.after) reached.add("the very same state")
@@ -978,6 +1006,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       "two waiting releases",
       "the very same state",
       "an answer after its release",
+      "an answer for a row added again at its id",
       "a new state once the renderer stopped",
       "a message applied before the run began",
       "a state whose model was never read",
@@ -1112,7 +1141,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
           return false
         }
         const { born, session } = message.message
-        const row = Opt.getOrUndefined(Arr.findFirst(before.rows, (entry) => entry.id === message.id))?.row
+        const row = rowAt(before, message.id)
         return !(row?.listening === true && row.born === born && row.session === session)
       })
       expect(late).toEqual([])
@@ -1128,14 +1157,14 @@ describe("interleavings of the user, commands and subscriptions", () => {
           if (event._tag === "Applied") {
             const { before, after, message } = event.applied
             if (!isWrite(message)) continue
-            if (before.field._tag !== message._tag) broken.push("a write to a place that is gone was stored")
-            const same = message.message.value === before.field.text
-            const written = after.field._tag === message._tag && after.field.text === message.message.value
+            if (before.own.field._tag !== message._tag) broken.push("a write to a place that is gone was stored")
+            const same = message.message.value === before.own.field.text
+            const written = after.own.field._tag === message._tag && after.own.field.text === message.message.value
             if (same ? after !== before : !written) broken.push("not as written")
           }
           if (event._tag === "Ignored") {
             const { message, state } = event.ignored
-            if (isWrite(message) && state.field._tag === message._tag) {
+            if (isWrite(message) && state.own.field._tag === message._tag) {
               broken.push("a write to a place that is there was rejected")
             }
           }
@@ -1169,7 +1198,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       })
       expect(broken).toEqual([])
       if (deaths(events).length > 0) return
-      const { text } = finalState(first, events).field
+      const { text } = finalState(first, events).own.field
       expect(searches(events, settled)).toEqual(text === "" ? [] : [text])
     })
   }, 120_000)
@@ -1224,6 +1253,20 @@ describe("interleavings of the user, commands and subscriptions", () => {
       })
       expect(broken).toEqual([])
     })
+  }, 120_000)
+
+  // A row removed and added again at its id is another row, born of another addition: the answer of a command of the
+  // row before, which names its instance, is rejected, though the row there would accept it.
+  test("an answer reaches the row that asked for it, or is rejected", () => {
+    property(({ events }) => {
+      const astray = applied(events).flatMap(({ before, message }) => {
+        if (message._tag !== "Rows" || message.message._tag !== "Done") return []
+        const { attempt, born } = message.message
+        const there = rowAt(before, message.id)
+        return there?.born === born ? [] : [`the answer of command ${born}.${attempt} reached row ${there?.born}`]
+      })
+      expect(astray).toEqual([])
+    }, { numRuns: 1000 })
   }, 120_000)
 
   test("a command has released what it acquired before its answer reaches update", () => {
@@ -1288,7 +1331,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
     property(({ events, first, last, stateOf }) => {
       if (deaths(events).length > 0) return
       const final = finalState(first, events)
-      expect(final.rows.filter(({ row }) => row.working)).toEqual([])
+      expect(rowsOf(final).filter((row) => row.working)).toEqual([])
       expect(last === undefined ? undefined : stateOf.get(last)).toBe(sameStateAfter(events, stateOf))
     })
   }, 120_000)

@@ -1,5 +1,5 @@
 import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
-import { applyAll, dispatchViolations, rehearse } from "@fgaudo/effect-tea/testing"
+import { applyAll, dispatchViolations, rehearse, stateOf } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
 import * as Effect from "effect/Effect"
 import * as Opt from "effect/Option"
@@ -20,7 +20,7 @@ const state: fc.Arbitrary<State> = fc.record({
       Timer.Phase.Finished()
     )
   })
-})
+}).map(({ name, timer }) => stateOf(named, { name }, { Timer: timer }))
 
 // #region candidates
 // What a user could ask of a named timer, a tag at a time: its timer's clicks, wrapped, and nothing of the name's,
@@ -57,7 +57,7 @@ describe("named", () => {
   test("a name written is stored", () => {
     const start = named.init.state
     const { state } = applyAll(named.update)([typing("Tea")], start)
-    expect(state).toEqual({ ...start, name: "Tea" })
+    expect(state).toEqual({ ...start, own: { name: "Tea" } })
   })
   // #endregion update
 

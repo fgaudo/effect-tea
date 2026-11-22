@@ -45,8 +45,16 @@ const names: ReadonlyArray<Name> = ["model", "command", "event", "external", "fl
 // runs until its key goes), or an empty map.
 type Subs = "none" | "emits" | "silent" | "empty"
 type Comp = "none" | "child" | "childById" | "input" | "inputById" | "mixed"
-// `outside`: a constant typed `Update<…>`, given to `make` by name.
+// `outside`: a constant given to `make` by name, typed `Update<…>`, or, for a parent, returning a `Transition<…>`
+// that names what it tells.
 type UpdateForm = "absent" | "annotated" | "contextual" | "outside"
+// Where a child is, beside what lists it: always there, started again on another key, there in some states, or
+// listening in some. A child with flags is there where they are given.
+type Place = "plain" | "key" | "there" | "listening"
+// How a parent's step tells its child an external message, in `update`, `external` and `onEvent`: not at all, in a
+// step written inline, in a ternary beside `reject` (or, where a step is required, beside another step), in a
+// `switch`, or mapped over the ids of children by id.
+type Tell = "none" | "inline" | "ternary" | "switch" | "mapped"
 type Violation =
   | "wrongMessage"
   | "wrongModel"
@@ -70,6 +78,11 @@ type Violation =
   | "extraRunCommand"
   | "missingUpdate"
   | "updateUnnamed"
+  | "tellWrongChild"
+  | "tellWithoutChildren"
+  | "tellInInit"
+  | "tellMissingId"
+  | "tellWrongId"
 
 // How wide the tag of a message or command that takes the name of a child or of an input is: the name itself, any
 // string, a template that the name matches, `any`, or the name as an optional tag.
@@ -99,10 +112,15 @@ type Case = Readonly<{
   update: UpdateForm
   subs: Subs
   kidFlags: boolean
-  place: "at" | "getset"
+  // Where the child is: always there, started again on a key, there in some states, or listening in some.
+  place: Place
+  // Where an input is: an optic, or `get` and `set`.
+  inputPlace: "at" | "getset"
+  // How the parent's steps tell its child an external message.
+  tell: Tell
   // The pieces of `make` in the order of the guide, or the reverse.
   order: "canonical" | "reversed"
-  // Every parameter that can be annotated is, but `children`, whose type is not exported.
+  // Every parameter that can be annotated is.
   annotate: boolean
   violation?: Violation
 }>
@@ -152,12 +170,49 @@ const harmless: ReadonlySet<Violation> = new Set<Violation>(["updateUnnamed", "e
 const verdictOf = (c: Case): Verdict =>
   isValid(c) ? true : c.violation !== undefined && harmless.has(c.violation) ? "refused" : false
 
+// One item of a `tell`, to the child: by its id for children by id.
+const itemOf = (c: Case, tag: "KInc" | "KReset") => {
+  const v = c.violation
+  const name = v === "tellWrongChild" ? "Other" : "Kid"
+  const id = c.comp !== "childById" || v === "tellMissingId" ? "" : v === "tellWrongId" ? "id: '1', " : "id: 1, "
+  return `{ _tag: '${name}', ${id}message: { _tag: '${tag}' } }`
+}
+
+// What a step tells the child: a list written inline, or one mapped over the ids of the state.
+const tellsOf = (c: Case, tag: "KInc" | "KReset") =>
+  c.tell === "mapped"
+    ? `state.ids.map((id) => ({ _tag: 'Kid', id, message: { _tag: '${tag}' } }))`
+    : `[${itemOf(c, tag)}]`
+
+// The child's place, the second argument of `child` or `childById`, as the case writes it.
+const placeOf = (c: Case, a: (type: string) => string) => {
+  const s = `state${a(S[c.comp])}`
+  if (c.comp === "childById") {
+    const listed = c.kidFlags
+      ? `flags: (${s}) => state.ids.map((id) => [id, state.n] as const)`
+      : `ids: (${s}) => state.ids`
+    const listening = c.place === "listening" ? `, listening: (${s}, id${a("number")}) => id > 0` : ""
+    return `, { ${listed}${listening} }`
+  }
+  const fields = [
+    ...(c.kidFlags ? [`flags: (${s}) => state.open ? Opt.some(state.n) : Opt.none()`] : []),
+    ...(c.place === "key" ? [`key: (${s}) => state.open`] : []),
+    ...(c.place === "there" ? [`there: (${s}) => state.open`] : []),
+    ...(c.place === "listening" ? [`listening: (${s}) => state.n > 0`] : [])
+  ]
+  return fields.length === 0 ? "" : `, { ${fields.join(", ")} }`
+}
+
+// Whether the child alone may not be there, so that its model is an `Option`.
+const sometimes = (c: Case) => c.comp !== "childById" && (c.kidFlags || c.place === "there")
+
 const generate = (c: Case): string => {
   const v = c.violation
   const has = (name: Name) => c.named.has(name)
   const a = (type: string) => (c.annotate ? `: ${type}` : "")
   const state = S[c.comp]
   const own = ownOf(c)
+  const kidded = isKid(c.comp)
   const typeFields = [`state: ${state}`]
   if (has("model")) typeFields.push(`model: ${M[c.comp]}`)
   if (has("message")) {
@@ -172,74 +227,33 @@ const generate = (c: Case): string => {
   if (has("external")) typeFields.push("external: Ext")
   if (has("flags")) typeFields.push("flags: number")
   const T = `{ ${typeFields.join("; ")} }`
-  const functions = ["make"]
+  const functions = kidded ? ["withChildren"] : ["make"]
   if (c.comp === "mixed") functions.push("child", "input")
   else if (c.comp !== "none") functions.push(c.comp)
   const lines: Array<string> = []
   lines.push(`  const { ${functions.join(", ")} } = program<${T}>()`)
   const entries: Array<string> = []
-  // init
+  // init: a step of the parent's own state, from which the library starts the child.
   const flagsHere = v === "flagsStep" ? false : v === "flagsUnnamed" ? true : has("flags")
   const n = flagsHere ? "flags" : "0"
   const ownCommands = has("command") || v === "unnamedCommand" ? ["{ _tag: 'Save' }"] : []
-  const stateValue = (kid: string) => {
-    const nValue = v === "wrongInitState" ? `String(${n})` : n
-    switch (c.comp) {
-      case "none":
-        return `{ n: ${nValue} }`
-      case "child":
-        return `{ n: ${nValue}, kid: ${kid}.state }`
-      case "childById":
-        return `{ n: ${nValue}, kids: { 1: ${kid}.state } }`
-      case "input":
-        return `{ n: ${nValue}, name: '' }`
-      case "inputById":
-        return `{ n: ${nValue}, counts: {} }`
-      case "mixed":
-        return `{ n: ${nValue}, kid: ${kid}.state, name: '' }`
-    }
-  }
-  if (isKid(c.comp)) {
-    const start = c.comp === "childById"
-      ? (c.kidFlags ? "children.Kid.init(1, 5)" : "children.Kid.init(1)")
-      : (c.kidFlags ? "children.Kid.init(5)" : "children.Kid.init")
-    const commands = `[...k.commands${ownCommands.map((command) => `, ${command}`).join("")}]`
-    const body = `{ const k = ${start}; return { state: ${stateValue("k")}, commands: ${commands} } }`
-    entries.push(
-      flagsHere ? `    init: (children) => (flags${a("number")}) => ${body},` : `    init: (children) => ${body},`
-    )
-  } else {
-    const commands = ownCommands.length > 0 ? `, commands: [${ownCommands.join(", ")}]` : ""
-    const step = `{ state: ${stateValue("")}${commands} }`
-    entries.push(flagsHere ? `    init: (flags${a("number")}) => (${step}),` : `    init: ${step},`)
-  }
-  // children and inputs
-  const kidProgram = c.kidFlags ? "kidF" : "kid"
-  if (c.comp === "child" || c.comp === "mixed") {
-    entries.push(
-      c.place === "at"
-        ? `    children: { Kid: child(${kidProgram}, { at: Optic.id<${state}>().key('kid') }) },`
-        : `    children: { Kid: child(${kidProgram}, { get: (state${a(state)}) => Opt.some(state.kid), set: (state${
-          a(state)
-        }, kid${a("KidState")}) => ({ ...state, kid }) }) },`
-    )
-  } else if (c.comp === "childById") {
-    const subscribed = `subscribed: (state${
-      a(state)
-    }) => Object.entries(state.kids).map(([id, kid]) => [Number(id), kid] as const)`
-    entries.push(
-      c.place === "at"
-        ? `    children: { Kid: childById(${kidProgram}, { at: (id: number) => Optic.id<SChildById>().key('kids').optionalKey(id).notUndefined(), ${subscribed} }) },`
-        : `    children: { Kid: childById(${kidProgram}, { get: (state${
-          a(state)
-        }, id: number) => Opt.fromNullishOr(state.kids[id]), set: (state${a(state)}, id${a("number")}, kid${
-          a("KidState")
-        }) => ({ ...state, kids: { ...state.kids, [id]: kid } }), ${subscribed} }) },`
-    )
-  }
+  const nValue = v === "wrongInitState" ? `String(${n})` : n
+  const stateValue = {
+    none: `{ n: ${nValue} }`,
+    child: `{ n: ${nValue}, open: true }`,
+    childById: `{ n: ${nValue}, ids: [1] }`,
+    input: `{ n: ${nValue}, name: '' }`,
+    inputById: `{ n: ${nValue}, counts: {} }`,
+    mixed: `{ n: ${nValue}, open: true, name: '' }`
+  }[c.comp]
+  const initCommands = ownCommands.length > 0 ? `, commands: [${ownCommands.join(", ")}]` : ""
+  const initTell = v === "tellInInit" ? `, tell: [${itemOf(c, "KReset")}]` : ""
+  const initStep = `{ state: ${stateValue}${initCommands}${initTell} }`
+  entries.push(flagsHere ? `    init: (flags${a("number")}) => (${initStep}),` : `    init: ${initStep},`)
+  // inputs
   if (c.comp === "input" || c.comp === "mixed") {
     entries.push(
-      c.place === "at"
+      c.inputPlace === "at"
         ? `    inputs: { Name: input({ at: Optic.id<${state}>().key('name') }) },`
         : `    inputs: { Name: input({ get: (state${a(state)}) => Opt.some(state.name), set: (state${a(state)}, name${
           a("string")
@@ -247,7 +261,7 @@ const generate = (c: Case): string => {
     )
   } else if (c.comp === "inputById") {
     entries.push(
-      c.place === "at"
+      c.inputPlace === "at"
         ? "    inputs: { Count: inputById({ at: (id: string) => Optic.id<SInputById>().key('counts').at(id) }) },"
         : `    inputs: { Count: inputById({ get: (state${
           a(state)
@@ -256,19 +270,26 @@ const generate = (c: Case): string => {
         }) => ({ ...state, counts: { ...state.counts, [id]: count } }) }) },`
     )
   }
+  // The type of what the parent tells its child, for a step written apart.
+  const told = `Readonly<{ _tag: 'Kid'; message: KReset }>${
+    c.comp === "childById" ? " & Readonly<{ id: number }>" : ""
+  }`
   // update
   if (c.update !== "absent") {
     const message = v === "wrongMessage" ? "Readonly<{ _tag: 'Other' }>" : "Own"
+    const commandType = has("command") ? "Cmd" : "never"
+    const eventType = has("event") ? "Ev" : "never"
     const head = c.update === "annotated"
       ? `(message: ${message}) => (state: ${state}) =>`
       : c.update === "outside"
-      ? "(message) => (state) =>"
-      : `(message${has("message") && v !== "wrongMessage" ? "" : `: ${message}`}${
-        isKid(c.comp) ? ", children" : ""
-      }) => (state) =>`
-    const resetTo = c.update === "contextual" && isKid(c.comp)
-      ? toKid(c, v === "ownToChild" ? "KInc" : "KReset")
-      : "{ state: { ...state, n: 0 } }"
+      ? kidded
+        ? `(message: ${message}) => (state: ${state}): Transition<${state}, ${commandType}, ${eventType}, ${told}> =>`
+        : "(message) => (state) =>"
+      : `(message${has("message") && v !== "wrongMessage" ? "" : `: ${message}`}) => (state) =>`
+    const tellVia = v === "tellWithoutChildren" ? `, tell: [${itemOf(c, "KReset")}]` : ""
+    const reset = kidded && c.tell !== "none"
+      ? `{ state: { ...state, n: 0 }, tell: ${tellsOf(c, v === "ownToChild" ? "KInc" : "KReset")} }`
+      : `{ state: { ...state, n: 0 }${tellVia} }`
     const commands = v === "wrongCommand"
       ? ", commands: [{ _tag: 'Load' }]"
       : has("command") || v === "unnamedCommand"
@@ -279,39 +300,60 @@ const generate = (c: Case): string => {
       : has("event") || v === "unnamedEvent"
       ? ", events: [{ _tag: 'Saved' }]"
       : ""
-    const body = [
-      `${head} {`,
-      `      if (message._tag === 'Reset') return ${resetTo}`,
-      "      if (state.n > 9) return reject",
-      `      return { state: { ...state, n: state.n + 1 }${commands}${events} }`,
-      "    }"
-    ].join("\n")
+    const advance = `{ state: { ...state, n: state.n + 1 }${commands}${events} }`
+    const steps = c.tell === "switch"
+      ? [
+        "      switch (message._tag) {",
+        `        case 'Reset': return ${reset}`,
+        `        case 'Inc': return state.n > 9 ? reject : ${advance}`,
+        "      }"
+      ]
+      : c.tell === "ternary"
+      ? [`      if (message._tag === 'Reset') return state.n > 9 ? reject : ${reset}`, `      return ${advance}`]
+      : [
+        `      if (message._tag === 'Reset') return ${reset}`,
+        "      if (state.n > 9) return reject",
+        `      return ${advance}`
+      ]
+    const body = [`${head} {`, ...steps, "    }"].join("\n")
     if (c.update === "outside") {
       lines.push(
-        `  const update: Update<${state}, ${message}, ${has("command") ? "Cmd" : "never"}, ${
-          has("event") ? "Ev" : "never"
-        }> = ${body.replace(/\n {4}/g, "\n  ")}`
+        kidded
+          ? `  const update = ${body.replace(/\n {4}/g, "\n  ")}`
+          : `  const update: Update<${state}, ${message}, ${commandType}, ${eventType}> = ${
+            body.replace(/\n {4}/g, "\n  ")
+          }`
       )
       entries.push("    update,")
     } else {
       entries.push(`    update: ${body},`)
     }
   }
-  // external: written as `update` is, and, without `update`, as the case annotates.
+  // external: written as `update` is, and, without `update`, as the case annotates. Written apart, it tells nothing:
+  // its literal tags would widen there, as anywhere a step is written without the type it returns.
   if ((has("external") && v !== "missingExternal") || v === "externalUnnamed") {
     const form = c.update === "absent" ? (c.annotate ? "annotated" : "contextual") : c.update
     const message = v === "wrongExternal" ? "Readonly<{ _tag: 'Other' }>" : "Ext"
-    const reset = form === "contextual" && isKid(c.comp)
-      ? toKid(c, v === "externalToChild" ? "KInc" : "KReset")
-      : "({ state: { ...state, n: 0 } })"
-    const answer = v === "externalRejects" ? `state.n > 9 ? reject : ${reset}` : reset
+    const tells = kidded && c.tell !== "none" && form !== "outside"
+      ? tellsOf(c, v === "externalToChild" ? "KInc" : "KReset")
+      : undefined
+    const reset = tells === undefined
+      ? "({ state: { ...state, n: 0 } })"
+      : `({ state: { ...state, n: 0 }, tell: ${tells} })`
+    const answer = v === "externalRejects"
+      ? `state.n > 9 ? reject : ${reset}`
+      : tells !== undefined && c.tell === "ternary"
+      ? `(state.n > 9 ? { state } : { state: { ...state, n: 0 }, tell: ${tells} })`
+      : tells !== undefined && c.tell === "switch"
+      ? `{ switch (message._tag) { case 'Reset': return { state, tell: ${tells} } } }`
+      : reset
     if (form === "outside") {
       lines.push(`  const answer = (message: ${message}) => (state: ${state}) => ${answer}`)
       entries.push("    external: answer,")
     } else {
       const head = form === "annotated"
         ? `(message: ${message}) => (state: ${state}) =>`
-        : `(message${v === "wrongExternal" ? `: ${message}` : ""}${isKid(c.comp) ? ", children" : ""}) => (state) =>`
+        : `(message${v === "wrongExternal" ? `: ${message}` : ""}) => (state) =>`
       entries.push(`    external: ${head} ${answer},`)
     }
   }
@@ -331,15 +373,24 @@ const generate = (c: Case): string => {
   } else if (c.subs === "empty") {
     entries.push(`    subscriptions: (state${a(state)}) => HashMap.empty(),`)
   }
-  if (isKid(c.comp) && v !== "missingOnEvent") {
+  if (kidded && v !== "missingOnEvent") {
     const handler = c.comp === "childById"
-      ? (c.annotate ? `(id: number, event: KidEvent) => (state: ${state})` : "(id, event, children) => (state)")
-      : (c.annotate ? `(event: KidEvent) => (state: ${state})` : "(event, children) => (state)")
-    entries.push(`    onEvent: { Kid: ${handler} => ({ state }) },`)
+      ? (c.annotate ? `(id: number, event: KidEvent) => (state: ${state}) =>` : "(id, event) => (state) =>")
+      : (c.annotate ? `(event: KidEvent) => (state: ${state}) =>` : "(event) => (state) =>")
+    const tells = c.tell === "none" ? undefined : tellsOf(c, "KReset")
+    const answer = tells === undefined
+      ? "({ state })"
+      : c.tell === "ternary"
+      ? `(state.n > 9 ? { state } : { state, tell: ${tells} })`
+      : c.tell === "switch"
+      ? `{ switch (event._tag) { case 'KDone': return { state, tell: ${tells} } } }`
+      : `({ state, tell: ${tells} })`
+    entries.push(`    onEvent: { Kid: ${handler} ${answer} },`)
   }
   // makeModel
   const model = v === "wrongModel" ? "String(state.n)" : "state.n"
   const s = `state${a(state)}`
+  const kidModel = sometimes(c) ? "Opt.getOrElse(children.Kid(), () => 0)" : "children.Kid()"
   switch (c.comp) {
     case "none":
     case "inputById":
@@ -349,53 +400,59 @@ const generate = (c: Case): string => {
       entries.push(`    makeModel: (${s}) => ({ count: ${model}, name: state.name }),`)
       break
     case "child":
-      entries.push(`    makeModel: (${s}, children) => ({ count: ${model}, kid: children.Kid(state) }),`)
+      entries.push(`    makeModel: (${s}, children) => ({ count: ${model}, kid: ${kidModel} }),`)
       break
     case "mixed":
-      entries.push(
-        `    makeModel: (${s}, children) => ({ count: ${model}, kid: children.Kid(state), name: state.name }),`
-      )
+      entries.push(`    makeModel: (${s}, children) => ({ count: ${model}, kid: ${kidModel}, name: state.name }),`)
       break
     case "childById":
       entries.push(
-        `    makeModel: (${s}, children) => ({ count: ${model}, kids: Object.keys(state.kids).map((id) => children.Kid(state, Number(id))) }),`
+        `    makeModel: (${s}, children) => ({ count: ${model}, kids: state.ids.map((id) => children.Kid(id)) }),`
       )
       break
   }
-  lines.push("  const made = make({")
+  const kidProgram = c.kidFlags ? "kidF" : "kid"
+  const declare = c.comp === "childById" ? "childById" : "child"
+  lines.push(
+    kidded
+      ? `  const made = withChildren({ Kid: ${declare}(${kidProgram}${placeOf(c, a)}) }).make({`
+      : "  const made = make({"
+  )
   lines.push(...(c.order === "reversed" ? [...entries].reverse() : entries))
   lines.push("  })")
+  const flagged = has("flags") ? ", { flags: () => Opt.some(3) }" : ""
   if (!isValid(c)) {
-    lines.push(
-      `  const used = program<{ state: Outer<${state}> }>().child(made, { get: (state) => Opt.some(state.inner), set: (state, inner) => ({ ...state, inner }) })`
-    )
+    lines.push(`  const used = program<{ state: OuterOwn }>().child(made${flagged})`)
     lines.push("  return made === used.program")
     return lines.join("\n")
   }
   const kidAt = c.comp === "childById" ? " & Readonly<{ id: number }>" : ""
   const message = [
     own,
-    ...(isKid(c.comp) ? [`Readonly<{ _tag: 'Kid'; message: KidMessage }>${kidAt}`] : []),
+    ...(kidded ? [`Readonly<{ _tag: 'Kid'; message: KidMessage; instance?: number }>${kidAt}`] : []),
     ...(c.comp === "input" || c.comp === "mixed" ? ["Readonly<{ _tag: 'Name'; message: Written<string> }>"] : []),
     ...(c.comp === "inputById" ? ["Readonly<{ _tag: 'Count'; id: string; message: Written<number> }>"] : [])
   ].join(" | ")
-  const hasCommands = has("command") || isKid(c.comp)
+  const hasCommands = has("command") || kidded
   const command = [
     has("command") ? "Cmd" : "never",
-    ...(isKid(c.comp) ? [`Readonly<{ _tag: 'Kid'; command: KidCommand }>${kidAt}`] : [])
+    ...(kidded ? [`Readonly<{ _tag: 'Kid'; instance: number; command: KidCommand }>${kidAt}`] : [])
   ].join(" | ")
+  const kept = c.comp === "childById"
+    ? "HashMap.HashMap<number, Instance<KidState>>"
+    : "Opt.Option<Instance<KidState>>"
   const expected: Record<string, string> = {
-    state,
+    state: kidded ? `Kept<${state}, { readonly Kid: ${kept} }>` : state,
     model: has("model") ? M[c.comp] : inferredModel[c.comp],
     message,
     command,
     event: has("event") ? "Ev" : "never",
     external: has("external") ? "Ext" : "never",
     flags: has("flags") ? "number" : "never",
-    commandServices: [has("command") ? "Db" : "never", isKid(c.comp) ? "KidDb" : "never"].join(" | "),
+    commandServices: [has("command") ? "Db" : "never", kidded ? "KidDb" : "never"].join(" | "),
     subscriptionServices: [
       c.subs === "emits" ? "Feed" : c.subs === "silent" ? "Lock" : "never",
-      isKid(c.comp) ? "KidFeed" : "never"
+      kidded ? "KidFeed" : "never"
     ].join(" | ")
   }
   const readers: Record<string, string> = {
@@ -414,30 +471,25 @@ const generate = (c: Case): string => {
   }
   const programFields = Object.entries(expected).map(([key, type]) => `${key}: ${type}`).join("; ")
   lines.push(`  const typed: Program<{ ${programFields} }> = made`)
-  // The program as a child of a parent that uses all it has: its flags, its external message, from the parent's
+  // The program as a child of a parent that uses all it has: its flags, its external message, told from the parent's
   // `update` and passed on from its `external`, and its events.
-  lines.push(
-    `  const Parent = program<{ state: Outer<${state}>${has("external") ? "; message: Go; external: Ext" : ""} }>()`
-  )
-  lines.push("  const parent = Parent.make({")
-  lines.push(
-    `    init: (children) => { const i = children.Inner.init${
-      has("flags") ? "(3)" : ""
-    }; return { state: { inner: i.state }, commands: i.commands } },`
-  )
-  lines.push(`    children: { Inner: Parent.child(made, { at: Optic.id<Outer<${state}>>().key('inner') }) },`)
+  lines.push(`  const Parent = program<{ state: OuterOwn${has("external") ? "; message: Go; external: Ext" : ""} }>()`)
+  lines.push(`  const parent = Parent.withChildren({ Inner: Parent.child(made${flagged}) }).make({`)
+  lines.push("    init: { state: { m: 0 } },")
   if (has("external")) {
-    lines.push("    update: (_, children) => (state) => children.Inner.external({ _tag: 'Reset' })(state),")
-    lines.push("    external: (message, children) => children.Inner.external(message),")
+    lines.push("    update: () => (state) => ({ state, tell: [{ _tag: 'Inner', message: { _tag: 'Reset' } }] }),")
+    lines.push("    external: (message) => (state) => ({ state, tell: [{ _tag: 'Inner', message }] }),")
   }
-  if (has("event")) lines.push("    onEvent: { Inner: (event, children) => (state) => ({ state }) },")
-  lines.push("    makeModel: (state, children) => children.Inner(state),")
+  if (has("event")) lines.push("    onEvent: { Inner: (event) => (state) => ({ state }) },")
+  lines.push(
+    `    makeModel: (_, children) => ${has("flags") ? "Opt.getOrThrow(children.Inner())" : "children.Inner()"},`
+  )
   lines.push("  })")
   const parentExpected: Record<string, string> = {
-    state: `Outer<${state}>`,
+    state: `Kept<OuterOwn, { readonly Inner: Opt.Option<Instance<${expected.state}>> }>`,
     model: expected.model ?? "",
-    message: `${has("external") ? "Go | " : ""}Readonly<{ _tag: 'Inner'; message: ${message} }>`,
-    command: hasCommands ? `Readonly<{ _tag: 'Inner'; command: ${command} }>` : "never",
+    message: `${has("external") ? "Go | " : ""}Readonly<{ _tag: 'Inner'; message: ${message}; instance?: number }>`,
+    command: hasCommands ? `Readonly<{ _tag: 'Inner'; instance: number; command: ${command} }>` : "never",
     event: "never",
     external: has("external") ? "Ext" : "never",
     flags: "never",
@@ -521,7 +573,7 @@ const generateHand = (c: HandCase): string => {
     lines.push(`  const ${reader}_: Exactly<${reader}<typeof made>, ${type}> = true`)
   }
   lines.push(
-    "  const used = program<{ state: Outer<SNone> }>().child(made, { get: (state) => Opt.some(state.inner), set: (state, inner) => ({ ...state, inner }) })"
+    `  const used = program<{ state: OuterOwn }>().child(made${has("flags") ? ", { flags: () => Opt.some(1) }" : ""})`
   )
   lines.push("  return made === used.program")
   return lines.join("\n")
@@ -530,37 +582,79 @@ const generateHand = (c: HandCase): string => {
 const subsets = <A>(items: ReadonlyArray<A>): ReadonlyArray<ReadonlySet<A>> =>
   Array.from({ length: 2 ** items.length }, (_, mask) => new Set(items.filter((_, i) => (mask >> i) & 1)))
 
+// The layouts of a parent: where its child is, whether it starts from flags, where its input is, and how its steps tell
+// the child. Each place is crossed with a tell written inline, and each other tell with the plain place.
+type Layout = Readonly<{ kidFlags: boolean; place: Place; inputPlace: "at" | "getset"; tell: Tell }>
+const layoutsOf = (comp: Comp): ReadonlyArray<Layout> => {
+  const plain = { kidFlags: false, place: "plain", inputPlace: "getset", tell: "none" } as const
+  switch (comp) {
+    case "none":
+      return [plain]
+    case "input":
+    case "inputById":
+      return (["at", "getset"] as const).map((inputPlace) => ({ ...plain, inputPlace }))
+    case "child":
+      return [
+        ...(["plain", "key", "there", "listening"] as const).map((place) => ({
+          ...plain,
+          place,
+          tell: "inline" as const
+        })),
+        ...(["none", "ternary", "switch"] as const).map((tell) => ({ ...plain, tell })),
+        ...(["plain", "listening"] as const).map((place) => ({
+          ...plain,
+          kidFlags: true,
+          place,
+          tell: "inline" as const
+        }))
+      ]
+    case "childById":
+      return [
+        ...(["plain", "listening"] as const).map((place) => ({ ...plain, place, tell: "inline" as const })),
+        ...(["none", "ternary", "switch", "mapped"] as const).map((tell) => ({ ...plain, tell })),
+        ...(["plain", "listening"] as const).map((place) => ({
+          ...plain,
+          kidFlags: true,
+          place,
+          tell: "inline" as const
+        })),
+        { ...plain, kidFlags: true, tell: "mapped" }
+      ]
+    case "mixed":
+      return (["at", "getset"] as const).flatMap((inputPlace) => [
+        { ...plain, inputPlace, tell: "inline" as const },
+        { ...plain, inputPlace, place: "there" as const, tell: "inline" as const },
+        { ...plain, inputPlace }
+      ])
+  }
+}
+
 const cases: Array<Case> = []
 const comps: ReadonlyArray<Comp> = ["none", "child", "childById", "input", "inputById", "mixed"]
 for (const comp of comps) {
-  // Without children, so that `update` can be written apart: with them, it takes `children`, whose type is not exported.
-  const forms: ReadonlyArray<UpdateForm> = isKid(comp)
-    ? ["absent", "annotated", "contextual"]
-    : ["absent", "annotated", "contextual", "outside"]
-  for (const update of forms) {
+  for (const update of ["absent", "annotated", "contextual", "outside"] as const) {
     for (const subset of subsets(names)) {
       const named = new Set(subset)
       if (update !== "absent") named.add("message")
       for (const subs of ["none", "emits", "silent", "empty"] as const) {
-        for (const kidFlags of isKid(comp) ? [false, true] : [false]) {
-          for (const place of comp === "none" ? (["getset"] as const) : (["at", "getset"] as const)) {
-            for (const order of ["canonical", "reversed"] as const) {
-              for (const annotate of [false, true]) {
-                const c: Case = { id: "", named, comp, update, subs, kidFlags, place, order, annotate }
-                // A subscription that answers with an own message needs one: without, it answers with none.
-                if (subs === "emits" && ownOf(c) === "never") continue
-                const id = [
-                  comp,
-                  update,
-                  [...named].join("+") || "state",
-                  ...(subs === "none" ? [] : [subs]),
-                  ...(kidFlags ? ["kidFlags"] : []),
-                  place,
-                  order,
-                  ...(annotate ? ["annotated"] : [])
-                ].join(".")
-                cases.push({ ...c, id })
-              }
+        for (const layout of layoutsOf(comp)) {
+          for (const order of ["canonical", "reversed"] as const) {
+            for (const annotate of [false, true]) {
+              const c: Case = { id: "", named, comp, update, subs, ...layout, order, annotate }
+              // A subscription that answers with an own message needs one: without, it answers with none.
+              if (subs === "emits" && ownOf(c) === "never") continue
+              const id = [
+                comp,
+                update,
+                [...named].join("+") || "state",
+                ...(subs === "none" ? [] : [subs]),
+                ...(layout.kidFlags ? ["kidFlags"] : []),
+                ...(isKid(comp) ? [layout.place, `tell-${layout.tell}`] : []),
+                ...(comp === "input" || comp === "inputById" || comp === "mixed" ? [layout.inputPlace] : []),
+                order,
+                ...(annotate ? ["annotated"] : [])
+              ].join(".")
+              cases.push({ ...c, id })
             }
           }
         }
@@ -581,15 +675,14 @@ const violations: ReadonlyArray<
   { violation: "externalUnnamed", applies: () => true, named: (named) => named.delete("external") },
   { violation: "externalRejects", applies: () => true },
   { violation: "wrongExternal", applies: () => true },
-  // Written as `update` is, or contextual without one: only that form takes `children`.
-  { violation: "externalToChild", applies: (c) => isKid(c.comp) && c.update !== "annotated" },
+  { violation: "externalToChild", applies: (c) => isKid(c.comp) },
   { violation: "unnamedCommand", applies: () => true, named: (named) => named.delete("command") },
   { violation: "unnamedEvent", applies: (c) => c.update !== "absent", named: (named) => named.delete("event") },
   { violation: "flagsStep", applies: () => true },
   { violation: "flagsUnnamed", applies: () => true, named: (named) => named.delete("flags") },
   { violation: "wrongInitState", applies: () => true },
   { violation: "missingOnEvent", applies: (c) => isKid(c.comp) },
-  { violation: "ownToChild", applies: (c) => isKid(c.comp) && c.update === "contextual" },
+  { violation: "ownToChild", applies: (c) => isKid(c.comp) && c.update !== "absent" },
   ...widths.flatMap((width) => [
     { violation: `clash.${width}` as const, applies: (c: Case) => c.comp !== "none" && c.update !== "absent" },
     { violation: `commandClash.${width}` as const, applies: (c: Case) => c.comp !== "none" }
@@ -597,7 +690,13 @@ const violations: ReadonlyArray<
   { violation: "extraRunCommand", applies: () => true, named: (named) => named.delete("command") },
   // `message` named and no `update`, and an `update` with no `message` named.
   { violation: "missingUpdate", applies: (c) => c.update === "absent", named: (named) => named.add("message") },
-  { violation: "updateUnnamed", applies: (c) => c.update !== "absent", named: (named) => named.delete("message") }
+  { violation: "updateUnnamed", applies: (c) => c.update !== "absent", named: (named) => named.delete("message") },
+  // A step tells only a child the parent has, by its id for children by id, and never from `init`.
+  { violation: "tellWrongChild", applies: (c) => isKid(c.comp) },
+  { violation: "tellWithoutChildren", applies: (c) => !isKid(c.comp) && c.update !== "absent" },
+  { violation: "tellInInit", applies: (c) => isKid(c.comp) },
+  { violation: "tellMissingId", applies: (c) => c.comp === "childById" },
+  { violation: "tellWrongId", applies: (c) => c.comp === "childById" }
 ]
 for (const comp of comps) {
   for (const update of ["absent", "annotated", "contextual"] as const) {
@@ -611,7 +710,9 @@ for (const comp of comps) {
         update,
         subs: "none",
         kidFlags: false,
-        place: "getset",
+        place: "plain",
+        inputPlace: "getset",
+        tell: isKid(comp) ? "inline" : "none",
         order: "canonical",
         annotate: false,
         violation
@@ -684,7 +785,7 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
     id: `special.state-without-fields.${type}`,
     valid: false,
     body: `  const made = program<{ state: ${type} }>().make({ init: { state: 0 }, makeModel: () => null })
-  const used = program<{ state: Outer<object> }>().child(made, { get: (state) => Opt.some(state.inner), set: (_, inner) => ({ inner }) })
+  const used = program<{ state: OuterOwn }>().child(made)
   return used`
   })),
   {
@@ -692,7 +793,7 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
     valid: true,
     body: `  const made = program<{ state: object }>().make({ init: { state: {} }, makeModel: () => null })
   const state: Exactly<StateOf<typeof made>, object> = true
-  const used = program<{ state: Outer<object> }>().child(made, { get: (state) => Opt.some(state.inner), set: (_, inner) => ({ inner }) })
+  const used = program<{ state: OuterOwn }>().child(made)
   return [state, used]`
   },
   // `model: never` named is checked: a model that is drawn is refused, one that is never drawn is true.
@@ -745,17 +846,15 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
     .map(([tag, sent, valid]) => ({
       id: `special.external-passed-on.${tag === "string" ? "string" : "literal"}.${sent}`,
       valid,
-      body: `  type Through = Readonly<{ kid: KidState }>
-  const Parent = program<{ state: Through; external: Readonly<{ _tag: ${tag} }> }>()
-  const parent = Parent.make({
-    init: (children) => ({ state: { kid: children.Kid.init.state }, commands: children.Kid.init.commands }),
-    children: { Kid: Parent.child(kid, { at: Optic.id<Through>().key('kid') }) },
-    external: (message, children) => children.Kid.external({ _tag: '${sent}' }),
+      body: `  const Parent = program<{ state: OuterOwn; external: Readonly<{ _tag: ${tag} }> }>()
+  const parent = Parent.withChildren({ Kid: Parent.child(kid) }).make({
+    init: { state: { m: 0 } },
+    external: () => (state) => ({ state, tell: [{ _tag: 'Kid', message: { _tag: '${sent}' } }] }),
     onEvent: { Kid: () => (state) => ({ state }) },
     makeModel: () => null,
   })
   const external: Exactly<ExternalOf<typeof parent>, Readonly<{ _tag: ${tag} }>> = true
-  const message: Exactly<MessageOf<typeof parent>, Readonly<{ _tag: 'Kid'; message: KidMessage }>> = true
+  const message: Exactly<MessageOf<typeof parent>, Readonly<{ _tag: 'Kid'; message: KidMessage; instance?: number }>> = true
   return [external, message]`
     })),
   // A wide type for the external messages is true, and read back as named.
@@ -775,13 +874,11 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
   ...([["Kid", false], ["Inc", "refused"]] as const).map(([tag, valid]) => ({
     id: `special.children-wide-names.${tag}`,
     valid,
-    body: `  type Through = Readonly<{ n: number; kid: KidState }>
-  const Parent = program<{ state: Through; message: Readonly<{ _tag: '${tag}' }> }>()
-  const handle = Parent.child(kid, { at: Optic.id<Through>().key('kid') })
+    body: `  const Parent = program<{ state: OuterOwn; message: Readonly<{ _tag: '${tag}' }> }>()
+  const handle = Parent.child(kid)
   const children: Readonly<Record<string, typeof handle>> = { Kid: handle }
-  const parent = Parent.make({
-    init: () => ({ state: { n: 0, kid: { k: 0 } } }),
-    children,
+  const parent = Parent.withChildren(children).make({
+    init: { state: { m: 0 } },
     update: () => (state) => ({ state }),
     onEvent: { Kid: () => (state) => ({ state }) },
     makeModel: () => null,
@@ -833,17 +930,45 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
   ...([["unknown", false], ["object", false], ["number", true]] as const).map(([type, valid]) => ({
     id: `special.wide-message-beside-child.${type}`,
     valid,
-    body: `  type Through = Readonly<{ kid: KidState }>
-  const Parent = program<{ state: Through; message: ${type} }>()
-  const parent = Parent.make({
-    init: (children) => ({ state: { kid: children.Kid.init.state }, commands: children.Kid.init.commands }),
-    children: { Kid: Parent.child(kid, { at: Optic.id<Through>().key('kid') }) },
+    body: `  const Parent = program<{ state: OuterOwn; message: ${type} }>()
+  const parent = Parent.withChildren({ Kid: Parent.child(kid) }).make({
+    init: { state: { m: 0 } },
     update: () => (state) => ({ state }),
     onEvent: { Kid: () => (state) => ({ state }) },
     makeModel: () => null,
   })
   return parent`
   })),
+  // What a step tells is folded by `andThen`, and keeps its literal tags there too.
+  {
+    id: "special.tell-through-andThen",
+    valid: true,
+    body: `  const Parent = program<{ state: SChildById; message: Own }>()
+  const parent = Parent.withChildren({ Kid: Parent.childById(kid, { ids: (state) => state.ids }) }).make({
+    init: { state: { n: 0, ids: [1] } },
+    update: () => (state) =>
+      andThen({ state: { ...state, n: 0 }, tell: [{ _tag: 'Kid', id: 1, message: { _tag: 'KReset' } }] }, (state) => ({
+        state,
+        tell: state.ids.map((id) => ({ _tag: 'Kid', id, message: { _tag: 'KReset' } })),
+      })),
+    onEvent: { Kid: () => (state) => ({ state }) },
+    makeModel: () => null,
+  })
+  return parent`
+  },
+  // A parent of no children is a program whose state is kept, with nothing beside its own.
+  {
+    id: "special.no-children",
+    valid: true,
+    body: `  const made = program<{ state: SNone; message: Own }>().withChildren({}).make({
+    init: { state: { n: 0 } },
+    update: () => (state) => ({ state }),
+    makeModel: (state) => state.n,
+  })
+  const state: Exactly<StateOf<typeof made>, Kept<SNone, {}>> = true
+  const message: Exactly<MessageOf<typeof made>, Own> = true
+  return [state, message]`
+  },
   {
     id: "special.generic-program-of-t",
     valid: true,
@@ -860,7 +985,7 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
     id: "special.generic-program-of-t-as-child",
     valid: "refused",
     body: `  const asChild = <T extends { state: SNone; model: unknown; message: unknown }>(p: Program<T>) =>
-    program<{ state: Outer<SNone> }>().child(p, { get: (state) => Opt.some(state.inner), set: (_, inner) => ({ inner }) })
+    program<{ state: OuterOwn }>().child(p)
   return asChild`
   },
   // `T` may name flags or messages, which a step and no `update` would break.
@@ -873,25 +998,20 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
   }
 ]
 
-// A handle's call that sends the child an external message, from a parent's `update` or `external`.
-const toKid = (c: Case, tag: "KInc" | "KReset") =>
-  c.comp === "childById"
-    ? `children.Kid.external(1, { _tag: '${tag}' })(state)`
-    : `children.Kid.external({ _tag: '${tag}' })(state)`
-
 const header = `import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import {
-  type CommandOf, type CommandServicesOf, type EventOf, type ExternalOf, type FlagsOf, type MessageOf, type ModelOf,
-  type Program, program, reject, type StateOf, type SubscriptionServicesOf, type Update,
+  andThen, type CommandOf, type CommandServicesOf, type EventOf, type ExternalOf, type FlagsOf, type Instance, type Kept,
+  type MessageOf, type ModelOf, type Program, program, reject, type StateOf, type SubscriptionServicesOf,
+  type Transition, type Update,
 } from '../src/index.ts'
 import {
   type Cmd, Db, type Ev, type Exactly, type Ext, type Feed, feed, type Go, held, type Lock, kid, type KidCommand, type KidDb,
-  type KidEvent, type KidFeed, type KidMessage, type KidState, kidF, type MChild, type MChildById, type MInput,
-  type MInputById, type MMixed, type MNone, type Outer, type Own, type SChild, type SChildById, type SInput,
-  type SInputById, type SMixed, type SNone, type Written,
+  type KidEvent, type KidFeed, type KidMessage, type KidState, kidF, type KReset, type MChild, type MChildById,
+  type MInput, type MInputById, type MMixed, type MNone, type OuterOwn, type Own, type SChild, type SChildById,
+  type SInput, type SInputById, type SMixed, type SNone, type Written,
 } from '../tools/inference/prelude.ts'
 `
 
@@ -900,23 +1020,18 @@ type Span = Readonly<{ id: string; file: string; from: number; to: number; valid
 // A parent with `count` children, each with commands, events, subscriptions and services.
 const scaled = (count: number) => {
   const ids = Array.from({ length: count }, (_, i) => i)
-  return `import * as Optic from 'effect/Optic'
-import { type MessageOf, program } from '../../src/index.ts'
-import { type Go, kid, type KidState } from '../../tools/inference/prelude.ts'
+  return `import { type MessageOf, program } from '../../src/index.ts'
+import { type Go, kid } from '../../tools/inference/prelude.ts'
 
-type State = Readonly<{ ${ids.map((i) => `k${i}: KidState`).join("; ")} }>
+type State = Readonly<{ n: number }>
 
-export const { make, child } = program<{ state: State; message: Go }>()
+export const { child, withChildren } = program<{ state: State; message: Go }>()
 
-export const parent = make({
-  init: (children) => ({
-    state: { ${ids.map((i) => `k${i}: children.K${i}.init.state`).join(", ")} },
-    commands: [${ids.map((i) => `...children.K${i}.init.commands`).join(", ")}],
-  }),
-  children: { ${ids.map((i) => `K${i}: child(kid, { at: Optic.id<State>().key('k${i}') })`).join(", ")} },
-  update: (_, children) => (state) => children.K${count - 1}.external({ _tag: 'KReset' })(state),
-  onEvent: { ${ids.map((i) => `K${i}: (event, children) => (state) => ({ state })`).join(", ")} },
-  makeModel: (state, children) => ({ ${ids.map((i) => `k${i}: children.K${i}(state)`).join(", ")} }),
+export const parent = withChildren({ ${ids.map((i) => `K${i}: child(kid)`).join(", ")} }).make({
+  init: { state: { n: 0 } },
+  update: () => (state) => ({ state, tell: [{ _tag: 'K${count - 1}', message: { _tag: 'KReset' } }] }),
+  onEvent: { ${ids.map((i) => `K${i}: () => (state) => ({ state })`).join(", ")} },
+  makeModel: (_, children) => ({ ${ids.map((i) => `k${i}: children.K${i}()`).join(", ")} }),
 })
 
 export type Message = MessageOf<typeof parent>

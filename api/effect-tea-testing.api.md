@@ -105,10 +105,11 @@ type FlagsOption<Flags> = [Flags] extends [never] ? {
 };
 
 // @public
-type Folded<State, Command, Event> = {
+type Folded<State, Command, Event, Tell = never> = {
     readonly state: State;
     readonly commands: ReadonlyArray<Command>;
     readonly events: ReadonlyArray<Event>;
+    readonly tell?: ReadonlyArray<Tell>;
 };
 
 // @public
@@ -122,8 +123,22 @@ type Ignored<State, Message> = {
 type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, Command> : (flags: Flags) => Step<State, Command>;
 
 // @public
+type Instance<State> = {
+    readonly instance: number;
+    readonly key: unknown;
+    readonly state: State;
+};
+
+// @public
 type Interpreter<Command, Message, R> = [Command] extends [never] ? object : {
     readonly runCommand: RunCommand<Command, Message, R>;
+};
+
+// @public
+type Kept<Own, Children> = {
+    readonly own: Own;
+    readonly starts: number;
+    readonly children: Children;
 };
 
 // @public
@@ -226,10 +241,21 @@ export type Simulation<State, Message, Command = never, Event = never> = {
 };
 
 // @public
-type Step<State, Command = never, Event = never> = {
+export const stateOf: <Own, Children>(program: Readonly<{
+    init: Step<Kept<Own, Children>, any> | ((flags: any) => Step<Kept<Own, Children>, any>);
+}>, own: Own, states?: StatesOf<Children>) => Kept<Own, Children>;
+
+// @public
+type StatesOf<Children> = {
+    readonly [K in keyof Children]?: Children[K] extends HashMap.HashMap<infer Id, Instance<infer State>> ? Iterable<readonly [Id, State]> : Children[K] extends Opt.Option<Instance<infer State>> ? State : never;
+};
+
+// @public
+type Step<State, Command = never, Event = never, Tell = never> = {
     readonly state: State;
     readonly commands?: ReadonlyArray<Command>;
     readonly events?: ReadonlyArray<Event>;
+    readonly tell?: ReadonlyArray<Tell>;
 };
 
 // @public
@@ -239,7 +265,7 @@ type Subscription<Message, R = never> = Channel.Channel<Message, never, Message,
 type Subscriptions<State, Message, R = never, K = unknown> = (state: State) => HashMap.HashMap<K, Subscription<Message, R>>;
 
 // @public
-type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected;
+type Transition<State, Command = never, Event = never, Tell = never> = Step<State, Command, Event, Tell> | Rejected;
 
 // @public
 type Update<State, Message, Command = never, Event = never> = (message: Message) => (state: State) => Transition<State, Command, Event>;

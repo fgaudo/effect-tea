@@ -611,8 +611,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a tag that the children inherit is routed to a child",
     file: "src/compose.ts",
-    from: "typeof tag === \"string\" && Object.hasOwn(children, tag)",
-    to: "typeof tag === \"string\" && tag in children",
+    from: "typeof tag === \"string\" && Object.hasOwn(programs, tag)",
+    to: "typeof tag === \"string\" && tag in programs",
     killedBy: [
       [
         "src/compose.test.ts",
@@ -621,7 +621,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "a child that the children inherit gets a handle and a model",
+    name: "a child that the children inherit is kept and gets a model",
     file: "src/compose.ts",
     from: "  Object.fromEntries(Object.entries(record).map(([name, value]) => [name, f(value, name)]))",
     to:
@@ -629,60 +629,32 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/compose.test.ts",
-        "a child that the children object inherits is no child: it has no handle, no model and no subscriptions"
+        "a child that the children object inherits is no child: it is not kept, and has no model and no subscriptions"
       ]
     ]
   },
   {
-    name: "a child that the children inherit has its subscriptions lifted",
+    name: "a child that the children inherit is reconciled and has its subscriptions lifted",
     file: "src/compose.ts",
     from: "  const names = Object.keys(programs)\n",
     to: "  const names = [...(function*() { for (const name in programs) yield name })()]\n",
     killedBy: [
       [
         "src/compose.test.ts",
-        "a child that the children object inherits is no child: it has no handle, no model and no subscriptions"
+        "a child that the children object inherits is no child: it is not kept, and has no model and no subscriptions"
       ]
     ]
   },
   {
-    name: "a child's lifted subscriptions are kept without their place",
+    name: "a child's lifted subscriptions are made again for the instance they were made for",
     guarantees: ["Subscriptions follow their keys"],
     file: "src/compose.ts",
-    from: "at !== undefined && at[0].name === place.name && Equal.equals(at[0].id, place.id)",
-    to: "at !== undefined",
-    killedBy: [
-      ["src/compose.test.ts", "a child that takes the place of another in a shared state listens with its own id"]
-    ]
-  },
-  {
-    name: "a shared state keeps the places it no longer holds",
-    guarantees: ["Subscriptions follow their keys"],
-    file: "src/compose.ts",
-    from: "      kept.places.length = kept.met\n",
+    from: "    if (found !== undefined) return found\n",
     to: "",
     killedBy: [
       [
         "src/compose.test.ts",
-        "a place that a shared state no longer holds is let go of by the next call that meets the state"
-      ]
-    ]
-  },
-  {
-    name: "a child's lifted subscriptions are looked for past the places of the last call",
-    guarantees: ["Subscriptions follow their keys"],
-    file: "src/compose.ts",
-    from: "      kept.met = 0\n",
-    to: "",
-    killedBy: [
-      [
-        "src/compose.test.ts",
-        "a child's subscriptions are kept while its state is the same object, and made again for a new one"
-      ],
-      ["src/compose.test.ts", "children that share one state object are lifted once while they keep sharing it"],
-      [
-        "src/input.test.ts",
-        "a write into it keeps every subscription the same object, the children's lifted ones included"
+        "a child's subscriptions are kept while its instance is the same object, and made again for a new state"
       ]
     ]
   },
@@ -690,52 +662,37 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a child's state that is not an object dies of the WeakMap's TypeError",
     guarantees: ["Nothing ends in silence"],
     file: "src/compose.ts",
-    from: "    if (Predicate.isObjectKeyword(childState)) return childState\n",
-    to: "    return childState as object\n",
+    from: "    if (!Predicate.isObjectKeyword(childState)) {\n",
+    to: "    if (false) {\n",
     killedBy: [
       [
         "src/compose.test.ts",
-        "a child whose state is not an object is a defect that names it, in its model and in its subscriptions"
+        "a child whose state is not an object is a defect that names it and its id, in its model"
       ],
-      [
-        "src/compose.test.ts",
-        "a child alone whose state is not an object is a defect that names it, in its model and in its subscriptions"
-      ]
+      ["src/compose.test.ts", "a child alone whose state is not an object is a defect that names it, in its model"]
     ]
   },
   {
     name: "an own key equal to a lifted one is no defect",
     guarantees: ["Nothing ends in silence"],
     file: "src/compose.ts",
-    from: "                if (HashMap.has(own, key)) {\n"
-      + "                  throw defectAt(place, `An own subscription key is the key of a subscription of \"${name}\"`)\n"
-      + "                }\n"
-      + "                if (HashMap.has(keyed, key)) {",
-    to: "                if (false) {",
+    from: "            if (HashMap.has(own, key)) {\n",
+    to: "            if (false) {\n",
     killedBy: [
       [
         "src/compose.test.ts",
         "an own subscription key that is the lifted key of a child's is a defect, never a silent replacement"
-      ],
-      [
-        "src/compose.test.ts",
-        "subscribed children that list one id twice are a defect that says so, not a clash with an own key"
       ]
     ]
   },
   {
-    name: "an own key equal to a lifted one is the defect of an id listed twice",
+    name: "an id listed twice is no defect",
     guarantees: ["Nothing ends in silence"],
     file: "src/compose.ts",
-    from: "                if (HashMap.has(own, key)) {\n"
-      + "                  throw defectAt(place, `An own subscription key is the key of a subscription of \"${name}\"`)\n"
-      + "                }\n",
-    to: "",
+    from: "if (HashMap.has(kept, id)) throw defectAt(",
+    to: "if (false) throw defectAt(",
     killedBy: [
-      [
-        "src/compose.test.ts",
-        "an own subscription key that is the lifted key of a child's is a defect, never a silent replacement"
-      ]
+      ["src/compose.test.ts", "an id listed twice is a CompositionDefect, in update and in init"]
     ]
   },
   {
@@ -753,16 +710,29 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a message for a child that is not there is applied as a step that keeps the state",
-    guarantees: ["Outdated clicks are harmless", "An input stores what is written, where its place is there"],
+    guarantees: ["Outdated clicks are harmless"],
     file: "src/compose.ts",
-    from: "      onNone: () => reject,\n",
-    to: "      onNone: () => ({ state }),\n",
+    from: "      if (Opt.isNone(entry)) return reject\n",
+    to: "      if (Opt.isNone(entry)) return { state }\n",
     killedBy: [
       [
         "src/compose.test.ts",
         "a message for a child that is not there is rejected, from its view or as the answer of a command"
       ],
       ["src/compose.test.ts", "the late message of a removed child is rejected"],
+      [
+        "src/compose.test.ts",
+        "a message for a child sometimes there that a state written by hand does not hold is rejected"
+      ]
+    ]
+  },
+  {
+    name: "a write whose place is not there is applied as a step that keeps the state",
+    guarantees: ["An input stores what is written, where its place is there"],
+    file: "src/compose.ts",
+    from: "    if (Opt.isNone(held)) return reject\n",
+    to: "    if (Opt.isNone(held)) return { state }\n",
+    killedBy: [
       ["src/input.test.ts", "is rejected where the input is not in the state"],
       ["src/input.test.ts", "rejects a write at an id the state does not hold"]
     ]
@@ -771,33 +741,229 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a child's rejection is applied by its parent as a step that keeps the state",
     guarantees: ["Outdated clicks are harmless"],
     file: "src/compose.ts",
-    from: "result === reject ? reject : liftAt(place, state, childState, result)",
-    to: "result === reject ? { state } : liftAt(place, state, childState, result)",
+    from: "      if (result === reject) return reject\n      childStep(",
+    to: "      if (result === reject) return { state }\n      childStep(",
     killedBy: [
       ["src/input.test.ts", "a fixed message drawn for the old draft reaches the new one, and update decides"]
     ]
   },
   {
-    name: "an external message to a missing child is answered from no state",
-    guarantees: ["Nothing ends in silence"],
+    name: "an answer for another instance at the place reaches the instance there",
+    guarantees: ["Outdated clicks are harmless"],
     file: "src/compose.ts",
-    from: "    if (Opt.isNone(childState)) {\n",
-    to: "    if (false) {\n",
+    from: "      if (instance !== undefined && instance !== entry.value.instance) return reject\n",
+    to: "",
     killedBy: [
-      ["src/compose.test.ts", "a child's external never rejects, and one for a child that is not there is a defect"],
       [
         "src/compose.test.ts",
-        "a CompositionDefect names the child, its id for a child by id, and the tags of what it happened on"
+        "an answer for a child alone closed and opened again is rejected, and one for the instance there applies"
+      ],
+      ["src/compose.test.ts", "an answer for a child alone started again in one step by a new key is rejected"],
+      ["src/compose.test.ts", "an answer for a child by id started again in one step by other flags is rejected"],
+      ["src/compose.test.ts", "an answer for a child by id removed and listed again at its id is rejected"],
+      [
+        "src/compose.test.ts",
+        "closed, then opened again: the answer of the form before is rejected, and the run goes on"
+      ],
+      ["src/compose.test.ts", "started again in one step, by its key: the answer of the form before is rejected"]
+    ]
+  },
+  {
+    name: "every start has the same number",
+    guarantees: ["Outdated clicks are harmless"],
+    file: "src/compose.ts",
+    from: "    const instance = ++gathered.starts\n",
+    to: "    const instance = gathered.starts\n",
+    killedBy: [
+      ["src/compose.test.ts", "a child's commands carry the number of its start, and so do their answers"],
+      [
+        "src/compose.test.ts",
+        "closed, then opened again: the answer of the form before is rejected, and the run goes on"
       ]
+    ]
+  },
+  {
+    name: "a tell to a child that is not there is answered from no state",
+    guarantees: ["Nothing ends in silence"],
+    file: "src/compose.ts",
+    from: "      if (Opt.isNone(entry)) {\n",
+    to: "      if (false) {\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "telling a child that is not there once the step is reconciled is a CompositionDefect naming it and the message"
+      ],
+      ["src/compose.test.ts", "a child's external never rejects, and telling a child that is not there is a defect"]
+    ]
+  },
+  {
+    name: "a child that an earlier item of the same step started again is told",
+    file: "src/compose.ts",
+    from: "      if (Opt.isNone(entry) || entry.value.instance !== instance) continue\n",
+    to: "      if (Opt.isNone(entry)) continue\n",
+    killedBy: [
+      ["src/compose.test.ts", "a child that an earlier answer of the same step started again is told nothing"]
+    ]
+  },
+  {
+    name: "a child that an earlier item of the same step dropped is told, from no state",
+    file: "src/compose.ts",
+    from: "      if (Opt.isNone(entry) || entry.value.instance !== instance) continue\n",
+    to: "      if (entry.value.instance !== instance) continue\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child that an earlier answer of the same step dropped is told nothing, and it is no defect"
+      ]
+    ]
+  },
+  {
+    name: "what a step tells is given in the reverse order",
+    file: "src/compose.ts",
+    from: "    for (const [place, instance, message] of bound) {\n",
+    to: "    for (const [place, instance, message] of [...bound].reverse()) {\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "children are told in order, each to its end: the events of one are handled before the next is told"
+      ]
+    ]
+  },
+  {
+    name: "a step of the parent's own is not reconciled",
+    guarantees: ["Outdated clicks are harmless"],
+    file: "src/compose.ts",
+    from: "    if (!Object.is(step.state, before)) reconcile(gathered, Opt.some(before))\n",
+    to: "",
+    killedBy: [
+      ["src/compose.test.ts", "a child that the step lists anew is started before it is told"],
+      [
+        "src/compose.test.ts",
+        "a child that a step lists anew is started, with its first commands lifted with its number"
+      ]
+    ]
+  },
+  {
+    name: "a write into the parent's input is not reconciled",
+    guarantees: ["Outdated clicks are harmless"],
+    file: "src/compose.ts",
+    from: "    reconcile(gathered, Opt.some(own))\n",
+    to: "",
+    killedBy: [
+      ["src/compose.test.ts", "a write into the parent's input that changes what its state lists reconciles too"]
+    ]
+  },
+  {
+    name: "init starts no child",
+    file: "src/compose.ts",
+    from: "      events: []\n    }\n    reconcile(gathered, Opt.none())\n    return {\n",
+    to: "      events: []\n    }\n    return {\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "init starts each child its first state lists, with its first commands, by the order of the names, then of the ids"
+      ]
+    ]
+  },
+  {
+    name: "a child alone that the state no longer lists is kept",
+    guarantees: ["Outdated clicks are harmless"],
+    file: "src/compose.ts",
+    from: "          if (Opt.isSome(current)) gathered.children = { ...gathered.children, [name]: Opt.none() }\n",
+    to: "",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "an answer for a child alone closed and opened again is rejected, and one for the instance there applies"
+      ]
+    ]
+  },
+  {
+    name: "a child by id that the state no longer lists is kept",
+    guarantees: ["Outdated clicks are harmless"],
+    file: "src/compose.ts",
+    from: "      if (!same || HashMap.size(next) !== HashMap.size(current)) {\n",
+    to: "      if (!same) {\n",
+    killedBy: [
+      ["src/compose.test.ts", "a child that the state no longer lists is dropped, and a message for it is rejected"]
+    ]
+  },
+  {
+    name: "a child alone is started again for a key equal by Equal",
+    file: "src/compose.ts",
+    from: "!Equal.equals(current.value.key, wanted.value)",
+    to: "current.value.key !== wanted.value",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "another key starts a child alone again, and a key equal by Equal, a struct made anew, keeps it"
+      ]
+    ]
+  },
+  {
+    name: "a child by id is started again for flags equal by Equal",
+    file: "src/compose.ts",
+    from: "Equal.equals(found.value.key, key)",
+    to: "found.value.key === key",
+    killedBy: [
+      ["src/compose.test.ts", "flags equal by Equal, a struct made anew at each call, keep a child by id"]
+    ]
+  },
+  {
+    name: "children by id are reconciled when their ids are the very same object",
+    file: "src/compose.ts",
+    from: "      if (Opt.isSome(before) && Object.is(now, listed(before.value))) continue\n",
+    to: "",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "children by id whose ids give the very same object are left as they are, and others are reconciled"
+      ]
+    ]
+  },
+  {
+    name: "a step that changes nothing makes a new state",
+    guarantees: ["A model is made only when it is read"],
+    file: "src/compose.ts",
+    from: "    const same = Object.is(gathered.own, was.own) && gathered.children === was.children &&\n",
+    to: "    const same = false && gathered.children === was.children &&\n",
+    killedBy: [
+      ["src/compose.test.ts", "a step that changes nothing leaves the very same state"]
+    ]
+  },
+  {
+    name: "a child's step that keeps its state replaces its instance",
+    guarantees: ["A model is made only when it is read"],
+    file: "src/compose.ts",
+    from: "    if (!Object.is(result.state, entry.state)) {\n",
+    to: "    if (true) {\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child's message that keeps its state keeps the parent's, its commands and events still going"
+      ]
+    ]
+  },
+  {
+    name: "a child listens where listening does not hold",
+    guarantees: ["Subscriptions follow their keys"],
+    file: "src/compose.ts",
+    from: "            listening !== undefined && !(",
+    to: "            false && !(",
+    killedBy: [
+      ["src/compose.test.ts", "without listening every child listens, and with it those where it holds"],
+      ["src/compose.test.ts", "a row where listening does not hold runs no subscription, and still takes its messages"]
     ]
   },
   {
     name: "an external message to a child without external dies of a TypeError",
     guarantees: ["Nothing ends in silence"],
     file: "src/compose.ts",
-    from: "    if (answer === undefined) {\n",
-    to: "    if (false) {\n",
-    killedBy: [["src/compose.test.ts", "a child without external takes no external message from its parent"]]
+    from: "      if (answer === undefined) {\n",
+    to: "      if (false) {\n",
+    killedBy: [
+      ["src/compose.test.ts", "a child without external takes no external message from its parent"]
+    ]
   },
   {
     name: "a child's command with no runCommand dies of a TypeError",
@@ -813,8 +979,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a write into an input by id goes to its place without its id",
     guarantees: ["An input stores what is written, where its place is there"],
     file: "src/compose.ts",
-    from: "  inputById: (place) => ({ kind: \"byId\", ...placedById(place) }),\n",
-    to: "  inputById: (place) => ({ kind: \"one\", ...placedById(place) }),\n",
+    from: "inputById: (place: PlacementById<unknown, unknown, unknown>) => ({ kind: \"byId\", ...placedById(place) }),",
+    to: "inputById: (place: PlacementById<unknown, unknown, unknown>) => ({ kind: \"one\", ...placedById(place) }),",
     killedBy: [
       ["src/input.test.ts", "stores a write at its id, and leaves the other rows and inputs as they are"],
       [
@@ -825,6 +991,36 @@ export const mutations: ReadonlyArray<Mutation> = [
         "src/input.test.ts",
         "an input by id stores a write at its id through set, and rejects one at an id get does not find"
       ]
+    ]
+  },
+  {
+    name: "a write of the value held makes a new state",
+    guarantees: ["An input stores what is written, where its place is there"],
+    file: "src/compose.ts",
+    from: "    if (Object.is(value, held.value)) return { state, commands: [], events: [] }\n",
+    to: "",
+    killedBy: [
+      ["src/input.test.ts", "leaves the very same state when the place holds it already"],
+      ["src/input.test.ts", "equal by Equal to the value held, whatever it is made of, leaves the very value held"]
+    ]
+  },
+  {
+    name: "a write compares the value it stores by ===, which NaN never is of itself",
+    guarantees: ["An input stores what is written, where its place is there"],
+    file: "src/compose.ts",
+    from: "Object.is(value, held.value)",
+    to: "value === held.value",
+    killedBy: [
+      ["src/input.test.ts", "a write of NaN over NaN leaves the very same state"]
+    ]
+  },
+  {
+    name: "stateOf leaves each child as it starts",
+    file: "src/compose.ts",
+    from: "        putAt(gathered, place, { ...entry, state: childState })\n",
+    to: "",
+    killedBy: [
+      ["src/compose.test.ts", "it puts each child in the state given, and the others as they start"]
     ]
   },
   {
@@ -1501,29 +1697,6 @@ export const mutations: ReadonlyArray<Mutation> = [
         "simulate fails, as the run dies, in a command on a release of a command that dies"
       ]
     ]
-  },
-  {
-    name: "a parent makes a new state for a child's message that keeps the child's",
-    guarantees: ["An input stores what is written, where its place is there"],
-    file: "src/compose.ts",
-    from: "state: Object.is(result.state, childState) ? state : setAt(place, state, result.state),",
-    to: "state: setAt(place, state, result.state),",
-    killedBy: [
-      [
-        "src/compose.test.ts",
-        "a child's message that keeps its state keeps the parent's, its commands and events still going"
-      ],
-      ["src/input.test.ts", "leaves the very same state when the place holds it already"],
-      ["src/input.test.ts", "equal by Equal to the value held, whatever it is made of, leaves the very value held"]
-    ]
-  },
-  {
-    name: "a parent compares the state its child left by ===, which NaN never is of itself",
-    guarantees: ["An input stores what is written, where its place is there"],
-    file: "src/compose.ts",
-    from: "Object.is(result.state, childState)",
-    to: "result.state === childState",
-    killedBy: [["src/input.test.ts", "a write of NaN over NaN leaves the very same state"]]
   },
   {
     name: "a report leaves the defects it reported to be reported again",

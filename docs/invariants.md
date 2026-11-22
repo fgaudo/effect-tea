@@ -58,14 +58,31 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   never dies on a message of its view, nor on an event raised for one.
 - **A parent and its children talk only through external messages and events**, so that `reject` means the
   same everywhere: a child answers an external message in its `external`, whose type returns a step, never a
-  rejection, and a parent giving one to a child that is not there is a defect: a `CompositionDefect`, as every
-  break of what a parent declared is (`defectAt` in `compose.ts`), so that reports group them and name the child. The
-  types enforce what a parent declares: `runCommand` exactly when it has commands of its own, `onEvent` exactly when a
-  child has events, `external` exactly when it names external messages, a handle's `external` only with what the
-  child's `external` takes, which reaches that `external` through a handle alone (an own
-  subscription and an own command send only the parent's own messages, `RunCommandOf` in `compose.ts`), no own message
-  or command named like a child. A program written without `Program<…>` has `unknown` types, read as `never` (`Known`
-  in `program.ts`), so that it does not open these checks.
+  rejection, and a parent telling one to a child that is not there once its step is reconciled is a defect: a
+  `CompositionDefect`, as every break of what a parent declared is (`defectAt` in `compose.ts`), so that reports group
+  them and name the child. A parent is not given its children's states: its functions take its own state, and the
+  library keeps the children beside it, in the state of the composed program
+  ([`kept-children.md`](records/kept-children.md)). So nothing but a child's own `update` and `external` changes a
+  child's state while it lives, and a parent cannot read one to decide. What a parent tells is data of its step,
+  `tell`, given to the children once the step's state is reconciled, in order, each to its end (`ownStep` in
+  `compose.ts`); an item bound to an instance that an earlier item dropped or started again is told nothing, so that a
+  parent can tell all its children where the answer of one removes another. The types enforce what a parent declares:
+  `runCommand` exactly when it has commands of its own, `onEvent` exactly when a child has events, `external` exactly
+  when it names external messages, a `tell` only with what the child's `external` takes, which reaches that `external`
+  through a `tell` alone (an own subscription and an own command send only the parent's own messages, `RunCommandOf`
+  in `compose.ts`), no own message or command named like a child. A program written without `Program<…>` has
+  `unknown` types, read as `never` (`Known` in `program.ts`), so that it does not open these checks.
+- **The children are those the parent's own state lists, and an answer reaches the instance that asked for it, or is
+  rejected.** After each step of the parent's own code (its `init`, `update`, `external`, a handler of `onEvent`, a
+  write into its input), the library starts each child that the own state lists anew, with its first commands, drops
+  each it no longer lists, and starts again one whose flags or key differ by `Equal` (`reconcile` in `compose.ts`): the
+  state stays the fold of `update` over the messages, so the engine and the testing tools know nothing of children.
+  Each start has a number, counted in the state (`starts`), which the child's lifted commands, their answers and its
+  lifted keys carry, and a message whose number is not that of the child there is rejected (`update` in `compose.ts`):
+  a child closed and opened again, or started again in one step, never gets the answer of the one before. A message of
+  a view carries no number, and names the place alone, as an input's write does. Children by id whose `ids` gives the
+  very same object for the own state of before and for the new one are not reconciled: `ids` is pure, so the same
+  object lists the same children. An id listed twice is a `CompositionDefect` there.
 - **A write is stored wherever its place is there, and only what is drawn writes into an input** (`written` in
   `input.ts`, applied in `compose.ts` as an input's program; [`registers.md`](records/registers.md) says why, and
   [`write-without-was.md`](records/write-without-was.md) why a write names no value it was written over). A write is a
@@ -74,7 +91,7 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   and whatever the place held, since the element on screen already shows it, and a write of the value held, by
   `Equal`, leaves the very same value. A view writes `{ _tag: 'Written', value }` by hand, `value` what the element
   holds ([`rejected.md`](rejected.md), "An entry of each input in the model, which a view writes through"). A write
-  into an input by id is routed as a child's message by id is, to the place of the id it names (`isById` in
+  into an input by id is routed as a child's message by id is, to the place of the id it names (`getInput` in
   `compose.ts`). A write whose place is not there, where `get` returns `None` or the state holds no such id, is
   rejected by that routing before `written` is called: it does not apply in the state, the one meaning of `reject`.
   The rule reads the message alone and keeps nothing between two writes, so every other step, the parent's own, a
@@ -112,15 +129,14 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   in either bridge: an event that the program's own code dispatches in the task of a notice, before its draw
   (`element.click()`, `dispatchEvent`, `focus()`), runs its handler on the view of before the notice.
 - **Every program keeps its state in an object**, replaced and never mutated, so that any program can be a child: a
-  parent keeps a child's model and its lifted subscriptions by its state object (below), and a number or a string
-  has no identity to keep them by. It binds whoever writes a program, and the types are what enforce it
-  (`ObjectState` in `program.ts`, checked by `Program`, `program`, `make`, `child`, `childById`, `start` and the testing
-  tools that take a program). `make` checks it on its config, since the program it returns carries the marker that the
-  check of `start` asks for (`MakeProgram` in `compose.ts`). A primitive state gets past them only by a cast or from a
-  caller without TypeScript: a program run alone never needs its state to be an object, and is not checked, while a
-  child's is checked where a parent reads it for a model or for its lifted subscriptions (`objectAt` in `compose.ts`),
-  and is a `CompositionDefect` that names the child, since the state is the one the parent's `get` declared, where a
-  `WeakMap` would raise its own `TypeError`.
+  parent keeps a child's model by its state object (below), and a number or a string has no identity to keep it by. It
+  binds whoever writes a program, and the types are what enforce it (`ObjectState` in `program.ts`, checked by
+  `Program`, `program`, `make`, `child`, `childById`, `start` and the testing tools that take a program). `make` checks
+  it on its config, since the program it returns carries the marker that the check of `start` asks for (`MakeProgram` in
+  `compose.ts`). A primitive state gets past them only by a cast or from a caller without TypeScript: a program run
+  alone never needs its state to be an object, and is not checked, while a child's is checked where a parent reads it
+  for a model (`modelOf` in `compose.ts`), and is a `CompositionDefect` that names the child, where a `WeakMap` would
+  raise its own `TypeError`.
 - **A dispatch is a function, and needs no services**: it applies its message on its caller's stack, and records what
   the program throws there (`attempt` and `recordThrown` in `engine.ts`, with `record` of `Deaths` in `shell.ts`),
   never throwing it to the caller, whose fiber would take it for its own. No fiber is made for a message, nor for a
@@ -346,17 +362,14 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
 
 ## What the engine keeps for itself
 
-- **A child's model, and its lifted subscriptions, are kept by its state object** (`modelsOf` and `lifted` in
-  `compose.ts`) for as long as that object lives: they rely on `makeModel` and `subscriptions` being pure and on
-  states being replaced, never mutated, and hold nothing of the run, so runs that share a state share them. A
-  model holds nothing of its place either, so children that share a state share its model. Lifted subscriptions
-  carry their place: a state keeps them for the places it held in the last call of its parent's `subscriptions` that
-  met it, in their order, each checked, so that children that share a state, as those a step's `init` starts do,
-  keep theirs, and ids never pile up under a shared state, since the next call that meets it lets go of the places it
-  no longer holds. A place met out of that order, or a state that two callers meet in turn at other places (two
-  runs, or one program as two children), is lifted again: it costs time, never a wrong place. They need the state
-  to be an object, which every program keeps (above): never add a cache for primitive states, which nothing could
-  let go of.
+- **A child's model is kept by its state object, and its lifted subscriptions by its instance** (`modelsOf` and
+  `lifted` in `compose.ts`), for as long as that object lives: they rely on `makeModel` and `subscriptions` being pure
+  and on states being replaced, never mutated, and hold nothing of the run, so runs that share a state share them. A
+  model holds nothing of its place either, so children that share a state share its model. The instance, the object
+  in which the library keeps a child, is at one place, and is replaced with the child's state, so its lifted
+  subscriptions carry its place and its number with no check, and go with it. The model's cache needs the state to be
+  an object, which every program keeps (above): never add a cache for primitive states, which nothing could let go
+  of.
 - **A state that changes no key costs a lookup for each key** (`reconcile` in `core.ts`): where no key appeared, among
   as many keys as were active, none went away either, so the active ones are left the very same and nothing is made,
   where a long list of children lists a key for each on every change of state. It runs in the thunk, on the stack of

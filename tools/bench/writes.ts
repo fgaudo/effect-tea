@@ -15,7 +15,6 @@ import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
 import * as Num from "effect/Number"
 import * as Optic from "effect/Optic"
-import * as Opt from "effect/Option"
 import { type Program, program, reject, start, type Transition, type Update, type Written } from "../../src/index.ts"
 import { written } from "../../src/input.ts"
 import { main } from "../cli.ts"
@@ -96,25 +95,15 @@ const inputProgram = (start: unknown) =>
     makeModel: (state) => state.v
   })
 
-type Rows = Readonly<{ rows: ReadonlyArray<Readonly<{ id: number; row: State }>> }>
+type Rows = Readonly<{ ids: ReadonlyArray<number> }>
 
 const rowsOf = program<{ state: Rows }>()
 
-const rowAt = (state: Rows, id: number): Opt.Option<State> =>
-  Opt.map(Arr.findFirst(state.rows, (entry) => entry.id === id), (entry) => entry.row)
-
-// The child, among `rows`, by id: found and replaced by a walk of the array, as the list of `subscriptions.ts`.
+// The child, among `rows` children by id, which the library keeps.
 const inputRows = (child: ReturnType<typeof inputProgram>) =>
-  rowsOf.make({
-    init: () => ({ state: { rows: Arr.makeBy(rows, (id) => ({ id, row: child.init.state })) } }),
-    children: {
-      Row: rowsOf.childById(child, {
-        get: (state, id: number) => rowAt(state, id),
-        set: (state, id, row) => ({ rows: Arr.map(state.rows, (entry) => entry.id === id ? { id, row } : entry) }),
-        subscribed: (state) => Arr.map(state.rows, ({ id, row }) => [id, row] as const)
-      })
-    },
-    makeModel: (state) => state.rows.length
+  rowsOf.withChildren({ Row: rowsOf.childById(child, { ids: (state) => state.ids }) }).make({
+    init: { state: { ids: Arr.makeBy(rows, (id) => id) } },
+    makeModel: (state) => state.ids.length
   })
 
 type Program_ = Program<{ state: object; model: unknown; message: unknown }>

@@ -67,12 +67,14 @@ export const kidF = program<{
 }>().make({ init: (k) => ({ state: { k }, commands: [{ _tag: "KSave" }] }), ...kidPieces })
 
 export type SNone = Readonly<{ n: number }>
-export type SChild = Readonly<{ n: number; kid: KidState }>
-export type SChildById = Readonly<{ n: number; kids: Readonly<Record<number, KidState>> }>
+// A parent's own state: whether its child alone is there, or the ids of its children by id. The library keeps the
+// children's states beside it.
+export type SChild = Readonly<{ n: number; open: boolean }>
+export type SChildById = Readonly<{ n: number; ids: ReadonlyArray<number> }>
 export type SInput = Readonly<{ n: number; name: string }>
 export type SInputById = Readonly<{ n: number; counts: Readonly<Record<string, number>> }>
 
-export type SMixed = Readonly<{ n: number; kid: KidState; name: string }>
+export type SMixed = Readonly<{ n: number; open: boolean; name: string }>
 
 // The message a parent sends to make its child receive an external one.
 export type Go = Readonly<{ _tag: "Go" }>
@@ -84,5 +86,5 @@ export type MChildById = Readonly<{ count: number; kids: ReadonlyArray<number> }
 export type MInput = Readonly<{ count: number; name: string }>
 export type MInputById = Readonly<{ count: number }>
 
-// A parent that declares each generated program as its child: where a wrong `external` is refused.
-export type Outer<S> = Readonly<{ inner: S }>
+// The own state of a parent that declares each generated program as its child: where a wrong `external` is refused.
+export type OuterOwn = Readonly<{ m: number }>

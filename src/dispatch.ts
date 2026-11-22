@@ -29,12 +29,12 @@ import * as Hash from "effect/Hash"
 export type Dispatch<Message> = (message: Message) => void
 
 /**
- * A parent's messages that carry a child's: `{ _tag: <child>, message }`, with `id` for children by id, and
- * nothing else. A message of the parent's own that has a `message` field among others is not one: wrapping only
- * that field would leave the rest out.
+ * A parent's messages that carry a child's: `{ _tag: <child>, message }`, with `id` for children by id, the optional
+ * `instance` of an answer, and nothing else. A message of the parent's own that has a `message` field among others is
+ * not one: wrapping only that field would leave the rest out.
  */
 type Routed<Message> = Message extends Readonly<{ _tag: string; message: unknown }>
-  ? [Exclude<keyof Message, "_tag" | "message" | "id">] extends [never] ? Message : never
+  ? [Exclude<keyof Message, "_tag" | "message" | "id" | "instance">] extends [never] ? Message : never
   : never
 
 type ChildOf<Message, Name> = Extract<Routed<Message>, Readonly<{ _tag: Name }>>

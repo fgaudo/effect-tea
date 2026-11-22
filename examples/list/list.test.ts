@@ -1,6 +1,6 @@
 import { forwardTo, reject, start } from "@fgaudo/effect-tea"
 import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
-import { applyAll, dispatchViolations } from "@fgaudo/effect-tea/testing"
+import { applyAll, dispatchViolations, stateOf } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
@@ -28,7 +28,19 @@ const state: fc.Arbitrary<State> = fc
     }),
     { selector: (entry) => entry.id, maxLength: 4 }
   )
-  .map((entries) => ({ nextId: 21, entries }))
+  // The parent's own state lists the ids, and `stateOf` puts the stopwatch of each in the state given for it.
+  .map((entries) =>
+    stateOf(list, { nextId: 21, ids: entries.map((entry) => entry.id) }, {
+      Stopwatch: entries.map((entry) => [entry.id, entry.stopwatch] as const)
+    })
+  )
+
+/** The stopwatches that the library keeps, in the order the list holds their ids in. */
+const stopwatches = (state: State) =>
+  state.own.ids.map((id) => ({
+    id,
+    stopwatch: Opt.getOrThrow(Opt.map(HashMap.get(state.children.Stopwatch, id), (kept) => kept.state))
+  }))
 
 // What a stopwatch's model holds, then the list's: its own messages, and each stopwatch's with its id, wrapped as
 // the list receives them. In the order the view draws them, for the test of the view below.
@@ -62,9 +74,7 @@ const userMessages = (state: State): ReadonlyArray<Message> =>
     {
       AddClicked: [{ _tag: "AddClicked" }],
       StopAllClicked: [{ _tag: "StopAllClicked" }],
-      Stopwatch: state.entries.flatMap(({ id }) =>
-        stopwatchClicks.map((message) => ({ _tag: "Stopwatch", id, message }))
-      )
+      Stopwatch: state.own.ids.flatMap((id) => stopwatchClicks.map((message) => ({ _tag: "Stopwatch", id, message })))
     } satisfies { [Tag in Message["_tag"]]: ReadonlyArray<Extract<Message, { _tag: Tag }>> }
   ).flat()
 
@@ -75,7 +85,7 @@ describe("list", () => {
         [added, added, to(1, { _tag: "Started" }), to(1, { _tag: "Ticked" })],
         list.init.state
       )
-      expect(state.entries).toEqual([
+      expect(stopwatches(state)).toEqual([
         { id: 1, stopwatch: { seconds: 1, watch: Stopwatch.Watch.Running() } },
         { id: 2, stopwatch: { seconds: 0, watch: Stopwatch.Watch.Stopped() } }
       ])
@@ -83,7 +93,8 @@ describe("list", () => {
 
     test("a stopwatch that asks to be removed is removed, and its late messages are rejected", () => {
       const { state } = applyAll(list.update)([added, added, to(1, { _tag: "RemoveClicked" })], list.init.state)
-      expect(state.entries.map((entry) => entry.id)).toEqual([2])
+      expect(state.own.ids).toEqual([2])
+      expect(HashMap.size(state.children.Stopwatch)).toBe(1)
       expect(list.update(to(1, { _tag: "Stopped" }))(state)).toBe(reject)
     })
 
@@ -92,7 +103,7 @@ describe("list", () => {
         [added, added, added, to(1, { _tag: "Started" }), to(3, { _tag: "Started" }), stoppedAll],
         list.init.state
       )
-      expect(state.entries.map((entry) => entry.stopwatch.watch)).toEqual([
+      expect(stopwatches(state).map((entry) => entry.stopwatch.watch)).toEqual([
         Stopwatch.Watch.Stopped(),
         Stopwatch.Watch.Stopped(),
         Stopwatch.Watch.Stopped()
@@ -102,7 +113,7 @@ describe("list", () => {
 
     test("only running stopwatches tick, each under its own key", () => {
       const { state } = applyAll(list.update)([added, added, to(2, { _tag: "Started" })], list.init.state)
-      expect(Array.from(HashMap.keys(list.subscriptions(state)))).toEqual([["Stopwatch", 2, "ticks"]])
+      expect(Array.from(HashMap.keys(list.subscriptions(state)))).toEqual([["Stopwatch", 2, 2, "ticks"]])
     })
   })
 

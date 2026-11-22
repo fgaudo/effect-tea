@@ -3,14 +3,31 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
-## 0.8.1 (unreleased)
+## 0.9.0 (unreleased)
+
+### Added
+
+- `stateOf(program, own, states)`, in `@fgaudo/effect-tea/testing`, makes a parent's whole state for a test, from its
+  own state and the states of its children.
 
 ### Changed
 
+- **Breaking**: the library keeps a parent's children. A parent declares them with `withChildren({ … }).make(config)`;
+  its own state lists them (`child(p, { there, key, flags })`, `childById(p, { ids })`), and its functions get that
+  state alone. Its whole state is `{ own, starts, children }`.
+  Upgrade: drop a child's `at`, `get`, `set` and `subscribed` (`listening` is optional), and `children.X.init` from
+  `init`; `children.X.external(…)` becomes `{ state, tell: [{ _tag: 'X', message }] }`; `children.X(state)` in
+  `makeModel` becomes `children.X()`, an `Option` for a child that may not be there.
+- Under a parent, what a step tells its children arrives after the step, a child whose flags or key change starts
+  again, an answer for a child closed or started again is rejected, and no step can copy a child's state or bring one
+  back.
+- **Breaking**: `forEach` is removed: a parent lists what it tells its children in `tell`. `andThen` folds `tell` too.
+  Upgrade: `forEach(step, ids, (id) => children.Row.external(id, m))` becomes `{ ...step, tell: ids.map(…) }`.
+
 - The guide's "Inputs the user types into" is now "Inputs", and a value that an element reports, as the offset of a
   scroll, is an input too: its rule is promised, and nothing of the element ("What an element reports").
-- A `set`, a child's or an input's, changes its place and nothing else; one that does more is not supported
-  ("Composition", "Where a child lives").
+- An input's `set` changes its place and nothing else; one that does more is not supported ("Composition", "Where a
+  child lives").
 - `rehearse`'s `hear` takes any message of the program, as `send` does, where it refused one shaped as a write into
   an input: a wrapper built by a parent's constructor, or a value typed as the whole message, now compiles.
 

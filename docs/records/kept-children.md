@@ -10,7 +10,8 @@ Everything below is reasoned from the code and the documents read, and not run, 
 What it ran and found is under "The spike, run", and what is left to the owner under "What the owner decides". Both
 parts ran as proposed, and the probe no longer dies. The owner took both parts the same day, the store and `output`,
 and then each choice under them ("What the owner decides"). They are to be written anew from `main`: steps 34 to 36
-of the roadmap.
+of the roadmap. **The store is done**, the same day, by step 34: `src/compose.ts`, with `withChildren` as the call
+before `make` that point 4 of "Decided, under the store" asked for. `output` and the guide are steps 35 and 36.
 
 ## What the owner asked
 

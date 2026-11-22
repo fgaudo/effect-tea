@@ -14,11 +14,16 @@ export {
   type ChildById,
   type DeclareChild,
   type DeclareChildById,
+  type DeclareChildren,
   type DeclareInput,
   type DeclareInputById,
   type Input,
   type InputById,
+  type Instance,
+  type Kept,
+  type MakeParent,
   type MakeProgram,
+  type ParentMaker,
   program,
   type ProgramMaker
 } from "./compose.ts"
@@ -43,16 +48,7 @@ export type {
 } from "./program.ts"
 
 // What `update` returns.
-export {
-  andThen,
-  type Folded,
-  forEach,
-  reject,
-  type Rejected,
-  type Step,
-  type Transition,
-  type Update
-} from "./update.ts"
+export { andThen, type Folded, reject, type Rejected, type Step, type Transition, type Update } from "./update.ts"
 
 // What the outside writes into a program's state: an input, declared in `program`, and what a view writes into it.
 export type { Written } from "./input.ts"

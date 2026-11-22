@@ -1,11 +1,13 @@
 // A consumer of the packed package, run with Node and typechecked by `smoke.ts` under several TypeScript versions
-// and module resolutions. It instantiates the types of `program` (a child, children by id, events and external
-// messages, an input), checks that what they reject does not compile, and that the declarations of what it exports can be emitted.
+// and module resolutions. It instantiates the types of `program` (a child, children by id, with a key, flags and
+// `listening`, events and external messages told in a step, inputs, a parent of parents, a function over programs), checks that what they reject does not compile, and that the declarations of what it exports can be emitted.
 import {
   andThen,
   type CommandServicesOf,
   CompositionDefect,
+  type Instance,
   InvariantDefect,
+  type Kept,
   type MessageOf,
   type Program,
   program,
@@ -16,7 +18,7 @@ import {
   type Update
 } from "@fgaudo/effect-tea"
 import * as Library from "@fgaudo/effect-tea"
-import { applyAll, rehearse, simulate } from "@fgaudo/effect-tea/testing"
+import { applyAll, rehearse, simulate, stateOf } from "@fgaudo/effect-tea/testing"
 import * as Testing from "@fgaudo/effect-tea/testing"
 import * as Arr from "effect/Array"
 import * as Channel from "effect/Channel"
@@ -54,31 +56,28 @@ export const counter = program<{
   makeModel: (state) => state
 })
 
-type Row = Readonly<{ id: number; counter: CounterState }>
+// A child with flags, which starts from them.
+type Greeting = Readonly<{ since: number }>
+
+export const greeter = program<{ state: Greeting; model: number; flags: number }>().make({
+  init: (since) => ({ state: { since } }),
+  makeModel: (state) => state.since
+})
+
+type Label = Readonly<{ id: number; label: string }>
 
 // `fulls` is a field of this state alone: `smoke.ts` counts it in the declarations, to see how often they spell it out.
-type State = Readonly<{ main: CounterState; rows: ReadonlyArray<Row>; fulls: number }>
+type State = Readonly<{
+  ids: ReadonlyArray<number>
+  fulls: number
+  opened: Opt.Option<number>
+  labels: ReadonlyArray<Label>
+}>
 
 type ResetAll = Readonly<{ _tag: "ResetAll" }>
 
 // Exported, as a module that declares a program for others: its declarations name the types of `program`.
-export const { child, make, childById, input, inputById } = program<{ state: State; message: ResetAll }>()
-
-// Exported, as a package that publishes a program would: its declarations name what `child` and `make` give.
-export const children = {
-  Main: child(counter, {
-    get: (state) => Opt.some(state.main),
-    set: (state, main) => ({ ...state, main })
-  }),
-  Row: childById(counter, {
-    get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
-    set: (state, id, counter) => ({
-      ...state,
-      rows: Arr.map(state.rows, (row) => row.id === id ? { id, counter } : row)
-    }),
-    subscribed: (state) => Arr.map(state.rows, ({ id, counter }) => [id, counter] as const)
-  })
-}
+export const { child, childById, input, inputById, make, withChildren } = program<{ state: State; message: ResetAll }>()
 
 // A child that names no external message, which `nodenext` checks without `exactOptionalPropertyTypes`.
 export const quiet = program<{ state: CounterState; model: CounterState; message: Readonly<{ _tag: "Increment" }> }>()
@@ -88,37 +87,49 @@ export const quiet = program<{ state: CounterState; model: CounterState; message
     makeModel: (state) => state
   })
 
-export const quietChild = child(quiet, {
-  get: (state) => Opt.some(state.main),
-  set: (state, main) => ({ ...state, main })
-})
+// Exported, as a package that publishes a program would: its declarations name what `child` and `childById` give. A
+// child always there, children by id, a child started again on another key, one there in some states, one with flags.
+export const children = {
+  Main: child(counter),
+  Row: childById(counter, { ids: (state) => state.ids, listening: (_, id) => id > 0 }),
+  Keyed: child(quiet, { key: (state) => state.fulls }),
+  Shown: child(quiet, { there: (state) => state.fulls > 0, listening: (state) => state.fulls < 10 }),
+  Greeter: child(greeter, { flags: (state) => state.opened })
+}
 
 // Exported, as a package that publishes a program would: its declarations name what `input` and `inputById` give.
 export const inputs = {
   Fulls: input({ at: Optic.id<State>().key("fulls") }),
-  Count: inputById({
-    get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter.count),
-    set: (state, id, count) => ({
+  Label: inputById({
+    get: (state, id: number) => Opt.map(Arr.findFirst(state.labels, (row) => row.id === id), (row) => row.label),
+    set: (state, id, label) => ({
       ...state,
-      rows: Arr.map(state.rows, (row) => row.id === id ? { id, counter: { count } } : row)
+      labels: Arr.map(state.labels, (row) => row.id === id ? { id, label } : row)
     })
   })
 }
 
-export const app = make({
-  init: (children) => ({
-    state: { main: children.Main.init.state, rows: [{ id: 1, counter: children.Row.init(1).state }], fulls: 0 }
-  }),
-  children,
-  update: (_: ResetAll, children) => (state) =>
-    andThen(children.Main.external({ _tag: "Reset" })(state), children.Row.external(1, { _tag: "Reset" })),
+const first: State = { ids: [1], fulls: 0, opened: Opt.none(), labels: [{ id: 1, label: "" }] }
+
+// What a parent tells its children is data of its step, typed by their external messages.
+export const app = withChildren(children).make({
+  init: { state: first },
+  inputs,
+  update: () => (state) =>
+    andThen(
+      { state, tell: [{ _tag: "Main", message: { _tag: "Reset" } }] },
+      (state) => ({ state, tell: Arr.map(state.ids, (id) => ({ _tag: "Row", id, message: { _tag: "Reset" } })) })
+    ),
   onEvent: {
-    Main: () => (state) => ({ state: { ...state, fulls: state.fulls + 1 } }),
+    Main: () => (state) => ({ state: { ...state, fulls: state.fulls + 1, opened: Opt.some(state.fulls + 1) } }),
     Row: () => (state) => ({ state: { ...state, fulls: state.fulls + 1 } })
   },
   makeModel: (state, children) => ({
-    main: children.Main(state),
-    rows: Arr.map(state.rows, ({ id }) => ({ id, model: children.Row(state, id) })),
+    main: children.Main(),
+    rows: Arr.map(state.ids, (id) => ({ id, model: children.Row(id) })),
+    keyed: children.Keyed(),
+    shown: children.Shown(),
+    greeter: children.Greeter(),
     fulls: state.fulls
   })
 })
@@ -127,61 +138,88 @@ type Message = MessageOf<typeof app>
 
 // `onEvent` is required exactly when a child has events.
 // @ts-expect-error
-program<{ state: State }>().make({
-  init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
-  children,
+withChildren(children).make({ init: { state: first }, update: () => (state) => ({ state }), makeModel: () => null })
+
+const handled = {
+  Main: () => (state: State) => ({ state }),
+  Row: () => (state: State) => ({ state })
+}
+
+// A parent tells a child only its external messages, and only a child it has.
+withChildren(children).make({
+  init: { state: first },
+  onEvent: handled,
+  // @ts-expect-error
+  update: () => (state) => ({ state, tell: [{ _tag: "Main", message: { _tag: "Increment" } }] }),
   makeModel: () => null
 })
 
-make({
-  init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
-  children,
-  onEvent: { Main: () => (state) => ({ state }), Row: () => (state) => ({ state }) },
-  // A parent sends a child only its external messages.
+withChildren(children).make({
+  init: { state: first },
+  onEvent: handled,
   // @ts-expect-error
-  update: (_: ResetAll, children) => children.Main.external({ _tag: "Increment" }),
+  update: () => (state) => ({ state, tell: [{ _tag: "Absent", message: { _tag: "Reset" } }] }),
+  makeModel: () => null
+})
+
+withChildren(children).make({
+  init: { state: first },
+  onEvent: handled,
+  // @ts-expect-error
+  update: () => (state) => ({ state, tell: [{ _tag: "Keyed", message: { _tag: "Reset" } }] }),
   makeModel: () => null
 })
 
 // A program with external messages and none of its own passes them on to its child, in its `external`.
-const relaying = program<{ state: CounterState; event: Full; external: Reset }>()
+const relaying = program<{ state: Readonly<{ relayed: number }>; event: Full; external: Reset }>()
 
-export const relay = relaying.make({
-  init: (children) => ({ state: children.Inner.init.state }),
-  children: { Inner: relaying.child(counter, { get: Opt.some, set: (_, inner) => inner }) },
-  external: (reset: Reset, children) => children.Inner.external(reset),
+export const relay = relaying.withChildren({ Inner: relaying.child(counter) }).make({
+  init: { state: { relayed: 0 } },
+  external: (reset) => (state) => ({
+    state: { relayed: state.relayed + 1 },
+    tell: [{ _tag: "Inner", message: reset }]
+  }),
   onEvent: { Inner: (full) => (state) => ({ state, events: [full] }) },
-  makeModel: (state, children) => children.Inner(state)
+  makeModel: (_, children) => children.Inner()
+})
+
+// A parent of parents, which tells its child, a parent, what that child passes on.
+const outerOf = program<{ state: Readonly<{ heard: number }>; message: ResetAll }>()
+
+export const outer = outerOf.withChildren({ Relay: outerOf.child(relay) }).make({
+  init: { state: { heard: 0 } },
+  update: () => (state) => ({ state, tell: [{ _tag: "Relay", message: { _tag: "Reset" } }] }),
+  onEvent: { Relay: () => (state) => ({ state: { heard: state.heard + 1 } }) },
+  makeModel: (state, children) => ({ heard: state.heard, inner: children.Relay() })
 })
 
 // A parent's own command answers with the parent's own messages, never with a child's: an external message is none.
 export const loading = program<{ state: State; command: "Load"; message: ResetAll }>()
 
-loading.make({
-  init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
-  children: { Main: loading.child(counter, { at: Optic.id<State>().key("main") }) },
+const loadingChildren = { Main: loading.child(counter) }
+
+loading.withChildren(loadingChildren).make({
+  init: { state: first },
   onEvent: { Main: () => (state) => ({ state }) },
-  update: (_: ResetAll) => (state: State) => ({ state, commands: ["Load" as const] }),
+  update: () => (state) => ({ state, commands: ["Load" as const] }),
   // @ts-expect-error
   runCommand: () => Effect.succeedSome({ _tag: "Main" as const, message: { _tag: "Increment" as const } }),
   makeModel: () => null
 })
 
-loading.make({
-  init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
-  children: { Main: loading.child(counter, { at: Optic.id<State>().key("main") }) },
+loading.withChildren(loadingChildren).make({
+  init: { state: first },
   onEvent: { Main: () => (state) => ({ state }) },
-  update: (_: ResetAll) => (state: State) => ({ state, commands: ["Load" as const] }),
+  update: () => (state) => ({ state, commands: ["Load" as const] }),
   // @ts-expect-error
   runCommand: () => Effect.succeedSome({ _tag: "Main" as const, message: { _tag: "Reset" as const } }),
   makeModel: () => null
 })
 
-loading.make({
-  init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
-  children: { Main: loading.child(counter, { at: Optic.id<State>().key("main") }) },
+loading.withChildren(loadingChildren).make({
+  init: { state: first },
   onEvent: { Main: () => (state) => ({ state }) },
-  update: (_: ResetAll, children) => children.Main.external({ _tag: "Reset" }),
+  update: () => (state) => ({ state, tell: [{ _tag: "Main", message: { _tag: "Reset" } }] }),
   runCommand: () => Effect.succeedSome<ResetAll>({ _tag: "ResetAll" }),
   makeModel: () => null
 })
@@ -192,8 +230,8 @@ class Backup extends Context.Service<Backup, { readonly load: Effect.Effect<void
 class Feed extends Context.Service<Feed, { readonly resets: Stream.Stream<ResetAll> }>()("Feed") {}
 
 export const served = loading.make({
-  init: { state: { main: { count: 0 }, rows: [], fulls: 0 } },
-  update: (_: ResetAll) => (state: State) => ({ state, commands: ["Load" as const] }),
+  init: { state: first },
+  update: () => (state) => ({ state, commands: ["Load" as const] }),
   runCommand: () =>
     Math.random() < 0.5
       ? Effect.as(Effect.service(Server), Opt.none<ResetAll>())
@@ -238,21 +276,20 @@ export const rehearsedChecked: Effect.Effect<unknown, never, never> = rehearsed
 
 // An own message that takes a child's name does not compile.
 // @ts-expect-error
-program<{ state: State; message: Readonly<{ _tag: "Main" }> }>().make({
-  init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
-  children,
+program<{ state: State; message: Readonly<{ _tag: "Main" }> }>().withChildren(children).make({
+  init: { state: first },
   update: () => (state) => ({ state }),
-  onEvent: { Main: () => (state) => ({ state }), Row: () => (state) => ({ state }) },
+  onEvent: handled,
   makeModel: () => null
 })
 
 // Nor does an input that takes a child's name.
 // @ts-expect-error
-program<{ state: State }>().make({
-  init: () => ({ state: { main: { count: 0 }, rows: [], fulls: 0 } }),
-  children,
+withChildren(children).make({
+  init: { state: first },
+  update: () => (state) => ({ state }),
   inputs: { Main: input({ at: Optic.id<State>().key("fulls") }) },
-  onEvent: { Main: () => (state) => ({ state }), Row: () => (state) => ({ state }) },
+  onEvent: handled,
   makeModel: () => null
 })
 
@@ -298,8 +335,7 @@ child(
     update: counterUpdate,
     subscriptions: () => HashMap.empty(),
     makeModel: () => null
-  },
-  { get: (state) => Opt.some(state.main), set: (state, main) => ({ ...state, main }) }
+  }
 )
 
 // So does one whose `external` alone returns commands, and an `external` answers with a step, never `reject`.
@@ -309,19 +345,15 @@ const resetting = {
   subscriptions: () => HashMap.empty(),
   makeModel: () => null
 }
-const inMain = {
-  get: (state: State) => Opt.some(state.main),
-  set: (state: State, main: CounterState) => ({ ...state, main })
-}
 const saving = {
   ...resetting,
   external: (_: Reset) => (state: CounterState) => ({ state, commands: ["Save" as const] })
 }
 const refusing = { ...resetting, external: (_: Reset) => (state: CounterState) => state.count > 0 ? { state } : reject }
 // @ts-expect-error
-child(saving, inMain)
+child(saving)
 // @ts-expect-error
-child(refusing, inMain)
+child(refusing)
 
 // An input and no children: the title is the program's own state, which the outside writes over.
 type Draft = Readonly<{ title: string }>
@@ -421,6 +453,30 @@ export const generic = <S extends object>(state: S) =>
   // @ts-expect-error
   program<{ state: S }>().make({ init: { state }, makeModel: () => null })
 
+// A function over any program: its signature names the types, its body makes the parent of a program of erased types.
+type DialogOwn = Readonly<{ open: boolean }>
+type DialogModel<M> = Readonly<{ open: boolean; content: M }>
+type Toggle = Readonly<{ _tag: "Opened" }> | Readonly<{ _tag: "Closed" }>
+type InDialog<Msg> = Toggle | Readonly<{ _tag: "Content"; message: Msg; instance?: number }>
+
+export function inDialog<S extends object, M, Msg>(
+  content: Program<{ state: S; model: M; message: Msg }>
+): Program<{
+  state: Kept<DialogOwn, { readonly Content: Opt.Option<Instance<S>> }>
+  model: DialogModel<M>
+  message: InDialog<Msg>
+}>
+export function inDialog(content: Program<{ state: object; model: unknown; message: unknown }>) {
+  const dialog = program<{ state: DialogOwn; message: Toggle }>()
+  return dialog.withChildren({ Content: dialog.child(content) }).make({
+    init: { state: { open: false } },
+    update: (message) => () => ({ state: { open: message._tag === "Opened" } }),
+    makeModel: (state, children) => ({ open: state.open, content: children.Content() })
+  })
+}
+
+export const dialogOfQuiet = inDialog(quiet)
+
 const assert = (condition: boolean, what: string) => {
   if (!condition) throw new Error(`smoke: ${what}`)
 }
@@ -430,9 +486,30 @@ const increment = (id?: number): Message =>
     ? { _tag: "Main", message: { _tag: "Increment" } }
     : { _tag: "Row", id, message: { _tag: "Increment" } }
 
+const countOf = (kept: Opt.Option<Instance<CounterState>>) => Opt.getOrThrow(kept).state.count
+
 const folded = applyAll(app.update)([increment(), increment(), increment(), increment(1)], app.init.state)
-assert(folded.state.main.count === 3 && folded.state.fulls === 1, "applyAll routes to the children")
-assert(app.makeModel(folded.state).rows[0]?.model.count === 1, "makeModel reads the children by id")
+assert(countOf(folded.state.children.Main) === 3 && folded.state.own.fulls === 1, "applyAll routes to the children")
+const foldedModel = app.makeModel(folded.state)
+assert(foldedModel.rows[0]?.model.count === 1, "makeModel reads the children by id")
+assert(
+  Opt.getOrThrow(foldedModel.greeter) === 1 && Opt.isSome(foldedModel.shown),
+  "a child is there where its state says"
+)
+const written = app.update({ _tag: "Label", id: 1, message: { _tag: "Written", value: "Ada" } })(folded.state)
+assert(written !== reject && written.state.own.labels[0]?.label === "Ada", "a parent stores a write into its own state")
+
+// A whole state for a test, from the own state and the states of the children it lists.
+const placed = stateOf(app, { ...first, ids: [1, 2] }, { Main: { count: 2 }, Row: [[2, { count: 1 }]] })
+const placedModel = app.makeModel(placed)
+assert(placedModel.main.count === 2 && placedModel.rows[1]?.model.count === 1, "stateOf puts the children in place")
+// @ts-expect-error
+stateOf(app, first, { Main: { count: "2" } })
+
+const relayed = applyAll(outer.update)([{ _tag: "ResetAll" }], outer.init.state)
+assert(relayed.state.own.heard === 0, "a parent of parents tells its child, which tells its own")
+const told = dialogOfQuiet.update({ _tag: "Content", message: { _tag: "Increment" } })(dialogOfQuiet.init.state)
+assert(told !== reject && countOf(told.state.children.Content) === 1, "a parent made over any program routes to it")
 
 const cleared = applyAll(draft.update)(
   [{ _tag: "Title", message: { _tag: "Written", value: "Ada" } }, "Cleared"],
@@ -469,7 +546,7 @@ export const testing = { ...Testing }
 
 const main = Effect.gen(function*() {
   const simulation = yield* simulate(app)([increment(), { _tag: "ResetAll" }], app.init)
-  assert(simulation.state.main.count === 0, "simulate applies the external messages")
+  assert(countOf(simulation.state.children.Main) === 0, "simulate tells the children the external messages")
   const counts: Array<number> = []
   const heard: Array<unknown> = []
   const { app: handle, run } = start(app, {

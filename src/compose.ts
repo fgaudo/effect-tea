@@ -1,5 +1,7 @@
 // A parent declares its children and its inputs, and the library generates how their messages, commands,
-// subscriptions and models reach them, and stores what is written into each input.
+// subscriptions and models reach them. The parent's state says which children are there, and the library keeps them,
+// in the state of the composed program, beside the parent's own: it starts and drops them after each step of the
+// parent's own code, and stores what is written into each input.
 import * as Arr from "effect/Array"
 import * as Channel from "effect/Channel"
 import * as Effect from "effect/Effect"
@@ -33,50 +35,50 @@ import {
   type SubscriptionServicesOf
 } from "./program.ts"
 import type { Subscription, Subscriptions } from "./subscription.ts"
-import { appendStep, type Folded, reject, type Step, type Transition, type Update } from "./update.ts"
+import { reject, type Rejected, type Step, type Transition, type Update } from "./update.ts"
 
 /**
- * Where a child lives in its parent's state: an optic, `at`, or the two functions an optic is, `get` and `set`.
+ * Where an input lives in its program's state: an optic, `at`, or the two functions an optic is, `get` and `set`.
  *
  * @example
  * ```ts
- * { at: Optic.id<State>().key('maybeAbout').compose(Optic.some()) }
+ * { at: Optic.id<State>().key('name') }
  * ```
  *
- * @see The guide, "Composition", "Where a child lives".
+ * @see The guide, "Inputs", "The program declares where it goes".
  */
-type Placement<ParentState, ChildState> =
+type Placement<State, A> =
   | Readonly<{
-    /** The child's state, or `None` where the child is not there: what `set` put, read from the state alone. */
-    get: (state: ParentState) => Opt.Option<ChildState>
-    /** The parent's state with the child's state put where `get` finds it, and nothing else of it changed. */
-    set: (state: ParentState, child: ChildState) => ParentState
+    /** The input's value, or `None` where the input is not there: what `set` put, read from the state alone. */
+    get: (state: State) => Opt.Option<A>
+    /** The state with the value put where `get` finds it, and nothing else of it changed. */
+    set: (state: State, value: A) => State
     at?: never
   }>
   | Readonly<{
-    /** An optic into the parent's state, to the child's. */
-    at: Optic.Optional<ParentState, ChildState>
+    /** An optic into the state, to the input's value. */
+    at: Optic.Optional<State, A>
     get?: never
     set?: never
   }>
 
 /**
- * Where a child by id lives in its parent's state: an optic that is a function of the id, `at`, or `get` and `set`,
+ * Where an input by id lives in its program's state: an optic that is a function of the id, `at`, or `get` and `set`,
  * which take the id.
  *
- * @see The guide, "Composition", "Where a child lives".
+ * @see The guide, "Inputs", "A write into an input by id names its id".
  */
-type PlacementById<ParentState, Id, ChildState> =
+type PlacementById<State, Id, A> =
   | Readonly<{
-    /** The state of the child at `id`, or `None` where it is not there. */
-    get: (state: ParentState, id: Id) => Opt.Option<ChildState>
-    /** The parent's state with the state of the child at `id` put where `get` finds it, and nothing else changed. */
-    set: (state: ParentState, id: Id, child: ChildState) => ParentState
+    /** The value of the input at `id`, or `None` where it is not there. */
+    get: (state: State, id: Id) => Opt.Option<A>
+    /** The state with the value of the input at `id` put where `get` finds it, and nothing else changed. */
+    set: (state: State, id: Id, value: A) => State
     at?: never
   }>
   | Readonly<{
-    /** The optic into the parent's state, to the state of the child at `id`. */
-    at: (id: Id) => Optic.Optional<ParentState, ChildState>
+    /** The optic into the state, to the value of the input at `id`. */
+    at: (id: Id) => Optic.Optional<State, A>
     get?: never
     set?: never
   }>
@@ -114,82 +116,90 @@ type Lacking<P> = P extends ProgramChecked<P> ? unknown
 type CheckedChild<P> = unknown extends Lacking<P> ? P : P & Lacking<P>
 
 /**
- * A child alone in its parent's state: what `child` returns, for `children` in `make`.
+ * A child that the library keeps: the number of its start, what it was started from, and its state.
  *
- * - Where `get` returns `None`, the child is not there, and a message for it is rejected.
- * - Its subscriptions run where `subscribed` returns `Some`. Without `subscribed`, they run whenever the child is there.
+ * @see The guide, "Composition", "What the library derives".
+ */
+export type Instance<State> = {
+  /** The number of this start, among the starts of the parent's children: no other instance of the parent has it. */
+  readonly instance: number
+  /** What the parent's state gave as the child started: its flags, or its key. Another one starts another child. */
+  readonly key: unknown
+  /** The child's state. */
+  readonly state: State
+}
+
+/**
+ * The state of a parent: its own state, and the children that the library keeps for it.
+ *
+ * The parent's functions are given its own state alone. A test makes a whole state with `stateOf`, of
+ * `@fgaudo/effect-tea/testing`, or by folding messages from `init`.
+ *
+ * @see The guide, "Composition", "What the library derives".
+ */
+export type Kept<Own, Children> = {
+  /** The parent's own state: all that its functions are given. */
+  readonly own: Own
+  /** How many children the parent has started so far: the number of the last start. */
+  readonly starts: number
+  /** The children that are there, by name: an `Option` for a child alone, a `HashMap` by id for children by id. */
+  readonly children: Children
+}
+
+/**
+ * A child alone: what `child` returns, for `withChildren`.
+ *
+ * - A child that is always there is there in every state of its parent.
+ * - Another child is there in the states its declaration says, and its model is an `Option`.
+ * - Another key, or other flags, start the child again, as another instance.
  *
  * @example
  * ```ts
- * export const clock: Child<State, typeof Clock.clock> = child(Clock.clock, { at: Optic.id<State>().key('clock') })
+ * export const clock: Child<State, typeof Clock.clock, 'always'> = child(Clock.clock)
  * ```
  *
- * @see The guide, "Composition", "Where the child lives: `at`".
+ * @see The guide, "Composition", "Declaring children".
  * @see The guide, "Composition", "When the child is not there".
- * @see The guide, "Composition", "When a child's subscriptions run: `subscribed`".
  */
-export type Child<ParentState, P> = {
+export type Child<State, P, There extends "always" | "sometimes"> = {
   /** A child alone, not one of children by id. */
   readonly kind: "one"
   /** The child's program. */
   readonly program: P
-  /** The child's state in the parent's state, or `None` where the child is not there. */
-  readonly get: (state: ParentState) => Opt.Option<StateOf<P>>
-  /** The parent's state with the child's state put where `get` finds it. */
-  readonly set: (state: ParentState, child: StateOf<P>) => ParentState
-  /** The child's state in the states where its subscriptions run, and `None` in the others. */
-  readonly subscribed?: (state: ParentState) => Opt.Option<StateOf<P>>
+  /** Whether the child is there in every state of its parent. */
+  readonly there: There
+  /** What the child starts from in a state, its flags or its key, or `None` where it is not there. */
+  readonly key: (state: State) => Opt.Option<unknown>
+  /** Whether the child's subscriptions run in a state where it is there. Without it, they always run. */
+  readonly listening?: (state: State) => boolean
 }
 
 /**
- * Children told apart by an id, such as the rows of a list: what `childById` returns, for `children` in `make`.
+ * Children told apart by an id, such as the rows of a list: what `childById` returns, for `withChildren`.
  *
- * - `get` and `set` take the id. Where `get` returns `None`, no child has that id.
- * - Only the rows that `subscribed` lists run their subscriptions.
+ * - The children that are there are those whose ids the parent's state lists.
  * - Ids are compared by value, with `Equal`.
  *
  * @example
  * ```ts
- * export const rows: ChildById<State, number, typeof Row.row> = childById(Row.row, { get, set, subscribed })
+ * export const rows: ChildById<State, number, typeof Row.row> = childById(Row.row, { ids: (state) => state.ids })
  * ```
  *
- * @see The guide, "Composition", "`get` and `set` take the id".
- * @see The guide, "Composition", "`subscribed` lists the rows that listen".
+ * @see The guide, "Composition", "Children by id".
  * @see The guide, "Composition", "Ids are compared by value".
  */
-export type ChildById<ParentState, Id, P> = {
+export type ChildById<State, Id, P> = {
   /** Children by id, not a child alone. */
   readonly kind: "byId"
   /** The program of each child. */
   readonly program: P
-  /** The state of the child at `id`, or `None` where it is not there. */
-  readonly get: (state: ParentState, id: Id) => Opt.Option<StateOf<P>>
-  /** The parent's state with the state of the child at `id` put where `get` finds it. */
-  readonly set: (state: ParentState, id: Id, child: StateOf<P>) => ParentState
-  /** The ids and the states of the children whose subscriptions run. */
-  readonly subscribed: (state: ParentState) => Iterable<readonly [Id, StateOf<P>]>
+  /** The children in a state: their ids, or, for a program with flags, each id with its flags. */
+  readonly listed: (state: State) => Iterable<unknown>
+  /** Whether `listed` gives each id with its flags. */
+  readonly flagged: boolean
+  /** Whether the child at an id listens, in a state where it is there. Without it, every child does. */
+  readonly listening?: (state: State, id: Id) => boolean
 }
-
-// An optic focuses or not: `None` where it does not, and `replace` is only called where `get` focused.
-const placed = <S, A>(
-  place: Placement<S, A>
-): Readonly<{ get: (state: S) => Opt.Option<A>; set: (state: S, child: A) => S }> =>
-  place.at === undefined
-    ? { get: place.get, set: place.set }
-    : {
-      get: (state) => Result.getSuccess(place.at.getResult(state)),
-      set: (state, child) => place.at.replace(child, state)
-    }
-
-const placedById = <S, Id, A>(
-  place: PlacementById<S, Id, A>
-): Readonly<{ get: (state: S, id: Id) => Opt.Option<A>; set: (state: S, id: Id, child: A) => S }> =>
-  place.at === undefined
-    ? { get: place.get, set: place.set }
-    : {
-      get: (state, id) => Result.getSuccess(place.at(id).getResult(state)),
-      set: (state, id, child) => place.at(id).replace(child, state)
-    }
 
 /**
  * An input alone in its program's state: what `input` returns, for `inputs` in `make`.
@@ -240,7 +250,7 @@ export type InputById<State, Id, A> = {
 }
 
 // `never` parameters: any `set` fits, whatever its value and id.
-/** The inputs a parent declares, by name: `{ Name: input({ at }), Count: inputById({ at }) }`. */
+/** The inputs a program declares, by name: `{ Name: input({ at }), Count: inputById({ at }) }`. */
 type Inputs<State> = Readonly<
   Record<
     string,
@@ -253,7 +263,7 @@ type Inputs<State> = Readonly<
   >
 >
 
-/** No children, or no inputs: what a parent that declares none has. */
+/** No children, or no inputs: what a program that declares none has. */
 type None = Readonly<Record<never, never>>
 
 /**
@@ -268,50 +278,67 @@ type InputMessages<I> = {
     : never
 }[keyof I & string]
 
-// What an input is to the routing: a place with one rule, the library's.
-const inputProgram: AnyProgram = {
-  init: { state: undefined },
-  update: written,
-  subscriptions: () => HashMap.empty(),
-  makeModel: (held: unknown) => held
-}
-
-// `never` parameters: any `set` fits, whatever its child's state and id.
+// `never` parameters: any `listening` fits, whatever its id.
 type Children<State> = Readonly<
   Record<
     string,
     | Readonly<{
       kind: "one"
       program: AnyProgram
-      get: (state: State) => Opt.Option<unknown>
-      set: (state: State, child: never) => State
+      there: "always" | "sometimes"
+      key: (state: State) => Opt.Option<unknown>
+      listening?: (state: State) => boolean
     }>
     | Readonly<{
       kind: "byId"
       program: AnyProgram
-      get: (state: State, id: never) => Opt.Option<unknown>
-      set: (state: State, id: never, child: never) => State
+      listed: (state: State) => Iterable<unknown>
+      flagged: boolean
+      listening?: (state: State, id: never) => boolean
     }>
   >
 >
 
 type ProgramOf<C> = C extends { readonly program: infer P } ? P : never
 
-// Told by `kind` and the id `get` takes: `ChildById<any, …>` would not match, its `set` taking `unknown` children.
-type ChildByIdOf<Id, P> = Readonly<{ kind: "byId"; program: P; get: (state: any, id: Id) => any }>
+// Told by `kind` and the id `listening` takes, which the type declares whether or not the child has one.
+type ChildByIdOf<Id, P> = Readonly<{ kind: "byId"; program: P; listening?: (state: any, id: Id) => boolean }>
 
-/** Where a child's messages and commands carry its id: only for children by id. */
+/** Where a child's messages, commands and keys carry its id: only for children by id. */
 type At<C> = C extends ChildByIdOf<infer Id, any> ? Readonly<{ id: Id }> : unknown
 
-/** A child's message, as its parent receives it: `{ _tag: <child>, message }`, and its `id` for each child. */
+/** Whether a child alone is there in every state of its parent. */
+type IsAlways<C> = C extends Readonly<{ there: "always" }> ? true : false
+
+/**
+ * What the library keeps of each child, by name: an `Option` of the instance of a child alone, and the instances of
+ * children by id.
+ */
+type KeptOf<C> = {
+  readonly [K in keyof C & string]: C[K] extends ChildByIdOf<infer Id, infer P> ?
+    HashMap.HashMap<Id, Instance<StateOf<P>>>
+    : Opt.Option<Instance<StateOf<ProgramOf<C[K]>>>>
+}
+
+/**
+ * A child's message, as its parent receives it: `{ _tag: <child>, message }`, and its `id` for children by id. The
+ * answer of a child's command, and a message of its subscriptions, carry the `instance` that asked for it too: an
+ * answer for an instance that is no longer there is rejected. A message of the child's view names no instance.
+ */
 type ChildMessages<C> = {
-  [K in keyof C & string]: Readonly<{ _tag: K; message: MessageOf<ProgramOf<C[K]>> }> & At<C[K]>
+  [K in keyof C & string]: Readonly<{ _tag: K; message: MessageOf<ProgramOf<C[K]>>; instance?: number }> & At<C[K]>
 }[keyof C & string]
 
-/** A child's command, as its parent's interpreter receives it. */
+/** A child's command, as its parent's interpreter receives it: it names the instance that asked for it. */
 type ChildCommands<C> = {
   [K in keyof C & string]: [CommandOf<ProgramOf<C[K]>>] extends [never] ? never
-    : Readonly<{ _tag: K; command: CommandOf<ProgramOf<C[K]>> }> & At<C[K]>
+    : Readonly<{ _tag: K; instance: number; command: CommandOf<ProgramOf<C[K]>> }> & At<C[K]>
+}[keyof C & string]
+
+/** What a parent may tell its children: an external message of one, by name, and by id for children by id. */
+type Tells<C> = {
+  [K in keyof C & string]: [ExternalOf<ProgramOf<C[K]>>] extends [never] ? never
+    : Readonly<{ _tag: K; message: ExternalOf<ProgramOf<C[K]>> }> & At<C[K]>
 }[keyof C & string]
 
 // The services of a parent's own `runCommand` and `subscriptions`, read from all that each returns, `Ran` and `Heard`:
@@ -325,87 +352,35 @@ type HeardServices<Heard> = SubscriptionServicesOf<{ readonly subscriptions: (st
 type ChildCommandServices<C> = { [K in keyof C]: CommandServicesOf<ProgramOf<C[K]>> }[keyof C]
 type ChildSubscriptionServices<C> = { [K in keyof C]: SubscriptionServicesOf<ProgramOf<C[K]>> }[keyof C]
 
-/** A new child: the state its parent puts where the child lives, and the commands it starts with, lifted. */
-type Start<P, Command> = Readonly<{
-  /** The child's first state. */
-  state: StateOf<P>
-  /** The child's first commands, as its parent's. */
-  commands: ReadonlyArray<Command>
-}>
-
 /**
- * What a parent does with its children, by name: `children` in `init`, `update` and `onEvent`.
+ * The children's models, by name: `children` in `makeModel`.
  *
- * For each child, `init` starts it, from its flags when it has them, and `external` sends it an external message,
- * which the child's own `external` answers. For children by id, both take the id first.
+ * - A child that is always there gives its model, `children.Clock()`.
+ * - A child alone that may not be there gives an `Option` of its model, `children.About()`.
+ * - A child by id gives its model, `children.Row(id)`. Asking for an id that the parent's state does not list is a
+ *   defect, a `CompositionDefect`.
  *
- * - `init` gives the child's state and its commands, lifted. Use both: the child's own `init.state` leaves its commands
- *   behind.
- * - `external` takes only a message that the child's `external` takes. The child answers in every state, with its
- *   state or with an event.
- * - An external message to a child that is not there is a defect, a `CompositionDefect`.
- * - A child's view sends the child's own messages through its own dispatch, `forwardTo(dispatch, 'Clock')`.
+ * A child's model is the same object while the child's state is the same object.
  *
  * @example
  * ```ts
- * update: (_: BackPressed, children) => children.Page.external({ _tag: 'BackPressed' }),
- * ```
- *
- * @see The guide, "Composition", "How a child starts".
- * @see The guide, "Composition", "A child with `flags`".
- * @see The guide, "Events and external messages", "A parent sends an external message".
- * @see The guide, "Events and external messages", "A child answers its external messages in every state".
- * @see The guide, "Events and external messages", "An external message to a child that is not there is a defect".
- * @see The guide, "Composition", "A child's view gets a dispatch of its own".
- */
-type Handles<State, C, Command, Event> = {
-  readonly [K in keyof C & string]: C[K] extends ChildByIdOf<infer Id, infer P> ? Readonly<{
-      /** Sends the child at `id` an external message: the parent's step, as a function of its state. */
-      external: (id: Id, message: ExternalOf<P>) => (state: State) => Step<State, Command, Event>
-      /** Starts the child at `id`, from its flags when it has them. */
-      init: [FlagsOf<P>] extends [never] ? (id: Id) => Start<P, Command>
-        : (id: Id, flags: FlagsOf<P>) => Start<P, Command>
-    }>
-    : Readonly<{
-      /** Sends the child an external message: the parent's step, as a function of its state. */
-      external: (message: ExternalOf<ProgramOf<C[K]>>) => (state: State) => Step<State, Command, Event>
-      /** Starts the child, from its flags when it has them. */
-      init: [FlagsOf<ProgramOf<C[K]>>] extends [never] ? Start<ProgramOf<C[K]>, Command>
-        : (flags: FlagsOf<ProgramOf<C[K]>>) => Start<ProgramOf<C[K]>, Command>
-    }>
-}
-
-/**
- * The children's models, by name: `children` in `makeModel`. Each is a function of the parent's state, and of the id
- * for children by id.
- *
- * A child's model is the same object while the child's state is the same object. Asking for the model of a child that
- * is not there is a defect, a `CompositionDefect`.
- *
- * @example
- * ```ts
- * makeModel: (state, children) => ({ clock: children.Clock(state) }),
+ * makeModel: (state, children) => ({ clock: children.Clock() }),
  * ```
  *
  * @see The guide, "Composition", "A child's model is kept".
  * @see The guide, "Composition", "What is a defect".
  */
-type Models<State, C> = {
-  readonly [K in keyof C & string]: C[K] extends ChildByIdOf<infer Id, infer P> ? (state: State, id: Id) => ModelOf<P>
-    : (state: State) => ModelOf<ProgramOf<C[K]>>
+type Models<C> = {
+  readonly [K in keyof C & string]: C[K] extends ChildByIdOf<infer Id, infer P> ? (id: Id) => ModelOf<P>
+    : IsAlways<C[K]> extends true ? () => ModelOf<ProgramOf<C[K]>>
+    : () => Opt.Option<ModelOf<ProgramOf<C[K]>>>
 }
 
 type OnEvents<State, C, Command, Event> = {
   readonly [K in keyof C & string as [EventOf<ProgramOf<C[K]>>] extends [never] ? never : K]: C[K] extends
-    ChildByIdOf<infer Id, infer P> ? (
-      id: Id,
-      event: EventOf<P>,
-      children: Handles<State, C, Command, Event>
-    ) => (state: State) => Step<State, Command, Event>
-    : (
-      event: EventOf<ProgramOf<C[K]>>,
-      children: Handles<State, C, Command, Event>
-    ) => (state: State) => Step<State, Command, Event>
+    ChildByIdOf<infer Id, infer P> ?
+    (id: Id, event: EventOf<P>) => (state: State) => Step<State, Command, Event, Tells<C>>
+    : (event: EventOf<ProgramOf<C[K]>>) => (state: State) => Step<State, Command, Event, Tells<C>>
 }
 
 /** `onEvent` is required exactly when a child emits events, so that none goes unhandled. */
@@ -413,8 +388,8 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
     /**
      * What the parent does with each child's events, by child: one handler for each child that has events.
      *
-     * It is required exactly when a child has events. A handler takes the event and `children`, and returns the
-     * parent's step as a function of its state. For children by id, it takes the id first.
+     * It is required exactly when a child has events. A handler takes the event, and returns the parent's step as a
+     * function of its own state. For children by id, it takes the id first.
      *
      * @see The guide, "Events and external messages", "The parent handles an event in `onEvent`".
      * @see The guide, "Events and external messages", "`onEvent`".
@@ -425,8 +400,8 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
     /**
      * What the parent does with each child's events, by child: one handler for each child that has events.
      *
-     * It is required exactly when a child has events. A handler takes the event and `children`, and returns the
-     * parent's step as a function of its state. For children by id, it takes the id first.
+     * It is required exactly when a child has events. A handler takes the event, and returns the parent's step as a
+     * function of its own state. For children by id, it takes the id first.
      *
      * @see The guide, "Events and external messages", "The parent handles an event in `onEvent`".
      * @see The guide, "Events and external messages", "`onEvent`".
@@ -438,16 +413,14 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
 type UpdateOf<State, C, Own, Command, Event> = [Own] extends [never] ? Readonly<{ update?: never }>
   : Readonly<{
     /**
-     * What the program's own messages do, given its children.
+     * What the program's own messages do: the step, as a function of its own state, or `reject`.
      *
-     * It is required exactly when the program names messages of its own, in `program`.
+     * It is required exactly when the program names messages of its own, in `program`. A parent's step tells its
+     * children what to do in `tell`.
      *
      * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
      */
-    update: (
-      message: Own,
-      children: Handles<State, C, Command, Event>
-    ) => (state: State) => Transition<State, Command, Event>
+    update: (message: Own) => (state: State) => Transition<State, Command, Event, Tells<C>>
   }>
 
 /**
@@ -457,31 +430,28 @@ type UpdateOf<State, C, Own, Command, Event> = [Own] extends [never] ? Readonly<
 type ExternalHandlerOf<State, C, External, Command, Event> = [External] extends [never] ? Readonly<{ external?: never }>
   : Readonly<{
     /**
-     * What each external message does, given the program's children: the step, as a function of the state.
+     * What each external message does: the step, as a function of the state.
      *
      * It is required exactly when the program names external messages, in `program`. It returns a step, never
      * `reject`: the program answers in every state, with its state or with an event. A parent passes an external
-     * message on to a child here, with `children.<child>.external`.
+     * message on to a child in the `tell` of its step.
      *
      * @see The guide, "Events and external messages", "A child answers its external messages in every state".
      * @see The guide, "Events and external messages", "A parent passes an external message on".
      * @see The guide, "Events and external messages", "`external` is required exactly when the program names external messages".
      */
-    external: (
-      message: External,
-      children: Handles<State, C, Command, Event>
-    ) => (state: State) => Step<State, Command, Event>
+    external: (message: External) => (state: State) => Step<State, Command, Event, Tells<C>>
   }>
 
-/** `runCommand` is required exactly when the parent has commands of its own, so that none goes uninterpreted. */
+/** `runCommand` is required exactly when the program has commands of its own, so that none goes uninterpreted. */
 type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never] ? Readonly<{ runCommand?: never }>
   : Readonly<{
     /**
-     * Runs one of the parent's own commands.
+     * Runs one of the program's own commands.
      *
-     * - It is required exactly when the parent has commands of its own.
-     * - It answers with a message of the parent's own. To tell a child something, the parent's `update`, `external`
-     *   or `onEvent` sends it an external message.
+     * - It is required exactly when the program has commands of its own.
+     * - It answers with a message of the program's own. To tell a child something, a step of the parent's `update`,
+     *   `external` or `onEvent` lists it in `tell`.
      *
      * @see The guide, "Composition", "`runCommand`".
      */
@@ -514,34 +484,26 @@ type NoShared<C, I> = [keyof C & keyof I] extends [never] ? unknown
   : Readonly<{ "an input takes the name of a child": keyof C & keyof I }>
 
 type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, External, Flags> =
-  & OnEventOf<State, C, OwnCommand | ChildCommands<C>, Event>
-  // A command's answer is an own message, as a subscription's is: a parent talks to a child only through the handles.
-  // So no answer writes into an input either.
+  & OnEventOf<State, C, OwnCommand, Event>
+  // A command's answer is an own message, as a subscription's is: a parent tells a child only in a step's `tell`. So
+  // no answer writes into an input either.
   & RunCommandOf<OwnCommand, Own, Ran>
-  & UpdateOf<State, C, Own, OwnCommand | ChildCommands<C>, Event>
-  & ExternalHandlerOf<State, C, External, OwnCommand | ChildCommands<C>, Event>
+  & UpdateOf<State, C, Own, OwnCommand, Event>
+  & ExternalHandlerOf<State, C, External, OwnCommand, Event>
   & NoClash<Own, OwnCommand, C, "a child">
   & NoClash<Own, OwnCommand, I, "an input">
   & NoShared<C, I>
   & Readonly<{
     /**
-     * The first state and commands: a step, or, for a program with flags, the function that makes one from them. A
-     * parent makes it with its children (`(children) => …`, `(children) => (flags) => …`), and `make` calls that
-     * function once, as it makes the parent: what it throws is thrown by `make`.
+     * The first state and commands: a step, or, for a program with flags, the function that makes one from them.
      *
-     * A child that is there from the start is started with `children.<child>.init`, which holds its state and its
-     * commands. The program's own flags are declared with its other types, in `program`.
+     * A parent's first step is of its own state. The library starts the children that this state lists, each with
+     * its first commands. The program's own flags are declared with its other types, in `program`.
      *
      * @see The guide, "Composition", "How a child starts".
      * @see The guide, "Composition", "The parent's own flags".
-     * @see The guide, "Composition", "When the parent's `init` is called".
      */
-    init: [keyof C] extends [never] ? Init<State, OwnCommand, Flags>
-      : (
-        children: Handles<State, C, OwnCommand | ChildCommands<C>, Event>
-      ) => Init<State, OwnCommand | ChildCommands<C>, Flags>
-    /** The children, by name: `{ Clock: child(…), Row: childById(…) }`. */
-    children?: C
+    init: Init<State, OwnCommand, Flags>
     /**
      * The inputs, by name, as `input` and `inputById` declare them.
      *
@@ -563,10 +525,10 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, External,
      * @see The guide, "Inputs", "Only what is drawn writes into an input".
      */
     inputs?: I
-    /** The parent's own subscriptions. */
+    /** The program's own subscriptions, from its own state. */
     subscriptions?: (state: State) => Heard & HashMap.HashMap<K, Subscription<Own, any>>
-    /** What the parent draws, from its state and its children's models. */
-    makeModel: (state: State, children: Models<State, C>) => Model
+    /** What the program draws, from its own state and its children's models. */
+    makeModel: (state: State, children: Models<C>) => Model
   }>
 
 // `makeModel` is pure, so a program's model depends on its state alone: it is kept for as long as that state
@@ -586,81 +548,113 @@ const modelsOf = (program: object) => {
 const mapOwn = <A, B>(record: Readonly<Record<string, A>>, f: (value: A, name: string) => B): Record<string, B> =>
   Object.fromEntries(Object.entries(record).map(([name, value]) => [name, f(value, name)]))
 
+// An optic focuses or not: `None` where it does not, and `replace` is only called where `get` focused.
+const placed = <S, A>(
+  place: Placement<S, A>
+): Readonly<{ get: (state: S) => Opt.Option<A>; set: (state: S, value: A) => S }> =>
+  place.at === undefined
+    ? { get: place.get, set: place.set }
+    : {
+      get: (state) => Result.getSuccess(place.at.getResult(state)),
+      set: (state, value) => place.at.replace(value, state)
+    }
+
+const placedById = <S, Id, A>(
+  place: PlacementById<S, Id, A>
+): Readonly<{ get: (state: S, id: Id) => Opt.Option<A>; set: (state: S, id: Id, value: A) => S }> =>
+  place.at === undefined
+    ? { get: place.get, set: place.set }
+    : {
+      get: (state, id) => Result.getSuccess(place.at(id).getResult(state)),
+      set: (state, id, value) => place.at(id).replace(value, state)
+    }
+
 /** Who receives what a child at `id` sends: `undefined` for a child that is alone. */
 type Place = Readonly<{ name: string; id: unknown }>
 
-/** A child's subscriptions under its parent's keys, `[<child>, key]` or `[<child>, id, key]`. */
+type Entry = Instance<unknown>
+type Slot = Opt.Option<Entry> | HashMap.HashMap<unknown, Entry>
+type Slots = Readonly<Record<string, Slot>>
+
+/** A child's subscriptions under its parent's keys, `[<child>, instance, key]` or `[<child>, id, instance, key]`. */
 type Lifted = ReadonlyArray<readonly [unknown, Subscription<unknown, unknown>]>
 
-/**
- * The places a child's state object held, in the order of `call`, the last call that met it, each with the
- * subscriptions lifted there; `met` of them so far in that call.
- */
-type Kept = { call: number; met: number; readonly places: Array<readonly [Place, Lifted]> }
+// What one call of `update`, `external` or `init` gathers: the parts of the state as they are replaced, and the
+// commands and the events of every step taken in it. It never leaves the call.
+type Gathered = {
+  own: unknown
+  starts: number
+  children: Slots
+  readonly commands: Array<unknown>
+  readonly events: Array<unknown>
+}
 
-/** A child's `external`, as the routing reads it. */
-type Answer = (message: unknown) => (state: unknown) => Step<unknown, unknown, unknown>
+type UntypedStep = Step<unknown, unknown, unknown, unknown>
 
 type UntypedChild = Readonly<{
   kind: "one" | "byId"
   program: AnyProgram
-  get: (state: unknown, id?: unknown) => Opt.Option<unknown>
-  set: (state: unknown, idOrChild: unknown, child?: unknown) => unknown
-  subscribed?: (state: unknown) => Opt.Option<unknown> | Iterable<readonly [unknown, unknown]>
+  there?: "always" | "sometimes"
+  key?: (own: unknown) => Opt.Option<unknown>
+  listed?: (own: unknown) => Iterable<unknown>
+  flagged?: boolean
+  listening?: (own: unknown, id?: unknown) => boolean
 }>
 
-const make = <
-  State extends object,
-  C extends Children<State>,
-  I extends Inputs<State>,
-  Model,
-  Own,
-  OwnCommand,
-  Event,
-  Ran,
-  Heard,
-  K,
-  External,
-  Flags
->(
-  config: Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, External, Flags>
-): Program<{
-  state: State
-  model: Model
-  message: Own | ChildMessages<C> | InputMessages<I>
-  command: OwnCommand | ChildCommands<C>
-  commandServices: RanServices<Ran> | ChildCommandServices<C>
-  subscriptionServices: HeardServices<Heard> | ChildSubscriptionServices<C>
-  event: Event
-  external: External
-  flags: Flags
-}> => {
-  type Message = Own | ChildMessages<C> | InputMessages<I>
-  type Command = OwnCommand | ChildCommands<C>
-  const programs = (config.children ?? {}) as unknown as Readonly<Record<string, UntypedChild>>
-  const inputs = mapOwn(
-    (config.inputs ?? {}) as unknown as Readonly<Record<string, Omit<UntypedChild, "program">>>,
-    (input): UntypedChild => ({ ...input, program: inputProgram })
-  )
-  // An input is routed to as a child is: by its name, to its place.
-  const children: Readonly<Record<string, UntypedChild>> = { ...programs, ...inputs }
+type UntypedInput = Readonly<{
+  kind: "one" | "byId"
+  get: (state: unknown, id?: unknown) => Opt.Option<unknown>
+  set: (state: unknown, idOrValue: unknown, value?: unknown) => unknown
+}>
+
+type UntypedConfig = Readonly<{
+  init: Step<unknown, unknown> | ((flags: unknown) => Step<unknown, unknown>)
+  inputs?: Readonly<Record<string, UntypedInput>>
+  update?: (message: unknown) => (state: unknown) => UntypedStep | Rejected
+  external?: (message: unknown) => (state: unknown) => UntypedStep
+  onEvent?: Readonly<Record<string, (...args: ReadonlyArray<unknown>) => (state: unknown) => UntypedStep>>
+  runCommand?: (command: unknown) => Execution<unknown, unknown>
+  subscriptions?: (state: unknown) => HashMap.HashMap<unknown, Subscription<unknown, unknown>>
+  makeModel: (state: unknown, children: unknown) => unknown
+}>
+
+/** How `stateOf`, of the testing tools, reaches what `make` keeps to itself. */
+export const statesKey = "~@fgaudo/effect-tea/Kept/place"
+
+/** What a parent gives `stateOf`: the whole state made from an own state and the states given for its children. */
+export type Placer = (own: unknown, states: Readonly<Record<string, unknown>>) => unknown
+
+// The key of a child that is there with no flags and no key.
+const present = Opt.some(undefined)
+
+// One `make` for a program and for a parent: `children` is `undefined` for a program, whose state is its own alone.
+const make = (children: Readonly<Record<string, UntypedChild>> | undefined, config: UntypedConfig): unknown => {
+  const programs = children ?? {}
+  const inputs = config.inputs ?? {}
+  const composed = children !== undefined
   const names = Object.keys(programs)
-  const childOf = (name: string) => children[name] as UntypedChild
-  // `Object.hasOwn`, not `Record.has`, which does not say whether a key `children` inherits (`toString`) counts.
-  const isChildName = (tag: unknown): tag is string => typeof tag === "string" && Object.hasOwn(children, tag)
+  const childOf = (name: string) => programs[name] as UntypedChild
+  const inputOf = (name: string) => inputs[name] as UntypedInput
+  // `Object.hasOwn`, not `Record.has`, which does not say whether a key a record inherits (`toString`) counts.
+  const isChildName = (tag: unknown): tag is string => typeof tag === "string" && Object.hasOwn(programs, tag)
+  const isInputName = (tag: unknown): tag is string => typeof tag === "string" && Object.hasOwn(inputs, tag)
   const field = (value: unknown, key: string): unknown => Predicate.hasProperty(value, key) ? value[key] : undefined
   const placeOf = (value: unknown): Place => ({ name: field(value, "_tag") as string, id: field(value, "id") })
   const isById = (name: string) => childOf(name).kind === "byId"
   const at = ({ name, id }: Place) => isById(name) ? { id } : {}
-  const wrapMessage = (place: Place) => (message: unknown) => ({ _tag: place.name, ...at(place), message }) as Message
-  const wrapCommand = (place: Place) => (command: unknown) => ({ _tag: place.name, ...at(place), command }) as Command
-  const getAt = ({ name, id }: Place, state: State) =>
-    isById(name) ? childOf(name).get(state, id) : childOf(name).get(state)
-  const setAt = ({ name, id }: Place, state: State, childState: unknown) =>
-    (isById(name) ? childOf(name).set(state, id, childState) : childOf(name).set(state, childState)) as State
-  const onEvents = ((config as Readonly<{ onEvent?: unknown }>).onEvent ?? {}) as Readonly<
-    Record<string, (...args: ReadonlyArray<unknown>) => (state: State) => Step<State, Command, Event>>
-  >
+  const wrapMessage = (place: Place, instance: number) => (message: unknown) => ({
+    _tag: place.name,
+    ...at(place),
+    instance,
+    message
+  })
+  const wrapCommand = (place: Place, instance: number) => (command: unknown) => ({
+    _tag: place.name,
+    ...at(place),
+    instance,
+    command
+  })
+  const onEvents = config.onEvent ?? {}
   const defectAt = (place: Place, message: string, on?: unknown) =>
     compositionDefect({
       message,
@@ -668,171 +662,286 @@ const make = <
       ...(isById(place.name) ? { id: place.id } : {}),
       ...(on === undefined ? {} : { on })
     })
-  // The types require an object, by which a child's model and lifted subscriptions are kept: only a cast, or a
-  // caller without TypeScript, gets a primitive this far, which a `WeakMap` would refuse with a `TypeError`.
-  const objectAt = (place: Place, childState: unknown): object => {
-    if (Predicate.isObjectKeyword(childState)) return childState
-    const kind = childState === null || childState === undefined ? String(childState) : `a ${typeof childState}`
-    throw defectAt(place, `The state of "${place.name}" is ${kind}, where a program keeps its state in an object`)
+  const open = (state: unknown): Gathered => {
+    const whole = state as Kept<unknown, Slots>
+    return { own: whole.own, starts: whole.starts, children: whole.children, commands: [], events: [] }
   }
-  const onEventAt = (place: Place, event: unknown): (state: State) => Step<State, Command, Event> => {
+  // The very same state where nothing of it was replaced, so that it makes no new model.
+  const close = (gathered: Gathered, before: unknown): Step<unknown, unknown, unknown> => {
+    const was = before as Kept<unknown, Slots>
+    const same = Object.is(gathered.own, was.own) && gathered.children === was.children &&
+      gathered.starts === was.starts
+    return {
+      state: same ? before : { own: gathered.own, starts: gathered.starts, children: gathered.children },
+      commands: gathered.commands,
+      events: gathered.events
+    }
+  }
+  const entryAt = (slots: Slots, { name, id }: Place): Opt.Option<Entry> => {
+    const slot = slots[name]
+    return isById(name) ? HashMap.get(slot as HashMap.HashMap<unknown, Entry>, id) : slot as Opt.Option<Entry>
+  }
+  const putAt = (gathered: Gathered, { name, id }: Place, entry: Entry) => {
+    gathered.children = {
+      ...gathered.children,
+      [name]: isById(name)
+        ? HashMap.set(gathered.children[name] as HashMap.HashMap<unknown, Entry>, id, entry)
+        : Opt.some(entry)
+    }
+  }
+  // A child starts with the next number, which its commands carry, and so their answers.
+  const startAt = (gathered: Gathered, place: Place, key: unknown): Entry => {
+    const { state, commands = [] } = startOf(childOf(place.name).program.init, key)
+    const instance = ++gathered.starts
+    for (const command of commands) gathered.commands.push(wrapCommand(place, instance)(command))
+    return { instance, key, state }
+  }
+  // The children that the parent's own state lists are there, each under the key it gives, and no other: one that it
+  // no longer lists is dropped, one that it lists anew is started, and one whose key is another is another child.
+  // Children by id whose `listed` gives the very same object for the own state of before are as they were: `listed`
+  // is pure, so the same object lists the same children, which the last reconciliation left there.
+  const reconcile = (gathered: Gathered, before: Opt.Option<unknown>) => {
+    for (const name of names) {
+      const child = childOf(name)
+      if (child.kind === "one") {
+        const wanted = (child.key as (own: unknown) => Opt.Option<unknown>)(gathered.own)
+        const current = gathered.children[name] as Opt.Option<Entry>
+        if (Opt.isNone(wanted)) {
+          if (Opt.isSome(current)) gathered.children = { ...gathered.children, [name]: Opt.none() }
+        } else if (Opt.isNone(current) || !Equal.equals(current.value.key, wanted.value)) {
+          gathered.children = {
+            ...gathered.children,
+            [name]: Opt.some(startAt(gathered, { name, id: undefined }, wanted.value))
+          }
+        }
+        continue
+      }
+      const listed = child.listed as (own: unknown) => Iterable<unknown>
+      const now = listed(gathered.own)
+      if (Opt.isSome(before) && Object.is(now, listed(before.value))) continue
+      const current = gathered.children[name] as HashMap.HashMap<unknown, Entry>
+      let same = true
+      const next = HashMap.mutate(HashMap.empty<unknown, Entry>(), (kept) => {
+        for (const item of now) {
+          const [id, key] = child.flagged === true ? item as readonly [unknown, unknown] : [item, undefined]
+          if (HashMap.has(kept, id)) throw defectAt({ name, id }, `The children "${name}" list the same id twice`)
+          const found = HashMap.get(current, id)
+          if (Opt.isSome(found) && Equal.equals(found.value.key, key)) {
+            HashMap.set(kept, id, found.value)
+          } else {
+            same = false
+            HashMap.set(kept, id, startAt(gathered, { name, id }, key))
+          }
+        }
+      })
+      if (!same || HashMap.size(next) !== HashMap.size(current)) {
+        gathered.children = { ...gathered.children, [name]: next }
+      }
+    }
+  }
+  const onEventAt = (place: Place, event: unknown): (state: unknown) => UntypedStep => {
     const handle = onEvents[place.name]
     if (handle === undefined) {
       const on = describeByTag(event)
       throw defectAt(place, `The child "${place.name}" emitted the event ${String(on)}, which nothing handles`, on)
     }
-    return isById(place.name) ? handle(place.id, event, handles) : handle(event, handles)
+    return isById(place.name) ? handle(place.id, event) : handle(event)
   }
-  // A child's events are handled in order, each by the state its predecessors left. An unchanged child leaves its
-  // parent's state as it is, so that the very same state makes no new model. `Object.is`, since an input's place may
-  // hold NaN, which a write of NaN leaves as it is.
-  const liftAt = (
-    place: Place,
-    state: State,
-    childState: unknown,
-    result: Step<unknown, unknown, unknown>
-  ): Step<State, Command, Event> => {
-    const lifted: Folded<State, Command, Event> = {
-      state: Object.is(result.state, childState) ? state : setAt(place, state, result.state),
-      commands: Arr.map(result.commands ?? [], wrapCommand(place)),
+  // A child's step: its state replaces the one kept, its commands are lifted, and each of its events is a step of the
+  // parent's own, taken to its end before the next. An unchanged child leaves its instance the very same object.
+  const childStep = (gathered: Gathered, place: Place, entry: Entry, result: Step<unknown, unknown, unknown>) => {
+    if (!Object.is(result.state, entry.state)) {
+      putAt(gathered, place, { instance: entry.instance, key: entry.key, state: result.state })
+    }
+    for (const command of result.commands ?? []) gathered.commands.push(wrapCommand(place, entry.instance)(command))
+    for (const event of result.events ?? []) ownStep(gathered, onEventAt(place, event)(gathered.own))
+  }
+  // A step of the parent's own code: its state, then the children that state lists, then what it tells them, in
+  // order, each to its end. What it tells is bound to the children that are there once the step is reconciled: a
+  // child that is not there then is the step's own mistake, a defect, and one that an earlier item of the same `tell`
+  // dropped or started again is told nothing.
+  const ownStep = (gathered: Gathered, step: UntypedStep) => {
+    const before = gathered.own
+    gathered.own = step.state
+    for (const command of step.commands ?? []) gathered.commands.push(command)
+    for (const event of step.events ?? []) gathered.events.push(event)
+    if (!Object.is(step.state, before)) reconcile(gathered, Opt.some(before))
+    const tells = step.tell
+    if (tells === undefined || tells.length === 0) return
+    const bound = Arr.map(tells, (tell) => {
+      const place = placeOf(tell)
+      const message = field(tell, "message")
+      // Unreachable through the types: a step tells only the children that the parent declares.
+      if (!isChildName(place.name)) throw new Error(`make: a step tells "${String(place.name)}", which is no child`)
+      const entry = entryAt(gathered.children, place)
+      if (Opt.isNone(entry)) {
+        const on = describeByTag(message)
+        throw defectAt(place, `The external message ${String(on)} to "${place.name}", which is not in this state`, on)
+      }
+      return [place, entry.value.instance, message] as const
+    })
+    for (const [place, instance, message] of bound) {
+      const entry = entryAt(gathered.children, place)
+      if (Opt.isNone(entry) || entry.value.instance !== instance) continue
+      // Unreachable through the types: a step tells a child only what its `external` takes, `never` for one without.
+      const answer = (childOf(place.name).program as Readonly<{
+        external?: (message: unknown) => (state: unknown) => Step<unknown, unknown, unknown>
+      }>).external
+      if (answer === undefined) {
+        const on = describeByTag(message)
+        throw defectAt(place, `The external message ${String(on)} to "${place.name}", which has no external`, on)
+      }
+      childStep(gathered, place, entry.value, answer(message)(entry.value.state))
+    }
+  }
+  const getInput = (name: string, id: unknown, own: unknown) => {
+    const input = inputOf(name)
+    return input.kind === "byId" ? input.get(own, id) : input.get(own)
+  }
+  const setInput = (name: string, id: unknown, own: unknown, value: unknown) => {
+    const input = inputOf(name)
+    return input.kind === "byId" ? input.set(own, id, value) : input.set(own, value)
+  }
+  // A write is stored at its place, by the rule of every input, and keeps nothing between two writes. In a parent, it
+  // is a step on the parent's own state, after which the children are reconciled, as after any other.
+  const write = (place: Place, message: unknown, state: unknown) => {
+    const own = composed ? (state as Kept<unknown, Slots>).own : state
+    const held = getInput(place.name, place.id, own)
+    if (Opt.isNone(held)) return reject
+    const value = (written(message as never)(held.value) as Step<unknown>).state
+    // `Object.is`, since a place may hold NaN, which a write of NaN leaves as it is.
+    if (Object.is(value, held.value)) return { state, commands: [], events: [] }
+    if (!composed) return { state: setInput(place.name, place.id, own, value), commands: [], events: [] }
+    const gathered = open(state)
+    gathered.own = setInput(place.name, place.id, own, value)
+    reconcile(gathered, Opt.some(own))
+    return close(gathered, state)
+  }
+  const update = (message: unknown) => (state: unknown) => {
+    const place = placeOf(message)
+    if (isChildName(place.name)) {
+      const gathered = open(state)
+      const entry = entryAt(gathered.children, place)
+      if (Opt.isNone(entry)) return reject
+      // An answer names the instance that asked: one for another instance at the same place does not apply.
+      const instance = field(message, "instance")
+      if (instance !== undefined && instance !== entry.value.instance) return reject
+      const result = childOf(place.name).program.update(field(message, "message"))(entry.value.state) as
+        | Step<unknown, unknown, unknown>
+        | Rejected
+      if (result === reject) return reject
+      childStep(gathered, place, entry.value, result)
+      return close(gathered, state)
+    }
+    if (isInputName(place.name)) return write(place, field(message, "message"), state)
+    if (config.update === undefined) return reject
+    if (!composed) return config.update(message)(state)
+    const gathered = open(state)
+    const result = config.update(message)(gathered.own)
+    if (result === reject) return reject
+    ownStep(gathered, result)
+    return close(gathered, state)
+  }
+  const empty: Slots = mapOwn(
+    programs,
+    (child): Slot => child.kind === "byId" ? HashMap.empty<unknown, Entry>() : Opt.none()
+  )
+  const begin = (step: Step<unknown, unknown>): Step<unknown, unknown> => {
+    if (!composed) return step
+    const gathered: Gathered = {
+      own: step.state,
+      starts: 0,
+      children: empty,
+      commands: [...(step.commands ?? [])],
       events: []
     }
-    return Arr.reduce(
-      result.events ?? [],
-      lifted,
-      (acc, event) => appendStep(acc, onEventAt(place, event)(acc.state))
-    )
-  }
-  const updateAt = (place: Place, message: unknown) => (state: State): Transition<State, Command, Event> =>
-    Opt.match(getAt(place, state), {
-      onNone: () => reject,
-      onSome: (childState) => {
-        const result = childOf(place.name).program.update(message)(childState) as Transition<unknown, unknown, unknown>
-        return result === reject ? reject : liftAt(place, state, childState, result)
-      }
-    })
-  const startAt = (place: Place, flags: unknown) => {
-    const { state, commands = [] } = startOf(childOf(place.name).program.init, flags)
-    return { state, commands: Arr.map(commands, wrapCommand(place)) }
-  }
-  const hasFlags = (name: string) => typeof childOf(name).program.init === "function"
-  const tell = (place: Place, message: unknown) => (state: State): Step<State, Command, Event> => {
-    const childState = getAt(place, state)
-    if (Opt.isNone(childState)) {
-      const on = describeByTag(message)
-      throw defectAt(place, `The external message ${String(on)} to "${place.name}", which is not in this state`, on)
+    reconcile(gathered, Opt.none())
+    return {
+      state: { own: gathered.own, starts: gathered.starts, children: gathered.children },
+      commands: gathered.commands
     }
-    // Unreachable through the types: a handle takes what the child's `external` takes, `never` for a child without.
-    const answer = (childOf(place.name).program as Readonly<{ external?: Answer }>).external
-    if (answer === undefined) {
-      const on = describeByTag(message)
-      throw defectAt(place, `The external message ${String(on)} to "${place.name}", which has no external`, on)
-    }
-    return liftAt(place, state, childState.value, answer(message)(childState.value))
   }
-  // Built once: a child's update calls `onEvent`, which may call any child's handle.
-  const handles = mapOwn(programs, (child, name) =>
-    child.kind === "byId"
-      ? {
-        external: (id: unknown, message: unknown) => tell({ name, id }, message),
-        init: (id: unknown, flags: unknown) => startAt({ name, id }, flags)
-      }
-      : {
-        external: (message: unknown) => tell({ name, id: undefined }, message),
-        init: hasFlags(name)
-          ? (flags: unknown) => startAt({ name, id: undefined }, flags)
-          : startAt({ name, id: undefined }, undefined)
-      }) as unknown as Handles<State, C, Command, Event>
-  // An input keeps nothing between two writes: a step of the program leaves its value as it wrote it.
-  const update: Update<State, Message, Command, Event> = (message) => (state) => {
-    const place = placeOf(message)
-    return isChildName(place.name)
-      ? updateAt(place, field(message, "message"))(state)
-      : config.update === undefined
-      ? reject
-      : config.update(message as Own, handles)(state)
-  }
-  const subscriptionsAt = (place: Place, childState: unknown) =>
-    HashMap.map(
-      childOf(place.name).program.subscriptions(childState),
-      (subscription: Subscription<unknown, unknown>) =>
-        subscription.pipe(Channel.map(wrapMessage(place)), Channel.mapDone(wrapMessage(place)))
-    )
-  // `subscriptions` is pure, as `makeModel` is: a child's, lifted under its place, are kept by its state object, for
-  // every run of this parent, at the places that object held in the last call that met it, in their order. So
-  // children that share a state, as those a step's `init` starts do, keep theirs, and the ids of a long list never
-  // pile up under a state that lives as long as the program: the next call that meets the object lets go of the
-  // places it no longer holds. A place met out of that order is lifted again.
-  const lifted = new WeakMap<object, Kept>()
-  let calls = 0
-  const liftedAt = (call: number, place: Place, childState: unknown): Lifted => {
-    const state = objectAt(place, childState)
-    let kept = lifted.get(state)
-    if (kept === undefined) {
-      kept = { call, met: 0, places: [] }
-      lifted.set(state, kept)
-    } else if (kept.call !== call) {
-      kept.places.length = kept.met
-      kept.met = 0
-      kept.call = call
-    }
-    const at = kept.places[kept.met]
-    if (at !== undefined && at[0].name === place.name && Equal.equals(at[0].id, place.id)) {
-      kept.met++
-      return at[1]
-    }
+  // A child's subscriptions, lifted under its instance: kept by the object that the library keeps the instance in,
+  // which is at one place, and is replaced with the child's state.
+  const lifted = new WeakMap<Entry, Lifted>()
+  const liftedAt = (place: Place, entry: Entry): Lifted => {
+    const found = lifted.get(entry)
+    if (found !== undefined) return found
+    const wrap = wrapMessage(place, entry.instance)
     const subscriptions = Arr.map(
-      Arr.fromIterable(subscriptionsAt(place, childState)),
+      Arr.fromIterable(
+        childOf(place.name).program.subscriptions(entry.state) as HashMap.HashMap<
+          unknown,
+          Subscription<unknown, unknown>
+        >
+      ),
       ([key, subscription]) =>
-        [isById(place.name) ? [place.name, place.id, key] : [place.name, key], subscription] as const
+        [
+          isById(place.name) ? [place.name, place.id, entry.instance, key] : [place.name, entry.instance, key],
+          subscription.pipe(Channel.map(wrap), Channel.mapDone(wrap))
+        ] as const
     )
-    kept.places[kept.met++] = [place, subscriptions]
+    lifted.set(entry, subscriptions)
     return subscriptions
   }
-  const listening = (name: string, state: State): ReadonlyArray<readonly [Place, unknown]> => {
-    const { get, subscribed } = childOf(name)
-    if (isById(name)) {
-      const all = (subscribed as (state: unknown) => Iterable<readonly [unknown, unknown]>)(state)
-      return Arr.map(Arr.fromIterable(all), ([id, childState]) => [{ name, id }, childState] as const)
-    }
-    const one = (subscribed ?? get) as (state: unknown) => Opt.Option<unknown>
-    return Opt.match(one(state), { onNone: () => [], onSome: (childState) => [[{ name, id: undefined }, childState]] })
-  }
-  const modelAt = (place: Place, parentState: State) => {
+  // The types require an object, by which a child's model is kept: only a cast, or a caller without TypeScript, gets a
+  // primitive this far, which a `WeakMap` would refuse with a `TypeError`.
+  const modelOf = (place: Place, entry: Entry) => {
     const { program } = childOf(place.name)
-    const childState = objectAt(
-      place,
-      Opt.getOrThrowWith(
-        getAt(place, parentState),
-        () => defectAt(place, `The model of "${place.name}", which is not in this state`)
-      )
-    )
+    const childState = entry.state
+    if (!Predicate.isObjectKeyword(childState)) {
+      const kind = childState === null || childState === undefined ? String(childState) : `a ${typeof childState}`
+      throw defectAt(place, `The state of "${place.name}" is ${kind}, where a program keeps its state in an object`)
+    }
     const kept = modelsOf(program)
     if (kept.has(childState)) return kept.get(childState)
     const model = program.makeModel(childState)
     kept.set(childState, model)
     return model
   }
-  const childModels = mapOwn(programs, (child, name) =>
-    child.kind === "byId"
-      ? (parentState: State, id: unknown) => modelAt({ name, id }, parentState)
-      : (parentState: State) => modelAt({ name, id: undefined }, parentState)) as Models<State, C>
-  const ownRunCommand = (
-    config as Readonly<{ runCommand?: (command: OwnCommand) => Execution<Own, unknown> }>
-  ).runCommand
-  const ownExternal = (
-    config as Readonly<{
-      external?: (message: External, children: typeof handles) => (state: State) => Step<State, Command, Event>
-    }>
-  ).external
-  const program = {
-    // Without children, `init` is the program's own, as `Program` writes it: a step is never a function, but a
-    // function of the flags and one of the children cannot be told apart, so the children declared decide.
-    init: names.length === 0
-      ? config.init as Init<State, Command, Flags>
-      : (config.init as (children: typeof handles) => Init<State, Command, Flags>)(handles),
+  const there = (place: Place, entry: Opt.Option<Entry>): Entry =>
+    Opt.getOrThrowWith(entry, () => defectAt(place, `The model of "${place.name}", which is not in this state`))
+  const modelsFor = (state: unknown): unknown => {
+    if (!composed) return {}
+    const slots = (state as Kept<unknown, Slots>).children
+    return mapOwn(programs, (child, name) =>
+      child.kind === "byId"
+        ? (id: unknown) => modelOf({ name, id }, there({ name, id }, entryAt(slots, { name, id })))
+        : child.there === "always"
+        ? () =>
+          modelOf({ name, id: undefined }, there({ name, id: undefined }, entryAt(slots, { name, id: undefined })))
+        : () => Opt.map(entryAt(slots, { name, id: undefined }), (entry) => modelOf({ name, id: undefined }, entry)))
+  }
+  const ownOf = (state: unknown) => composed ? (state as Kept<unknown, unknown>).own : state
+  const ownExternal = config.external
+  const placer: Placer = (own, states) => {
+    const gathered: Gathered = { own, starts: 0, children: empty, commands: [], events: [] }
+    reconcile(gathered, Opt.none())
+    for (const name of Object.keys(states)) {
+      if (!Object.hasOwn(programs, name)) throw new Error(`stateOf: "${name}" is no child`)
+      const given = states[name]
+      const places: ReadonlyArray<readonly [Place, unknown]> = isById(name)
+        ? Arr.map(
+          Arr.fromIterable(given as Iterable<readonly [unknown, unknown]>),
+          ([id, childState]) => [{ name, id }, childState] as const
+        )
+        : [[{ name, id: undefined }, given]]
+      for (const [place, childState] of places) {
+        const entry = Opt.getOrThrowWith(
+          entryAt(gathered.children, place),
+          () => new Error(`stateOf: a state for "${name}", which the parent's state does not list`)
+        )
+        putAt(gathered, place, { ...entry, state: childState })
+      }
+    }
+    return { own: gathered.own, starts: gathered.starts, children: gathered.children }
+  }
+  return {
+    init: typeof config.init === "function"
+      ? (flags: unknown) => begin((config.init as (flags: unknown) => Step<unknown, unknown>)(flags))
+      : begin(config.init),
     update,
-    runCommand: (command: Command): Execution<Message, unknown> => {
+    runCommand: (command: unknown): Execution<unknown, unknown> => {
       const place = placeOf(command)
       if (isChildName(place.name)) {
         const childCommand = field(command, "command")
@@ -845,58 +954,56 @@ const make = <
           const on = describeByTag(childCommand)
           throw defectAt(place, `The command ${String(on)} of "${place.name}", which has no runCommand`, on)
         }
-        return Effect.map(run(childCommand), Opt.map(wrapMessage(place)))
+        return Effect.map(run(childCommand), Opt.map(wrapMessage(place, field(command, "instance") as number)))
       }
-      // Unreachable through the types: `runCommand` is required whenever the parent has commands of its own.
-      if (ownRunCommand === undefined) throw new Error("make: a command of its own, and no runCommand")
-      return ownRunCommand(command as OwnCommand)
+      // Unreachable through the types: `runCommand` is required whenever the program has commands of its own.
+      if (config.runCommand === undefined) throw new Error("make: a command of its own, and no runCommand")
+      return config.runCommand(command)
     },
-    // A child's keys are under its name and id, so two children never clash: only an own key shaped like one
-    // of theirs could, and would silently take the child's place. Built in place: a list of a thousand children
-    // makes a thousand keys on every change of state.
-    // Two children's keys clash only when `subscribed` lists one id twice.
-    subscriptions: (state: State) => {
-      const own = HashMap.map(
-        config.subscriptions?.(state) ?? HashMap.empty<K, Subscription<Own, unknown>>(),
-        (subscription) => subscription as Subscription<Message, unknown>
-      ) as HashMap.HashMap<unknown, Subscription<Message, unknown>>
-      const call = ++calls
-      return HashMap.mutate(
-        own,
-        (keyed) => {
-          for (const name of names) {
-            for (const [place, childState] of listening(name, state)) {
-              for (const [key, subscription] of liftedAt(call, place, childState)) {
-                if (HashMap.has(own, key)) {
-                  throw defectAt(place, `An own subscription key is the key of a subscription of "${name}"`)
-                }
-                if (HashMap.has(keyed, key)) {
-                  throw defectAt(place, `The subscribed children of "${name}" list the same id twice`)
-                }
-                HashMap.set(keyed, key, subscription as Subscription<Message, unknown>)
-              }
+    // A child's keys are under its name, its id and its instance, so two children never clash: only an own key
+    // shaped like one of theirs could, and would silently take the child's place. Built in place: a list of a
+    // thousand children makes a thousand keys on every change of state.
+    subscriptions: (state: unknown) => {
+      const own = config.subscriptions?.(ownOf(state)) ?? HashMap.empty<unknown, Subscription<unknown, unknown>>()
+      if (!composed) return own
+      const whole = state as Kept<unknown, Slots>
+      return HashMap.mutate(own, (keyed) => {
+        const listen = (place: Place, entry: Entry) => {
+          const { listening } = childOf(place.name)
+          if (
+            listening !== undefined && !(isById(place.name) ? listening(whole.own, place.id) : listening(whole.own))
+          ) {
+            return
+          }
+          for (const [key, subscription] of liftedAt(place, entry)) {
+            if (HashMap.has(own, key)) {
+              throw defectAt(place, `An own subscription key is the key of a subscription of "${place.name}"`)
             }
+            HashMap.set(keyed, key, subscription)
           }
         }
-      )
+        for (const name of names) {
+          const slot = whole.children[name] as Slot
+          if (isById(name)) {
+            for (const [id, entry] of slot as HashMap.HashMap<unknown, Entry>) listen({ name, id }, entry)
+          } else if (Opt.isSome(slot as Opt.Option<Entry>)) {
+            listen({ name, id: undefined }, (slot as Opt.Some<Entry>).value)
+          }
+        }
+      })
     },
-    makeModel: (state: State): Model => config.makeModel(state, childModels),
+    makeModel: (state: unknown) => config.makeModel(ownOf(state), modelsFor(state)),
     // Only where the program has external messages, as `Program` writes it.
     ...(ownExternal === undefined ? {} : {
-      external: (message: External) => (state: State) => ownExternal(message, handles)(state)
-    })
+      external: (message: unknown) => (state: unknown) => {
+        if (!composed) return ownExternal(message)(state)
+        const gathered = open(state)
+        ownStep(gathered, ownExternal(message)(gathered.own))
+        return close(gathered, state)
+      }
+    }),
+    ...(composed ? { [statesKey]: placer } : {})
   }
-  return program as unknown as Program<{
-    state: State
-    model: Model
-    message: Message
-    command: Command
-    commandServices: RanServices<Ran> | ChildCommandServices<C>
-    subscriptionServices: HeardServices<Heard> | ChildSubscriptionServices<C>
-    event: Event
-    external: External
-    flags: Flags
-  }>
 }
 
 /**
@@ -910,7 +1017,7 @@ const make = <
  * @see The guide, "Composition", "The parent's own types".
  */
 type DeclaredTypes = Readonly<{
-  /** Its state, an object. */
+  /** Its own state, an object. */
   state: object
   /** What its view draws. Inferred from `makeModel` when it is not named. */
   model?: unknown
@@ -936,21 +1043,26 @@ type DeclaredTypes = Readonly<{
  * too. A model that is named is checked, and a model that is not named is inferred. The services are never named:
  * they are inferred.
  *
- * A child is any program. The library does the routing. A parent and its children talk only through events and
- * external messages. The parent's messages, commands and subscriptions are its own, plus each child's, wrapped. The
- * parent's messages also include the writes into each input:
+ * A child is any program. A parent declares its children with `withChildren`, before `make`. The parent's own state
+ * says which children are there, and the library keeps them: it starts a child that the state lists anew, with its
+ * first commands, and drops one that the state no longer lists. A parent and its children talk only through events and
+ * external messages: a step of the parent's own lists what it tells its children in `tell`. The parent's messages,
+ * commands and subscriptions are its own, plus each child's, wrapped. The parent's messages also include the writes into
+ * each input:
  *
  * - a message as `{ _tag: <child>, message }`, and a write as `{ _tag: <input>, message }`;
- * - a command as `{ _tag: <child>, command }`, run by the child's `runCommand`;
- * - a subscription under the key `[<child>, key]`.
+ * - a command as `{ _tag: <child>, instance, command }`, run by the child's `runCommand`, whose answer names the
+ *   `instance` too;
+ * - a subscription under the key `[<child>, instance, key]`.
  *
- * For children and inputs by id, each of these also carries the `id`: a key is then `[<child>, id, key]`. A message of
- * the parent's own that can take the name of a child or of an input does not compile, as one tagged `string` can. An
- * external message is not routed: the parent's `external` passes it on, by calling the child's handle. A key of the
- * parent's own subscriptions that is the key of a child's subscription is a defect, a `CompositionDefect`.
+ * For children and inputs by id, each of these also carries the `id`: a key is then `[<child>, id, instance, key]`. A
+ * message of the parent's own that can take the name of a child or of an input does not compile, as one tagged
+ * `string` can. A key of the parent's own subscriptions that is the key of a child's subscription is a defect, a
+ * `CompositionDefect`.
  *
- * @returns `child` and `childById`, which declare a child alone and children by id, `input` and `inputById`, which
- * declare an input alone and inputs by id, and `make`, which makes the program.
+ * @returns `child` and `childById`, which declare a child alone and children by id, `withChildren`, which takes the
+ * children of a parent, `input` and `inputById`, which declare an input alone and inputs by id, and `make`, which
+ * makes a program without children.
  *
  * @example
  * ```ts
@@ -963,12 +1075,11 @@ type DeclaredTypes = Readonly<{
  *
  * @example
  * ```ts
- * const { child, make } = program<{ state: State }>()
+ * const { child, withChildren } = program<{ state: State }>()
  *
- * const app = make({
- *   init: (children) => ({ state: { clock: children.Clock.init.state }, commands: children.Clock.init.commands }),
- *   children: { Clock: child(clock, { at: Optic.id<State>().key('clock') }) },
- *   makeModel: (state, children) => ({ clock: children.Clock(state) }),
+ * const app = withChildren({ Clock: child(clock) }).make({
+ *   init: { state: {} },
+ *   makeModel: (state, children) => ({ clock: children.Clock() }),
  * })
  * ```
  *
@@ -981,18 +1092,48 @@ type DeclaredTypes = Readonly<{
  * @see The guide, "Composition", "What does not compile:".
  * @see The guide, "Composition", "What is a defect".
  */
-export const program = <T extends DeclaredTypes>(): ProgramMaker<T> => ({
-  child: (program, place) => ({
-    kind: "one",
-    program,
-    ...placed(place),
-    ...(place.subscribed === undefined ? {} : { subscribed: place.subscribed })
-  }),
-  childById: (program, place) => ({ kind: "byId", program, ...placedById(place), subscribed: place.subscribed }),
-  input: (place) => ({ kind: "one", ...placed(place) }),
-  inputById: (place) => ({ kind: "byId", ...placedById(place) }),
-  make: (config) => make(config as never) as never
-})
+export const program = <T extends DeclaredTypes>(): ProgramMaker<T> =>
+  ({
+    child: (
+      program: AnyProgram,
+      place: Readonly<{
+        flags?: (state: unknown) => Opt.Option<unknown>
+        there?: (state: unknown) => boolean
+        key?: (state: unknown) => unknown
+        listening?: (state: unknown) => boolean
+      }> = {}
+    ) => {
+      const { flags, key, listening, there } = place
+      const keyed = key === undefined ? () => present : (state: unknown) => Opt.some(key(state))
+      return {
+        kind: "one",
+        program,
+        there: flags === undefined && there === undefined ? "always" : "sometimes",
+        key: flags ?? (there === undefined ? keyed : (state: unknown) => there(state) ? keyed(state) : Opt.none()),
+        ...(listening === undefined ? {} : { listening })
+      }
+    },
+    childById: (
+      program: AnyProgram,
+      place: Readonly<{
+        ids?: (state: unknown) => Iterable<unknown>
+        flags?: (state: unknown) => Iterable<readonly [unknown, unknown]>
+        listening?: (state: unknown, id: unknown) => boolean
+      }>
+    ) => ({
+      kind: "byId",
+      program,
+      listed: place.flags ?? place.ids,
+      flagged: place.flags !== undefined,
+      ...(place.listening === undefined ? {} : { listening: place.listening })
+    }),
+    input: (place: Placement<unknown, unknown>) => ({ kind: "one", ...placed(place) }),
+    inputById: (place: PlacementById<unknown, unknown, unknown>) => ({ kind: "byId", ...placedById(place) }),
+    make: (config: UntypedConfig) => make(undefined, config),
+    withChildren: (children: Readonly<Record<string, UntypedChild>>) => ({
+      make: (config: UntypedConfig) => make(children, config)
+    })
+  }) as unknown as ProgramMaker<T>
 
 // A type `T` names is checked, `never` too; one it does not name is inferred.
 type Named<T, K extends "model", Inferred> = T extends { readonly [P in K]: infer V } ? V : Inferred
@@ -1007,55 +1148,69 @@ type Named<T, K extends "model", Inferred> = T extends { readonly [P in K]: infe
  */
 export interface ProgramMaker<T extends DeclaredTypes> {
   /**
-   * Declares a child alone in its parent's state.
+   * Declares a child alone.
    *
-   * The child lives where the optic `at` focuses, or where `get` and `set` put it. Where the optic focuses nothing,
-   * or `get` returns `None`, the child is not there, and a message for it is rejected. By default, the child's
-   * subscriptions run whenever the child is there.
+   * - `child(program)` is always there, and so is `child(program, { key })`, which starts again where `key` gives
+   *   another value, compared with `Equal`.
+   * - `child(program, { there })` is there in the states where `there` holds, and `key` may be given beside it.
+   * - A child with flags is there where `flags` gives `Some`, and starts from them. Other flags start it again.
+   * - `listening` says in which states its subscriptions run. Without it, they run whenever the child is there.
    *
    * @param program - The child.
-   * @param place - Where the child lives, and `subscribed`, a function of the parent's state. `subscribed` gives the
-   * child's state in the states where the child's subscriptions run, and `None` in the others.
-   * @returns The child, for `children` in `make`.
+   * @param place - When the child is there, what it starts from, and when it listens: functions of the parent's own
+   * state.
+   * @returns The child, for `withChildren`.
    *
    * @example
    * ```ts
-   * About: child(about, { at: Optic.id<State>().key('maybeAbout').compose(Optic.some()) }),
+   * About: child(about, { flags: (state) => state.about }),
    * ```
    *
-   * @see The guide, "Composition", "Where the child lives: `at`".
+   * @see The guide, "Composition", "Declaring children".
    * @see The guide, "Composition", "When the child is not there".
-   * @see The guide, "Composition", "When a child's subscriptions run: `subscribed`".
+   * @see The guide, "Composition", "A child with `flags`".
    */
   readonly child: DeclareChild<T>
   /**
    * Declares children told apart by an id, such as the rows of a list, each with a state of its own.
    *
-   * - `get` and `set` take the id, or `at` is a function of it.
-   * - `subscribed` is required. A row that it leaves out runs no subscription.
-   * - `children.Row(state, id)` is a row's model, and `forwardTo(dispatch, 'Row', id)` is the row's dispatch.
-   * - Ids are compared by value, with `Equal`.
+   * - `ids` lists the ids of the children that are there. For a program with flags, `flags` lists each id with its
+   *   flags, and other flags start the child again.
+   * - `children.Row(id)` is a row's model, and `forwardTo(dispatch, 'Row', id)` is the row's dispatch.
+   * - Ids are compared by value, with `Equal`. An id listed twice is a defect, a `CompositionDefect`.
    *
    * @param program - The program of each child.
-   * @param place - Where the child at an id lives, and `subscribed`, a function of the parent's state that lists the
-   * ids whose subscriptions run, each with its child's state.
-   * @returns The children, for `children` in `make`.
+   * @param place - The ids of the children in a state, and `listening`, which says whether the child at an id listens.
+   * @returns The children, for `withChildren`.
    *
    * @example
    * ```ts
-   * Row: childById(row, {
-   *   get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.counter),
-   *   set: (state, id, counter) => ({ rows: state.rows.map((row) => (row.id === id ? { id, counter } : row)) }),
-   *   subscribed: (state) => state.rows.map((row) => [row.id, row.counter] as const),
-   * }),
+   * Row: childById(row, { ids: (state) => state.ids }),
    * ```
    *
-   * @see The guide, "Composition", "`get` and `set` take the id".
-   * @see The guide, "Composition", "`subscribed` lists the rows that listen".
-   * @see The guide, "Composition", "`children.Row(state, id)` is a row's model".
+   * @see The guide, "Composition", "Children by id".
    * @see The guide, "Composition", "Ids are compared by value".
    */
   readonly childById: DeclareChildById<T>
+  /**
+   * Takes the children of a parent, by name, and gives the `make` of the parent.
+   *
+   * They are declared before the rest, so that what a step tells them is typed by them.
+   *
+   * @param children - The children, by name: `{ Clock: child(…), Row: childById(…) }`.
+   * @returns `make`, which makes the parent.
+   *
+   * @example
+   * ```ts
+   * export const app = withChildren({ Clock: child(clock) }).make({
+   *   init: { state: {} },
+   *   makeModel: (state, children) => ({ clock: children.Clock() }),
+   * })
+   * ```
+   *
+   * @see The guide, "Composition", "Declaring children".
+   */
+  readonly withChildren: DeclareChildren<T>
   /**
    * Declares an input: a place of the program's state that the view writes into.
    *
@@ -1097,16 +1252,15 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    */
   readonly inputById: DeclareInputById<T>
   /**
-   * Makes the program from its pieces, and from the children and the inputs it declares.
+   * Makes a program without children from its pieces, and from the inputs it declares.
    *
-   * A model named in `program` is checked against `makeModel`, and a model not named is inferred from it. A parent's
-   * own `update` takes `children` too. It may reject the parent's own messages, as any `update` does. Its `external`
-   * takes `children` too, and never rejects. The parent's commands need the services of its `runCommand` and of its
-   * children's commands. The parent's subscriptions need the services of its own `subscriptions` and of its children's
-   * subscriptions. Nothing names these services: they are inferred.
+   * A model named in `program` is checked against `makeModel`, and a model not named is inferred from it. `update`
+   * may reject the program's own messages, as any `update` does. `external` never rejects. The program's commands need
+   * the services of its `runCommand`, and its subscriptions the services of its `subscriptions`. Nothing names these
+   * services: they are inferred.
    *
    * @param config - Its `init` and `makeModel`, its `update`, `external`, `runCommand` and `subscriptions` where it
-   * has them, and for a parent its `children`, its `inputs` and `onEvent`.
+   * has them, and its `inputs`.
    * @returns The program, which runs alone or as a child of another.
    *
    * @example
@@ -1124,31 +1278,137 @@ export interface ProgramMaker<T extends DeclaredTypes> {
   readonly make: MakeProgram<T>
 }
 
+/** When a child's subscriptions run, among the states where it is there. Without it, in all of them. */
+type Listening<State> = Readonly<{ listening?: (state: State) => boolean }>
+
+// A child with flags is declared with them. On the place, and not on the program: inferred from `P & …`, `P` would
+// lose the name `Program<…>`, as `CheckedChild` says.
+type AlwaysPlace<State, P> = [FlagsOf<P>] extends [never] ? [
+    place?:
+      & Readonly<{
+        /** What the child starts from in a state: another value, by `Equal`, starts it again. */
+        key?: (state: State) => unknown
+        there?: never
+        flags?: never
+      }>
+      & Listening<State>
+      & ObjectState<StateOf<P>>
+  ]
+  : [place: { readonly "a child with flags is declared with its flags": FlagsOf<P> }]
+
+/** The states where a child that may not be there is there, and what it starts from. */
+type SometimesPlace<State, P> = [FlagsOf<P>] extends [never] ? Readonly<{
+    /** Whether the child is there in a state. */
+    there: (state: State) => boolean
+    /** What the child starts from in a state where it is there: another value, by `Equal`, starts it again. */
+    key?: (state: State) => unknown
+    flags?: never
+  }>
+  : Readonly<{
+    /** The child's flags in the states where it is there, `None` in the others: other flags start it again. */
+    flags: (state: State) => Opt.Option<FlagsOf<P>>
+    there?: never
+    key?: never
+  }>
+
+// Two forms, and no conditional type over them: an `Id` inferred from `ids` reaches `listening`, beside it in the same
+// object, only through types that hold it as they are.
+type IdsPlace<State, Id> = Readonly<{
+  /** The ids of the children that are there. */
+  ids: (state: State) => Iterable<Id>
+  /** Whether the child at an id listens. Without it, every child does. */
+  listening?: (state: State, id: Id) => boolean
+  flags?: never
+}>
+
+type FlagsPlace<State, Id, Flags> = Readonly<{
+  /** The ids of the children that are there, each with its flags: other flags start the child again. */
+  flags: (state: State) => Iterable<readonly [Id, Flags]>
+  /** Whether the child at an id listens. Without it, every child does. */
+  listening?: (state: State, id: Id) => boolean
+  ids?: never
+}>
+
+/** A program with flags is declared with them, and one without is declared without. */
+type FlagsChecked<P, Flagged extends boolean> = [FlagsOf<P>] extends [never]
+  ? Flagged extends true ? { readonly "a child without flags is declared with its ids": never } : unknown
+  : Flagged extends true ? unknown
+  : { readonly "a child with flags is declared with its flags": FlagsOf<P> }
+
 /**
- * The function of `program` that declares a child alone in its parent's state.
+ * The function of `program` that declares a child alone: always there, or there in the states its place says.
  *
- * @see The guide, "Composition", "Where the child lives: `at`".
+ * @see The guide, "Composition", "Declaring children".
  */
-export type DeclareChild<T extends DeclaredTypes> = <P extends AnyProgram>(
-  program: CheckedChild<P>,
-  place:
-    & Placement<Field<T, "state">, StateOf<P>>
-    & Readonly<{ subscribed?: (state: Field<T, "state">) => Opt.Option<StateOf<P>> }>
-    & ObjectState<StateOf<P>>
-) => Child<Field<T, "state">, P>
+export type DeclareChild<T extends DeclaredTypes> = {
+  <P extends AnyProgram>(
+    program: CheckedChild<P>,
+    ...place: AlwaysPlace<Field<T, "state">, P>
+  ): Child<Field<T, "state">, P, "always">
+  <P extends AnyProgram>(
+    program: CheckedChild<P>,
+    place: SometimesPlace<Field<T, "state">, P> & Listening<Field<T, "state">> & ObjectState<StateOf<P>>
+  ): Child<Field<T, "state">, P, "sometimes">
+}
 
 /**
  * The function of `program` that declares children told apart by an id.
  *
- * @see The guide, "Composition", "`get` and `set` take the id".
+ * @see The guide, "Composition", "Children by id".
  */
-export type DeclareChildById<T extends DeclaredTypes> = <Id, P extends AnyProgram>(
-  program: CheckedChild<P>,
-  place:
-    & PlacementById<Field<T, "state">, Id, StateOf<P>>
-    & Readonly<{ subscribed: (state: Field<T, "state">) => Iterable<readonly [Id, StateOf<P>]> }>
-    & ObjectState<StateOf<P>>
-) => ChildById<Field<T, "state">, Id, P>
+export type DeclareChildById<T extends DeclaredTypes> = {
+  <Id, P extends AnyProgram>(
+    program: CheckedChild<P>,
+    place: IdsPlace<Field<T, "state">, Id> & FlagsChecked<P, false> & ObjectState<StateOf<P>>
+  ): ChildById<Field<T, "state">, Id, P>
+  <Id, P extends AnyProgram>(
+    program: CheckedChild<P>,
+    place: FlagsPlace<Field<T, "state">, Id, FlagsOf<P>> & FlagsChecked<P, true> & ObjectState<StateOf<P>>
+  ): ChildById<Field<T, "state">, Id, P>
+}
+
+/**
+ * The function of `program` that takes a parent's children, and gives its `make`.
+ *
+ * @see The guide, "Composition", "Declaring children".
+ */
+export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field<T, "state">>>(
+  children: C
+) => ParentMaker<T, C>
+
+/**
+ * What `withChildren` returns: the `make` of a parent of these children.
+ *
+ * @see The guide, "Composition", "Declaring children".
+ */
+export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T, "state">>> {
+  /**
+   * Makes the parent from its pieces, and from its children and the inputs it declares.
+   *
+   * - The parent's functions are given its own state alone. Its state is that state, and the children that the library
+   *   keeps.
+   * - A step of the parent's own lists in `tell` the external messages it gives its children. Each is given once the
+   *   step is taken and its children are there, in order.
+   * - `init` is a step of the parent's own: the library starts the children that its state lists.
+   *
+   * @param config - Its `init` and `makeModel`, its `update`, `external`, `runCommand`, `subscriptions` and `onEvent`
+   * where it has them, and its `inputs`.
+   * @returns The parent, which runs alone or as a child of another.
+   *
+   * @example
+   * ```ts
+   * withChildren({ Row: childById(row, { ids: (state) => state.ids }) }).make({
+   *   init: { state: { ids: [] } },
+   *   update: () => (state) => ({ state, tell: state.ids.map((id) => ({ _tag: 'Row', id, message: Cleared() })) }),
+   *   makeModel: (state, children) => ({ rows: state.ids.map((id) => children.Row(id)) }),
+   * })
+   * ```
+   *
+   * @see The guide, "Composition", "The parent's own messages, commands and subscriptions".
+   * @see The guide, "Events and external messages", "A parent sends an external message".
+   */
+  readonly make: MakeParent<T, C>
+}
 
 /**
  * The function of `program` that declares an input.
@@ -1169,7 +1429,7 @@ export type DeclareInputById<T extends DeclaredTypes> = <Id, A>(
 ) => InputById<Field<T, "state">, Id, A>
 
 /**
- * The function of `program` that makes the program from its pieces.
+ * The function of `program` that makes a program without children from its pieces.
  *
  * A state whose type has no fields, such as `{}`, does not compile, since such a type holds a number too: name it
  * `object`.
@@ -1179,18 +1439,16 @@ export type DeclareInputById<T extends DeclaredTypes> = <Id, A>(
  */
 export type MakeProgram<T extends DeclaredTypes> = <
   Model,
-  C extends Children<Field<T, "state">> = None,
   I extends Inputs<Field<T, "state">> = None,
   Ran = never,
   Heard = never,
   K = unknown
 >(
-  // The children and the inputs are inferred from where they are declared alone: a command a step returns would
-  // otherwise be read as a child's, where no child is declared.
+  // The inputs are inferred from where they are declared alone.
   config:
     & Config<
       Field<T, "state">,
-      NoInfer<C>,
+      None,
       NoInfer<I>,
       Field<T, "message">,
       Field<T, "command">,
@@ -1202,7 +1460,7 @@ export type MakeProgram<T extends DeclaredTypes> = <
       Field<T, "external">,
       Field<T, "flags">
     >
-    & Readonly<{ children?: C; inputs?: I }>
+    & Readonly<{ inputs?: I }>
     // On the config, as for a program written by hand: the program `make` returns carries the marker of `Program`,
     // which the check of `run` and of the testing tools asks for, so a state that holds a number would get past them.
     // A state that is a type parameter stays deferred here, and does not compile (`docs/rejected.md`).
@@ -1211,15 +1469,65 @@ export type MakeProgram<T extends DeclaredTypes> = <
   Present<{
     state: Field<T, "state">
     model: Named<T, "model", Model>
-    message: Field<T, "message"> | ChildMessages<C> | InputMessages<I>
-    command: Field<T, "command"> | ChildCommands<C>
-    commandServices: RanServices<Ran> | ChildCommandServices<C>
-    subscriptionServices: HeardServices<Heard> | ChildSubscriptionServices<C>
+    message: Field<T, "message"> | InputMessages<I>
+    command: Field<T, "command">
+    commandServices: RanServices<Ran>
+    subscriptionServices: HeardServices<Heard>
     event: Field<T, "event">
     external: Field<T, "external">
     flags: Field<T, "flags">
   }>
 >
+
+/**
+ * The function of `withChildren` that makes a parent from its pieces.
+ *
+ * @see The guide, "Composition", "The parent's own messages, commands and subscriptions".
+ * @see The guide, "Anatomy of a program", "What does not compile".
+ */
+export type MakeParent<T extends DeclaredTypes, C extends Children<Field<T, "state">>> = <
+  Model,
+  I extends Inputs<Field<T, "state">> = None,
+  Ran = never,
+  Heard = never,
+  K = unknown
+>(
+  // The children are fixed by `withChildren`, so that nothing of what a step tells them is inferred here: a literal
+  // in a `tell` would otherwise lose its tags (`_tag: string`), and need `as const`.
+  config:
+    & Config<
+      Field<T, "state">,
+      C,
+      NoInfer<I>,
+      Field<T, "message">,
+      Field<T, "command">,
+      Field<T, "event">,
+      Named<T, "model", Model>,
+      Ran,
+      Heard,
+      K,
+      Field<T, "external">,
+      Field<T, "flags">
+    >
+    & Readonly<{ inputs?: I }>
+    & ObjectState<Field<T, "state">>
+) => Program<
+  Present<{
+    state: Kept<Field<T, "state">, KeptOf<C>>
+    model: Named<T, "model", Model>
+    message: Field<T, "message"> | ChildMessages<C> | InputMessages<I>
+    command: Field<T, "command"> | ChildCommands<C>
+    commandServices: Needs<RanServices<Ran>, ChildCommandServices<C>>
+    subscriptionServices: Needs<HeardServices<Heard>, ChildSubscriptionServices<C>>
+    event: Field<T, "event">
+    external: Field<T, "external">
+    flags: Field<T, "flags">
+  }>
+>
+
+// What the parent's own pieces and its children need together. As a plain union in `MakeParent`, a child that needs
+// `unknown` beside own pieces that need nothing gave `never`, with TypeScript 7.0.2: `unknown` is read first, apart.
+type Needs<Own, Children> = unknown extends Children ? unknown : unknown extends Own ? unknown : Own | Children
 
 // The types the program names, and only those: one it does not name would print as `never` in every hover and
 // declaration of the program. `state`, `model` and `message` stay, `never` too (a program with no messages); `Extract`

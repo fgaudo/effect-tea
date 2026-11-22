@@ -1026,15 +1026,9 @@ describe("defects", () => {
       subscriptions: () => HashMap.empty(),
       makeModel: () => null
     }
-    const Page = program<{ state: Readonly<{ saver: Saver }> }>()
-    const page = Page.make({
-      init: (children) => ({ state: { saver: children.Saver.init.state } }),
-      children: {
-        Saver: Page.child(saver, {
-          get: (state) => Opt.some(state.saver),
-          set: (state, saver) => ({ ...state, saver })
-        })
-      },
+    const Page = program<{ state: object }>()
+    const page = Page.withChildren({ Saver: Page.child(saver) }).make({
+      init: { state: {} },
       onEvent: { Saver: () => () => boom() },
       makeModel: () => null
     })
@@ -1073,15 +1067,11 @@ describe("defects", () => {
       makeModel: ({ n }) => n
     }
     type Shelf = Readonly<{ shelf: string }>
-    const Rows = program<{ state: Readonly<{ rows: ReadonlyArray<Row> }>; message: Readonly<{ id: Shelf }> }>()
+    const Rows = program<{ state: object; message: Readonly<{ id: Shelf }> }>()
     // No row is ever there: an external message to one is a defect that names its id.
-    const rows = Rows.make({
-      init: () => ({ state: { rows: [] } }),
-      children: {
-        Rows: Rows.childById(row, { get: (_, _id: Shelf) => Opt.none(), set: (state) => state, subscribed: () => [] })
-      },
-      update: ({ id }, children) => children.Rows.external(id, "Clear"),
-      onEvent: {},
+    const rows = Rows.withChildren({ Rows: Rows.childById(row, { ids: (): ReadonlyArray<Shelf> => [] }) }).make({
+      init: { state: {} },
+      update: ({ id }) => (state) => ({ state, tell: [{ _tag: "Rows", id, message: "Clear" }] }),
       makeModel: () => null
     })
     const id = { shelf: "top" }
@@ -2379,7 +2369,7 @@ describe("what a run that goes on keeps", () => {
     payload: object
     showing: boolean
     listening: boolean
-    rows: ReadonlyArray<Readonly<{ id: number; row: Row }>>
+    rows: ReadonlyArray<number>
   }>
 
   /** What a round uses, each part held by `WeakRef`s alone. */
@@ -2427,20 +2417,9 @@ describe("what a run that goes on keeps", () => {
       }),
       () => Effect.sync(() => signal("released"))
     )
-    const { make, childById } = program<{ state: Rounds; message: Own; command: Save }>()
-    const rounds = make({
-      init: () => ({ state: { round: -1, payload: {}, showing: false, listening: false, rows: [] } }),
-      children: {
-        Rows: childById(row, {
-          get: (state, id: number) =>
-            Opt.map(Arr.findFirst(state.rows, (entry) => entry.id === id), (entry) => entry.row),
-          set: (state, id, next) => ({
-            ...state,
-            rows: state.rows.map((entry) => entry.id === id ? { id, row: next } : entry)
-          }),
-          subscribed: () => []
-        })
-      },
+    const { childById, withChildren } = program<{ state: Rounds; message: Own; command: Save }>()
+    const rounds = withChildren({ Rows: childById(row, { ids: (state) => state.rows }) }).make({
+      init: { state: { round: -1, payload: {}, showing: false, listening: false, rows: [] } },
       update: ({ _tag, round }) => (state) => {
         switch (_tag) {
           case "Tick":
@@ -2458,7 +2437,7 @@ describe("what a run that goes on keeps", () => {
           case "Ended":
             return { state: { ...state, listening: false } }
           case "Add":
-            return { state: { ...state, rows: [{ id: round, row: { count: 0 } }] } }
+            return { state: { ...state, rows: [round] } }
           case "Remove":
             return { state: { ...state, rows: [] } }
         }
@@ -2495,7 +2474,7 @@ describe("what a run that goes on keeps", () => {
       },
       makeModel: (state, children) => ({
         round: state.round,
-        rows: state.rows.map(({ id }) => children.Rows(state, id))
+        rows: state.rows.map((id) => children.Rows(id))
       })
     })
     const { app, run } = start(rounds, {
@@ -2503,8 +2482,10 @@ describe("what a run that goes on keeps", () => {
         hold("applied", applied)
         hold("message", applied.message)
         hold("state", applied.before)
-        const [entry] = applied.after.rows
-        if (entry !== undefined) hold("childState", entry.row)
+        // A row starts in the state of its `init`, one object for every row: the state a round makes is its row's
+        // after a message of the row's own.
+        const [entry] = HashMap.values(applied.after.children.Rows)
+        if (applied.message._tag === "Rows" && entry !== undefined) hold("childState", entry.state)
         signal(applied.message._tag)
       }
     })

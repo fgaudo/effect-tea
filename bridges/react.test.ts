@@ -155,6 +155,8 @@ const DraftView = (
     createElement("input", field(model.text, forwardTo(dispatch, "Text"))),
     drawButton("Send", () => dispatch("SendClicked")),
     drawButton("Discard", () => dispatch("DiscardClicked")),
+    drawButton("Keep", () => dispatch("Kept")),
+    drawButton("Undo", () => dispatch("Undone")),
     createElement("output", null, model.text)
   )
 
@@ -163,8 +165,6 @@ const deskView: View<ModelOf<typeof desk>, MessageOf<typeof desk>> = (model, dis
     "main",
     null,
     createElement(DraftView, { model: model.draft, dispatch: forwardTo(dispatch, "Draft") }),
-    drawButton("Keep", () => dispatch("Kept")),
-    drawButton("Undo", () => dispatch("Undone")),
     createElement("ul", null, ...model.sent.map((text, index) => createElement("li", { key: index }, text)))
   )
 

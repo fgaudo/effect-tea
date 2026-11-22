@@ -1,49 +1,39 @@
-// The parent declares its pages; their messages, commands, subscriptions and models are routed by the
-// library. What is left is what only the parent knows: where each page lives (an optic into its state), and what
-// their events mean.
-import { type MessageOf, type ModelOf, program } from "@fgaudo/effect-tea"
-import * as Optic from "effect/Optic"
+// The parent declares its pages; their messages, commands, subscriptions and models are routed by the library, which
+// keeps the pages too. What is left is what only the parent knows: which pages are there, and what their events mean.
+import { type MessageOf, type ModelOf, program, type StateOf } from "@fgaudo/effect-tea"
 import * as Opt from "effect/Option"
 import * as About from "./about.ts"
 import * as Clock from "./clock.ts"
 
-export type State = Readonly<{ clock: Clock.State; maybeAbout: Opt.Option<About.State> }>
+/** The parent's own state: whether About is open, and what it was opened with. */
+export type Own = Readonly<{ about: Opt.Option<About.Flags> }>
 
-const { child, make } = program<{ state: State }>()
+const { child, withChildren } = program<{ state: Own }>()
 
-const state = Optic.id<State>()
-
-export const app = make({
-  init: (children) => ({
-    state: { clock: children.Clock.init.state, maybeAbout: Opt.none() },
-    commands: children.Clock.init.commands
-  }),
-  children: {
-    // Hidden under About, the Clock keeps its state but stops ticking.
-    Clock: child(Clock.clock, {
-      at: state.key("clock"),
-      subscribed: (state) => Opt.isNone(state.maybeAbout) ? Opt.some(state.clock) : Opt.none()
-    }),
-    // While About is closed, the optic focuses nothing: About is not there, and its messages are rejected.
-    About: child(About.about, { at: state.key("maybeAbout").compose(Optic.some()) })
-  },
+export const app = withChildren({
+  // Always there. Hidden under About, the Clock keeps its state but stops ticking.
+  Clock: child(Clock.clock, { listening: (state) => Opt.isNone(state.about) }),
+  // There while the state gives its flags, and started from them.
+  About: child(About.about, { flags: (state) => state.about })
+}).make({
+  init: { state: { about: Opt.none() } },
   onEvent: {
     // Opening About again while it is open changes nothing, so that a double click opens it once.
-    Clock: (event, children) => (state) => {
-      if (Opt.isSome(state.maybeAbout)) return { state }
-      const about = children.About.init({ openedAt: event.at })
-      return { state: { ...state, maybeAbout: Opt.some(about.state) }, commands: about.commands }
-    },
-    About: () => (state) => ({ state: { ...state, maybeAbout: Opt.none() } })
+    Clock: (event) => (state) =>
+      Opt.isSome(state.about) ? { state } : { state: { about: Opt.some({ openedAt: event.at }) } },
+    About: () => () => ({ state: { about: Opt.none() } })
   },
   // Only the page on top is drawn.
-  makeModel: (state, children) => ({
-    page: Opt.match(state.maybeAbout, {
-      onNone: () => ({ _tag: "Clock" as const, model: children.Clock(state) }),
-      onSome: () => ({ _tag: "About" as const, model: children.About(state) })
+  makeModel: (_, children) => ({
+    page: Opt.match(children.About(), {
+      onNone: () => ({ _tag: "Clock" as const, model: children.Clock() }),
+      onSome: (model) => ({ _tag: "About" as const, model })
     })
   })
 })
+
+/** The parent's whole state: its own, and the pages that the library keeps. */
+export type State = StateOf<typeof app>
 
 export type Model = ModelOf<typeof app>
 

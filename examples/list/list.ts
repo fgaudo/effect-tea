@@ -1,68 +1,47 @@
-// The stopwatches are children by id. The parent says where each one lives and what its event means; adding
-// one, and halting them all, are the parent's own messages.
-import { forEach, type MessageOf, type ModelOf, program, reject } from "@fgaudo/effect-tea"
+// The stopwatches are children by id, which the library keeps. The parent's own state is their ids, in their order:
+// adding one, and halting them all, are the parent's own messages, and it says what a stopwatch's event means.
+import { type MessageOf, type ModelOf, program, reject, type StateOf } from "@fgaudo/effect-tea"
 import * as Arr from "effect/Array"
 import * as Opt from "effect/Option"
 import * as Stopwatch from "./stopwatch.ts"
 
-/** Ids are numbers, so they compare by value in the subscription keys. */
-export type Entry = Readonly<{ id: number; stopwatch: Stopwatch.State }>
-
-export type State = Readonly<{ nextId: number; entries: ReadonlyArray<Entry> }>
+/** The parent's own state. Ids are numbers, so they compare by value. */
+export type Own = Readonly<{ nextId: number; ids: ReadonlyArray<number> }>
 
 type AddClicked = Readonly<{ _tag: "AddClicked" }>
 
 type StopAllClicked = Readonly<{ _tag: "StopAllClicked" }>
 
-const { make, childById } = program<{ state: State; message: AddClicked | StopAllClicked }>()
+const { childById, withChildren } = program<{ state: Own; message: AddClicked | StopAllClicked }>()
 
-export const list = make({
-  init: () => ({ state: { nextId: 1, entries: [] } }),
-  children: {
-    Stopwatch: childById(Stopwatch.stopwatch, {
-      // A removed stopwatch is `None`: its late messages (a click on a view drawn before) are rejected.
-      get: (state, id: number) =>
-        Opt.map(Arr.findFirst(state.entries, (entry) => entry.id === id), (entry) => entry.stopwatch),
-      set: (state, id, stopwatch) => ({
-        ...state,
-        entries: Arr.map(state.entries, (entry) => entry.id === id ? { id, stopwatch } : entry)
-      }),
-      subscribed: (state) => Arr.map(state.entries, ({ id, stopwatch }) => [id, stopwatch] as const)
-    })
-  },
-  update: (message: AddClicked | StopAllClicked, children) => (state) => {
+// A stopwatch is there while its id is listed: one removed is not, and its late messages are rejected.
+export const list = withChildren({ Stopwatch: childById(Stopwatch.stopwatch, { ids: (state) => state.ids }) }).make({
+  init: { state: { nextId: 1, ids: [] } },
+  update: (message) => (state) => {
     switch (message._tag) {
-      case "AddClicked": {
-        const stopwatch = children.Stopwatch.init(state.nextId)
-        return {
-          state: {
-            nextId: state.nextId + 1,
-            entries: [...state.entries, { id: state.nextId, stopwatch: stopwatch.state }]
-          },
-          commands: stopwatch.commands
-        }
-      }
-      // Every stopwatch is told, running or not: the parent never reads a child's state to decide. Over an empty
+      case "AddClicked":
+        return { state: { nextId: state.nextId + 1, ids: [...state.ids, state.nextId] } }
+      // Every stopwatch is told, running or not: the parent is not given a child's state to decide. Over an empty
       // list, which the parent's own state tells, there is nothing to stop.
       case "StopAllClicked":
-        return Arr.isReadonlyArrayEmpty(state.entries)
+        return Arr.isReadonlyArrayEmpty(state.ids)
           ? reject
-          : forEach({ state }, state.entries, ({ id }) => children.Stopwatch.external(id, { _tag: "Halted" }))
+          : { state, tell: Arr.map(state.ids, (id) => ({ _tag: "Stopwatch", id, message: { _tag: "Halted" } })) }
     }
   },
   onEvent: {
-    Stopwatch: (id) => (state) => ({
-      state: { ...state, entries: Arr.filter(state.entries, (entry) => entry.id !== id) }
-    })
+    Stopwatch: (id) => (state) => ({ state: { ...state, ids: Arr.filter(state.ids, (other) => other !== id) } })
   },
   makeModel: (state, children) => ({
     add: { _tag: "AddClicked" } as AddClicked,
-    stopAll: Arr.isReadonlyArrayEmpty(state.entries)
+    stopAll: Arr.isReadonlyArrayEmpty(state.ids)
       ? Opt.none()
       : Opt.some<StopAllClicked>({ _tag: "StopAllClicked" }),
-    stopwatches: Arr.map(state.entries, ({ id }) => ({ id, model: children.Stopwatch(state, id) }))
+    stopwatches: Arr.map(state.ids, (id) => ({ id, model: children.Stopwatch(id) }))
   })
 })
+
+export type State = StateOf<typeof list>
 
 export type Model = ModelOf<typeof list>
 

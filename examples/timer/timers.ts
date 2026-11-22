@@ -1,15 +1,12 @@
 // The tutorial's third step: timers by id, each the timer of the second step as it is. Adding one and removing
 // one are the list's own messages; everything inside a timer is the timer's.
-import { type MessageOf, type ModelOf, program, reject } from "@fgaudo/effect-tea"
+import { type MessageOf, type ModelOf, program, reject, type StateOf } from "@fgaudo/effect-tea"
 import * as Arr from "effect/Array"
-import * as Opt from "effect/Option"
 import * as Timer from "./timer.ts"
 
 // #region state
-/** Ids are numbers, never reused, so they compare by value and a removed timer's id never comes back. */
-export type Entry = Readonly<{ id: number; timer: Timer.State }>
-
-export type State = Readonly<{ nextId: number; entries: ReadonlyArray<Entry> }>
+/** The list's own state: the ids of its timers, in their order. Ids are numbers, so they compare by value. */
+export type Own = Readonly<{ nextId: number; ids: ReadonlyArray<number> }>
 
 type AddClicked = Readonly<{ _tag: "AddClicked" }>
 
@@ -17,51 +14,33 @@ type RemoveClicked = Readonly<{ _tag: "RemoveClicked"; id: number }>
 // #endregion state
 
 // #region compose
-const { make, childById } = program<{ state: State; message: AddClicked | RemoveClicked }>()
+const { childById, withChildren } = program<{ state: Own; message: AddClicked | RemoveClicked }>()
 
-export const timers = make({
-  init: (children) => {
-    const first = children.Timer.init(1)
-    return { state: { nextId: 2, entries: [{ id: 1, timer: first.state }] }, commands: first.commands }
-  },
-  children: {
-    Timer: childById(Timer.timer, {
-      // A removed timer is `None`: a click on a view drawn before its removal is rejected.
-      get: (state, id: number) =>
-        Opt.map(Arr.findFirst(state.entries, (entry) => entry.id === id), (entry) => entry.timer),
-      set: (state, id, timer) => ({
-        ...state,
-        entries: Arr.map(state.entries, (entry) => entry.id === id ? { id, timer } : entry)
-      }),
-      // Every timer may listen: each one's own `subscriptions` say when it ticks.
-      subscribed: (state) => Arr.map(state.entries, ({ id, timer }) => [id, timer] as const)
-    })
-  },
-  update: (message: AddClicked | RemoveClicked, children) => (state) => {
+// A timer is there while its id is listed: a click on a view drawn before its removal is rejected.
+export const timers = withChildren({ Timer: childById(Timer.timer, { ids: (state) => state.ids }) }).make({
+  init: { state: { nextId: 2, ids: [1] } },
+  update: (message) => (state) => {
     switch (message._tag) {
-      case "AddClicked": {
-        const timer = children.Timer.init(state.nextId)
-        return {
-          state: { nextId: state.nextId + 1, entries: [...state.entries, { id: state.nextId, timer: timer.state }] },
-          commands: timer.commands
-        }
-      }
+      case "AddClicked":
+        return { state: { nextId: state.nextId + 1, ids: [...state.ids, state.nextId] } }
       // A second click on "Remove", from the same view, finds the timer gone.
       case "RemoveClicked":
-        return Arr.some(state.entries, (entry) => entry.id === message.id)
-          ? { state: { ...state, entries: Arr.filter(state.entries, (entry) => entry.id !== message.id) } }
+        return Arr.contains(state.ids, message.id)
+          ? { state: { ...state, ids: Arr.filter(state.ids, (id) => id !== message.id) } }
           : reject
     }
   },
   makeModel: (state, children) => ({
     add: { _tag: "AddClicked" } as AddClicked,
-    timers: Arr.map(state.entries, ({ id }) => ({
+    timers: Arr.map(state.ids, (id) => ({
       id,
-      model: children.Timer(state, id),
+      model: children.Timer(id),
       remove: { _tag: "RemoveClicked", id } as RemoveClicked
     }))
   })
 })
+
+export type State = StateOf<typeof timers>
 
 export type Model = ModelOf<typeof timers>
 

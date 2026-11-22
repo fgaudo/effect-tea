@@ -1,13 +1,15 @@
-import * as Arr from "effect/Array"
 import { dual } from "effect/Function"
 
 /**
  * What a message does to a state: the next state, and what to do and to tell.
  *
- * A program without events leaves `Event` as `never`, and one without commands leaves `Command` as `never`.
+ * A program without events leaves `Event` as `never`, one without commands leaves `Command` as `never`, and one
+ * without children leaves `Tell` as `never`.
  *
  * - A command is data. Only the program's `runCommand` runs a command, and the command may answer with one message.
  * - A child raises an event to ask its parent for something.
+ * - A parent tells its children what to do as data too: each item of `tell` is given to the child's `external`, once
+ *   the step is taken and the children it lists are there.
  *
  * @example
  * ```ts
@@ -17,13 +19,15 @@ import { dual } from "effect/Function"
  * @see The guide, "Commands", "In short".
  * @see The guide, "Events and external messages", "A child raises an event".
  */
-export type Step<State, Command = never, Event = never> = {
+export type Step<State, Command = never, Event = never, Tell = never> = {
   /** The next state. */
   readonly state: State
   /** What `update` decided to do in the world, as data, for the program's `runCommand`. */
   readonly commands?: ReadonlyArray<Command>
   /** The events for the program's parent: what the program asks of it, such as a page that asks to be left. */
   readonly events?: ReadonlyArray<Event>
+  /** What a parent tells its children: `{ _tag: <child>, message }`, and the `id` for children by id. */
+  readonly tell?: ReadonlyArray<Tell>
 }
 
 /**
@@ -67,11 +71,13 @@ export type Rejected = typeof reject
  *
  * @see The guide, "Update", "In short".
  */
-export type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected
+export type Transition<State, Command = never, Event = never, Tell = never> =
+  | Step<State, Command, Event, Tell>
+  | Rejected
 
 /**
- * A step with both its lists present: what a fold of steps accumulates, and what `andThen`, `forEach` and `applyAll`
- * return.
+ * A step with both its lists present: what a fold of steps accumulates, and what `andThen` and `applyAll` return.
+ * What a parent tells is there where a step of the fold told something.
  *
  * @example
  * ```ts
@@ -79,33 +85,38 @@ export type Transition<State, Command = never, Event = never> = Step<State, Comm
  * ```
  *
  * @see The guide, "Events and external messages", "`andThen`".
- * @see The guide, "Events and external messages", "`forEach`".
  * @see The guide, "Testing", "The tools".
  */
-export type Folded<State, Command, Event> = {
+export type Folded<State, Command, Event, Tell = never> = {
   readonly state: State
   readonly commands: ReadonlyArray<Command>
   readonly events: ReadonlyArray<Event>
+  readonly tell?: ReadonlyArray<Tell>
 }
 
 /**
- * How steps add up, for the library's own folds: the state is the last one's, and the commands and the events
- * are everyone's, in order. A step without a list leaves that list as it was.
+ * How steps add up, for the library's own folds: the state is the last one's, and the commands, the events and what
+ * is told are everyone's, in order. A step without a list leaves that list as it was, and `tell` is there only where a
+ * step has one.
  */
-export const appendStep = <State, Command, Event>(
-  folded: Folded<State, Command, Event>,
-  step: Step<State, Command, Event>
-): Folded<State, Command, Event> => ({
+export const appendStep = <State, Command, Event, Tell>(
+  folded: Folded<State, Command, Event, Tell>,
+  step: Step<State, Command, Event, Tell>
+): Folded<State, Command, Event, Tell> => ({
   state: step.state,
   commands: step.commands === undefined ? folded.commands : [...folded.commands, ...step.commands],
-  events: step.events === undefined ? folded.events : [...folded.events, ...step.events]
+  events: step.events === undefined ? folded.events : [...folded.events, ...step.events],
+  ...(step.tell === undefined ? folded.tell === undefined ? {} : { tell: folded.tell } : {
+    tell: folded.tell === undefined ? step.tell : [...folded.tell, ...step.tell]
+  })
 })
 
 /**
  * A step followed by another, which is made from the first step's state.
  *
- * The result has the second step's state, and the commands and events of both steps, in order. Both lists are always
- * there. Do not take a step's `state` by hand to make the next step: you would drop its commands and events.
+ * The result has the second step's state, and the commands, the events and what is told of both steps, in order. Both
+ * lists are always there. Do not take a step's `state` by hand to make the next step: you would drop its commands,
+ * its events and what it tells.
  *
  * It is dual: `andThen(next)` takes the step last, for a chain of steps written with `pipe`.
  *
@@ -115,81 +126,37 @@ export const appendStep = <State, Command, Event>(
  *
  * @example
  * ```ts
- * // A parent's own step, then a child's handle.
- * andThen(leave(state), children.Home.external({ _tag: 'ProductGone', at }))
+ * // A parent's own step, then one that tells a child.
+ * andThen(leave(state), (state) => ({ state, tell: [{ _tag: 'Home', message: { _tag: 'ProductGone', at } }] }))
  * ```
  *
  * @see The guide, "Events and external messages", "`andThen`".
  */
 export const andThen: {
-  <State, Command2 = never, Event2 = never>(
-    next: (state: State) => Step<State, Command2, Event2>
-  ): <Command1 = never, Event1 = never>(
-    step: Step<State, Command1, Event1>
-  ) => Folded<State, Command1 | Command2, Event1 | Event2>
-  <State, Command1 = never, Event1 = never, Command2 = never, Event2 = never>(
-    step: Step<State, Command1, Event1>,
-    next: (state: State) => Step<State, Command2, Event2>
-  ): Folded<State, Command1 | Command2, Event1 | Event2>
+  <State, Command2 = never, Event2 = never, Tell2 = never>(
+    next: (state: State) => Step<State, Command2, Event2, Tell2>
+  ): <Command1 = never, Event1 = never, Tell1 = never>(
+    step: Step<State, Command1, Event1, Tell1>
+  ) => Folded<State, Command1 | Command2, Event1 | Event2, Tell1 | Tell2>
+  <State, Command1 = never, Event1 = never, Tell1 = never, Command2 = never, Event2 = never, Tell2 = never>(
+    step: Step<State, Command1, Event1, Tell1>,
+    next: (state: State) => Step<State, Command2, Event2, Tell2>
+  ): Folded<State, Command1 | Command2, Event1 | Event2, Tell1 | Tell2>
 } = dual(
   2,
-  <State, Command1, Event1, Command2, Event2>(
-    step: Step<State, Command1, Event1>,
-    next: (state: State) => Step<State, Command2, Event2>
-  ): Folded<State, Command1 | Command2, Event1 | Event2> =>
-    appendStep<State, Command1 | Command2, Event1 | Event2>(
-      { state: step.state, commands: step.commands ?? [], events: step.events ?? [] },
+  <State, Command1, Event1, Tell1, Command2, Event2, Tell2>(
+    step: Step<State, Command1, Event1, Tell1>,
+    next: (state: State) => Step<State, Command2, Event2, Tell2>
+  ): Folded<State, Command1 | Command2, Event1 | Event2, Tell1 | Tell2> =>
+    appendStep<State, Command1 | Command2, Event1 | Event2, Tell1 | Tell2>(
+      {
+        state: step.state,
+        commands: step.commands ?? [],
+        events: step.events ?? [],
+        ...(step.tell === undefined ? {} : { tell: step.tell })
+      },
       next(step.state)
     )
-)
-
-/**
- * A step followed by one more for each item, in order.
- *
- * Each step is made from the state the previous one left. The result has the last step's state, and the commands and
- * events of every step, in order. Both lists are always there.
- *
- * It is dual: `forEach(items, next)` takes the step last, for a chain of steps written with `pipe`.
- *
- * @param step - The first step.
- * @param items - One more step is made for each of them.
- * @param next - Makes the step of an item from the state the previous step left.
- * @returns All the steps as one.
- *
- * @example
- * ```ts
- * // A parent that tells each of its children by id the same thing.
- * forEach({ state }, state.rows, ({ id }) => children.Row.external(id, Cleared()))
- * ```
- *
- * @see The guide, "Events and external messages", "`forEach`".
- */
-export const forEach: {
-  <Item, State, Command2 = never, Event2 = never>(
-    items: Iterable<Item>,
-    next: (item: Item) => (state: State) => Step<State, Command2, Event2>
-  ): <Command1 = never, Event1 = never>(
-    step: Step<State, Command1, Event1>
-  ) => Folded<State, Command1 | Command2, Event1 | Event2>
-  <State, Item, Command1 = never, Event1 = never, Command2 = never, Event2 = never>(
-    step: Step<State, Command1, Event1>,
-    items: Iterable<Item>,
-    next: (item: Item) => (state: State) => Step<State, Command2, Event2>
-  ): Folded<State, Command1 | Command2, Event1 | Event2>
-} = dual(
-  3,
-  <State, Item, Command1, Event1, Command2, Event2>(
-    step: Step<State, Command1, Event1>,
-    items: Iterable<Item>,
-    next: (item: Item) => (state: State) => Step<State, Command2, Event2>
-  ): Folded<State, Command1 | Command2, Event1 | Event2> => {
-    const first: Folded<State, Command1 | Command2, Event1 | Event2> = {
-      state: step.state,
-      commands: step.commands ?? [],
-      events: step.events ?? []
-    }
-    return Arr.reduce(items, first, (folded, item) => appendStep(folded, next(item)(folded.state)))
-  }
 )
 
 /**

@@ -77,14 +77,14 @@ const draftView = (model: ModelOf<typeof draft>, dispatch: Dispatch<MessageOf<ty
     h("input", field(model.text, forwardTo(dispatch, "Text"))),
     h("button", { props: { type: "button" }, on: { click: () => dispatch("SendClicked") } }, "Send"),
     h("button", { props: { type: "button" }, on: { click: () => dispatch("DiscardClicked") } }, "Discard"),
+    h("button", { props: { type: "button" }, on: { click: () => dispatch("Kept") } }, "Keep"),
+    h("button", { props: { type: "button" }, on: { click: () => dispatch("Undone") } }, "Undo"),
     h("output", model.text)
   ])
 
 const deskView: View<ModelOf<typeof desk>, MessageOf<typeof desk>> = (model, dispatch) =>
   h("main", [
     draftView(model.draft, forwardTo(dispatch, "Draft")),
-    h("button", { on: { click: () => dispatch("Kept") } }, "Keep"),
-    h("button", { on: { click: () => dispatch("Undone") } }, "Undo"),
     h("ul", model.sent.map((text) => h("li", text)))
   ])
 

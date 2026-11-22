@@ -28,7 +28,8 @@ number unused.
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. what is wrong in what is released: steps 34 to 36, which the owner put first though they break the API, since the
+1. what is wrong in what is released: steps 35 and 36, after the store of step 34, which the owner put first though
+   they break the API, since the
    other decisions that break it are weighed against what they leave, and step 27, which looks for more of its kind;
 2. what is small and waits for nothing: step 26;
 3. the other decisions that break the API, steps 29, 30 and 9, so that one release takes what they break, while the
@@ -48,112 +49,12 @@ None is open.
 
 ## Next, in order
 
-### 34. The store: children that the library keeps
-
-**Model and effort.** Opus 5.5, `high`: code that keeps the invariants, in a change that breaks the central API
-([`change-api`](.agents/skills/change-api/SKILL.md), [`change-engine`](.agents/skills/change-engine/SKILL.md)).
-
-**Depends on** no other step. Steps 35 and 36 follow it, and no release is made before step 36 is done: until then the
-guide describes the children of 0.8.0, and a doc comment that this step writes names the sections that the guide has
-today.
-
-**Why.** A run dies in which no code is wrong by the guide: `examples/form`, under a parent that closes it and starts
-it again while its save waits, gets the answer of the form before, and its `update` calls `defect`. One cause lies
-under it and under five rules that nothing checks: a parent stores its child's state
-([`kept-children.md`](docs/records/kept-children.md), "The probe, run", "One cause"). The owner refused a rule of the
-guide for it, and took the store on 22 November 2026, after a spike.
-
-**How.** Read first the record: "The proposal", "Against, by the session itself" and "The spike, run", which has the
-form that ran, what it found, and what it did not run. Then `docs/rejected.md`, for each entry that speaks of a
-child's `at`, `get`, `set`, `subscribed` or handles: an entry whose reason the store changes is written again in this
-step. The store is written anew from `main`, in `src/compose.ts`. `91d03d2` on the branch `spike/kept-children`, which
-is local and never merged, is a guide and no design: `src/kept.ts`, the five examples with their tests, and `spike/`.
-The spike wrote its `program` beside the one of `compose.ts`, so that the tests of both passed: the step may do the
-same from one commit to the next, and its last commit leaves one.
-
-The form, in short. A parent's state says which children exist, and the composed `update` starts and drops them after
-each step of the parent's own code. The state of a composed program is `{ own, starts, children }`, and the parent's
-functions are given `own` alone. Each start has a number, which its lifted commands, their answers and its lifted keys
-carry: an answer for an instance that is not there is rejected. What a parent tells a child is data of its step,
-`tell`. No `at`, `get`, `set`, `children.X.init` nor `children.X.external` is written for a child, and `subscribed`
-gives way to `listening`, which is optional.
-
-The owner's choices under it, of 22 November 2026:
-
-1. **A `tell` for a child that an earlier `tell` of the same step dropped, or started again, is dropped**, and is no
-   defect: a parent could not otherwise tell all its children where the answer of one removes another. A `tell` for a
-   child that is not there once the step is reconciled is a `CompositionDefect`, as today.
-2. **The model of a child by id is the model**, with a `CompositionDefect` for an id that the state does not list, and
-   no `Option`. A child alone that may not be there gives an `Option` of its model.
-3. **A child without flags has `there` and `key`.** Left to this step: the form of `key` beside `there`. In the spike
-   each of them can say that the child is not there, `there` by `false` and `key` by `none`.
-4. **The children are declared in a call before the pieces that tell them**, so that a `tell` needs no `as const`. The
-   spike ran it only with the children given as a type argument, by hand, with TypeScript 7.0.2
-   (`spike/tell-fixed.ts`, and `spike/tell-matrix.ts` for what widens without it). So this is done first: the name and
-   the shape of the call, run with each TypeScript that the package supports. If a literal still widens with one of
-   them, the owner is asked before the rest is written. A parent is written in one way, and no second: read in
-   `docs/rejected.md` "`child`, `childById`, `input` and `inputById` as free functions, and `make` as `program`
-   itself", for what was weighed of the calls.
-5. **The reconciliation has a shortcut that adds no field to the state.** Reasoned by the session that wrote this
-   step, and not run: where `ids` gives the very same object for the own state of before and for the new one, the
-   children by id are the same, and nothing is reconciled. `ids` is pure, so it is called freely, as `update` is. The
-   spike kept the last listing in the state (`spike/kept-shortcut.ts`), which is derived data in a state. It is
-   measured as the spike measured (`spike/bench.ts`, `spike/bench-shortcut.ts`): a step of the parent's own cost 171
-   microseconds at 1000 children by id, and 0.2 to 0.4 with the spike's shortcut. If it does not hold, the owner is
-   asked: the field, or no shortcut.
-6. **`andThen` stays, and folds a `tell`** in order, as it folds the commands and the events. **`forEach` goes**: it
-   was admitted for `examples/list`, which now tells its children by a `tell`. It gets an entry of `docs/rejected.md`,
-   and `AGENTS.md` ("What belongs here", "Tests") no longer names it.
-7. **The state's type names the children's states alone, if a type that only prints holds**: as
-   `Kept<Own, { Clock: Instance<ClockState> }>`, where the spike printed the whole program of each child, at each
-   level. It is tried by the four conditions of `AGENTS.md` ("A type for how a consumer's types print"), with its
-   check in the smoke test. If a condition fails, the state prints in full, and an entry of `docs/rejected.md` says
-   so.
-8. **`init` tells nothing**: its step has no `tell`, as it has no events. A child is given what it starts from by its
-   flags.
-
-What the spike left to this step:
-
-- **`stateOf`**, with which a test writes a composed state, is of `./testing`. It reaches what `make` keeps to itself
-  through a key of the program, named as `AGENTS.md` names keys. A state written by hand may list a child and hold
-  none: the library's behaviour is defined there (a `CompositionDefect` for a child that is always there, a message
-  rejected for the others), and a test says so.
-- **What `Equal.equals` compares by value** was run with Effect 4.1.4 (`spike/equal.ts`), and not read in Effect's
-  documentation. The flags and the keys rest on it, as ids and subscription keys do today. It is read there first: if
-  the documentation does not say it, the owner is asked for a premise before the code rests on it (`AGENTS.md`,
-  "Invariants").
-- **The probe is a test**: the form under a parent that closes it and opens it again while its save waits, and one
-  that starts it again in one step by a new key, each run with `start`. And the search has a property for it
-  (`src/interleaving.test.ts`): an answer reaches the instance that asked for it, or is rejected.
-- **Each check has its mutation** (`tools/mutations/mutations.ts`): the number of an answer, a child started and a
-  child dropped, the order of a `tell`, the `tell` that is dropped, `listening`, and an id listed twice, which is now
-  a defect in `update` and in `init`. The 19 mutations of `compose.ts` are written on the new text, or go.
-- **Not run by the spike**: `bun run lint`, `bun run test:node`, `bun run interleavings`, `bun run mutations`, the
-  inference matrix, whose generator (`tools/inference/generate.ts`) writes parents in the form of today, the smoke
-  test's consumer, `tools/bench/subscriptions.ts`, and the examples' views in a browser.
-- **`AGENTS.md` and `docs/invariants.md`** say what is true of the new code. Two invariants change: "Every program
-  keeps its state in an object", which speaks of a child's model and of its lifted subscriptions, kept by the
-  instance's object in the spike, and "A parent and its children talk only through external messages and events". The
-  owner is shown the sentences of `AGENTS.md` before the commit that changes them.
-- **The changelog** has the breaking entry, with how a parent is written again, and with what changes under a program
-  that still compiles ("Against, by the session itself"): what a step tells its children arrives after the step, a
-  child whose flags change starts again, and a parent can no longer copy a child's state, nor put an old one back.
-
-Left to the owner, found by the session that wrote this step, and not run: a child with flags has no `key`, so it
-cannot start again in one step with equal flags. The step leaves it so: such a child starts again by other flags, or
-by a step in which it is not there.
-
-**Done when** the checks of `change-api` and `change-engine` pass, `bun run mutations`, `bun run inference`,
-`bun run smoke` and `bun run api` among them; `pages`, `list`, `timers`, `named-timers` and `named` are in the new
-form, with their tests; the changelog has the entry; and steps 35 and 36 have what they need that the code does not
-show.
-
 ### 35. `output`: a value of a child that its parent reads
 
 **Model and effort.** Opus 5.5, `high` ([`change-api`](.agents/skills/change-api/SKILL.md),
 [`change-engine`](.agents/skills/change-engine/SKILL.md)).
 
-**Depends on** step 34.
+**Depends on** step 34, done: the store is in `src/compose.ts`.
 
 **Why.** A child can tell its parent a moment, by an event, and not a condition that holds over time: the parent
 would copy it into its own state at each change, which is derived data in a state. `examples/list` pays for it: it
@@ -162,8 +63,21 @@ never more" ([`kept-children.md`](docs/records/kept-children.md), "A value that 
 keeps the children, what a parent is not told by an event it cannot know. The owner took `output` on 22 November
 2026, after the spike.
 
-**How.** As the spike ran it (the record, "What it found, for `output`"), written anew from `main` over the store of
-step 34:
+**How.** As the spike ran it (the record, "What it found, for `output`"), written anew over the store of step 34. What
+the store left that this step needs:
+
+- A parent is `withChildren({ … }).make(config)`: the children are fixed by `withChildren`, so that nothing of a `tell`
+  is inferred in `make` (`MakeParent` in `compose.ts`, and `docs/rejected.md`, "A parent's children declared in the call
+  of `make`"). A parent's `update`, `external` and handlers of `onEvent` take no second parameter today: the `children`
+  of their outputs is added there, and a parent that reads nothing writes nothing new.
+- The services of a parent are joined by `Needs` in `compose.ts`: a plain union of the parent's own and its
+  children's gave `never` where one child needed `unknown`, with TypeScript 7.0.2, for a reason not found. A type that
+  carries the outputs into `MakeParent` is checked the same way: the test "services that a type does not say, any or
+  unknown, are needed as unknown, by the program and by its parent" of `compose.test.ts`.
+- `examples/list` offers "Stop all" while the list is not empty, and tells every stopwatch, as before: its comment says
+  why, and goes with the change below.
+- The inference matrix (`tools/inference/generate.ts`) writes parents in the form of the store, with a `tell` in each
+  of its forms: a read of an output in `update` is added to it, with the forms that the matrix has for a `tell`.
 
 - A program names `output` with its other types, `program<{ …; output: Output }>()`, and gives the piece
   `output: (state) => Output`. `Program` has the piece exactly when the type is named.
@@ -195,7 +109,7 @@ the two refusals, the checks have their mutations, and the changelog has the ent
 
 **Model and effort.** Opus 5.5, `high`: a page of the guide is a specification.
 
-**Depends on** steps 34 and 35. It comes before the release that has them.
+**Depends on** step 35, and on step 34, done. It comes before the release that has them.
 
 **Why.** Steps 34 and 35 change what a parent writes, and the guide still describes the children of 0.8.0. The pages
 are written once, for both: the owner asked for `output` to be decided with the store so that nothing is written
@@ -221,7 +135,33 @@ and is checked against `src/` and its tests before it is written (the last secti
   instance in a lifted command and in a lifted key; the glossary; "Coming from Elm or React"; the tutorial's third and
   fourth steps; the README; and the skill, with its "Rules that nothing checks".
 
-Then the doc comments of steps 34 and 35 are read again against the sections they name, and name the new ones.
+Then the doc comments of steps 34 and 35 are read again against the sections they name, and name the new ones: those
+of `src/compose.ts`, `src/update.ts` and `src/testing/state-of.ts` name sections of the guide of 0.8.0, which
+describe the old children.
+
+What step 34 left that the pages need, and the code does not say:
+
+- **`Equal` compares by value what Effect documents** (`Equal.equals`, stable): primitives, arrays, plain objects,
+  `Map`, `Set`, dates, regular expressions, and values that implement `Equal`, as `Option` and `Data` do; a function
+  by reference. The spike also saw instances of a class compared by value, which the documentation does not say: no
+  page promises it of flags, keys or ids.
+- **A child alone has `there` and `key`**: `there` alone says whether it is there, and `key` is a plain value, read
+  only where it is there (`docs/rejected.md`, "A child's `key` that says whether the child is there"). A child with
+  flags is there where `flags` gives `Some`, so its model is an `Option`, also where its parent always gives flags.
+- **What a hover prints.** A parent's state prints as `Kept<Own, { readonly Clock: Opt.Option<Instance<…>>; … }>`, the
+  children's states alone, with no type that only prints; the own state is spelled out inside it, not named by its
+  alias, and the smoke test counts 14 spellings of the consumer's state. A child without messages still adds `{ _tag:
+  <child>; message: never; instance?: number }` to its parent's messages.
+- **An id listed twice in an `init` that is a step** is a `CompositionDefect` that `make` throws, as the module that
+  makes the parent loads, since `make` starts the children of the first state: "When the parent's `init` is called"
+  says it of `init` today.
+- **A parent's undo by snapshot is gone**, which `registers.md` called legitimate: the bridges' tests and
+  `src/input.test.ts` moved the draft's Keep and Undo into the draft's own messages, and the parent starts the draft
+  again by a `key` after a send. "Inputs" and its examples are read against them.
+- **The probe of the record** is a test of `src/compose.test.ts`, "a child started again while its command waits",
+  and the search has the property "an answer reaches the row that asked for it, or is rejected"
+  (`src/interleaving.test.ts`): the item of "Guarantees" that this step adds names them through the mutations of its
+  checks.
 
 **Done when** `bun run comments` and the site's build pass, every code block of the guide, of the tutorial, of the
 README and of the skill is in the new form, and the owner has weighed a reader's check
@@ -672,6 +612,10 @@ run thousands: measured before it is decided ([`one-engine.md`](docs/records/one
 Where a step above would answer a point below, the point stays here until the step is done. Step 19 would answer point
 4 of the seven. A point of the seven that is gone leaves its number unused.
 
+- **A child with flags has no `key`**, so it cannot start again in one step with flags equal to those it has: it
+  starts again by other flags, or by a step in which it is not there. Left so by step 34, as the owner was told
+  ([`kept-children.md`](docs/records/kept-children.md), "Decided, under the store"). To decide: whether a child with
+  flags takes a `key` beside them.
 - **Three findings of the reader's check of 20 November 2026**, the last stage of
   [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md): two readers that had not seen the code built a
   greenhouse panel, one from the package and one from the guide alone. Each finding changes what a page promises, or

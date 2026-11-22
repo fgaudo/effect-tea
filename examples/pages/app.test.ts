@@ -1,7 +1,7 @@
 // The messages of the pages are built by the test: the parent's are `{ _tag: <page>, message }`.
 import { forwardTo, start } from "@fgaudo/effect-tea"
 import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
-import { applyAll, dispatchViolations, simulate } from "@fgaudo/effect-tea/testing"
+import { applyAll, dispatchViolations, simulate, stateOf } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
 import * as DateTime from "effect/DateTime"
 import * as Deferred from "effect/Deferred"
@@ -27,10 +27,19 @@ const maybe = <A>(value: fc.Arbitrary<A>): fc.Arbitrary<Opt.Option<A>> =>
 
 const time = fc.nat().map((millis) => DateTime.makeUnsafe(millis))
 
-const state: fc.Arbitrary<State> = fc.record({
-  clock: fc.record({ maybeNow: maybe(time), format: fc.constantFrom<Clock.Format>("Iso", "Unix") }),
-  maybeAbout: maybe(fc.record({ openedAt: maybe(time), maybeSaying: maybe(fc.string()) }))
-})
+// A state of the app is made from the parent's own, which says whether About is there, and from the states its pages
+// are in: `stateOf` starts each page the own state lists, and puts it in the state given.
+const state: fc.Arbitrary<State> = fc
+  .record({
+    clock: fc.record({ maybeNow: maybe(time), format: fc.constantFrom<Clock.Format>("Iso", "Unix") }),
+    about: maybe(fc.record({ openedAt: maybe(time), maybeSaying: maybe(fc.string()) }))
+  })
+  .map(({ clock, about }) =>
+    Opt.match(about, {
+      onNone: () => stateOf(app, { about: Opt.none() }, { Clock: clock }),
+      onSome: (about) => stateOf(app, { about: Opt.some({ openedAt: about.openedAt }) }, { Clock: clock, About: about })
+    })
+  )
 
 // What the model holds: the message of the page on top, wrapped as the parent receives it, in the order the view
 // draws them, for the test of the view below.
@@ -76,21 +85,27 @@ describe("pages", () => {
   describe("navigation", () => {
     test("the Clock asks for About, which opens over it and loads its saying", () => {
       const { state, commands } = applyAll(app.update)([aboutClicked], app.init.state)
-      expect(state.maybeAbout).toEqual(Opt.some(About.about.init({ openedAt: Opt.none() }).state))
-      expect(commands).toEqual([{ _tag: "About", command: About.Command.PickSaying() }])
+      expect(Opt.map(state.children.About, (about) => about.state)).toEqual(
+        Opt.some(About.about.init({ openedAt: Opt.none() }).state)
+      )
+      // The Clock was the first child started, and About is the second: its command says so, and so will its answer.
+      expect(commands).toEqual([{ _tag: "About", instance: 2, command: About.Command.PickSaying() }])
     })
 
     test("About starts from the time the Clock showed when it was asked for", () => {
       const { state } = applyAll(app.update)([ticked(0), aboutClicked], app.init.state)
-      expect(Opt.map(state.maybeAbout, (about) => about.openedAt)).toEqual(Opt.some(Opt.some(DateTime.makeUnsafe(0))))
+      expect(Opt.map(state.children.About, (about) => about.state.openedAt)).toEqual(
+        Opt.some(Opt.some(DateTime.makeUnsafe(0)))
+      )
     })
 
     test("About asks to be left, and the Clock is back as it was", () => {
       const { state } = applyAll(app.update)([ticked(0), aboutClicked, backClicked], app.init.state)
-      expect(state).toEqual({
-        clock: { maybeNow: Opt.some(DateTime.makeUnsafe(0)), format: "Iso" },
-        maybeAbout: Opt.none()
-      })
+      expect(state.own).toEqual({ about: Opt.none() })
+      expect(state.children.About).toEqual(Opt.none())
+      expect(Opt.map(state.children.Clock, (clock) => clock.state)).toEqual(
+        Opt.some({ maybeNow: Opt.some(DateTime.makeUnsafe(0)), format: "Iso" })
+      )
     })
 
     test("the Clock stops ticking while About is over it", () => {
@@ -108,7 +123,7 @@ describe("pages", () => {
         held: messagesOf(app.makeModel(before)),
         candidates: userMessages,
         withheld: (message, state) =>
-          message._tag === "Clock" && message.message._tag === "FormatPicked" && Opt.isSome(state.maybeAbout)
+          message._tag === "Clock" && message.message._tag === "FormatPicked" && Opt.isSome(state.own.about)
       })).toEqual([])
     }))
   })
@@ -125,7 +140,7 @@ describe("pages", () => {
   test("About receives its saying through the parent", async () => {
     const { state, messages } = await Effect.runPromise(simulate(app)([aboutClicked], app.init))
     expect(messages.map((message) => message._tag)).toEqual(["Clock", "About"])
-    expect(Opt.isSome(Opt.flatMap(state.maybeAbout, (about) => about.maybeSaying))).toBe(true)
+    expect(Opt.isSome(Opt.flatMap(state.children.About, (about) => about.state.maybeSaying))).toBe(true)
   })
 
   // As it runs: a user opens About with the Clock's own message, through the Clock's dispatch, asked for at each new

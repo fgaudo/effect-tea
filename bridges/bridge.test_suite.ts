@@ -158,41 +158,38 @@ export const type = (input: HTMLInputElement, text: string) => {
 /** What the page says the state holds: the draft's text, then the texts sent. */
 export const state = () => [...document.querySelectorAll("output, li")].map((found) => found.textContent)
 
-// A draft its parent starts again once sent, keeps, and brings back as the very same state.
-type Own = "SendClicked" | "DiscardClicked"
+// A draft that keeps itself and brings itself back as the very same state, and that its parent starts again once sent.
+type Own = "SendClicked" | "DiscardClicked" | "Kept" | "Undone"
 type Sent = Readonly<{ _tag: "Sent"; text: string }>
-type Draft = Readonly<{ text: string }>
-type Desk = Readonly<{ draft: Draft; kept: Opt.Option<Draft>; sent: ReadonlyArray<string> }>
+type Draft = { readonly text: string; readonly kept: Opt.Option<Draft> }
+type Desk = Readonly<{ sent: ReadonlyArray<string> }>
 const draftOf = program<{ state: Draft; event: Sent; message: Own }>()
 
 export const draft = draftOf.make({
-  init: { state: { text: "" } },
+  init: { state: { text: "", kept: Opt.none() } },
   inputs: { Text: draftOf.input({ at: Optic.id<Draft>().key("text") }) },
-  update: (message: Own) => (held) =>
-    message === "DiscardClicked"
-      ? { state: { text: "" } }
-      : held.text === ""
-      ? reject
-      : { state: held, events: [{ _tag: "Sent", text: held.text }] },
+  update: (message: Own) => (held) => {
+    switch (message) {
+      case "DiscardClicked":
+        return { state: { ...held, text: "" } }
+      case "Kept":
+        return { state: { ...held, kept: Opt.some(held) } }
+      case "Undone":
+        return Opt.match(held.kept, { onNone: () => reject, onSome: (kept) => ({ state: kept }) })
+      case "SendClicked":
+        return held.text === "" ? reject : { state: held, events: [{ _tag: "Sent", text: held.text }] }
+    }
+  },
   makeModel: (held) => held
 })
 
-const deskOf = program<{ state: Desk; message: "Kept" | "Undone" }>()
+const deskOf = program<{ state: Desk }>()
 
-export const desk = deskOf.make({
-  init: (children) => ({ state: { draft: children.Draft.init.state, kept: Opt.none(), sent: [] } }),
-  children: { Draft: deskOf.child(draft, { at: Optic.id<Desk>().key("draft") }) },
-  update: (message: "Kept" | "Undone") => (held) =>
-    message === "Kept"
-      ? { state: { ...held, kept: Opt.some(held.draft) } }
-      : Opt.match(held.kept, { onNone: () => reject, onSome: (kept) => ({ state: { ...held, draft: kept } }) }),
-  onEvent: {
-    // Sent, the draft is started again: the state its parent puts back is the one it starts with.
-    Draft: (event, children) => (held) => ({
-      state: { ...held, draft: children.Draft.init.state, sent: [...held.sent, event.text] }
-    })
-  },
-  makeModel: (held, children) => ({ draft: children.Draft(held), sent: held.sent })
+// Sent, the draft is started again, by another key: it starts from the state its `init` gives.
+export const desk = deskOf.withChildren({ Draft: deskOf.child(draft, { key: (held) => held.sent.length }) }).make({
+  init: { state: { sent: [] } },
+  onEvent: { Draft: (event) => (held) => ({ state: { sent: [...held.sent, event.text] } }) },
+  makeModel: (held, children) => ({ draft: children.Draft(), sent: held.sent })
 })
 
 // A note the program clears on a message that no control drawn sends, as a source that exists whatever is drawn
@@ -534,7 +531,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
     })
   })
 
-  describe("an input in a draft its parent starts again, and brings back", () => {
+  describe("an input in a draft its parent starts again, and that brings itself back", () => {
     const mountDesk = async () => {
       mount(bridge.drawInto, bridge.views.desk, start(desk))
       settle()

@@ -141,21 +141,22 @@ answer, and saying so in the proposal.
   of a step alone. Reasoned, 21 November 2026, beside the spike of the form the owner took, where the engine is given
   what the fiber of a command and the fiber of a subscription run; neither was spiked.
   [`one-engine.md`](records/one-engine.md), "The form".
-- **Other caches of a parent's lifted subscriptions, for children that share one state object.** Spiked, 15
-  November 2026, on `compose.ts` in the working tree and in a copy, neither kept; measured with `bun run bench`, per
-  change of state for a thousand children, in objects of their own and sharing one, against 0.22 and 1.31 ms before.
-  The cache kept one place for each state, so children that share one lifted again on every call; keeping every
-  place would let ids pile up under a step's `init`, which lives as long as the program. Rejected, in favour of the
-  places of the last call in their order (`liftedAt`): keeping only each child's own subscriptions by its state, as
-  `modelsOf` keeps a model, and lifting them on every call (0.78 and 0.76 ms: a `Channel.map` for each subscription
-  on each call); a map of places keyed by `[name, id]`, made again on each call (1.24 and 1.15 ms: a map for each
-  child, and Effect's hash of an array key costs about 0.36 µs, a number's 0.02); and the first place kept for as
-  long as the state lives, the others in maps by id for the last two calls (0.23 and 0.34 ms), which keeps two rules
-  for one thing, keeps up to twice the list, and holds the ids of the last calls that shared a state once none does.
-  The positional cache costs the common case about a tenth (0.26 ms), and lifts again the children after a place
-  inserted or removed among those that share a state, in that call alone. Source: the session that made the change,
-  with a review by a second model. _Reopen if_ a list that inserts a sharing child before the others on most changes
-  of state is shown to matter, which the maps by id keep.
+- **Other caches of a parent's lifted subscriptions, for children that share one state object.** Spiked, 15 November
+  2026, on `compose.ts` in the working tree and in a copy, neither kept; measured with `bun run bench`, per change of
+  state for a thousand children, in objects of their own and sharing one, against 0.22 and 1.31 ms before. The cache
+  kept one place for each state, so children that share one lifted again on every call; keeping every place would let
+  ids pile up under a step's `init`, which lives as long as the program. Rejected, in favour of the places of the last
+  call in their order (`liftedAt`): keeping only each child's own subscriptions by its state, as `modelsOf` keeps a
+  model, and lifting them on every call (0.78 and 0.76 ms: a `Channel.map` for each subscription on each call); a map of
+  places keyed by `[name, id]`, made again on each call (1.24 and 1.15 ms: a map for each child, and Effect's hash of an
+  array key costs about 0.36 µs, a number's 0.02); and the first place kept for as long as the state lives, the others
+  in maps by id for the last two calls (0.23 and 0.34 ms), which keeps two rules for one thing, keeps up to twice the
+  list, and holds the ids of the last calls that shared a state once none does. The positional cache costs the common
+  case about a tenth (0.26 ms), and lifts again the children after a place inserted or removed among those that share a
+  state, in that call alone. Source: the session that made the change, with a review by a second model. _Reopen if_ a
+  list that inserts a sharing child before the others on most changes of state is shown to matter, which the maps by id
+  keep. Moot since the store, step 34 of `ROADMAP.md`, 22 November 2026: the library keeps each child in an instance of
+  its own, by which its lifted subscriptions are kept, and children no longer share a state object at their places.
 - **Telling `onIgnored` whether a rejected message came from the frame of the current state**, so that a rejection
   that cannot be a late tap reaches an application's telemetry as a bug. Reasoned, 16 November 2026, proposed by a
   second model (Fable 5.2) asked whether `reject` is right for the view's messages; not spiked. The run cannot tell:
@@ -405,11 +406,44 @@ answer, and saying so in the proposal.
   some type arguments when others are given: `make<{ state: State }>(config)` would take the defaults of `Model`, the
   children, the inputs, the own messages and the services, not infer them. So a `make` given `T` is still
   `make<T>()(config)`, the curried call of today under another name, or it infers `T` too, and the types are no longer
-  named first and checked. Free declarations would not know the parent's state: `at` carries it (`Optic.id<State>()`),
-  but `get`, `set` and `subscribed` would annotate `state` in each function, or take its type from `children` in
-  `make`, whose children are themselves inferred, on an order of inference no documentation states (as the check of
-  external messages in `make`, above). And a place of the wrong state would fail inside `make`, not where it is
-  declared. _Reopen if_ TypeScript infers the type arguments that a call does not give (microsoft/TypeScript#26242).
+  named first and checked. Free declarations would not know the parent's state: an input's `at` carries it
+  (`Optic.id<State>()`), but `get`, `set`, and a child's `there`, `key`, `flags`, `ids` and `listening`, would annotate
+  `state` in each function, or take its type from `withChildren` or `make`, whose children and inputs are themselves
+  inferred, on an order of inference no documentation states (as the check of external messages in `make`, above). And
+  a declaration of the wrong state would fail inside `make`, not where it is declared. _Reopen if_ TypeScript infers the
+  type arguments that a call does not give (microsoft/TypeScript#26242).
+- **A parent's children declared in the call of `make`**, as `children` of its config, or as its first argument, in
+  place of `withChildren(children).make(config)`. Spiked on 22 November 2026 (`spike/tell-matrix.ts` on
+  `spike/kept-children`, 24 cases, TypeScript 7.0.2), and probed again for step 34 of `ROADMAP.md` with TypeScript
+  5.9.3, 6.0.3 and 7.0.2. Where the children are inferred in the call that holds `update`, the literals of a `tell` lose
+  their tags (`_tag: string`), in a field of the config and as a first argument alike, and each needs `as const`: an
+  error of `_tag: string` names no rule of the library. Children fixed by a call before `make` widen nothing, with each
+  of the three. The owner chose the call before, on 22 November 2026 ([`kept-children.md`](records/kept-children.md),
+  "Decided, under the store"), and kept `withChildren` when asked whether it is a second way to write a program: a
+  program without children is written `make(config)`, a parent `withChildren(children).make(config)`, each in one way.
+  `make` curried on the children for every program (`make({})(config)`) was refused with it: one entry, but a heavier
+  call for the common case. _Reopen if_ TypeScript keeps the literal types of a return inferred against a contextual
+  type that holds a type parameter being inferred.
+- **`forEach`**, the n-ary `andThen`, a step followed by one more for each item. Removed with the store, step 34 of
+  `ROADMAP.md`, 22 November 2026, the owner deciding. It was admitted for `examples/list`, whose parent told each of
+  its children by id the same thing through a handle; a parent now lists what it tells in the `tell` of one step, and
+  `Arr.map` over the ids makes that list. No example and no rule of the library needed it any more, and an export
+  taken out later breaks its users, where one added later does not. `andThen` stays: it is the one place where the rule
+  of how two steps of one program combine is applied, and it folds a `tell` as it folds the commands and the events.
+  _Reopen if_ a program must fold, over items, steps that each read the state the one before left, and `andThen`
+  in a reduce does not read well.
+- **A child's `key` that says whether the child is there**, an `Option` as in the spike, beside `there`. Weighed in
+  step 34 of `ROADMAP.md`, 22 November 2026, which the owner left to decide. With both, two functions could say that a
+  child is not there, and a parent that needs no key would write `Opt.some` for one. `there` alone says it, `key` is a
+  plain value compared with `Equal`, read only in the states where the child is there, and a child with flags says it
+  by the `Option` of its flags, which it has to give anyway. _Reopen if_ a child that is there and one that is not need
+  a key from one function, in a way `there` cannot say.
+- **The last listing of children by id kept in the state**, for the shortcut of the reconciliation, as the spike kept
+  it (`spike/kept-shortcut.ts`). Measured for step 34 of `ROADMAP.md`, 22 November 2026: where `ids` gives the very
+  same object for the own state of before and for the new one, nothing is reconciled, with no field. A step of the
+  parent's own that leaves its ids as they were costs 0.17 to 0.21 microseconds at 10, 1000 and 10000 children, and
+  154 at 1000 without the shortcut. The field would be data derived from the own state, in the state. _Reopen if_ a
+  common form of `ids` builds a new iterable at each call, and costs a list as long that.
 - **Handlers of `update` by the case of the state**, with an answer given only to the case that asked for it, in place
   of one `update` over every message. Reasoned, 22 November 2026, from a second opinion on the design, the owner
   deciding; not spiked. `update` would no longer be one function that a test calls with any message in any state,
@@ -661,13 +695,14 @@ answer, and saying so in the proposal.
   neighbour of "A write that `update` sees and may reject" above. The rule taken is of every place, a child's too: a
   `set` changes its place and nothing else. _Reopen if_ the parked "What reaches `update`, declared as data" is taken
   up.
-- **A place as an optic alone**, with the `get` and the `set` written by hand removed from `child`, `childById`,
-  `input` and `inputById`, so that no `set` can change more than its place. Reasoned, 22 November 2026, on the owner's
+- **A place as an optic alone**, with the `get` and the `set` written by hand removed from `input` and `inputById`
+  (and from `child` and `childById`, which have no place since the store, step 34 of `ROADMAP.md`), so that no `set`
+  can change more than its place. Reasoned, 22 November 2026, on the owner's
   question of what a signature could hold by construction, with the declarations of `effect/Optic` 4.1.4 read. No
   signature of `set` holds the rule: a function that returns the state can change all of it. An optic composed of
   Effect's own (`key`, `tag`, `at`, `some`) keeps its place by construction, and `input({ at })` takes one already.
-  But Effect has none for the element of an array that a predicate picks, the place of the rows of `list`, of the
-  timers and of the stock-take: a user would write `Optic.makeOptional` by hand, the same two functions with the same
+  But Effect has none for the element of an array that a predicate picks, the place of the inputs of the rows of the
+  stock-take: a user would write `Optic.makeOptional` by hand, the same two functions with the same
   freedom, over `Result` and `SchemaIssue` where the library asks for an `Option`. The hole would move into a type of
   Effect's, and the examples of a list would be harder to write. What was taken in its place, with a spike first, is
   the form of a value out of `set`, and a check of a place's laws
