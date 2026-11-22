@@ -14,13 +14,24 @@ for on 20 November 2026 and asked to be written here in the order it advises. St
 2026, of why the findings api-1, api-2 and api-4 of [`library-review.md`](docs/records/library-review.md) passed the
 inference matrix and the tests. Steps 22 to 31 come from
 [`application-report.md`](docs/records/application-report.md), a report of an application's upgrade to 0.8.0 that the
-owner asked to weigh on 22 November 2026. They come first: each is small, and none waits for the steps of the engine.
-From the same record, "Why no check found them", come step 27, point 5 of step 16, point 5 of step 26, and two items
-of "Any time"; and from "What the owner decided", steps 28 to 31. Step 32 comes from a second opinion on the design,
-which the owner asked for in a session on an application that uses the library, and asked to weigh here the same day,
-on the library's own examples: a probe found two rules of the guide that contradict each other. It comes before steps
-29 to 31, and step 31 is weighed with it. From the same weighing come two points of step 31, a paragraph of step 9
-and an item of "Any time". A step done leaves its number unused.
+owner asked to weigh on 22 November 2026. From the same record, "Why no check found them", come step 27, point 5 of
+step 16, point 5 of step 26, and two items of "Any time"; and from "What the owner decided", steps 28 to 31. Step 32
+comes from a second opinion on the design, which the owner asked for in a session on an application that uses the
+library, and asked to weigh here the same day, on the library's own examples: a probe found two rules of the guide
+that contradict each other. From the same weighing come two points of step 31, a paragraph of step 9 and an item of
+"Any time". A step done leaves its number unused.
+
+The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
+library meets:
+
+1. what is wrong in what is released: step 32, and step 27, which looks for more of its kind;
+2. what is small and waits for nothing: step 26;
+3. every decision that breaks the API, steps 29 to 31 and 9, so that one release takes what they break, while the
+   library has few users, and step 10 with them, which waits for the owner alone;
+4. the checks, steps 16 and 6: of the types, once the decisions that change them are taken, and of the bridges in a
+   real browser;
+5. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
+6. the engine, steps 18 to 21, which change nothing that a user writes.
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
 
@@ -31,111 +42,6 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 None is open.
 
 ## Next, in order
-
-### 26. The entry for React outside a browser, and the syntax the package ships
-
-**Model and effort.** Opus 5.5, `high`: a premise to check before a change rests on it, and what the package asks of
-whoever installs it.
-
-**Depends on** no other step. The owner is asked first for points 1, 3 and 4, which change the peers, a page of the
-guide and what the README promises.
-
-**Why.** `bridges/react.ts` imports `react` alone, and an application on React Native draws its programs with it.
-The guide says that the repository has no bridge to React Native, and asks for `react-dom`
-([`application-report.md`](docs/records/application-report.md), point 5).
-
-**How.**
-
-1. **`react-dom` among the peers.** To decide: it leaves `peerDependencies` (advised), and the README, "Writing a
-   bridge", "Coming from Elm or React" and the skill say that the entry needs `react`, and that what it promises of a
-   controlled element is checked with `react-dom`.
-2. **`reportError`**, which the bridge calls for a run that dies once the effect of `Host` has ended, is a global of
-   the browser. A lead, not run: whether React Native has it is read in its documentation, or run there. If it lacks
-   it, the bridge falls back as React does, with a test of `bridges/react.test.ts` that takes the global away.
-3. **A renderer that draws after the next event**, as one whose elements live in another thread. To decide: whether
-   "Writing a bridge" describes what holds there. The state holds every write. A value that the program leaves in a
-   place may be written over by a key typed before its draw. A lock by the shape of the state holds whatever the
-   renderer. It is a description, and it is run under such a renderer before a sentence is written: the repository has
-   none, so the owner says where.
-4. **The syntax.** The build targets ES2022, and the README does not say so. The three `static {}` blocks of
-   `src/defect.ts` are the one syntax the package adds to what Effect's `dist/` asks of a toolchain. To decide: the
-   README says the level, and the three are written another way (advised). Then `bun run smoke` parses `dist/` at the
-   level the README says, with a parser to be chosen: a level that nothing checks is one that the next class drifts
-   from.
-5. **What the entry for React asks of where it runs.** `bridges/` is typechecked with `DOM`, so a global of the
-   browser compiles in an entry that needs no browser, as `reportError` did. To try: `bridges/react.ts` typechecked
-   with the `lib` of `src/`, and each global it uses declared by name, so that a new one does not compile until it is
-   weighed. The bridge to snabbdom needs a DOM, and keeps it.
-
-**Done when** each point is decided, and done or written in `docs/rejected.md`, with the changelog entry of what a
-consumer notices.
-
-### 27. What the guide says of each function a program gives the library
-
-**Model and effort.** Opus 5.5, `high`: a review, of the guide against the API.
-
-**Depends on** no other step. What a `set` may do is in the guide, "Composition", "Where a child lives": it changes
-its place and nothing else, and "the library need not call `set`" where nothing is stored, which promises nothing of
-when it is called. Whether that is described is this step's to weigh.
-
-**Why.** What a `set` may do, and when it is called, was a question that no sentence answered. The checks of the
-documentation start from the sentences the guide has ([`promises-and-tests.md`](docs/records/promises-and-tests.md)),
-or from a requirement chosen for its pages (`guide-reader`): neither finds a question that nobody wrote down. The API
-does: each function that a user gives the library is a place where the user asks when it runs, and what it may do
-([`application-report.md`](docs/records/application-report.md), "Why no check found them"). And the owner asked, on 22
-November 2026, whether a `set` was the last place where the API lets a user write what the guide leaves undefined. It
-is not known to be: so the table also says what refuses a misuse.
-
-**How.** A table, in a record, of every function that a user gives: `init` in each of its forms, `update`, `external`,
-`makeModel`, `subscriptions`, `runCommand`, `subscribed`, the `get` and the `set` of a child and of an input, alone and
-by id, `at` as a function of the id, a handler of `onEvent`, `onApplied` and `onIgnored`, a listener of the `App`, a
-view and the `fork` of `Host`, and in the testing tools `repeatable`, `withheld`, what `send` selects by, what `run`
-matches by and a scenario. For each: when it is called, how many times, whether it may be called more, what it may
-change or throw, and what becomes of what it returns. A cell names the sentence of the guide that says it, or is
-empty. An empty cell that the code and the tests already keep is written in the guide, each sentence checked against
-`src/` and its tests first, as the last section of [`guide-reader`](.agents/skills/guide-reader/SKILL.md) says, with
-its test first where none holds it. One that would promise something new goes under "Waiting for the owner".
-
-Two last columns are of a misuse of the function. One says what a misuse leaves: the library's behaviour defined, where
-the user is only more exposed to a bug of their own, or not defined. The other says what refuses the misuse: the
-types, the shape of the API (as `onApplied`, which is given no dispatch), a defect, a testing tool, or nothing. The
-owner's rule, of 22 November 2026: only a misuse that leaves the behaviour not defined needs a refusal; it is refused
-by construction; where that cannot be, by a defect as the program is made; and a rule that nothing checks is the last
-resort. So for each such row that says a testing tool or nothing, the record says whether a construction is
-conceivable, then whether a defect in `make` is, and what each would cost. Two limits are said where they apply. A
-defect in `make` sees the config and at most the first state, so it cannot hold a rule of every state, as the laws of
-a place. And the invariants stand: no check at run time of the model against `update` (`AGENTS.md`). A candidate is
-listed under "Waiting for the owner", not designed: each is a change of the API, read against `docs/rejected.md`
-first, and designed in a step of its own.
-
-Leads of the session that closed step 23, reasoned and not run, with what the owner said of each the same day:
-
-- **To be checked here: rules of the same kind as a `set`'s, which no sentence was found for**: a `get` that is not
-  pure, or that does not read what its `set` stored; an `at` of an id that gives another place for the same id; a
-  `subscribed` that gives a state that is not the child's ("Composition" names only an id listed twice); an optic made
-  by hand with `Optic.makeLens` or `Optic.makeOptional`, which reaches `at` with the freedom of a `set`; an `Equal`
-  written wrong for a value of the state or for an id, which the skip of an equal write and the cache of `forwardTo`
-  rest on. Step 29 weighs a check for the first four.
-- **Axioms, by the owner**: that `update`, `external`, `makeModel` and `subscriptions` are pure, that a state is never
-  mutated, and that a model holds no function. The library is defined on them, and no construction nor check is
-  looked for: their rows say so, and they stay in "What is left to you". Reasoned, with them: TypeScript has no type
-  for a function that is pure, a deep `readonly` of the library's would refuse Effect's own types, and the types
-  cannot tell a method of a `Data` class from a field that is a function.
-- **No hole, by the owner: a view that sends what its model does not hold.** The library's behaviour stays defined:
-  what arrives is a message, which `update` judges, or a write, stored where its place is there. The user is more
-  exposed to a bug of their own, and nothing is to be refused. Both forms that would refuse it are in
-  `docs/rejected.md` ("Offers as tokens, checked against `update`", "An entry of each input in the model, which a view
-  writes through").
-- **Accepted, by the owner: `start` apart from `run`.** A pure part is fitted to a place that is not pure: a server
-  draws the first model of a program that never runs.
-- **To explore, by the owner**: a subscription made from its key alone (step 30), and a child's state that its parent
-  cannot read (step 31).
-- **Not spoken of**: that a function of the program never interrupts the fiber it runs in. No type says it, as far as
-  was reasoned.
-
-**Done when** the table is in a record, each empty cell is written or listed, and each row whose misuse nothing
-refuses is in "What is left to you" or is a candidate under "Waiting for the owner". The owner then weighs whether a
-tool keeps the table, as `bun run comments` keeps the `guarantees`.
 
 ### 32. A child that its parent starts again, and the answer of the one before
 
@@ -207,6 +113,111 @@ an answer reaches only the instance that asked for it. The owner decides whether
 
 **Done when** the record has what was reasoned or run, the owner has decided, and what was taken is a step here, or
 an entry of `docs/rejected.md`.
+
+### 27. What the guide says of each function a program gives the library
+
+**Model and effort.** Opus 5.5, `high`: a review, of the guide against the API.
+
+**Depends on** no other step. What a `set` may do is in the guide, "Composition", "Where a child lives": it changes
+its place and nothing else, and "the library need not call `set`" where nothing is stored, which promises nothing of
+when it is called. Whether that is described is this step's to weigh.
+
+**Why.** What a `set` may do, and when it is called, was a question that no sentence answered. The checks of the
+documentation start from the sentences the guide has ([`promises-and-tests.md`](docs/records/promises-and-tests.md)),
+or from a requirement chosen for its pages (`guide-reader`): neither finds a question that nobody wrote down. The API
+does: each function that a user gives the library is a place where the user asks when it runs, and what it may do
+([`application-report.md`](docs/records/application-report.md), "Why no check found them"). And the owner asked, on 22
+November 2026, whether a `set` was the last place where the API lets a user write what the guide leaves undefined. It
+is not known to be: so the table also says what refuses a misuse.
+
+**How.** A table, in a record, of every function that a user gives: `init` in each of its forms, `update`, `external`,
+`makeModel`, `subscriptions`, `runCommand`, `subscribed`, the `get` and the `set` of a child and of an input, alone and
+by id, `at` as a function of the id, a handler of `onEvent`, `onApplied` and `onIgnored`, a listener of the `App`, a
+view and the `fork` of `Host`, and in the testing tools `repeatable`, `withheld`, what `send` selects by, what `run`
+matches by and a scenario. For each: when it is called, how many times, whether it may be called more, what it may
+change or throw, and what becomes of what it returns. A cell names the sentence of the guide that says it, or is
+empty. An empty cell that the code and the tests already keep is written in the guide, each sentence checked against
+`src/` and its tests first, as the last section of [`guide-reader`](.agents/skills/guide-reader/SKILL.md) says, with
+its test first where none holds it. One that would promise something new goes under "Waiting for the owner".
+
+Two last columns are of a misuse of the function. One says what a misuse leaves: the library's behaviour defined, where
+the user is only more exposed to a bug of their own, or not defined. The other says what refuses the misuse: the
+types, the shape of the API (as `onApplied`, which is given no dispatch), a defect, a testing tool, or nothing. The
+owner's rule, of 22 November 2026: only a misuse that leaves the behaviour not defined needs a refusal; it is refused
+by construction; where that cannot be, by a defect as the program is made; and a rule that nothing checks is the last
+resort. So for each such row that says a testing tool or nothing, the record says whether a construction is
+conceivable, then whether a defect in `make` is, and what each would cost. Two limits are said where they apply. A
+defect in `make` sees the config and at most the first state, so it cannot hold a rule of every state, as the laws of
+a place. And the invariants stand: no check at run time of the model against `update` (`AGENTS.md`). A candidate is
+listed under "Waiting for the owner", not designed: each is a change of the API, read against `docs/rejected.md`
+first, and designed in a step of its own.
+
+Leads of the session that closed step 23, reasoned and not run, with what the owner said of each the same day:
+
+- **To be checked here: rules of the same kind as a `set`'s, which no sentence was found for**: a `get` that is not
+  pure, or that does not read what its `set` stored; an `at` of an id that gives another place for the same id; a
+  `subscribed` that gives a state that is not the child's ("Composition" names only an id listed twice); an optic made
+  by hand with `Optic.makeLens` or `Optic.makeOptional`, which reaches `at` with the freedom of a `set`; an `Equal`
+  written wrong for a value of the state or for an id, which the skip of an equal write and the cache of `forwardTo`
+  rest on. Step 29 weighs a check for the first four.
+- **Axioms, by the owner**: that `update`, `external`, `makeModel` and `subscriptions` are pure, that a state is never
+  mutated, and that a model holds no function. The library is defined on them, and no construction nor check is
+  looked for: their rows say so, and they stay in "What is left to you". Reasoned, with them: TypeScript has no type
+  for a function that is pure, a deep `readonly` of the library's would refuse Effect's own types, and the types
+  cannot tell a method of a `Data` class from a field that is a function.
+- **No hole, by the owner: a view that sends what its model does not hold.** The library's behaviour stays defined:
+  what arrives is a message, which `update` judges, or a write, stored where its place is there. The user is more
+  exposed to a bug of their own, and nothing is to be refused. Both forms that would refuse it are in
+  `docs/rejected.md` ("Offers as tokens, checked against `update`", "An entry of each input in the model, which a view
+  writes through").
+- **Accepted, by the owner: `start` apart from `run`.** A pure part is fitted to a place that is not pure: a server
+  draws the first model of a program that never runs.
+- **To explore, by the owner**: a subscription made from its key alone (step 30), and a child's state that its parent
+  cannot read (step 31).
+- **Not spoken of**: that a function of the program never interrupts the fiber it runs in. No type says it, as far as
+  was reasoned.
+
+**Done when** the table is in a record, each empty cell is written or listed, and each row whose misuse nothing
+refuses is in "What is left to you" or is a candidate under "Waiting for the owner". The owner then weighs whether a
+tool keeps the table, as `bun run comments` keeps the `guarantees`.
+
+### 26. The entry for React outside a browser, and the syntax the package ships
+
+**Model and effort.** Opus 5.5, `high`: a premise to check before a change rests on it, and what the package asks of
+whoever installs it.
+
+**Depends on** no other step. The owner is asked first for points 1, 3 and 4, which change the peers, a page of the
+guide and what the README promises.
+
+**Why.** `bridges/react.ts` imports `react` alone, and an application on React Native draws its programs with it.
+The guide says that the repository has no bridge to React Native, and asks for `react-dom`
+([`application-report.md`](docs/records/application-report.md), point 5).
+
+**How.**
+
+1. **`react-dom` among the peers.** To decide: it leaves `peerDependencies` (advised), and the README, "Writing a
+   bridge", "Coming from Elm or React" and the skill say that the entry needs `react`, and that what it promises of a
+   controlled element is checked with `react-dom`.
+2. **`reportError`**, which the bridge calls for a run that dies once the effect of `Host` has ended, is a global of
+   the browser. A lead, not run: whether React Native has it is read in its documentation, or run there. If it lacks
+   it, the bridge falls back as React does, with a test of `bridges/react.test.ts` that takes the global away.
+3. **A renderer that draws after the next event**, as one whose elements live in another thread. To decide: whether
+   "Writing a bridge" describes what holds there. The state holds every write. A value that the program leaves in a
+   place may be written over by a key typed before its draw. A lock by the shape of the state holds whatever the
+   renderer. It is a description, and it is run under such a renderer before a sentence is written: the repository has
+   none, so the owner says where.
+4. **The syntax.** The build targets ES2022, and the README does not say so. The three `static {}` blocks of
+   `src/defect.ts` are the one syntax the package adds to what Effect's `dist/` asks of a toolchain. To decide: the
+   README says the level, and the three are written another way (advised). Then `bun run smoke` parses `dist/` at the
+   level the README says, with a parser to be chosen: a level that nothing checks is one that the next class drifts
+   from.
+5. **What the entry for React asks of where it runs.** `bridges/` is typechecked with `DOM`, so a global of the
+   browser compiles in an entry that needs no browser, as `reportError` did. To try: `bridges/react.ts` typechecked
+   with the `lib` of `src/`, and each global it uses declared by name, so that a new one does not compile until it is
+   weighed. The bridge to snabbdom needs a DOM, and keeps it.
+
+**Done when** each point is decided, and done or written in `docs/rejected.md`, with the changelog entry of what a
+consumer notices.
 
 ### 29. The form of a value out of `set`, and a check of a place's laws
 
@@ -314,6 +325,57 @@ state under a type that its parent holds, passes to `get`, `set` and `subscribed
 **Done when** a record has what was reasoned or run, and the owner has decided: a step here, or an entry of
 `docs/rejected.md`.
 
+### 9. The changes that break the API
+
+**Model and effort.** Fable 5.2, `high`: each entry is a design weighed again.
+
+**Depends on** steps 29 to 31, whose decisions it is weighed with: each parked entry is taken or kept against what
+they change. Steps 2 to 4, which took the changes that the review of the architecture found, are done.
+
+**Why.** A user who adopts the library asks that its API stays, and a change that breaks it costs less the fewer users
+it has. The API looks close to stable, but what `docs/rejected.md` parks would change it.
+
+**How.** Each entry of "Parked, not rejected" in `docs/rejected.md` that touches the API and that no step above took
+is weighed again with the owner: taken now, in a 0.x release, or kept parked. With them, a smaller point of
+[`architecture-review.md`](docs/records/architecture-review.md): `init` means two things in the config of `make`.
+
+For "What reaches `update`, declared as data", a narrower form to weigh, from the second opinion of 22 November 2026
+(step 32): a message of the model with one value left for the element to give, for what an element reports and the
+program decides by, as the end of a scroll with its offset. Inputs stay as they are, for a value that the element
+holds and the program gives back. The guide's answer today is a write, then a message ("Inputs", "What an element
+reports"), decided the same day ([`application-report.md`](docs/records/application-report.md), point 1): two steps
+for one fact, and a place in the state for a value that is read once. By the guide's own table ("Structuring a
+program"), something that happened is a message, and `update` decides what it means. The first spike of
+[`declared-inputs.md`](docs/records/declared-inputs.md) ran an offer with a value to fill, for an input and for a key,
+and five entries of `docs/rejected.md` name the parked entry as what reopens them. As the second opinion reported, and
+not read here: in one application, every input of a page held a value that is reported, and three of six `set`s were
+written to decide on a write. What one application uses decides nothing (`AGENTS.md`): it is evidence for this step,
+and reopens nothing before it.
+
+**Done when** each such entry is taken or kept parked by the owner's decision.
+
+### 10. A view of the library's own
+
+**Model and effort.** Opus 5.5, `medium`, to write the entry of `docs/rejected.md` if the owner follows the advice
+below. A decision to make it is planned anew, by Fable 5.2, `high`.
+
+**Depends on** the write without `was`, done: a view writes the element's value alone, `{ _tag: 'Written', value }`.
+
+**Why.** A view as data over snabbdom: a node holds its message, a child's view is lifted by a node that wraps its
+messages, an input's node names its input. A test then finds every message a view can send without a DOM, and a view
+takes no dispatch. It is the largest item. Since a dispatch applies its message at once, no bridge settles an input,
+which was a reason for it, and `messagesSentBy` finds the writes of a snabbdom view over the value its model holds (R3
+and B6 of [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md)): what is left, a handler that holds its
+message and a view that takes no dispatch, is to be weighed again.
+
+**How.** Not decided. [`adoption.md`](docs/records/adoption.md), "A wider form", says what it would be, what it costs,
+and what was weighed beside it. The review of the architecture advises to reject it
+([`architecture-review.md`](docs/records/architecture-review.md), "Smaller points"): it is a second product to keep,
+which knows a renderer, for a view that takes no dispatch. The owner decides whether to make it, under which name, and
+whether `@fgaudo/effect-tea/snabbdom` stays beside it.
+
+**Done when** the owner has decided, and the view is made, or the entry of `docs/rejected.md` says why not.
+
 ### 16. The types checked in every form a program is written
 
 **Model and effort.** Opus 5.5, `high`: checks of the types that keep the three rules of "What belongs here", and the
@@ -379,11 +441,11 @@ problems", and the owner has decided the two others.
 
 **Model and effort.** Opus 5.5, `medium`.
 
-**Depends on** no other step. It is here by the owner's order, after 0.8.0: point 7 of the "Seven points of a
-review of the design" below weighs taking it first. The second of its two cases is now: nothing typed with snabbdom is
-rejected for a draw that has not come, and what is left of it is an event that the program's own code dispatches in
-the task of a notice, before its draw ("The way the bridge to snabbdom takes", in
-[`write-without-was.md`](docs/records/write-without-was.md)).
+**Depends on** no other step. It is here by the owner's order, after 0.8.0 and after the decisions that break the
+API: point 7 of the "Seven points of a review of the design" below weighs taking it first. The second of its two
+cases is now: nothing typed with snabbdom is rejected for a draw that has not come, and what is left of it is an event
+that the program's own code dispatches in the task of a notice, before its draw ("The way the bridge to snabbdom
+takes", in [`write-without-was.md`](docs/records/write-without-was.md)).
 
 **Why.** The bridges' tests run on happy-dom, which no browser is. The bridges draw controlled elements, and what is
 typed into one rests on a premise seen only in happy-dom and in one browser (`docs/premises.md`, of a controlled
@@ -408,6 +470,33 @@ the smoke test on 20 November 2026. Decided with step 2: the guide promises that
 on a server, which its spike ran under `renderToString`, and nothing of hydration until `hydrateRoot` is run here.
 
 **Done when** the suite passes in a real browser, in the CI or by a command written down in the repository.
+
+### 8. What the premises hold, and the peer range of Effect
+
+**Model and effort.** Fable 5.2, `high`: premises and guarantees are questioned, and a rule of `AGENTS.md` with them.
+
+**Depends on** no other step. It comes before 1.0. Until 22 November 2026 it waited for steps 18 to 21, which change
+which premises there are. Counted that day in `docs/premises.md`, by the names in each premise and not by a reading of
+each: of its 37 premises, 5 are of a renderer, and of the others some 17 name `rehearse`, nearly all beside the run or
+the engine. Two or three name `rehearse` alone, as that of `Channel.toPull`. So the sort below holds for the run's
+guarantees before the engine changes, and step 19 sorts again the premises that it removes or moves. The first thing
+this step does is to check that count by reading: if steps 18 and 19 change more than it says, this step goes back
+after step 21, and the roadmap says so.
+
+**Why.** [`architecture-review.md`](docs/records/architecture-review.md), "What the premises hold, and the peer range
+of Effect". The peer range of Effect accepts only patches, so an application on a later minor cannot install the
+library: the highest price of the premises, for a library meant to be adopted. Since a dispatch applies at once, no
+premise seems to hold the order of the messages: what they hold is the effects and the end of a run.
+
+**How.** Each premise of `docs/premises.md` is sorted by what falls with it: a guarantee of the guide's "What you can
+rely on", only the where or the order of a defect as a run ends, only what a testing tool does, or only the scheduler
+of the tests. The owner then weighs each guarantee that rests on a premise, kept or moved to "described, not
+promised", and then the range: a caret, with the daily job (`.github/workflows/effect-latest.yml`) as the alarm, or
+the tilde. The skills are [`premise-review`](.agents/skills/premise-review/SKILL.md) and
+[`upgrade-effect`](.agents/skills/upgrade-effect/SKILL.md).
+
+**Done when** the owner has decided the range, and `AGENTS.md`, `docs/premises.md`, the guide's "Guarantees" and
+`package.json` say what was decided.
 
 ### 18. The engine's seams, with the run as their only user
 
@@ -459,7 +548,7 @@ kept to `program.ts` since the spike: the spike's `Shape<…>` in `rehearse.ts` 
 
 **Model and effort.** Opus 5.5, `high`, for each reviewer, which wrote none of steps 18 and 19.
 
-**Depends on** step 19. It comes before the release that follows 0.8.0.
+**Depends on** step 19. It comes before the first release that has the engine of steps 18 and 19.
 
 **How.** As [`premise-review`](.agents/skills/premise-review/SKILL.md) says, over the changes of the engine and of
 the testing tools since `v0.8.0`. The review of 21 November 2026, before that tag, has its reports in the bodies of
@@ -483,77 +572,6 @@ rehearsal that hears nothing. It would cost a fiber of effects and a scope for e
 run thousands: measured before it is decided ([`one-engine.md`](docs/records/one-engine.md), "`simulate`").
 
 **Done when** the owner has decided: `simulate` runs over the engine, or an entry of `docs/rejected.md` says why not.
-
-### 8. What the premises hold, and the peer range of Effect
-
-**Model and effort.** Fable 5.2, `high`: premises and guarantees are questioned, and a rule of `AGENTS.md` with them.
-
-**Depends on** steps 18 to 21, which change which premises there are. It comes before 1.0.
-
-**Why.** [`architecture-review.md`](docs/records/architecture-review.md), "What the premises hold, and the peer range
-of Effect". The peer range of Effect accepts only patches, so an application on a later minor cannot install the
-library: the highest price of the premises, for a library meant to be adopted. Since a dispatch applies at once, no
-premise seems to hold the order of the messages: what they hold is the effects and the end of a run.
-
-**How.** Each premise of `docs/premises.md` is sorted by what falls with it: a guarantee of the guide's "What you can
-rely on", only the where or the order of a defect as a run ends, only what a testing tool does, or only the scheduler
-of the tests. The owner then weighs each guarantee that rests on a premise, kept or moved to "described, not
-promised", and then the range: a caret, with the daily job (`.github/workflows/effect-latest.yml`) as the alarm, or
-the tilde. The skills are [`premise-review`](.agents/skills/premise-review/SKILL.md) and
-[`upgrade-effect`](.agents/skills/upgrade-effect/SKILL.md).
-
-**Done when** the owner has decided the range, and `AGENTS.md`, `docs/premises.md`, the guide's "Guarantees" and
-`package.json` say what was decided.
-
-### 9. The changes that break the API
-
-**Model and effort.** Fable 5.2, `high`: each entry is a design weighed again.
-
-**Depends on** steps 2 to 4, which take the changes that the review of the architecture found.
-
-**Why.** A user who adopts the library asks that its API stays, and a change that breaks it costs less the fewer users
-it has. The API looks close to stable, but what `docs/rejected.md` parks would change it.
-
-**How.** Each entry of "Parked, not rejected" in `docs/rejected.md` that touches the API and that no step above took
-is weighed again with the owner: taken now, in a 0.x release, or kept parked. With them, a smaller point of
-[`architecture-review.md`](docs/records/architecture-review.md): `init` means two things in the config of `make`.
-
-For "What reaches `update`, declared as data", a narrower form to weigh, from the second opinion of 22 November 2026
-(step 32): a message of the model with one value left for the element to give, for what an element reports and the
-program decides by, as the end of a scroll with its offset. Inputs stay as they are, for a value that the element
-holds and the program gives back. The guide's answer today is a write, then a message ("Inputs", "What an element
-reports"), decided the same day ([`application-report.md`](docs/records/application-report.md), point 1): two steps
-for one fact, and a place in the state for a value that is read once. By the guide's own table ("Structuring a
-program"), something that happened is a message, and `update` decides what it means. The first spike of
-[`declared-inputs.md`](docs/records/declared-inputs.md) ran an offer with a value to fill, for an input and for a key,
-and five entries of `docs/rejected.md` name the parked entry as what reopens them. As the second opinion reported, and
-not read here: in one application, every input of a page held a value that is reported, and three of six `set`s were
-written to decide on a write. What one application uses decides nothing (`AGENTS.md`): it is evidence for this step,
-and reopens nothing before it.
-
-**Done when** each such entry is taken or kept parked by the owner's decision.
-
-### 10. A view of the library's own
-
-**Model and effort.** Opus 5.5, `medium`, to write the entry of `docs/rejected.md` if the owner follows the advice
-below. A decision to make it is planned anew, by Fable 5.2, `high`.
-
-**Depends on** the write without `was`, done: a view writes the element's value alone, `{ _tag: 'Written', value }`.
-
-**Why.** A view as data over snabbdom: a node holds its message, a child's view is lifted by a node that wraps its
-messages, an input's node names its input. A test then finds every message a view can send without a DOM, and a view
-takes no dispatch. It is the largest item. Since a dispatch applies its message at once, no bridge settles an input,
-which was a reason for it, and `messagesSentBy` finds the writes of a snabbdom view over the value its model holds (R3
-and B6 of [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md)): what is left, a handler that holds its
-message and a view that takes no dispatch, is to be weighed again.
-
-**How.** Not decided. [`adoption.md`](docs/records/adoption.md), "A wider form", says what it would be, what it costs,
-and what was weighed beside it. The review of the architecture advises to reject it
-([`architecture-review.md`](docs/records/architecture-review.md), "Smaller points"): it is a second product to keep,
-which knows a renderer, for a view that takes no dispatch. The owner decides whether to make it, under which name, and
-whether `@fgaudo/effect-tea/snabbdom` stays beside it.
-
-**Done when** the owner has decided, and the view is made, or the entry of `docs/rejected.md` says why not.
 
 ## Waiting for the owner
 
