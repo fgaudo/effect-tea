@@ -200,7 +200,9 @@ consumer notices.
 documentation start from the sentences the guide has ([`promises-and-tests.md`](docs/records/promises-and-tests.md)),
 or from a requirement chosen for its pages (`guide-reader`): neither finds a question that nobody wrote down. The API
 does: each function that a user gives the library is a place where the user asks when it runs, and what it may do
-([`application-report.md`](docs/records/application-report.md), "Why no check found them").
+([`application-report.md`](docs/records/application-report.md), "Why no check found them"). And the owner asked, on 22
+November 2026, whether a `set` was the last place where the API lets a user write what the guide leaves undefined. It
+is not known to be: so the table also says what refuses a misuse.
 
 **How.** A table, in a record, of every function that a user gives: `init` in each of its forms, `update`, `external`,
 `makeModel`, `subscriptions`, `runCommand`, `subscribed`, the `get` and the `set` of a child and of an input, alone and
@@ -212,8 +214,44 @@ empty. An empty cell that the code and the tests already keep is written in the 
 `src/` and its tests first, as the last section of [`guide-reader`](.agents/skills/guide-reader/SKILL.md) says, with
 its test first where none holds it. One that would promise something new goes under "Waiting for the owner".
 
-**Done when** the table is in a record, and each empty cell is written or listed. The owner then weighs whether a tool
-keeps the table, as `bun run comments` keeps the `guarantees`.
+A last column says what refuses a misuse of the function: the types, the shape of the API (as `onApplied`, which is
+given no dispatch), a defect, a testing tool, or nothing. The owner's order of preference, of 22 November 2026: a
+misuse is refused by construction; where that cannot be, by a defect as the program is made; a rule that nothing
+checks is the last resort. So for each row that says a testing tool or nothing, the record says whether a construction
+is conceivable, then whether a defect in `make` is, and what each would cost. Two limits are said where they apply. A
+defect in `make` sees the config and at most the first state, so it cannot hold a rule of every state, as the laws of
+a place. And the invariants stand: no check at run time of the model against `update` (`AGENTS.md`). A candidate is
+listed under "Waiting for the owner", not designed: each is a change of the API, read against `docs/rejected.md`
+first, and designed in a step of its own.
+
+Leads of the session that closed step 23, reasoned and not run, each to be checked here:
+
+- **Rules of the same kind as a `set`'s, which no sentence was found for**: a `get` that is not pure, or that does not
+  read what its `set` stored; an `at` of an id that gives another place for the same id; a `subscribed` that gives a
+  state that is not the child's ("Composition" names only an id listed twice); an optic made by hand with
+  `Optic.makeLens` or `Optic.makeOptional`, which reaches `at` with the freedom of a `set`; an `Equal` written wrong
+  for a value of the state or for an id, which the skip of an equal write and the cache of `forwardTo` rest on. Step
+  29 weighs a check for the first four.
+- **"Whatever a subscription depends on is in its key" may hold by construction**: `subscriptions` would give the
+  keys alone, as data, and a function of the program would make a subscription from its key, as `runCommand` makes an
+  execution from a command. A subscription could then use nothing of the state that its key lacks. `examples/bounce`
+  shows the rule left to the user: its subscription is made from `state.dt` under the key `"steps"`, and a comment
+  says why `dt` cannot change. No entry of `docs/rejected.md` was found for it: to be looked for again, in the
+  records too, before it is listed.
+- **"A parent never reads a child's state to decide" may hold by the types**, with a child's state that its parent
+  cannot read. Weaker: a test of the parent builds that state, and nothing was read for what it would cost.
+- **Not by construction, as far as was reasoned**: that a function is pure, and that it never interrupts its fiber,
+  since TypeScript has no type for either; that a state is never mutated, since a deep `readonly` of the library's
+  would refuse Effect's own types and print in every hover, and a freeze at run time would rest on whether Effect
+  writes into its own objects, which was not read; that a model holds no function, since the types cannot tell a method of a `Data` class from a
+  field that is a function. A testing tool could call a pure function twice and compare.
+- **Weighed already, and refused**: a view that can send only what its model holds (`docs/rejected.md`, "Offers as
+  tokens, checked against `update`", "An entry of each input in the model, which a view writes through"). And `start`
+  apart from `run` is meant: a server draws the first model of a program that never runs.
+
+**Done when** the table is in a record, each empty cell is written or listed, and each row whose misuse nothing
+refuses is in "What is left to you" or is a candidate under "Waiting for the owner". The owner then weighs whether a
+tool keeps the table, as `bun run comments` keeps the `guarantees`.
 
 ### 29. The form of a value out of `set`, and a check of a place's laws
 
