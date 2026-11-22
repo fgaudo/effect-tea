@@ -14,10 +14,9 @@ for on 20 November 2026 and asked to be written here in the order it advises. St
 2026, of why the findings api-1, api-2 and api-4 of [`library-review.md`](docs/records/library-review.md) passed the
 inference matrix and the tests. Steps 22 to 31 come from
 [`application-report.md`](docs/records/application-report.md), a report of an application's upgrade to 0.8.0 that the
-owner asked to weigh on 22 November 2026. They come first: each is small, none waits for the steps of the engine, and
-step 25 changes a type of `src/testing/rehearse.ts`, which step 19 writes anew. From the same record, "Why no check
-found them", come step 27, point 5 of step 16, point 5 of step 26, and two items of "Any time"; and from "What the
-owner decided", steps 28 to 31. A step done leaves its number unused.
+owner asked to weigh on 22 November 2026. They come first: each is small, and none waits for the steps of the engine.
+From the same record, "Why no check found them", come step 27, point 5 of step 16, point 5 of step 26, and two items
+of "Any time"; and from "What the owner decided", steps 28 to 31. A step done leaves its number unused.
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
 
@@ -28,33 +27,6 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 None is open.
 
 ## Next, in order
-
-### 25. What `hear` takes
-
-**Model and effort.** Opus 5.5, `high`: a type of a testing tool
-([`change-engine`](.agents/skills/change-engine/SKILL.md), [`change-api`](.agents/skills/change-api/SKILL.md)).
-
-**Depends on** no other step. It comes before step 19, which writes `rehearse.ts` anew. The owner chooses between the
-two forms below before one is written.
-
-**Why.** `hear` refuses by its type any message that may be a write into an input. So it refuses a wrapper of a
-child's message built by a constructor of `Data.taggedEnum` over the parent's message, and any value typed as the
-whole message of a program with an input: tests that are right. The error names no rule, and only the doc comment
-says what `hear` takes, not "Testing tools". Run in a probe
-([`application-report.md`](docs/records/application-report.md), point 4). `docs/rejected.md` holds a first limit of
-the same check ("`hear` typed by what a program's subscriptions send").
-
-**How.** One of two:
-
-- **`hear` takes any message of the program** (advised). `Heard` and `Unwritten` go, with the known limit and its
-  test. The check is partial as it is: a test may say that a click or a command's answer was heard, and the guide says
-  that the test answers for what it says was heard. `applyAll` and `simulate` take any message too. The entry of
-  `docs/rejected.md` then says that the check by shape went.
-- **`Heard` stays.** "Testing tools" says what `hear` takes, and how a test writes a wrapper for it, and the error
-  names the rule, as `NoClash` does in `compose.ts`.
-
-**Done when** the form taken is in the code, the guide, the doc comment and the changelog, and the checks of the two
-skills pass.
 
 ### 26. The entry for React outside a browser, and the syntax the package ships
 
@@ -302,12 +274,12 @@ axes, checked by `tsc`, so the risk left is in the axes it does not list.
    would have found api-4. It runs apart, as `bun run inference` does.
 5. **Each message is given to every function that takes one, in every form it is written.** The matrix writes
    programs, and never what a test or a view gives them. And the tests of the types say what is refused
-   (`@ts-expect-error`), not in how many forms what is right is taken: the three tests that give `hear` a child's
-   message write a literal. For each valid case, a message of its own, a child's and a write are written as a literal,
+   (`@ts-expect-error`), not in how many forms what is right is taken. For each valid case, a message of its own, a child's and a write are written as a literal,
    with a constructor of `Data.taggedEnum` over the program's own messages and over its whole message, as a wrapper
    that such a constructor builds, and as a value typed `MessageOf`. Each is given to `dispatch`, `forwardTo`,
    `applyAll`, `simulate`, and the `send` and the `hear` of a rehearsal. What is right compiles in every form, or the
-   guide says which form is refused, and why. Known lead: `hear`, which is step 25.
+   guide says which form is refused, and why. `hear` refused some until step 25 took its check out
+   (`docs/rejected.md`).
 
 Then the owner weighs two more, each taken as a step here or written in `docs/rejected.md`. Mutations of the types: a
 mutation in `tools/mutations/` that takes out each check of the types of `program.ts` and `compose.ts`, killed by the

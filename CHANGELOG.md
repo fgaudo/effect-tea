@@ -11,6 +11,8 @@ version, and everything else, features included, the patch version.
   scroll, is an input too: its rule is promised, and nothing of the element ("What an element reports").
 - A `set`, a child's or an input's, changes its place and nothing else; one that does more is not supported
   ("Composition", "Where a child lives").
+- `rehearse`'s `hear` takes any message of the program, as `send` does, where it refused one shaped as a write into
+  an input: a wrapper built by a parent's constructor, or a value typed as the whole message, now compiles.
 
 ## 0.8.0 (2026-11-21)
 

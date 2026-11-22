@@ -17,7 +17,6 @@ import * as Scope from "effect/Scope"
 import * as Core from "../core.ts"
 import { ProgramDefect } from "../defect.ts"
 import { recordThrown } from "../engine.ts"
-import type { Written } from "../input.ts"
 import { describeByTag } from "../log.ts"
 import { type AnyProgram, type FlagsOption, type Program, runCommandOf, startOf } from "../program.ts"
 import { diesIn, makeDeaths, rootedIn, runSubscription, scopedIn, stopping as stopFiber } from "../shell.ts"
@@ -114,14 +113,13 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
    *
    * @param key - The subscription's key, as the program lists it. A child's key is under the child's name, as its
    * parent lists it: `['Clock', 'ticks']`, with the id for children by id.
-   * @param message - What the subscription sends: any message of the program but a write into an input, the program's
-   * or a child's, which only a view sends.
+   * @param message - What the subscription sends, as a message of the program.
    *
    * @see The guide, "Testing tools", "A subscription's message is one the test says was heard".
    * @see The guide, "Testing tools", "How a subscription is heard".
    * @see The guide, "Testing tools", "What fails the test".
    */
-  readonly hear: (key: unknown, message: Heard<Message>) => Effect.Effect<void>
+  readonly hear: (key: unknown, message: Message) => Effect.Effect<void>
   /**
    * Hears the next message of the subscription under `key`, applies it as `hear` would, and returns it.
    *
@@ -154,19 +152,6 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
    */
   readonly ignored: Effect.Effect<ReadonlyArray<Message>>
 }
-
-/**
- * What a subscription may send of a program's `Message`: all of it but a write into an input, the program's or a
- * child's, `{ _tag: <input>, message: { _tag: 'Written', … } }` however deep, which only a view sends.
- */
-type Heard<Message> = 0 extends 1 & Message ? Message
-  : Message extends Readonly<{ _tag: string; message: infer Inner }> ? [Inner] extends [Unwritten<Inner>] ? Message
-    : [Unwritten<Inner>] extends [never] ? never
-    : Omit<Message, "message"> & Readonly<{ message: Unwritten<Inner> }>
-  : Message
-
-/** What a parent's wrapped message may hold, as a subscription sends it: no write, at that level or below. */
-type Unwritten<Inner> = Inner extends Written<unknown> ? never : Heard<Inner>
 
 // A call of `hearNext`, by its identity, and what the loop tells it: the message it heard, once its job is done, or none
 // once its start has ended.
@@ -715,8 +700,7 @@ const rehearsing = Effect.fnUntraced(function*<
       pending: Effect.sync(() => ledger.pending),
       run,
       runAll,
-      // Its type rules out only what no subscription sends.
-      hear: (key, message) => deadOr(hear(key, message as Message)),
+      hear: (key, message) => deadOr(hear(key, message)),
       hearNext: (key) => deadOr(hearNext(key)),
       events: Effect.sync(() => now.events),
       ignored: Effect.sync(() => now.ignored)

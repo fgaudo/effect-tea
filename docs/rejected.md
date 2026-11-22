@@ -258,20 +258,21 @@ answer, and saying so in the proposal.
   spread under a name, and was removed instead (0.8.0), so that `drive` and `rehearse` start as `run` does. Left: under
   `simulate`, an `init` that throws on its flags is the test's own defect, not a `ProgramDefect` in `'init'`. _Reopen
   if_ such a defect goes untested in a program with flags.
-- **`hear` typed by what a program's subscriptions send**, in place of reading a write by its shape. Reasoned, 16
-  November 2026, on the item of `ROADMAP.md`, confirmed by a type test: `Rehearsal.hear` refuses
-  `{ _tag, message: Written }` at any depth, so an own message of that shape, holding a `Written` as data, is refused
-  too, though `update` takes it and its subscription may send it ("hear refuses, by its shape, an own message that
-  holds a write as data, …", `rehearse.test.ts`, a known limit). The exact form was a trailing `Heard` parameter of
-  `Shape`, typing `subscriptions` (`Own | ChildHeard<C>` from `program`, the `message` of a `Program<…>`), taken
-  by `hear` and returned by `hearNext`. It would be invariant in `Rehearsal`, which takes and returns it, so a
-  `Rehearsal<…>` annotated by hand, as tests write it, breaks unless the test names it, with a new `HeardOf`; a
-  `Program<…>` annotation, which gives `message`, loses the rule again; and it serves one method of one tool. The
-  collision of a program's own value with the library's wrapping was accepted already, for `describeByTag` (under
-  "The API"). Workarounds: `hearNext` with a subscription that sends the message, a cast at the call, or another
-  name for the field. Weighed with a second opinion (Fable), the owner deciding. _Reopen if_ an application's
-  subscription is found sending such a message, or `Shape` gains a type of what its subscriptions send for another
-  reason.
+- **`hear` refusing a write into an input**, which only a view sends, by the type of what it takes. Two forms, both
+  rejected. The exact one, reasoned on 16 November 2026: a trailing `Heard` parameter of `Shape`, typing
+  `subscriptions` (`Own | ChildHeard<C>` from `program`, the `message` of a `Program<…>`), taken by `hear` and
+  returned by `hearNext`. It would be invariant in `Rehearsal`, which takes and returns it, so a `Rehearsal<…>`
+  annotated by hand, as tests write it, breaks unless the test names it, with a new `HeardOf`; a `Program<…>`
+  annotation, which gives `message`, loses the rule again; and it serves one method of one tool. The form by shape,
+  shipped in 0.8.0 and removed on 22 November 2026: `hear` refused `{ _tag, message: Written }` at any depth. It
+  refused right tests: an own message of that shape holding a `Written` as data, a wrapper built by a constructor of a
+  parent's `Data.taggedEnum`, and any value typed as the whole message, as a helper of a test returns, with an error
+  that named no rule (`application-report.md`, point 4). And it was partial: a click or a command's answer said as
+  heard passes, and the test answers for what it says was heard. A heard write is applied as the run applies any
+  message, stored where its place is there, so nothing is left undefined to refuse; a program's own
+  subscription cannot send one, by the type `make` gives it (its own messages, kept apart from the inputs' names by
+  `NoClash`). Weighed with a second opinion (Fable) each time, the
+  owner deciding. _Reopen if_ `Shape` gains a type of what its subscriptions send for another reason.
 - **`rehearse` and `simulate` taking the options of `drive`** (`RunOptions`), so that a rehearsal checks an observer
   and its defect, as "symmetric where its tools are" (`AGENTS.md`) asks about. Reasoned, 16 November 2026, on the item
   of `ROADMAP.md`. `RunOptions` is how a program runs (`engine.ts`): `drive` is a run and passes them on, while

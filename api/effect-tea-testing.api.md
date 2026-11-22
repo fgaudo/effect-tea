@@ -112,14 +112,6 @@ type Folded<State, Command, Event> = {
 };
 
 // @public
-type Heard<Message> = 0 extends 1 & Message ? Message : Message extends Readonly<{
-    _tag: string;
-    message: infer Inner;
-}> ? [Inner] extends [Unwritten<Inner>] ? Message : [Unwritten<Inner>] extends [never] ? never : Omit<Message, "message"> & Readonly<{
-    message: Unwritten<Inner>;
-}> : Message;
-
-// @public
 type Ignored<State, Message> = {
     readonly message: Message;
     readonly origin: Origin;
@@ -176,7 +168,7 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
     readonly pending: Effect.Effect<ReadonlyArray<Command>>;
     readonly run: (select: (command: Command) => boolean) => Effect.Effect<Command, never, Exclude<RC, Scope.Scope>>;
     readonly runAll: Effect.Effect<void, never, Exclude<RC, Scope.Scope>>;
-    readonly hear: (key: unknown, message: Heard<Message>) => Effect.Effect<void>;
+    readonly hear: (key: unknown, message: Message) => Effect.Effect<void>;
     readonly hearNext: (key: unknown) => Effect.Effect<Message, never, Exclude<RS, Scope.Scope>>;
     readonly events: Effect.Effect<ReadonlyArray<Event>>;
     readonly ignored: Effect.Effect<ReadonlyArray<Message>>;
@@ -250,16 +242,7 @@ type Subscriptions<State, Message, R = never, K = unknown> = (state: State) => H
 type Transition<State, Command = never, Event = never> = Step<State, Command, Event> | Rejected;
 
 // @public
-type Unwritten<Inner> = Inner extends Written<unknown> ? never : Heard<Inner>;
-
-// @public
 type Update<State, Message, Command = never, Event = never> = (message: Message) => (state: State) => Transition<State, Command, Event>;
-
-// @public
-type Written<A> = {
-    readonly _tag: "Written";
-    readonly value: A;
-};
 
 // (No @packageDocumentation comment for this package)
 

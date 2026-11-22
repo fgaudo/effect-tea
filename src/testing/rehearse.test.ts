@@ -16,7 +16,6 @@ import type * as Scope from "effect/Scope"
 import { prioritizedSchedules, scheduled } from "../../test/scheduled.test_scheduler.ts"
 import { program } from "../compose.ts"
 import { ProgramDefect } from "../defect.ts"
-import type { Written } from "../input.ts"
 import type { MessageOf, Program } from "../program.ts"
 import type { Subscription } from "../subscription.ts"
 import { reject, type Update } from "../update.ts"
@@ -330,7 +329,7 @@ describe("rehearse", () => {
     expect(String(unheard)).toContain("Nothing listens under [\"Row\",\"1n\"] in the current state")
   })
 
-  test("hear takes what a subscription sends, and no write into an input, the editor's, by id or not, or a child's", async () => {
+  test("hear takes any message of the program, typed as the whole message, a write into an input too", async () => {
     type Field = Readonly<{ text: string; pings: number }>
     const Field = program<{ state: Field; message: "Pinged" }>()
     const field = Field.make({
@@ -343,7 +342,7 @@ describe("rehearse", () => {
     type Form = Readonly<{ name: string; notes: Readonly<Record<string, string>>; field: Field; pings: number }>
     const Form = program<{ state: Form; message: "Pinged" }>()
     const form = Form.make({
-      init: (children) => ({ state: { name: "", notes: {}, field: children.Field.init.state, pings: 0 } }),
+      init: (children) => ({ state: { name: "", notes: { a: "" }, field: children.Field.init.state, pings: 0 } }),
       children: {
         Field: Form.child(field, { get: (state) => Opt.some(state.field), set: (state, f) => ({ ...state, field: f }) })
       },
@@ -355,37 +354,27 @@ describe("rehearse", () => {
       subscriptions: () => HashMap.make(["ping", Channel.never]),
       makeModel: (state) => state
     })
+    const written = { _tag: "Written", value: "Ada" } as const
+    const heard: ReadonlyArray<MessageOf<typeof form>> = [
+      "Pinged",
+      { _tag: "Field", message: "Pinged" },
+      { _tag: "Name", message: written },
+      { _tag: "Note", id: "a", message: written },
+      { _tag: "Field", message: { _tag: "Text", message: written } }
+    ]
     const state = await Effect.runPromise(rehearse(
       form,
       Effect.fnUntraced(function*(rehearsal) {
-        yield* rehearsal.hear("ping", "Pinged")
-        yield* rehearsal.hear(["Field", "ping"], { _tag: "Field", message: "Pinged" })
+        for (const message of heard) {
+          yield* rehearsal.hear(
+            typeof message === "object" && message._tag === "Field" ? ["Field", "ping"] : "ping",
+            message
+          )
+        }
         return yield* rehearsal.state
       })
     ))
-    expect(state).toEqual({ name: "", notes: {}, field: { text: "", pings: 1 }, pings: 1 })
-    const written = { _tag: "Written", value: "Ada" } as const
-    const never = (rehearsal: Rehearsal<Form, Form, MessageOf<typeof form>>) => [
-      // @ts-expect-error: a write into the editor's input.
-      rehearsal.hear("ping", { _tag: "Name", message: written }),
-      // @ts-expect-error: a write into the editor's input by id.
-      rehearsal.hear("ping", { _tag: "Note", id: "a", message: written }),
-      // @ts-expect-error: a write into a child's input.
-      rehearsal.hear(["Field", "ping"], { _tag: "Field", message: { _tag: "Text", message: written } })
-    ]
-    expect(never).toBeDefined()
-  })
-
-  // A known limit (`docs/rejected.md`, "The testing tools"): `hear` tells a write by its shape, so an own message
-  // holding one as data, which its subscription may send, is refused too.
-  test("hear refuses, by its shape, an own message that holds a write as data, though a subscription sends it", () => {
-    type Audit = Readonly<{ writes: ReadonlyArray<Written<string>> }>
-    type Recorded = Readonly<{ _tag: "Recorded"; message: Written<string> }>
-    const written: Written<string> = { _tag: "Written", value: "Ada" }
-    const refused = (rehearsal: Rehearsal<Audit, Audit, Recorded>) =>
-      // @ts-expect-error: an own message of the shape of a write into an input.
-      rehearsal.hear("audit", { _tag: "Recorded", message: written })
-    expect(refused).toBeDefined()
+    expect(state).toEqual({ name: "Ada", notes: { a: "Ada" }, field: { text: "Ada", pings: 1 }, pings: 1 })
   })
 
   describe("hearNext", () => {

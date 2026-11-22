@@ -2461,8 +2461,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse plays a key nothing listens under after the first defect",
     file: "src/testing/rehearse.ts",
-    from: "hear: (key, message) => deadOr(hear(key, message as Message)),",
-    to: "hear: (key, message) => hear(key, message as Message),",
+    from: "hear: (key, message) => deadOr(hear(key, message)),",
+    to: "hear: (key, message) => hear(key, message),",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
