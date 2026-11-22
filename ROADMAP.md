@@ -228,12 +228,12 @@ first, and designed in a step of its own.
 
 Leads of the session that closed step 23, reasoned and not run, with what the owner said of each the same day:
 
-- **To be checked here: rules of the same kind as a `set`'s, which no sentence was found for**: a `get` that is not pure, or that does not
-  read what its `set` stored; an `at` of an id that gives another place for the same id; a `subscribed` that gives a
-  state that is not the child's ("Composition" names only an id listed twice); an optic made by hand with
-  `Optic.makeLens` or `Optic.makeOptional`, which reaches `at` with the freedom of a `set`; an `Equal` written wrong
-  for a value of the state or for an id, which the skip of an equal write and the cache of `forwardTo` rest on. Step
-  29 weighs a check for the first four.
+- **To be checked here: rules of the same kind as a `set`'s, which no sentence was found for**: a `get` that is not
+  pure, or that does not read what its `set` stored; an `at` of an id that gives another place for the same id; a
+  `subscribed` that gives a state that is not the child's ("Composition" names only an id listed twice); an optic made
+  by hand with `Optic.makeLens` or `Optic.makeOptional`, which reaches `at` with the freedom of a `set`; an `Equal`
+  written wrong for a value of the state or for an id, which the skip of an equal write and the cache of `forwardTo`
+  rest on. Step 29 weighs a check for the first four.
 - **Axioms, by the owner**: that `update`, `external`, `makeModel` and `subscriptions` are pure, that a state is never
   mutated, and that a model holds no function. The library is defined on them, and no construction nor check is
   looked for: their rows say so, and they stay in "What is left to you". Reasoned, with them: TypeScript has no type
