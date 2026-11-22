@@ -220,6 +220,13 @@ axes, checked by `tsc`, so the risk left is in the axes it does not list.
    `applyAll`, `simulate`, and the `send` and the `hear` of a rehearsal. What is right compiles in every form, or the
    guide says which form is refused, and why. `hear` refused some until step 25 took its check out
    (`docs/rejected.md`).
+6. **The matrix lists the axes of a program it lacks**, found on 23 November 2026 by reading its generator, and not
+   run: a case never names an `output` of its own, which came with step 35, so no program under test, and no parent
+   that is a child in turn, declares one; its child is always the prelude's `kid` (or `kidF`), with commands, events,
+   an external message, an output and services, so no child lacks one of them, where `Lacking` in `compose.ts` takes
+   another branch for a child without commands; a parent has one child, and `mixed` one child beside one input, so no
+   two children of different types meet in one parent but by the clashes of names; and services vary only in the hand
+   cases, typed `Program<…>`, never in a program of `make`. Some may be held in part by the special cases.
 
 Then the owner weighs two more, each taken as a step here or written in `docs/rejected.md`. Mutations of the types: a
 mutation in `tools/mutations/` that takes out each check of the types of `program.ts` and `compose.ts`, killed by the
@@ -230,7 +237,12 @@ in "Anatomy of a program" and "Composition", names a `Violation` of the matrix, 
 an item added, no more: a second opinion weighed on 21 November 2026 found that it passed on the day it was written,
 and that it says nothing of a sentence added to an item. A tie of the matrix would be weighed for the same limit.
 
-**Done when** points 1 to 5 run (all but the fourth in `bun run inference`), `AGENTS.md`, `change-api` and the comment
+What the matrix costs, for the owner to weigh with these: its twelve configurations took 45 minutes on 22 November
+2026, with 67,871 cases, and no more jobs than half the processors make it faster (`--jobs`). The full product of the
+axes it has pays for most of it: the order of the pieces and the annotations alone multiply every case by four. Those
+axes crossed in pairs, not in full, would leave time for the axes of point 6.
+
+**Done when** points 1 to 6 run (all but the fourth in `bun run inference`), `AGENTS.md`, `change-api` and the comment
 at the head of `tools/inference/generate.ts` say what they check, their leads are fixed or listed under "Open
 problems", and the owner has decided the two others.
 
