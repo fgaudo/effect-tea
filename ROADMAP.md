@@ -29,68 +29,14 @@ None is open.
 
 ## Next, in order
 
-### 24. The guide and the skill say what an input is for, and what a `set` may do
-
-**Model and effort.** Opus 5.5, `medium`.
-
-**Depends on** no other step. The owner decided each point below on 22 November 2026, with what was weighed for it in
-[`application-report.md`](docs/records/application-report.md), "What the owner decided": none is asked again.
-
-**What was decided.**
-
-1. **The page says the general rule, and is renamed "Inputs".** An input is the place of a value that an element holds
-   or reports: a text, the mark of a checkbox, the offset of a scroll, a measured size. The text is its first case.
-   For a value that the program cannot give back to the element, the rule of an input is promised and nothing of the
-   element: a value that the program leaves in such a place is not shown. With it:
-   - **The line between a write and a subscription.** What is there whatever is drawn, as the size of the window or a
-     key pressed anywhere, is a subscription to a service. A value of an element that the view draws is a write. This
-     is the event's half of finding 3 of the reader's check ("Waiting for the owner"). The table of "Subscriptions"
-     takes another word for "input", and the table of "Structuring a program" names the general case.
-   - **What a model shows of a value that is reported.** The model says where the element reports: the case in which
-     the view gives the element its handler. It holds the value only where the view draws by it, since a model that
-     holds an offset is a new model at each event of the scroll. "A view writes only into the inputs that the model
-     shows" stays as it is. In "Testing", a write over such an input is of a value other than the one the state holds.
-     The session advised this with the rule, and the owner took the rule: it is written as a description.
-   - **What a write costs.** An element that reports at each of its events runs a step at each. It is a case of "The
-     program runs on the stack of whoever sends the message" ("Guarantees", "What is left to you"), and is said there,
-     as a description.
-2. **A fact that comes with a value is shown**, as the end of a scroll with its offset: a handler writes the value,
-   then sends the message that its model holds, and `update` reads the value from the state. It holds by what
-   "Guarantees" promises already, so it promises nothing new: a message is applied in the call that sends it, and the
-   second is a message of a model that the state has moved past, which `update` judges. The page says that this is
-   also how a value is written once, as the scroll ends, where a write at each event costs too much.
-3. **A `set` puts the value it is given at the place that `get` reads, and changes nothing else of the state.** It is
-   the rule of every place, a child's and an input's, alone and by id, and is said once, in "Composition", "Where a
-   child lives". A `set` that does more is not supported: the library calls a `set` only where it must store, so not
-   for a write equal to the value held, nor for a child's step that left the child's state as it was, and what else it
-   did would follow some writes and not others. What follows a write is computed where the state is read. Nothing
-   checks the rule until step 29 is done: it is listed in "Guarantees", "What is left to you", and in the skill's
-   "Rules that nothing checks". "Change the text as it is stored, in `set`" stays as it is, the one exception: step 29
-   decides whether the form of a value leaves `set`. Of when a `set` is called, the guide promises no more than it
-   did: step 27 weighs whether it is described.
-4. **The form locks by the shape of its state**: step 28. "Testing" says that writes and the program's own messages
-   may share one call of `dispatchViolations`, since "apart from the reader" was read both ways. No page says that a
-   place shown read-only on purpose is `withheld` (`docs/rejected.md`).
-
-**How.** The rename first, alone: the file, its title, each link to it and each `@see The guide, "Inputs the user types
-into", …` of `src/` and `bridges/`, the skill, the tutorial, `tools/comments.ts` and `.agents/skills/add-example`.
-`bun run comments` then passes with no other change. A record that links the file gets the new path and no other
-word; the changelog's past entries keep the old name. Then one section at a time, each sentence checked against the
-old one and against `src/` (`AGENTS.md`, "What belongs here"). The pages that speak of an input as a text are reread
-for the rule taken: the page itself, "Model", "Structuring a program" (its table), "Subscriptions" (its table),
-"Testing", "Guarantees", the glossary, the fourth page of the tutorial and the skill. A section whose name speaks of
-typing is renamed only where the rule under it is the general one, with its `@see` lines. The form's code that the
-pages quote stays until step 28.
-
-**Done when** the checks of `AGENTS.md` pass, `bun run comments` among them, and the changelog says what a user
-notices (`release`).
-
 ### 28. The form locks by the shape of its state
 
 **Model and effort.** Opus 5.5, `medium` ([`add-example`](.agents/skills/add-example/SKILL.md)).
 
-**Depends on** step 24, which renames and rewrites the page that quotes the form. No page changes to allow it: the
-page says already to keep what the user types in the case of the state where it can be typed.
+**Depends on** no other step. The page that quotes the form is "Inputs" (`site/guide/inputs.md`). No page changes to
+allow it: the page says already to keep what the user types in the case of the state where it can be typed. "Testing"
+says that writes and the program's own messages may share one call of `dispatchViolations`; no page says that a place
+shown read-only on purpose is `withheld` (`docs/rejected.md`), and none should.
 
 **Why.** `examples/form/form.ts` keeps the name's place while it saves, and its model shows nothing to type into: the
 first example of an input does what the "Don't" of its own page says, and what `Missing` would report if its test
@@ -194,7 +140,9 @@ consumer notices.
 
 **Model and effort.** Opus 5.5, `high`: a review, of the guide against the API.
 
-**Depends on** step 24, which says what a `set` may do.
+**Depends on** no other step. What a `set` may do is in the guide, "Composition", "Where a child lives": it changes
+its place and nothing else, and "the library need not call `set`" where nothing is stored, which promises nothing of
+when it is called. Whether that is described is this step's to weigh.
 
 **Why.** What a `set` may do, and when it is called, was a question that no sentence answered. The checks of the
 documentation start from the sentences the guide has ([`promises-and-tests.md`](docs/records/promises-and-tests.md)),
@@ -261,10 +209,11 @@ tool keeps the table, as `bun run comments` keeps the `guarantees`.
 back. What the owner takes is then written as a step of its own, for Opus 5.5, `high`
 ([`change-api`](.agents/skills/change-api/SKILL.md)).
 
-**Depends on** step 24, which says the rule, and on step 27: its table says what a `get`, a `set`, an `at` of an id
-and a `subscribed` are asked, and may find other rules of the same kind, which the same check could hold.
+**Depends on** step 27, the rule being in the guide ("Composition", "Where a child lives"): the table of step 27 says
+what a `get`, a `set`, an `at` of an id and a `subscribed` are asked, and may find other rules of the same kind, which
+the same check could hold.
 
-**Why.** The rule of step 24, that a `set` changes its place and nothing else, is checked by nothing, for a child's
+**Why.** The rule of the guide, that a `set` changes its place and nothing else, is checked by nothing, for a child's
 place as for an input's. A `set` of a child that changes another field of its parent tells the parent of each step of
 the child, past the events. No signature of `set` holds the rule: a function that returns the state can change all of
 it, and a place as an optic alone was refused (`docs/rejected.md`, "A place as an optic alone"). The owner asked on 22
@@ -294,8 +243,8 @@ November 2026 for what can be correct by construction, and took the two parts be
    whether an `at` of an id and a `subscribed` fall under it (step 27).
 
 **Done when** the record has what the spike ran, the owner has decided each part, and what was taken is a step here,
-or an entry of `docs/rejected.md`. A part taken moves the rule of step 24 from "What is left to you" to what a test
-checks, in the guide and in the skill.
+or an entry of `docs/rejected.md`. A part taken moves the rule of a `set` from "What is left to you" to what a test
+checks, in the guide ("Guarantees", "Composition") and in the skill's "Rules that nothing checks".
 
 ### 30. A subscription made from its key alone
 
@@ -602,7 +551,7 @@ Where a step above would answer a point below, the point stays here until the st
   3. **What is drawn outside the root**, as `document.title`. No page says how. The readers drew the title two ways, a
      hook of the view's top vnode and a renderer over `App` beside `renderInto`. To decide: whether the guide says
      which way is the library's. Its other half, an event of the whole page, as a key pressed anywhere, is decided:
-     both readers took it as a subscription to a service, and step 24 writes that it is one.
+     both readers took it as a subscription to a service, and "Inputs", "What an element reports", says that it is one.
 
   Smaller, and not written either: "Running" could name `Fiber.interrupt` where it says to interrupt the fiber, and
   "Testing tools" could say that `hearNext` asks for the services of every subscription, not of the one it hears.

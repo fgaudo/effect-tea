@@ -73,6 +73,15 @@ For each child, and for itself, a parent declares what follows. The sections bel
   - Give `get` and `set` where the place must be found: an element of an array that a predicate picks, such as a
     page found by its tag in a stack of pages. No path leads to such an element, because its index changes as the
     array does.
+- **A `set` changes its place, and nothing else.** A `set` puts the value it is given at the place that `get` reads,
+  and changes nothing else of the state, as an optic does. This is the rule of every place: a child's and an input's,
+  alone and by id.
+  - A `set` that does more is not supported. The library need not call `set` where nothing is to be stored: for a
+    write equal to the value held, or for a step of a child that left the child's state as it was. So what else a
+    `set` did would follow some writes and not others.
+  - Compute what follows a write where the state is read, in `update` and `makeModel`.
+  - An input's `set` may store the value in another form. This is the one exception (see
+    [what is typed, in another form](./inputs.md#what-is-typed-in-another-form)).
 - **When the child is not there.** In a state where the child's optic focuses nothing, or where its `get` returns
   `None`, the child is not there.
   - A message for a child that is not there is rejected. This holds for a message of the child's view, sent through
@@ -126,8 +135,8 @@ For each child, and for itself, a parent declares what follows. The sections bel
 ### The parent's inputs
 
 - If the parent has inputs, it declares them in `inputs`: `inputs: { Name: input({ at }) }`. Here `at` is an optic to a
-  value of the parent's own state (see [inputs](./inputs.md)). For inputs by
-  id, use `inputById` (see [inputs by id](./inputs.md#inputs-by-id)).
+  value of the parent's own state (see [inputs](./inputs.md)). For inputs by id, use `inputById` (see
+  [inputs by id](./inputs.md#inputs-by-id)).
   - An input is placed in the same ways as a child: with `at`, or with `get` and `set`.
   - An input by id is placed in the same ways, as functions of the id.
   - An input is not a child. The input's value is part of the parent's own state. The parent's `update` and

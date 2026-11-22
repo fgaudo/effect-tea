@@ -42,12 +42,14 @@ import { appendStep, type Folded, reject, type Step, type Transition, type Updat
  * ```ts
  * { at: Optic.id<State>().key('maybeAbout').compose(Optic.some()) }
  * ```
+ *
+ * @see The guide, "Composition", "Where a child lives".
  */
 type Placement<ParentState, ChildState> =
   | Readonly<{
     /** The child's state, or `None` where the child is not there: what `set` put, read from the state alone. */
     get: (state: ParentState) => Opt.Option<ChildState>
-    /** The parent's state with the child's state put where `get` finds it. */
+    /** The parent's state with the child's state put where `get` finds it, and nothing else of it changed. */
     set: (state: ParentState, child: ChildState) => ParentState
     at?: never
   }>
@@ -61,12 +63,14 @@ type Placement<ParentState, ChildState> =
 /**
  * Where a child by id lives in its parent's state: an optic that is a function of the id, `at`, or `get` and `set`,
  * which take the id.
+ *
+ * @see The guide, "Composition", "Where a child lives".
  */
 type PlacementById<ParentState, Id, ChildState> =
   | Readonly<{
     /** The state of the child at `id`, or `None` where it is not there. */
     get: (state: ParentState, id: Id) => Opt.Option<ChildState>
-    /** The parent's state with the state of the child at `id` put where `get` finds it. */
+    /** The parent's state with the state of the child at `id` put where `get` finds it, and nothing else changed. */
     set: (state: ParentState, id: Id, child: ChildState) => ParentState
     at?: never
   }>

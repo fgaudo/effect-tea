@@ -62,8 +62,8 @@ bridge's to promise (see [view](./view.md#rules)).
   rejected otherwise.
   - This holds whatever the value is, and whatever else the state says.
   - A value equal, by `Equal`, to the one the place holds leaves the very same state.
-  - How a view writes into an input is in [inputs](./inputs.md). Which
-    elements the package's bridges draw is in [what is left out](./writing-a-bridge.md#what-is-left-out).
+  - How a view writes into an input is in [inputs](./inputs.md). Which elements the package's bridges draw is in
+    [what is left out](./writing-a-bridge.md#what-is-left-out).
 
 ## What is left to you
 
@@ -98,6 +98,9 @@ bridge's to promise (see [view](./view.md#rules)).
   - The effects of the step, its subscriptions and the start of its commands, start once that call has returned. The
     first state's start as `run` is forked: with `Effect.runFork`, on the stack of that call. This is described, and not
     promised.
+  - A write is applied as a message is. So an element that reports at each of its events, as a scroll does, runs a
+    step at each, in its handler (see [what an element reports](./inputs.md#what-an-element-reports)). This is
+    described, and not promised.
 - **A renderer is told of every new state**, in the call that made it. One that draws later reads the latest model
   when it draws.
 - **A subscription that sends faster than the screen refreshes holds the run back.** The bridge to snabbdom draws once
@@ -141,6 +144,9 @@ bridge's to promise (see [view](./view.md#rules)).
   that you give `Host`: what the `fork` handles is not thrown or reported again.
 - **The rules of [structuring a program](./structuring-a-program.md).** The library does not enforce them: the shape
   of the state, a view that draws and never decides, a parent that never reads a child's state to decide.
+- **A `set` changes its place, and nothing else.** A place given as `get` and `set`, a child's or an input's, has a
+  `set` that puts the value it is given where `get` reads it. The library does not check it (see
+  [where a child lives](./composition.md#where-a-child-lives)).
 - **Whatever a subscription depends on is in its key.** A new value left out of the key is not used while the key is
   kept (see [subscriptions](./subscriptions.md)).
 - **`update`, `external`, `makeModel` and `subscriptions` are pure, and states are never mutated.** A child's

@@ -9,10 +9,10 @@ title: Subscriptions
 This page shows how a program listens to the world for as long as its state wants: a clock that ticks while a timer
 runs, or a download that stops when the user leaves the page.
 
-A subscription is what the program listens to, or work it keeps going, while its state wants it: a clock, a scroll, a
-download. The program's `subscriptions(state)` returns its subscriptions in a `HashMap`, by key. Each subscription is an
-Effect `Channel` of messages. When the state changes, a new key starts its subscription, and a missing key stops its
-subscription.
+A subscription is what the program listens to, or work it keeps going, while its state wants it: a clock, the size of
+the window, a download. The program's `subscriptions(state)` returns its subscriptions in a `HashMap`, by key. Each
+subscription is an Effect `Channel` of messages. When the state changes, a new key starts its subscription, and a
+missing key stops its subscription.
 
 ## An example
 
@@ -48,10 +48,10 @@ Effect's own combinators, as the clock of [`pages`](../../examples/pages/clock.t
 
 **Pick a subscription or a command by what the work is for:**
 
-| Use a…           | for                                                                                                                                                                  |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **subscription** | messages from a source for as long as a state wants them (a clock while a page is open, a scroll), or work that stops when the state no longer wants it (a download) |
-| **command**      | a one-off effect whose answer must arrive even if the state has moved on                                                                                             |
+| Use a…           | for                                                                                                                                                                                |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **subscription** | messages from a source for as long as a state wants them (a clock while a page is open, the size of the window), or work that stops when the state no longer wants it (a download) |
+| **command**      | a one-off effect whose answer must arrive even if the state has moved on                                                                                                           |
 
 **Work that should stop is a subscription.** A download, or a search while the user types, can be a subscription. Keep
 the subscription's key in the state while the work is wanted.

@@ -80,11 +80,13 @@ model is a value like any other.
 **Inputs.** What the user writes into an input is not one of the messages that the model holds. The library keeps the
 rule for it, and the rule is the same for every input. A test writes into an input as the view does:
 `{ _tag: 'Name', message: { _tag: 'Written', value: 'Ada' } }`. Such writes can be checked with `dispatchViolations`
-too, apart from the reader. The writes into the values the model shows as editable are `held`. The writes into all the
-values it shows are `candidates`. Each write is of a value other than the one the model shows: so its step does
-something, and the same write sent again does nothing. Then `Rejected` finds an editor with no place to write into, and
-`Missing` finds a place that the model shows as read-only. [`stocktake`](../../examples/stocktake/stocktake.test.ts)
-does this.
+too. The reader does not return them: the test lists them, beside the messages of the reader in one call, or in a call
+of their own. The writes into the values the model shows as editable are `held`. The writes into all the values it
+shows are `candidates`. Each write is of a value other than the one the model shows: so its step does something, and
+the same write sent again does nothing. Then `Rejected` finds an editor with no place to write into, and `Missing`
+finds a place that the model shows as read-only. [`stocktake`](../../examples/stocktake/stocktake.test.ts) does this.
+A write into an input that an element reports, as the offset of a scroll, is of a value other than the one the state
+holds, since the model does not show it (see [inputs](./inputs.md#a-value-that-an-element-reports)).
 
 **Children.** A parent's reader calls the readers of its children. The parent's reader wraps what they return as the
 parent receives it: `{ _tag: 'Clock', message }`, with the `id` for children by id. The

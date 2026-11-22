@@ -92,8 +92,8 @@ A larger program:
   its state. The library does the routing.
 - [Events and external messages](./events-and-external-messages.md): a child raises an event to ask its parent for
   something. A parent sends a child an external message.
-- [Inputs](./inputs.md): values that come from the user, such as the text of a
-  field. The library stores each write, or rejects it, and no `update` is involved.
+- [Inputs](./inputs.md): values that an element holds or reports, such as the text of a field or the offset of a
+  scroll. The library stores each write, or rejects it, and no `update` is involved.
 - [Structuring a program](./structuring-a-program.md): how to shape the state, the messages, the model and the
   children. The library does not enforce these rules, and the examples follow them.
 

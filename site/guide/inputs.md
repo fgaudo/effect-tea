@@ -6,11 +6,12 @@ title: Inputs
 
 ## In short
 
-This page shows how a program holds a value that the user types, such as the text of a field. Such a value comes from
-the user, not from the program.
+This page shows how a program holds a value that an element holds or reports: the text of a field, the mark of a
+checkbox, the offset of a scroll, a measured size. Such a value comes from the element, not from the program. The text
+that the user types is the first case, and the one this page shows first.
 
 - The program declares a place in its state for such a value: an input.
-- The view sends what the user writes, as a write of the value that the element holds.
+- The view sends the value that the element holds or reports, as a write.
 - The library stores the write where the input's place is there, and rejects it where it is not. No `update` of the
   program is involved.
 
@@ -43,7 +44,8 @@ In general, a view writes the value that the element holds, through the input's 
   - `inputById` declares an input by id, one for each row. The view writes into it through
     `forwardTo(dispatch, 'Count', id)` (see [inputs by id](#inputs-by-id)).
 - **The view writes what the element holds**: `{ _tag: 'Written', value: text }`, through
-  `forwardTo(dispatch, 'Name')`.
+  `forwardTo(dispatch, 'Name')`. An element that reports a value, as a scroll reports its offset, writes it the same
+  way (see [what an element reports](#what-an-element-reports)).
 - **The library stores what is written, whatever it is**, in every state where the input's place is there, whatever
   else the state says. A value equal, by `Equal`, to the one the place holds leaves the very same state.
 - **The library rejects the write where its place is not there**: in a state where the input's optic focuses nothing,
@@ -57,14 +59,36 @@ In general, a view writes the value that the element holds, through the input's 
 
 ### The element on screen
 
-**The view draws the element of an input as a controlled element.** The element's value is the one its model holds,
-and its handler writes what the element holds. A write is applied in its own event. So when the handler returns, the
-state holds what was typed, or has rejected it. The element is then drawn again with the value of the new model,
-before the next event.
+**The view draws an element that holds the value of an input as a controlled element.** The element's value is the
+one its model holds, and its handler writes what the element holds. A write is applied in its own event. So when the
+handler returns, the state holds what was typed, or has rejected it. The element is then drawn again with the value of
+the new model, before the next event.
 
 How each bridge keeps the element so, and which elements it draws, is in
 [a controlled element](./writing-a-bridge.md#a-controlled-element): [`form`](../../examples/form) draws its input with
 snabbdom and with React.
+
+### What an element reports
+
+An element reports some values that the program cannot give back to it: the offset of a scroll, a measured size. The
+place of such a value is an input too, declared and written as any other.
+
+- **The rule of an input holds, and nothing is promised of the element.** A write is stored where its place is there,
+  and rejected where it is not. A value that the program leaves in such a place is not shown: the package's bridges
+  give an element back its `value` and its `checked` alone (see
+  [a controlled element](./writing-a-bridge.md#a-controlled-element)).
+- **What is there whatever is drawn is a subscription.** A value of an element that the view draws is a write. The size
+  of the window, or a key pressed anywhere on the page, is there whatever the view draws. It comes from a subscription
+  to a service (see [subscriptions](./subscriptions.md)).
+- **A fact that comes with a value is a write, then a message.** The end of a scroll comes with its offset. The handler
+  writes the offset, then sends the message that its model holds, and `update` reads the offset from the state. This
+  holds by what [guarantees](./guarantees.md#what-you-can-rely-on) promises already. A message is applied in the call
+  that sends it, so the write is stored before the message is sent. The message comes from a model that the write has
+  moved past, and `update` judges it in the new state, as it judges any message.
+  - This is also how a value is written once, as the scroll ends, where a write at each event costs too much (see
+    [what is left to you](./guarantees.md#what-is-left-to-you)).
+
+What a model shows of such a value is in [a value that an element reports](#a-value-that-an-element-reports).
 
 ### What is typed, in another form
 
@@ -79,7 +103,8 @@ value in another form has four ways:
   [the element on screen](#the-element-on-screen)).
 - **Change the text as it is stored, in `set`.** A `set` may store another value than the one written: for example,
   the text in capitals. The element is then drawn with the value stored, at once, and keeps its focus. Where the caret
-  goes then is the browser's, and is not promised: Chromium puts it at the end of the text. The input gives `get` and
+  goes then is the browser's, and is not promised: Chromium puts it at the end of the text. This is the one exception
+  to the rule of a `set` (see [where a child lives](./composition.md#where-a-child-lives)). The input gives `get` and
   `set` in place of `at`:
 
   ```ts
@@ -198,6 +223,18 @@ So no `update` runs when the user types. A program that must act on what is type
   read it.
 - Work that follows the text, such as a search while the user types, is a subscription with the text in its key. A
   new value of the key starts the subscription anew (see [subscriptions](./subscriptions.md)).
+
+### A value that an element reports
+
+What a model shows of a value that an element reports, as the offset of a scroll:
+
+- **The model says where the element reports.** It does so by its case: the case in which the view gives the element
+  its handler. So "a view writes only into the inputs that the model shows" holds as it is (see
+  [model](./model.md)).
+- **The model holds the value only where the view draws by it.** A model that holds an offset is a new model at each
+  event of the scroll.
+- **A test writes a value other than the one the state holds**, since the model does not show it (see
+  [testing](./testing.md#the-reader)).
 
 ### A limit
 

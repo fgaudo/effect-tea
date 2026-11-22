@@ -3,6 +3,15 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
+## 0.8.1 (unreleased)
+
+### Changed
+
+- The guide's "Inputs the user types into" is now "Inputs", and a value that an element reports, as the offset of a
+  scroll, is an input too: its rule is promised, and nothing of the element ("What an element reports").
+- A `set`, a child's or an input's, changes its place and nothing else; one that does more is not supported
+  ("Composition", "Where a child lives").
+
 ## 0.8.0 (2026-11-21)
 
 ### Added

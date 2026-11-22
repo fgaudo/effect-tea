@@ -20,6 +20,10 @@ value the user gives, and there is nothing to decide.
 So the program declares a place in its state for the text, an **input**. The view writes there, and the library
 stores what the view writes, or rejects the write. No `update` of the program sees the write.
 
+A text is the first case of an input. The mark of a checkbox, the offset of a scroll and a measured size are inputs
+too: each is a value that an element holds or reports (see
+[what an element reports](../guide/inputs.md#what-an-element-reports)).
+
 The name is a plain string of the state:
 
 {@includeCode ../../examples/timer/named.ts#state}
@@ -66,9 +70,8 @@ the one of step 3, with `Named.named` in place of `Timer.timer`. Nothing else ch
 
 The name belongs to the named timer: the list never reads it. A value that the parent reads is different. An example
 is the count of each item of a stock-take, which the parent totals and submits. Such a value is the parent's own state:
-an input by id, which the parent declares with `inputById` (see
-[inputs by id](../guide/inputs.md#inputs-by-id), and the example
-[`examples/stocktake`](../../examples/stocktake)).
+an input by id, which the parent declares with `inputById` (see [inputs by id](../guide/inputs.md#inputs-by-id), and
+the example [`examples/stocktake`](../../examples/stocktake)).
 
 ## Running it
 

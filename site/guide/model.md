@@ -14,8 +14,8 @@ view's controls send. The model is data, and it compares by value with `Equal`.
 
 ## An example
 
-In this example, `Message` is a `Data.TaggedEnum`. `name` is an input (see
-[inputs](./inputs.md)). `isBlank` is a helper of the program.
+In this example, `Message` is a `Data.TaggedEnum`. `name` is an input (see [inputs](./inputs.md)). `isBlank` is a
+helper of the program.
 
 ```ts
 type Editor = Data.TaggedEnum<{
@@ -47,9 +47,9 @@ rejects `SaveClicked`. Then the "Save" button does nothing. The run does not che
 **Messages live in the model.** Every message that a view can send is in the model that the view draws, as a value. A
 control sends the message that the program fixed for it.
 
-- What the user types into a text field is not a message. The view writes the text into an input whose value the
-  model holds (see [inputs](./inputs.md)). The program cannot fix such a
-  message as a value, since the text is known only when the user types it (see
+- What the user types into a text field is not a message, nor is any value that an element holds or reports. The view
+  writes the value into an input (see [inputs](./inputs.md)). The program cannot fix such a message as a value, since
+  the value is known only when the element gives it (see
   [why what the user types is no message](./inputs.md#why-what-the-user-types-is-no-message)).
 - A view sends only the messages that the model holds. A view writes only into the inputs that the model shows. A view
   never builds a message of the program itself.
@@ -68,12 +68,12 @@ What a model shows, and what a view may decide, is in [structuring a program](./
 
 Each pair sums up a rule of this page. The rule itself is above.
 
-| Do                                                               | Don't                                                         |
-| ---------------------------------------------------------------- | ------------------------------------------------------------- |
-| Put every message that a view can send in the model, as a value. | Build a message of the program in the view.                   |
-| Pick the case of the model from the state, as `update` reads it. | Show a control in a state where `update` rejects its message. |
-| Let the view write what the user types into an input.            | Make a message of what the user types into a text field.      |
-| Keep the model data, compared by value with `Equal`.             | Put a function in the model.                                  |
+| Do                                                                 | Don't                                                         |
+| ------------------------------------------------------------------ | ------------------------------------------------------------- |
+| Put every message that a view can send in the model, as a value.   | Build a message of the program in the view.                   |
+| Pick the case of the model from the state, as `update` reads it.   | Show a control in a state where `update` rejects its message. |
+| Let the view write what an element holds or reports into an input. | Make a message of what the user types into a text field.      |
+| Keep the model data, compared by value with `Equal`.               | Put a function in the model.                                  |
 
 ```ts
 // Don't: a function, made anew by each call of makeModel

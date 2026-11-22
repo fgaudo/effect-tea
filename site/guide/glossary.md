@@ -30,8 +30,8 @@ rules where a line here says less.
 | **Renderer**            | What draws the model of an `App`. What it draws beside it is its bridge's to say                                              | [view](./view.md)                                                        |
 | **Memoized** (view)     | A view that the renderer draws again only when one of the values it is given is a new one, as with snabbdom's `thunk`         | [running](./running.md), [composition](./composition.md#childrens-views) |
 | **Handler** (of a view) | A callback of the renderer that sends a message the model holds: `() => dispatch(model.save)`                                 | [writing a bridge](./writing-a-bridge.md#handlers)                       |
-| **Input**               | A place in the state for a value the user gives. The view writes into it, and the library stores it                           | [inputs](./inputs.md)                                                    |
-| **Write**               | What the view sends into an input: `{ _tag: 'Written', value }`. `value` is what the element holds                            | [inputs](./inputs.md)                                                    |
+| **Input**               | A place in the state for a value that an element holds or reports. The view writes into it, and the library stores it         | [inputs](./inputs.md)                                                    |
+| **Write**               | What the view sends into an input: `{ _tag: 'Written', value }`. `value` is what the element holds or reports                 | [inputs](./inputs.md)                                                    |
 | **Controlled element**  | An element with a value of its own, as a text field, drawn with the value its model holds, whose handler writes what it holds | [writing a bridge](./writing-a-bridge.md#a-controlled-element)           |
 | **Bridge**              | What connects the library to a renderer: it draws the model, sends messages, and draws controlled elements                    | [writing a bridge](./writing-a-bridge.md)                                |
 

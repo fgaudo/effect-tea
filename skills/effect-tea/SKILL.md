@@ -50,7 +50,7 @@ versions. The paths below are relative to this file.
 | draw a view and send messages from it       | "View"                                        |
 | talk to the world                           | "Commands", "Subscriptions"                   |
 | split a program into children               | "Composition", "Events and external messages" |
-| keep what the user types                    | "Inputs"                                      |
+| keep a value that an element holds, reports | "Inputs"                                      |
 | start the program and handle its defects    | "Running"                                     |
 | test it                                     | "Testing", "Testing tools"                    |
 | connect a renderer                          | "Writing a bridge"                            |
@@ -64,7 +64,7 @@ where the summary says less.
 | The thing                                                       | What it is                                       |
 | --------------------------------------------------------------- | ------------------------------------------------ |
 | something happened: a click, an answer, a tick                  | a message; `update` decides what it means        |
-| a text that the user types                                      | an input; no `update` sees it                    |
+| a value that an element holds or reports: a text, an offset     | an input; no `update` sees it                    |
 | work whose answer must arrive, even if the state has moved on   | a command: data, which `runCommand` runs         |
 | listening, or work that stops when the state no longer wants it | a subscription, under a key                      |
 | what stays open while a value it uses changes, as a connection  | a service, from a layer provided to `run`        |
@@ -124,6 +124,10 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   dies is thrown to the nearest error boundary".
 - **A parent never reads a child's state to decide.** A child gets what it needs from its own services and
   subscriptions. The guide, "Structuring a program", "A parent never reads a child's state to decide".
+- **A `set` changes its place, and nothing else.** A place given as `get` and `set`, a child's or an input's, has a
+  `set` that puts the value it is given where `get` reads it, as an optic does. What follows a write is computed where
+  the state is read. An input's `set` may store the value in another form, the one exception. The guide,
+  "Composition", "Where a child lives". The guide, "Inputs", "What is typed, in another form".
 - **Whatever a subscription depends on is in its key.** A new subscription under a kept key is not used. A value that
   stays the same while the key is kept, as a child's own id, can stay out. The guide, "Subscriptions", "A subscription
   sees the state only through its key". The guide, "Subscriptions", "A value that stays the same while the key is kept
