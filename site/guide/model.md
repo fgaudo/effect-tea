@@ -14,8 +14,8 @@ view's controls send. The model is data, and it compares by value with `Equal`.
 
 ## An example
 
-In this example, `Message` is a `Data.TaggedEnum`. `name` is an input (see [inputs](./inputs.md)). `isBlank` is a
-helper of the program.
+In this example, `Message` is a `Data.TaggedEnum`. The name of the draft is an input (see [inputs](./inputs.md)).
+`isBlank` is a helper of the program.
 
 ```ts
 type Editor = Data.TaggedEnum<{
@@ -24,11 +24,11 @@ type Editor = Data.TaggedEnum<{
   Named: { save: Message }
 }>
 
-const makeModel = (state: State): { name: string; editor: Editor } => ({
-  name: state.name,
-  editor: state.save._tag === "Saving"
+const makeModel = ({ draft }: State): { name: string; editor: Editor } => ({
+  name: draft.name,
+  editor: draft._tag === "Saving"
     ? { _tag: "Saving" }
-    : isBlank(state.name)
+    : isBlank(draft.name)
     ? { _tag: "Blank" }
     : { _tag: "Named", save: Message.SaveClicked() }
 })

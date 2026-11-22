@@ -29,48 +29,6 @@ None is open.
 
 ## Next, in order
 
-### 28. The form locks by the shape of its state
-
-**Model and effort.** Opus 5.5, `medium` ([`add-example`](.agents/skills/add-example/SKILL.md)).
-
-**Depends on** no other step. The page that quotes the form is "Inputs" (`site/guide/inputs.md`). No page changes to
-allow it: the page says already to keep what the user types in the case of the state where it can be typed. "Testing"
-says that writes and the program's own messages may share one call of `dispatchViolations`; no page says that a place
-shown read-only on purpose is `withheld` (`docs/rejected.md`), and none should.
-
-**Why.** `examples/form/form.ts` keeps the name's place while it saves, and its model shows nothing to type into: the
-first example of an input does what the "Don't" of its own page says, and what `Missing` would report if its test
-asked. Its reason, a key typed before the input was disabled, is older than the dispatch that applies at once
-([`application-report.md`](docs/records/application-report.md), point 3). The owner took the lock by the shape of the
-state on 22 November 2026, against the record's advice of a test with `withheld`: a lock by the shape holds whatever
-the renderer, and adds no rule.
-
-**How.** The name lives in the case of the state where it can be typed, and the input is on an optic to that case, so
-that a write into a saving form is rejected. The shape shown to the owner, which the step may make smaller:
-
-```ts
-type Draft = Data.TaggedEnum<{
-  Editing: { name: string; failed: Opt.Option<string> }
-  Saving: { name: string }
-}>
-type State = { draft: Draft; saved: ReadonlyArray<string> }
-
-inputs: {
-  Name: input({ at: Optic.id<State>().key("draft").tag("Editing").key("name") })
-}
-```
-
-The form's test checks its writes as the stock-take's does: those into the name that the model shows as editable are
-`held`, those into the name in every state are `candidates`, and nothing is `withheld`. The test "a write while saving
-is kept, for when the save fails" goes, and one says that a write into a saving form is rejected. The comment at the
-head of `form.ts` loses the key typed before the input was disabled. Both views give the input its handler where the
-model shows an editor, as the stock-take's view does. Then the pages that quote the form are reread: "Inputs" ("An
-example"), "Model" (its first example), the fourth page of the tutorial, "Structuring a program" and "Writing a
-bridge". The item of "Any time" on the examples read against the guide loses its sentence on the form.
-
-**Done when** the checks of `AGENTS.md` pass, `bun run comments` among them, the form's test asks `Missing` of its
-writes, and the changelog has an entry if the four questions of `release` ask for one.
-
 ### 25. What `hear` takes
 
 **Model and effort.** Opus 5.5, `high`: a type of a testing tool
@@ -636,8 +594,7 @@ otherwise.
   that no test checks, written in `.agents/skills/` and named by `release`, as `premise-review` is. Fable 5.2, `high`,
   to write it: it decides what a release weighs. With it, the examples read against the guide, which no check does:
   each "Don't" of a page is looked for in `examples/`, and a comment of an example that gives a reason is reread when
-  the rule it rests on changes. The form kept a place that its model shows as read-only, for a reason older than the
-  dispatch that applies at once ([`application-report.md`](docs/records/application-report.md), point 3).
+  the rule it rests on changes.
 - **A reader's check that meets what no check has met.** The six requirements of
   [`guide-reader`](.agents/skills/guide-reader/SKILL.md) are each a page of a browser with a value that is typed, and
   those that were drawn are drawn with snabbdom: each was chosen to need the pages that the guide has. The skill

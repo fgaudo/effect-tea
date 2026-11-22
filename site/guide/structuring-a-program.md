@@ -47,8 +47,8 @@ where the row says less.
   concerns. Each concern is a union with a case per state (`Idle | Saving | Failed`). Each case holds only what exists
   in that case. Flags that combine (`isSaving`, `hasFailed`) allow combinations that cannot be. A union makes those
   combinations fail to compile, and `update` matches on the case.
-  - An operation is a state that only its completion leaves. The save of [`form`](../../examples/form/form.ts) is such
-    a state. When the answer of the save arrives, the state cannot have moved on. A completion in any other state is a
+  - An operation is a state that only its completion leaves. The draft of [`form`](../../examples/form/form.ts) that
+    is `Saving` is such a state. When the answer of the save arrives, the state cannot have moved on. A completion in any other state is a
     `defect`.
 - **No derived data in the state.** What follows from the state is computed in `makeModel`. A value that depends on
   time is computed in `makeModel` too, from a `now` that a subscription keeps in the state. The clock of

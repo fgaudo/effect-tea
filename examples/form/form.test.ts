@@ -6,23 +6,28 @@ import * as Effect from "effect/Effect"
 import * as Equal from "effect/Equal"
 import * as Opt from "effect/Option"
 import * as fc from "fast-check"
-import { Command, form, type Message, type Model, Save, type State, update } from "./form.ts"
+import { Command, Draft, form, type Message, type Model, type State, update } from "./form.ts"
 import { Storage, StorageError } from "./storage.ts"
 import { view } from "./view-snabbdom.ts"
 
 const empty = form.init.state
 
 // Made anew on each draw, so that two states drawn alike share no object.
-const state = (): fc.Arbitrary<State> =>
-  fc.record({
-    name: fc.oneof(fc.string(), fc.constant("   ")),
-    save: fc.oneof(
-      fc.constant(null).map(() => Save.Idle()),
-      fc.constant(null).map(() => Save.Saving()),
-      fc.record({ name: fc.string() }).map((failed) => Save.Failed(failed))
+const state = (): fc.Arbitrary<State> => {
+  const name = fc.oneof(fc.string(), fc.constant("   "))
+  return fc.record({
+    draft: fc.oneof(
+      fc.record({ name, failed: fc.option(fc.string(), { nil: undefined }) }).map(({ name, failed }) =>
+        Draft.Editing({ name, failed: Opt.fromUndefinedOr(failed) })
+      ),
+      fc.record({ name }).map((saving) => Draft.Saving(saving))
     ),
     saved: fc.array(fc.string({ minLength: 1 }), { maxLength: 3 })
   })
+}
+
+/** An editing draft with this name, and no failure. */
+const editing = (name: string): State => ({ ...empty, draft: Draft.Editing({ name, failed: Opt.none() }) })
 
 // What the model holds: the messages of its controls, a case at a time. What is typed is none of them.
 const messagesOf = ({ editor }: Model): ReadonlyArray<Message> => editor._tag === "Named" ? [editor.save] : []
@@ -41,6 +46,12 @@ const userMessages: ReadonlyArray<Message> = Object.values(
 /** What the user types into the input, as the view sends it. */
 const typing = (text: string): Message => ({ _tag: "Name", message: { _tag: "Written", value: text } })
 
+// A write over the name the model shows, of a value that differs from it: held where the model shows an editor, so
+// that an input drawn editable takes a write, and a candidate in every state, so that a write that has a place where
+// the input is drawn disabled is missing.
+const writesOf = (model: Model, editable: boolean): ReadonlyArray<Message> =>
+  !editable || model.editor._tag !== "Saving" ? [typing(`${model.name}1`)] : []
+
 const working = Storage.of({ save: () => Effect.void })
 const failing = Storage.of({ save: (name) => Effect.fail(new StorageError({ cause: name })) })
 
@@ -48,45 +59,41 @@ describe("form", () => {
   // `update` alone: the rules, without running anything.
   describe("update", () => {
     test("saves a name that is not blank, trimmed", () => {
-      const { state, commands } = applyAll(update)([{ _tag: "SaveClicked" }], { ...empty, name: " Ada " })
-      expect(state.save).toEqual(Save.Saving())
+      const { state, commands } = applyAll(update)([{ _tag: "SaveClicked" }], editing(" Ada "))
+      expect(state.draft).toEqual(Draft.Saving({ name: " Ada " }))
       expect(commands).toEqual([Command.Save({ name: "Ada" })])
     })
 
     test("rejects saving a blank name, and a second save", () => {
-      const saving = { ...empty, name: "Ada", save: Save.Saving() }
-      expect(update({ _tag: "SaveClicked" })({ ...empty, name: "  " })).toBe(reject)
+      const saving = { ...empty, draft: Draft.Saving({ name: "Ada" }) }
+      expect(update({ _tag: "SaveClicked" })(editing("  "))).toBe(reject)
       expect(update({ _tag: "SaveClicked" })(saving)).toBe(reject)
     })
 
     // Only the save in progress can complete: a completion anywhere else is a bug, not a message to ignore.
     test("dies on a completion with nothing saving", () => {
-      const failed = { ...empty, save: Save.Failed({ name: "Ada" }) }
+      const failed = { ...empty, draft: Draft.Editing({ name: "Ada", failed: Opt.some("Ada") }) }
       expect(() => update({ _tag: "SaveSucceeded", name: "Ada" })(empty)).toThrow(InvariantDefect)
       expect(() => update({ _tag: "SaveFailed", name: "Ada" })(failed)).toThrow(InvariantDefect)
     })
 
-    // Written while saving, as a script may write into the disabled input: it is stored, for when the save fails.
-    test("a write while saving is kept, for when the save fails", () => {
-      const { state } = applyAll(update)(
-        [{ _tag: "SaveClicked" }, typing(" Ada x"), { _tag: "SaveFailed", name: "Ada" }],
-        { ...empty, name: " Ada " }
-      )
-      expect(state.name).toBe(" Ada x")
-      expect(state.save).toEqual(Save.Failed({ name: "Ada" }))
+    // While saving, the name has no place to be written into: a write, as a script may send into the disabled input,
+    // is rejected, so the failure gives back the name that was saved.
+    test("rejects a write while saving", () => {
+      expect(update(typing(" Ada x"))({ ...empty, draft: Draft.Saving({ name: " Ada " }) })).toBe(reject)
     })
 
     // An input keeps nothing of its own: the state stored is the state the form wrote, which a test compares whole.
     test("a completed save leaves the form as it starts, with the name listed", () => {
-      const { state } = applyAll(update)([{ _tag: "SaveClicked" }, { _tag: "SaveSucceeded", name: "Ada" }], {
-        ...empty,
-        name: "Ada"
-      })
+      const { state } = applyAll(update)(
+        [{ _tag: "SaveClicked" }, { _tag: "SaveSucceeded", name: "Ada" }],
+        editing("Ada")
+      )
       expect(state).toEqual({ ...empty, saved: ["Ada"] })
     })
 
     test("has nothing to type into while saving", () => {
-      expect(form.makeModel({ ...empty, name: "Ada", save: Save.Saving() }).editor._tag).toBe("Saving")
+      expect(form.makeModel({ ...empty, draft: Draft.Saving({ name: "Ada" }) }).editor._tag).toBe("Saving")
     })
   })
 
@@ -102,13 +109,25 @@ describe("form", () => {
     }))
   })
 
+  test("the model shows an editor exactly where a write into the name is stored, once", () => {
+    fc.assert(fc.property(state(), (before) => {
+      const model = form.makeModel(before)
+      expect(dispatchViolations(update, {
+        state: before,
+        held: writesOf(model, true),
+        candidates: writesOf(model, false)
+      })).toEqual([])
+    }))
+  })
+
   // Beyond what the library asks: that the view draws what its model holds, each control once, and the input with the
   // name the model holds. `messagesSentBy`, beside the snabbdom bridge, is its way to see it without a DOM: the input's
   // write holds the value its element is drawn with.
   test("the view sends what its model holds", () => {
     fc.assert(fc.property(state(), (before) => {
       const model = form.makeModel(before)
-      expect(messagesSentBy<Model, Message>(view, model)).toEqual([typing(model.name), ...messagesOf(model)])
+      const write = model.editor._tag === "Saving" ? [] : [typing(model.name)]
+      expect(messagesSentBy<Model, Message>(view, model)).toEqual([...write, ...messagesOf(model)])
     }))
   })
 
@@ -132,7 +151,7 @@ describe("form", () => {
       const { state, ignored } = await Effect.runPromise(
         simulate(form)(typedAndSaved, form.init).pipe(Effect.provideService(Storage, working))
       )
-      expect(state).toEqual({ name: "", save: Save.Idle(), saved: ["Ada"] })
+      expect(state).toEqual({ draft: Draft.Editing({ name: "", failed: Opt.none() }), saved: ["Ada"] })
       // The save's completion reached `update`: a rejected one would mean a form stuck saving.
       expect(ignored).toEqual([])
     })
@@ -141,7 +160,7 @@ describe("form", () => {
       const { state } = await Effect.runPromise(
         simulate(form)(typedAndSaved, form.init).pipe(Effect.provideService(Storage, failing))
       )
-      expect(state).toEqual({ name: " Ada ", save: Save.Failed({ name: "Ada" }), saved: [] })
+      expect(state).toEqual({ draft: Draft.Editing({ name: " Ada ", failed: Opt.some("Ada") }), saved: [] })
     })
 
     // The save waits until the test runs it: what the user can do meanwhile, and what its answer finds.

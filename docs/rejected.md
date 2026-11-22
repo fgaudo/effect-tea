@@ -440,6 +440,34 @@ answer, and saying so in the proposal.
   The run then ignored every rejection, and the testing tools held the view (since item 1 of `boundary.md`, the
   model) to what `update` accepts. Shipped and used, then reasoned out. A related form, offers as data with no
   check at run time, is in a suspended proposal (below), not here.
+- **An offer that asks `update`, and is an `Option`**: `make` gives `makeModel` a function `offer`, and
+  `offer(message)` is `Some(message)` where `update` accepts the message in that state and its step does something,
+  `None` otherwise, so that a condition is written in `update` alone. Reasoned, 22 November 2026, not spiked: proposed
+  in a session on an application that uses the library, and weighed here on the library's examples. It is not the
+  entry above: the `offer` of 0.3.0 threw on a message that `update` rejected, and the rules of that time already
+  ruled out one that returns an `Option` (`AGENTS.md` before `3c3fdf9`). The commit that removed the offers kept that
+  rule, which is "`reject` means one thing" in [`invariants.md`](invariants.md) today. It still holds:
+  - **A model has cases, and an `Option` has two.** The editor of `examples/form` is `Saving`, `Blank` or `Named`:
+    `offer` is `None` in the first two alike, so the model reads the state to pick its case all the same. It serves
+    only a flat model, as that of `examples/timer/duration.ts`, where it saves one expression.
+  - **It holds nothing by construction.** A model is data, so a message written by hand fits it, and the test with
+    `dispatchViolations` is still needed, as the entry of an input did not close a write built by hand ("An entry of
+    each input in the model, which a view writes through", below).
+  - **It hides a bug that the tests find today.** Where `update` rejects by mistake, the control is missing, and
+    neither `Rejected` nor `Missing` reports it, since both ask `update`. With the model read from the state,
+    `Rejected` does.
+  - **It costs a call of `update` for each message of each model made**, and a comparison of two states by `Equal`
+    where it leaves out a message whose step does nothing, as the parked `Inert` would report one in a test.
+  - **It can die.** The types do not tell a view's message from a subscription's or a command's, and one of those,
+    asked in a state that rules it out, is a defect in `makeModel`.
+  - **It is three lines** over the program's own `update` and `reject`: no function of the library's ("A function
+    earns its place", `AGENTS.md`).
+
+  What it wanted is answered in the program. A condition that is a phase is a case of the state, which `update` and
+  `makeModel` both match. One on a value is one function of the state, which both call (`isBlank` in
+  `examples/form`). Source: the session that weighed it. _Reopen if_ a control is shown in a state where `update`
+  rejects its message, in an example or an application, and no test with `dispatchViolations` finds it; or with the
+  parked "What reaches `update`, declared as data".
 - **`describeKey`, an option for how a subscription's key appears in the logs and in a `ProgramDefect`.** Reasoned,
   13 and 14 November 2026. Proposed by a review of the invariants, since a key, a string message and a child's id
   reach a crash report as they are. Deferred on the 13th, then rejected on the 14th after a second opinion: a key is

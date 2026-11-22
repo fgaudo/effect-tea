@@ -70,7 +70,7 @@ In `examples/` itself are [`README.md`](../../../examples/README.md), which says
   one sentence on what it shows and a "Source" link to `https://github.com/fgaudo/effect-tea/tree/main/examples/<name>`,
   the `#app` element and `<script type="module" src="./main.ts">` (`./main.tsx` in `counter` and `form`).
 - **The program** follows the guide: one state machine per concern, as a tagged union
-  (`form/form.ts`'s `save`, `list/stopwatch.ts`'s `watch`), never flags; `reject` for a message that may
+  (`form/form.ts`'s `draft`, `list/stopwatch.ts`'s `watch`), never flags; `reject` for a message that may
   arrive and does not apply, and a thrown error for one that cannot arrive (a completion outside the state that
   only it leaves, a tick while stopped), which the test checks as a defect.
 - **The view** follows the guide, and is drawn with snabbdom: React is for `counter` and

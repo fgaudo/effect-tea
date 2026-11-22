@@ -17,15 +17,19 @@ that the user types is the first case, and the one this page shows first.
 
 ## An example
 
-The form declares its input `Name` at the field `name` of its state (`examples/form/form.ts`):
+The form declares its input `Name` at the name of its draft, in the case `Editing` where the name can be typed
+(`examples/form/form.ts`):
 
 ```ts
-inputs: { Name: input({ at: Optic.id<State>().key('name') }) },
+inputs: { Name: input({ at: Optic.id<State>().key('draft').tag('Editing').key('name') }) },
 ```
 
+While the form saves, its draft is `Saving`. The optic then focuses nothing, and a write is rejected (see
+[the rules](#rules)).
+
 The form's view draws its field as a controlled element, with the snabbdom bridge (`examples/form/view-snabbdom.ts`).
-The element's `value` is `model.name`, and its handler writes what the element holds through
-`forwardTo(dispatch, 'Name')` (see [the element on screen](#the-element-on-screen)).
+The element's `value` is `model.name`. Where the model shows an editor, its handler writes what the element holds
+through `forwardTo(dispatch, 'Name')` (see [the element on screen](#the-element-on-screen)).
 
 In general, a view writes the value that the element holds, through the input's dispatch:
 
