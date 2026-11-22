@@ -50,7 +50,7 @@ versions. The paths below are relative to this file.
 | draw a view and send messages from it       | "View"                                        |
 | talk to the world                           | "Commands", "Subscriptions"                   |
 | split a program into children               | "Composition", "Events and external messages" |
-| keep what the user types                    | "Inputs the user types into"                  |
+| keep what the user types                    | "Inputs"                                      |
 | start the program and handle its defects    | "Running"                                     |
 | test it                                     | "Testing", "Testing tools"                    |
 | connect a renderer                          | "Writing a bridge"                            |
@@ -106,7 +106,7 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   keeps by itself, as a hover or the focus. An element with a value of its own, as a text field, shows what the user
   typed into it only for the length of its own event. A part of the page outside the bridge's `root`, as its title,
   is drawn from the model by code over the handle, beside the bridge. The guide, "View", "What the program draws
-  comes from its model". The guide, "Inputs the user types into", "The element on screen".
+  comes from its model". The guide, "Inputs", "The element on screen".
 - **Each bridge says what it draws beside the model.** The bridge to snabbdom draws the model and nothing else: what
   it shows of a controlled element is the value its model gave it. With the bridge to React, the application's
   components may keep state of their own, which the testing tools do not see. The guide, "View", "Each bridge says what
@@ -174,7 +174,7 @@ Each sign breaks the rule named after it.
   bridge's `root`, as the page's title, is beside the bridge, not in its place. The guide, "View", "What the program
   draws comes from its model".
 - A message built in a view, or `Message` exported as a value. The guide, "Model", "Messages live in the model".
-- A message for each keystroke. The guide, "Inputs the user types into", "What the user gives an input is no message
+- A message for each keystroke. The guide, "Inputs", "What the user gives an input is no message
   of the program".
 - `defect` on a message of the view. The guide, "Rejections and defects", "What the view draws never rules a message
   out".

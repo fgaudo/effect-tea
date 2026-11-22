@@ -1,8 +1,8 @@
 ---
-title: Inputs the user types into
+title: Inputs
 ---
 
-# Inputs the user types into
+# Inputs
 
 ## In short
 

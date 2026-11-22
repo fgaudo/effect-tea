@@ -113,7 +113,7 @@ microtask throws ends the run: the bridge gives it to `die`, since a microtask r
 
 A text field, a textarea, a select, a checkbox and a range are each drawn as a controlled element. The view gives the
 element the value its model holds, and its handler writes what the element holds, through the input's dispatch (see
-[inputs the user types into](./inputs-the-user-types-into.md)):
+[inputs](./inputs.md)):
 
 ```ts
 h("input", {

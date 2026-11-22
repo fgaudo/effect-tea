@@ -76,7 +76,7 @@ In `examples/` itself are [`README.md`](../../../examples/README.md), which says
 - **The view** follows the guide, and is drawn with snabbdom: React is for `counter` and
   `form` alone, so that the examples share one bridge. snabbdom's props module never removes a prop, so a
   view sets a prop such as `disabled` in every case of an element (`counter/view-snabbdom.ts`). An input is declared in
-  `make`, as the guide's "Inputs the user types into" says: the view draws a native controlled element with the value
+  `make`, as the guide's "Inputs" says: the view draws a native controlled element with the value
   its model holds as its `value` (or `checked`) in `props`, gives it no key, and in its handler sends
   `{ _tag: 'Written', value }`, `value` what the element holds, through the dispatch of `forwardTo(dispatch, 'Name')`,
   with a call of its own: the bridges have no helper for a click or a key. What the bridges do not support (the guide's

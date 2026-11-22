@@ -18,7 +18,7 @@ where the row says less.
 | The thing                                                                     | What it is                                                     | Where                                                                                                          |
 | ----------------------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | Something happened: a click, an answer, a tick                                | A message. `update` decides what it means                      | [update](./update.md)                                                                                          |
-| A text that the user types                                                    | An input. No `update` sees it                                  | [inputs the user types into](./inputs-the-user-types-into.md)                                                  |
+| A text that the user types                                                    | An input. No `update` sees it                                  | [inputs](./inputs.md)                                                                                          |
 | Work whose answer must arrive, even if the state has moved on                 | A command                                                      | [commands](./commands.md)                                                                                      |
 | Listening, or work that stops when the state no longer wants it               | A subscription, under a key                                    | [subscriptions](./subscriptions.md)                                                                            |
 | What stays open while a value it uses changes, such as a connection           | A service, from a layer provided to `run`                      | [subscriptions](./subscriptions.md)                                                                            |
@@ -87,7 +87,7 @@ where the row says less.
   example [`bounce`](../../examples/bounce/bounce.ts) shows how the steps are counted from the screen's refreshes, and
   how the ball is drawn between two steps, from the state.
 - **Input is never a reason to reject.** The input keeps what the user typed, whatever the program decides, and the
-  library stores it (see [inputs the user types into](./inputs-the-user-types-into.md)). So no rule of the program
+  library stores it (see [inputs](./inputs.md)). So no rule of the program
   rejects a value. Instead, put the validity of the value in the model, as data. For example, show "Save" only for a
   name that is not blank. A control whose bounds narrow below what the user gives it is drawn by the program. The
   moves of that control are messages, and `update` puts each move within the bounds that the state holds when the move
@@ -111,7 +111,7 @@ program of its own. Split a program this way:
   - a part whose state the parent would copy down and back up.
 
   A value that the user writes and the parent reads is an input of the parent. Where the user writes one value into
-  each row, the value is an input by id (see [inputs by id](./inputs-the-user-types-into.md#inputs-by-id)).
+  each row, the value is an input by id (see [inputs by id](./inputs.md#inputs-by-id)).
 
 ## Do and don't
 

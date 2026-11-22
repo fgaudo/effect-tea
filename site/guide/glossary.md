@@ -30,8 +30,8 @@ rules where a line here says less.
 | **Renderer**            | What draws the model of an `App`. What it draws beside it is its bridge's to say                                              | [view](./view.md)                                                        |
 | **Memoized** (view)     | A view that the renderer draws again only when one of the values it is given is a new one, as with snabbdom's `thunk`         | [running](./running.md), [composition](./composition.md#childrens-views) |
 | **Handler** (of a view) | A callback of the renderer that sends a message the model holds: `() => dispatch(model.save)`                                 | [writing a bridge](./writing-a-bridge.md#handlers)                       |
-| **Input**               | A place in the state for a value the user gives. The view writes into it, and the library stores it                           | [inputs the user types into](./inputs-the-user-types-into.md)            |
-| **Write**               | What the view sends into an input: `{ _tag: 'Written', value }`. `value` is what the element holds                            | [inputs the user types into](./inputs-the-user-types-into.md)            |
+| **Input**               | A place in the state for a value the user gives. The view writes into it, and the library stores it                           | [inputs](./inputs.md)                                                    |
+| **Write**               | What the view sends into an input: `{ _tag: 'Written', value }`. `value` is what the element holds                            | [inputs](./inputs.md)                                                    |
 | **Controlled element**  | An element with a value of its own, as a text field, drawn with the value its model holds, whose handler writes what it holds | [writing a bridge](./writing-a-bridge.md#a-controlled-element)           |
 | **Bridge**              | What connects the library to a renderer: it draws the model, sends messages, and draws controlled elements                    | [writing a bridge](./writing-a-bridge.md)                                |
 
@@ -58,16 +58,16 @@ rules where a line here says less.
 
 ## A program made of programs
 
-| Word                       | What it is                                                                                                         | Defined in                                                                                                   |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| **Composition**            | How a parent declares its children and its inputs, and where each lives in its state                               | [composition](./composition.md)                                                                              |
-| **Child**                  | Any program, declared by a parent. A child by id is one of many, as the rows of a list                             | [composition](./composition.md)                                                                              |
-| **`at`**                   | Where a child or an input lives in the parent's state: an Effect `Optic`, or `get` and `set` in its place          | [composition](./composition.md#declaring-children)                                                           |
-| **By id**                  | One child or one input for each row, as the rows of a list. `childById` and `inputById` declare them               | [composition](./composition.md#children-by-id), [inputs by id](./inputs-the-user-types-into.md#inputs-by-id) |
-| **Event**                  | What a child raises to ask its parent for something. The parent handles it in `onEvent`                            | [events and external messages](./events-and-external-messages.md)                                            |
-| **Handler** (of `onEvent`) | The function of `onEvent` for one child's events: `(event, children) => (state) => step`. Its type has no `reject` | [events and external messages](./events-and-external-messages.md)                                            |
-| **External message**       | What a parent may send a child. The child answers it in `external`, in every state                                 | [events and external messages](./events-and-external-messages.md)                                            |
-| **`CompositionDefect`**    | The defect of a broken composition, such as an external message to a child that is not there                       | [composition](./composition.md), [events and external messages](./events-and-external-messages.md)           |
+| Word                       | What it is                                                                                                         | Defined in                                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| **Composition**            | How a parent declares its children and its inputs, and where each lives in its state                               | [composition](./composition.md)                                                                    |
+| **Child**                  | Any program, declared by a parent. A child by id is one of many, as the rows of a list                             | [composition](./composition.md)                                                                    |
+| **`at`**                   | Where a child or an input lives in the parent's state: an Effect `Optic`, or `get` and `set` in its place          | [composition](./composition.md#declaring-children)                                                 |
+| **By id**                  | One child or one input for each row, as the rows of a list. `childById` and `inputById` declare them               | [composition](./composition.md#children-by-id), [inputs by id](./inputs.md#inputs-by-id)           |
+| **Event**                  | What a child raises to ask its parent for something. The parent handles it in `onEvent`                            | [events and external messages](./events-and-external-messages.md)                                  |
+| **Handler** (of `onEvent`) | The function of `onEvent` for one child's events: `(event, children) => (state) => step`. Its type has no `reject` | [events and external messages](./events-and-external-messages.md)                                  |
+| **External message**       | What a parent may send a child. The child answers it in `external`, in every state                                 | [events and external messages](./events-and-external-messages.md)                                  |
+| **`CompositionDefect`**    | The defect of a broken composition, such as an external message to a child that is not there                       | [composition](./composition.md), [events and external messages](./events-and-external-messages.md) |
 
 ## In a test
 

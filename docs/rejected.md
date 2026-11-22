@@ -544,7 +544,7 @@ answer, and saying so in the proposal.
   replaces what the user typed. Reasoned from there, and not run: the rule would hold only if `written` and `drawn`
   compared values after the same function, so a bridge would need the program's function, which must be idempotent,
   and would write into the element between two keystrokes, with the caret to restore. The guide says instead where a
-  value takes another form ("Inputs the user types into", "What is typed, in another form"): parsed where the program
+  value takes another form ("Inputs", "What is typed, in another form"): parsed where the program
   reads it, replaced on a message of the program, or formatted in the element before the write. _Reopen if_ a value
   must be normal in the state as it is typed, and neither a parse where it is read nor a mask in the element gives it.
 
@@ -559,7 +559,7 @@ answer, and saying so in the proposal.
   place already says. What it answered, a rule of the program written inside a `get`
   (`Opt.filter(sheetOf(state), isOpen)` in `examples/stocktake`), was the example's: with the counts a tagged union,
   `Open` or `Locked`, the place is an optic through the case `Open`, and the input, `update` and `makeModel` read the
-  same case (the guide, "Inputs the user types into", "Inputs by id"). Tried on the example the same day: a `set` that
+  same case (the guide, "Inputs", "Inputs by id"). Tried on the example the same day: a `set` that
   writes into the locked counts does not compile, while a `get` that reads them does, and a test fails on it. _Reopen
   if_ a lock cannot be a case of the state.
 - **Handles of the inputs in `makeModel`** (`inputs.Count(state, id)`, the value at the place or `None`, as

@@ -26,7 +26,7 @@ The loop is the one you know, and most names carry over. One name does not: Elm'
 | `init : flags -> ( Model, Cmd Msg )`                   | `init`: a step, or a function of the flags                                                                  | [anatomy of a program](./anatomy-of-a-program.md)                 |
 | `Html.map`, `Cmd.map` and `Sub.map`, by hand           | `program`: a parent says where each child lives, and the library does the routing                           | [composition](./composition.md)                                   |
 | A child's `update` that returns a value for its parent | An event the child raises, which the parent handles in `onEvent`                                            | [events and external messages](./events-and-external-messages.md) |
-| `onInput`, a message for each keystroke                | An input: the view writes into a place of the state, and no `update` of the program's sees it               | [inputs the user types into](./inputs-the-user-types-into.md)     |
+| `onInput`, a message for each keystroke                | An input: the view writes into a place of the state, and no `update` of the program's sees it               | [inputs](./inputs.md)                                             |
 
 What is new:
 
@@ -41,7 +41,7 @@ What is new:
 - **Inputs.** In Elm, `onInput` makes a message of each keystroke, and `update` stores the text. Here the text is no
   message: the program declares a place in its state, and the library stores what the view writes there. So no
   `update` runs when the user types (see
-  [why what the user types is no message](./inputs-the-user-types-into.md#why-what-the-user-types-is-no-message)).
+  [why what the user types is no message](./inputs.md#why-what-the-user-types-is-no-message)).
 
 What you lose: Elm's compiler keeps `update` pure, and TypeScript's compiler does not. Two things are left to you:
 keeping `update`, `makeModel` and `subscriptions` pure, and never mutating a state (see
@@ -61,7 +61,7 @@ program, outside the components.
 | A component                                    | A view: a function of its model, which `Host`, of the [package's bridge to React](../../bridges/react.ts), calls as React renders | [view](./view.md)                                                                                  |
 | A handler that decides what to do              | A handler that sends a message the model holds: `onClick={() => dispatch(model.save)}`                                            | [model](./model.md)                                                                                |
 | Props down, callbacks up                       | A child's model down, its events up                                                                                               | [composition](./composition.md), [events and external messages](./events-and-external-messages.md) |
-| A controlled `<input>`, `value` and `onChange` | An input. A controlled `<input>` too: `value` is the model's, and `onChange` writes what the element holds                        | [inputs the user types into](./inputs-the-user-types-into.md)                                      |
+| A controlled `<input>`, `value` and `onChange` | An input. A controlled `<input>` too: `value` is the model's, and `onChange` writes what the element holds                        | [inputs](./inputs.md)                                                                              |
 | A test that renders a component                | A test of `update` and of the model, without a DOM                                                                                | [testing](./testing.md)                                                                            |
 
 Some things stay with the platform. A hover, an animation or the focus that the platform keeps by itself is not a state

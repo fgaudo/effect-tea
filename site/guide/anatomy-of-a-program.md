@@ -23,7 +23,7 @@ The view is not part of the program.
 The pieces connect in a loop. Each message that `update` accepts makes the next state. A message that `update` rejects
 leaves the state as it was. What the user types takes another path. The view writes it into an input declared in
 `make`, and the library stores it without calling `update` (see
-[inputs the user types into](./inputs-the-user-types-into.md)).
+[inputs](./inputs.md)).
 
 ```mermaid
 flowchart LR

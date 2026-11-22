@@ -17,7 +17,7 @@ import { type Transition } from "./update.ts"
  * ```
  *
  * @see The guide, "Guarantees", "An input stores what is written, where its place is there".
- * @see The guide, "Inputs the user types into", "The view writes what the element holds".
+ * @see The guide, "Inputs", "The view writes what the element holds".
  */
 export type Written<A> = {
   readonly _tag: "Written"

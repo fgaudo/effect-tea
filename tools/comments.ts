@@ -6,7 +6,7 @@
 // It fails on a block copied from the guide, as the comments once held. And a comment names the part of the guide it
 // follows with a line of its own:
 //
-//   * @see The guide, "Inputs the user types into", "Settling an element".
+//   * @see The guide, "Inputs", "Settling an element".
 //
 // where the first name is the page's `title`, and the second, which may be left out, a heading of that page or the
 // bold title a list item or a paragraph starts with, without its final period. It fails when the guide has no such

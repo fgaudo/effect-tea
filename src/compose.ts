@@ -200,9 +200,9 @@ const placedById = <S, Id, A>(
  * ```
  *
  * @see The guide, "Composition", "The parent's inputs".
- * @see The guide, "Inputs the user types into", "The program declares where it goes".
- * @see The guide, "Inputs the user types into", "The library stores what is written, whatever it is".
- * @see The guide, "Inputs the user types into", "The library rejects the write where its place is not there".
+ * @see The guide, "Inputs", "The program declares where it goes".
+ * @see The guide, "Inputs", "The library stores what is written, whatever it is".
+ * @see The guide, "Inputs", "The library rejects the write where its place is not there".
  */
 export type Input<State, A> = {
   /** An input alone, not one of inputs by id. */
@@ -223,8 +223,8 @@ export type Input<State, A> = {
  * export const counts: InputById<State, string, number> = inputById({ get, set })
  * ```
  *
- * @see The guide, "Inputs the user types into", "A write into an input by id names its id".
- * @see The guide, "Inputs the user types into", "A write is stored at the place of its id".
+ * @see The guide, "Inputs", "A write into an input by id names its id".
+ * @see The guide, "Inputs", "A write is stored at the place of its id".
  */
 export type InputById<State, Id, A> = {
   /** Inputs by id, not an input alone. */
@@ -555,8 +555,8 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, External,
      * ```
      *
      * @see The guide, "Composition", "The rule of an input".
-     * @see The guide, "Inputs the user types into", "What the user gives an input is no message of the program".
-     * @see The guide, "Inputs the user types into", "Only what is drawn writes into an input".
+     * @see The guide, "Inputs", "What the user gives an input is no message of the program".
+     * @see The guide, "Inputs", "Only what is drawn writes into an input".
      */
     inputs?: I
     /** The parent's own subscriptions. */
@@ -1069,7 +1069,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * ```
    *
    * @see The guide, "Composition", "The parent's inputs".
-   * @see The guide, "Inputs the user types into", "The view writes what the element holds".
+   * @see The guide, "Inputs", "The view writes what the element holds".
    */
   readonly input: DeclareInput<T>
   /**
@@ -1089,7 +1089,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * }),
    * ```
    *
-   * @see The guide, "Inputs the user types into", "A write into an input by id names its id".
+   * @see The guide, "Inputs", "A write into an input by id names its id".
    */
   readonly inputById: DeclareInputById<T>
   /**
@@ -1158,7 +1158,7 @@ export type DeclareInput<T extends DeclaredTypes> = <A>(
 /**
  * The function of `program` that declares inputs told apart by an id.
  *
- * @see The guide, "Inputs the user types into", "A write into an input by id names its id".
+ * @see The guide, "Inputs", "A write into an input by id names its id".
  */
 export type DeclareInputById<T extends DeclaredTypes> = <Id, A>(
   place: PlacementById<Field<T, "state">, Id, A>

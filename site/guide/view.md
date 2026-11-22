@@ -43,7 +43,7 @@ the model holds: `on: { click: () => dispatch(model.more) }`.
 
   An element with a value of its own, such as a text field, shows the value of its model. For the length of its own
   event, it shows what the user typed into it (see
-  [inputs the user types into](./inputs-the-user-types-into.md)).
+  [inputs](./inputs.md)).
 
   A part of the page outside the bridge's `root`, such as the page's title, comes from the model too. Plain code over
   the handle that `start` gives draws it: the code reads `app.model()` once, then again each time `app.subscribe` tells

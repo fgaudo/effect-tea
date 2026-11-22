@@ -15,7 +15,7 @@ view's controls send. The model is data, and it compares by value with `Equal`.
 ## An example
 
 In this example, `Message` is a `Data.TaggedEnum`. `name` is an input (see
-[inputs the user types into](./inputs-the-user-types-into.md)). `isBlank` is a helper of the program.
+[inputs](./inputs.md)). `isBlank` is a helper of the program.
 
 ```ts
 type Editor = Data.TaggedEnum<{
@@ -48,9 +48,9 @@ rejects `SaveClicked`. Then the "Save" button does nothing. The run does not che
 control sends the message that the program fixed for it.
 
 - What the user types into a text field is not a message. The view writes the text into an input whose value the
-  model holds (see [inputs the user types into](./inputs-the-user-types-into.md)). The program cannot fix such a
+  model holds (see [inputs](./inputs.md)). The program cannot fix such a
   message as a value, since the text is known only when the user types it (see
-  [why what the user types is no message](./inputs-the-user-types-into.md#why-what-the-user-types-is-no-message)).
+  [why what the user types is no message](./inputs.md#why-what-the-user-types-is-no-message)).
 - A view sends only the messages that the model holds. A view writes only into the inputs that the model shows. A view
   never builds a message of the program itself.
 - A control that chooses among fixed values, as the digits of a keypad, holds one message for each value: a list or a

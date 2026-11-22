@@ -131,7 +131,7 @@ export const entriesOf = (dispatch: object, name: string): number => {
  * @see The guide, "Composition", "A grandchild's dispatch is made from its parent's".
  * @see The guide, "Composition", "`children.Row(state, id)` is a row's model".
  * @see The guide, "Composition", "Ids are compared by value".
- * @see The guide, "Inputs the user types into", "The view writes what the element holds".
+ * @see The guide, "Inputs", "The view writes what the element holds".
  */
 // `Name` is checked by the result rather than by a constraint on `Message`: with such a constraint, a dispatch that
 // is itself a call of `forwardTo` (a grandchild's) would make `Message` be inferred as `unknown`.

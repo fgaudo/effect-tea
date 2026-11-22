@@ -126,8 +126,8 @@ For each child, and for itself, a parent declares what follows. The sections bel
 ### The parent's inputs
 
 - If the parent has inputs, it declares them in `inputs`: `inputs: { Name: input({ at }) }`. Here `at` is an optic to a
-  value of the parent's own state (see [inputs the user types into](./inputs-the-user-types-into.md)). For inputs by
-  id, use `inputById` (see [inputs by id](./inputs-the-user-types-into.md#inputs-by-id)).
+  value of the parent's own state (see [inputs](./inputs.md)). For inputs by
+  id, use `inputById` (see [inputs by id](./inputs.md#inputs-by-id)).
   - An input is placed in the same ways as a child: with `at`, or with `get` and `set`.
   - An input by id is placed in the same ways, as functions of the id.
   - An input is not a child. The input's value is part of the parent's own state. The parent's `update` and
@@ -273,7 +273,7 @@ For children by id, such as the rows of a list, use `childById` instead of `chil
 - **`get` and `set` take the id** (or `at` is a function of the id).
   - Rows kept in an array are found with `get` and `set`, as `list` does. Rows kept in a record by id are reached
     with an optic of the id (see [where a child lives](#where-a-child-lives)).
-    [Inputs by id](./inputs-the-user-types-into.md#inputs-by-id) shows both forms.
+    [Inputs by id](./inputs.md#inputs-by-id) shows both forms.
 - **`subscribed` lists the rows that listen.** It is required, because the library cannot list the ids in the state. A
   row that `subscribed` leaves out runs no subscription. So list every row, as `list` does, unless some rows must not
   listen.
@@ -285,7 +285,7 @@ See [`list`](../../examples/list/list.ts).
 
 **A row the parent must read is not a child.** Say the parent totals what the user types into each row. Or the parent
 refuses to submit while one row is blank, or locks the rows while it saves. Then those values belong to the parent. Make
-them [inputs by id](./inputs-the-user-types-into.md#inputs-by-id), and keep the rest of the row in the parent's state
+them [inputs by id](./inputs.md#inputs-by-id), and keep the rest of the row in the parent's state
 too. A parent never reads a child's state (see [splitting a program](./structuring-a-program.md#splitting-a-program)).
 
 **Ids that come back.** A command's answer goes to the id that the command was started for. When the answer arrives, it

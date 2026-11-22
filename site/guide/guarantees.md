@@ -62,7 +62,7 @@ bridge's to promise (see [view](./view.md#rules)).
   rejected otherwise.
   - This holds whatever the value is, and whatever else the state says.
   - A value equal, by `Equal`, to the one the place holds leaves the very same state.
-  - How a view writes into an input is in [inputs the user types into](./inputs-the-user-types-into.md). Which
+  - How a view writes into an input is in [inputs](./inputs.md). Which
     elements the package's bridges draw is in [what is left out](./writing-a-bridge.md#what-is-left-out).
 
 ## What is left to you
@@ -178,7 +178,7 @@ and interruptions by the program. It checks:
 - that a model is made only when it is read, once for each state that is read, and that a model read after a notice
   is of the latest state;
 - that what is written into an input is stored exactly when its place is there, whatever it is (see
-  [inputs the user types into](./inputs-the-user-types-into.md)).
+  [inputs](./inputs.md)).
 
 It also checks that the run dies with each defect, and that from the first one on it applies no message (see
 [running](./running.md)). It checks that the defects come in the order they happened. That order is how the run is

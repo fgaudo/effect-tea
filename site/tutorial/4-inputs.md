@@ -40,7 +40,7 @@ What the named timer gets from the declaration:
 - **No `update` of its own:** the named timer has no message of its own to decide on.
 
 The model holds the name as it is. The view draws the input from it, and writes into it (see
-[inputs the user types into](../guide/inputs-the-user-types-into.md)).
+[inputs](../guide/inputs.md)).
 
 ## The view
 
@@ -50,7 +50,7 @@ The view draws the name as a native `<input>`, a controlled element: its `value`
 A write is applied in its own event. So when the listener returns, the name holds what was typed, and the bridge draws
 it before the next event. The element needs no `key` of the renderer: it stays the same element, with its focus and its
 caret, while the program changes what it shows (see
-[the element on screen](../guide/inputs-the-user-types-into.md#the-element-on-screen)).
+[the element on screen](../guide/inputs.md#the-element-on-screen)).
 
 {@includeCode ../../examples/timer/view.ts#named}
 
@@ -67,7 +67,7 @@ the one of step 3, with `Named.named` in place of `Timer.timer`. Nothing else ch
 The name belongs to the named timer: the list never reads it. A value that the parent reads is different. An example
 is the count of each item of a stock-take, which the parent totals and submits. Such a value is the parent's own state:
 an input by id, which the parent declares with `inputById` (see
-[inputs by id](../guide/inputs-the-user-types-into.md#inputs-by-id), and the example
+[inputs by id](../guide/inputs.md#inputs-by-id), and the example
 [`examples/stocktake`](../../examples/stocktake)).
 
 ## Running it
