@@ -11,6 +11,8 @@ version, and everything else, features included, the patch version.
   own state and the states of its children.
 - `output`: a program that names `output: Output` gives `output: (state) => Output`, which its parent reads as
   `children.X.output()` in `makeModel` and in a last parameter of its `update`, `external` and `onEvent`; `OutputOf`.
+- `store` in `input` and `inputById`: the form a value written is stored in, a function of the value alone
+  ("Inputs", "What is typed, in another form").
 
 ### Changed
 
@@ -25,10 +27,13 @@ version, and everything else, features included, the patch version.
   back.
 - **Breaking**: `forEach` is removed: a parent lists what it tells its children in `tell`. `andThen` folds `tell` too.
   Upgrade: `forEach(step, ids, (id) => children.Row.external(id, m))` becomes `{ ...step, tell: ids.map(…) }`.
+- **Breaking**: an input's `set` changes its place and nothing else, and stores exactly the value it is given; one
+  that does more, as storing another form, is not supported ("Inputs", "Rules").
+  Upgrade: a `set` that changes the form, `set: (state, note) => ({ ...state, note: note.toUpperCase() })`, becomes
+  `store: (note) => note.toUpperCase()` beside the place, `at` where the place is a path.
 
 - The guide's "Inputs the user types into" is now "Inputs", and a value that an element reports, as the offset of a
   scroll, is an input too: its rule is promised, and nothing of the element ("What an element reports").
-- An input's `set` changes its place and nothing else; one that does more is not supported ("Inputs", "Rules").
 - A value that the user writes belongs to the program whose rules use it: the parent's where it changes or locks it,
   and otherwise the child's, whose `output` gives the parent what the child concludes from it ("Structuring a
   program").

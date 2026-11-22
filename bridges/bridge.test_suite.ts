@@ -204,12 +204,10 @@ export const note = noteOf.make({
   makeModel: (state) => state.note
 })
 
-// The same note, whose `set` stores in capitals what is written, as a `set` that normalizes what is typed would.
+// The same note, stored in capitals: the form of its value, a function of the value alone.
 export const shouted = noteOf.make({
   init: { state: { note: "" } },
-  inputs: {
-    Note: noteOf.input({ get: (state) => Opt.some(state.note), set: (_, note) => ({ note: note.toUpperCase() }) })
-  },
+  inputs: { Note: noteOf.input({ at: Optic.id<Note>().key("note"), store: (note) => note.toUpperCase() }) },
   update: (_: "Cleared") => () => ({ state: { note: "" } }),
   makeModel: (state) => state.note
 })
@@ -646,7 +644,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
 
     // Where the caret goes once the element is given another value than the one typed is the browser's, and is not
     // checked.
-    test("a set that stores another value than the one typed is shown by the element at once, which keeps the focus", async () => {
+    test("a value stored in another form than the one typed is shown by the element at once, which keeps the focus", async () => {
       const app = await mountNote(bridge.views.note, shouted)
       const typed = element<HTMLInputElement>("input")
       typed.focus()
@@ -656,6 +654,25 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       expect(document.activeElement).toBe(typed)
       await act(() => type(typed, "ADAl"))
       expect([app.note(), typed.value]).toEqual(["ADAL", "ADAL"])
+    })
+
+    // A bridge draws after each message its view sends, whether or not the state changed, as after a write rejected.
+    test("a key whose stored form is the value held makes no new state, and the element is given its value back", async () => {
+      const { app } = mount(bridge.drawInto, bridge.views.note, start(shouted))
+      settle()
+      await bridge.drawn()
+      const typed = element<HTMLInputElement>("input")
+      typed.focus()
+      await act(() => type(typed, "ada"))
+      let notices = 0
+      const stop = app.subscribe(() => {
+        notices += 1
+      })
+      await act(() => type(typed, "AdA"))
+      expect([app.model(), typed.value]).toEqual(["ADA", "ADA"])
+      expect(notices).toBe(0)
+      expect(document.activeElement).toBe(typed)
+      stop()
     })
 
     // A value the element changes by itself is left out: an `<input>` strips the line breaks of what it is given (HTML,

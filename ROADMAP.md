@@ -46,59 +46,43 @@ None is open.
 
 ## Next, in order
 
-### 37. The form of a value as a field, and `placeViolations`
+### 37. `placeViolations`, a check of a place's laws
 
-**Model and effort.** Opus 5.5, `high`, for each of its two stages: a change of the API that takes back a promise of
-0.8.0, then a new testing tool ([`change-api`](.agents/skills/change-api/SKILL.md),
+**Model and effort.** Opus 5.5, `high`: a new testing tool ([`change-api`](.agents/skills/change-api/SKILL.md),
 [`change-engine`](.agents/skills/change-engine/SKILL.md), [`release`](.agents/skills/release/SKILL.md)).
 
-**Depends on** nothing. It writes what the owner took of step 29, on 22 November 2026, after its spike:
-[`stored-form.md`](docs/records/stored-form.md) has what the spike ran, what it found, and each decision ("Decided").
-The spike is the branch `claude/spike-set-form` at `d647b52`, never to be merged: its code is read, and written anew on
-`main` with the tests, the doc comments and the guide that a spike leaves out.
+**Depends on** nothing. It writes the second part of what the owner took of step 29, on 22 November 2026, after its
+spike: [`stored-form.md`](docs/records/stored-form.md) has what the spike ran, what it found, and each decision
+("Decided"). The spike is the branch `claude/spike-set-form` at `d647b52`, never to be merged: its
+`src/testing/place-violations.ts` and its sixteen tests are read, and written anew on `main` with the doc comments and
+the guide that a spike leaves out. The first part, the form of a value as `store`, is on `main` (stage 37a): a `set`
+now stores exactly what it is given, for every place, "Inputs", "Rules" says so, and the rule of a `set` is still in
+"Guarantees", "What is left to you". The release that takes the breaking entry of `store` takes this step too.
 
-**Why.** "A `set` changes its place, and nothing else" is checked by nothing, and has one exception, a `set` that
-stores another form of the value. With the form apart, a `set` stores exactly what it is given, for every place, and
-the three laws of a lens say the whole rule: a test can check them.
+**Why.** "A `set` changes its place, and nothing else" is checked by nothing. With the form apart, the three laws of a
+lens say the whole rule, and a test can check them.
 
-**How.** Two stages, in order. Each fits one session and leaves every check green, and one release takes both.
+**How.** `placeViolations` and `PlaceViolation` in `./testing`, in a module of their own, as the spike has them. It is
+given what `input` or `inputById` returns, with `states`, `values`, and `ids` for inputs by id, whose types are the
+input's alone (`NoInfer`). What `input` returns has `store` beside `get` and `set`; the check reads `get` and `set`
+alone, since the laws are theirs. What the owner decided:
 
-- **37a. The form.** `input` and `inputById` take `store?: (value: A) => A`, beside `at` or beside `get` and `set`. A
-  write stores `store(value)`, a stored form equal to the value held, by `Equal`, leaves the very same state, and a
-  `set` is given exactly what is stored. What the owner decided, which the code will not show:
-  - the name is `store`, and it is given the value alone, never the state: a second parameter can come later without a
-    break, and a form that reads the state is a lock that no `get` shows;
-  - the form needs no law: one that is not idempotent leaves the behaviour defined, so the guide asks for none;
-  - "A `set` may store another value than the one written" is taken back: `**Breaking**:` in the changelog, with how
-    to upgrade (the change of the form moves from `set` into `store`).
+- four checks, `Changes`, `StoresAnother`, `Remembers` and `ReachesAnother`, by these names, the last for inputs by id
+  alone: without it a `set` that writes every row passes on rows that hold one value;
+- for `Remembers`, the value held is a second write too, which the check adds itself;
+- a call in which no state has the place returns no violation, as `dispatchViolations` does for no message held, and
+  the guide says that a test gives at least one state where the place is there.
 
-  With it: the tests of the rule of a write and of its types, where the form must stand after a `get` written by hand
-  for its parameter to be inferred, as a `set` must today; the note in capitals of `bridges/bridge.test_suite.ts` on
-  `at` and `store`, with the test of a key whose form is the value held; the mutation of `written`, and one for the
-  form; the form as a dimension of an input's place in `tools/inference/generate.ts`, run in all twelve configurations
-  (the spike ran four); the smoke test's consumer and the reports of the API; `docs/invariants.md` on the rule of a
-  write; and the two entries of `docs/rejected.md` that the record names. The guide, the skill and the doc comments,
-  section by section, are listed in the record ("What the guide would say"). After this stage the rule of a `set` has
-  no exception, and is still in "What is left to you".
-- **37b. The check.** `placeViolations` and `PlaceViolation` in `./testing`, in a module of their own, as the spike has
-  them. It is given what `input` or `inputById` returns, with `states`, `values`, and `ids` for inputs by id, whose
-  types are the input's alone (`NoInfer`). What the owner decided:
-  - four checks, `Changes`, `StoresAnother`, `Remembers` and `ReachesAnother`, by these names, the last for inputs by
-    id alone: without it a `set` that writes every row passes on rows that hold one value;
-  - for `Remembers`, the value held is a second write too, which the check adds itself;
-  - a call in which no state has the place returns no violation, as `dispatchViolations` does for no message held, and
-    the guide says that a test gives at least one state where the place is there.
+With it: its tests, from the sixteen of the spike; the stock-take exports its `counts`, and its test checks them
+([`add-example`](.agents/skills/add-example/SKILL.md), and the README's table of what each example shows); the guide's
+"Testing tools" and "Testing"; the changelog's `Added`, beside the entry of `store`; and the rule of a `set` moves from
+"What is left to you" to what a test checks, in "Guarantees", in "Composition" and in the skill, from "Rules that
+nothing checks" to "Rules that a test checks". The row of a `set` in the second table of
+[`given-functions.md`](docs/records/given-functions.md) is of the day it was written, and stays.
 
-  With it: its tests, from the sixteen of the spike; the stock-take exports its `counts`, and its test checks them
-  ([`add-example`](.agents/skills/add-example/SKILL.md), and the README's table of what each example shows); the
-  guide's "Testing tools" and "Testing"; and the rule of a `set` moves from "What is left to you" to what a test
-  checks, in "Guarantees", in "Composition" and in the skill, from "Rules that nothing checks" to "Rules that a test
-  checks". The row of a `set` in the second table of [`given-functions.md`](docs/records/given-functions.md) is of
-  the day it was written, and stays.
-
-**Done when** both stages are on `main` with every check of `AGENTS.md` passing, `bun run mutations`, `bun run smoke`,
-`bun run api --check`, `bun run comments` and `bun run inference` among them, the guide states the rule of a `set`
-without an exception and with what checks it, and the record's status says done.
+**Done when** it is on `main` with every check of `AGENTS.md` passing, `bun run mutations`, `bun run smoke`,
+`bun run api --check` and `bun run comments` among them, the guide states the rule of a `set` with what checks it, and
+the record's status says done.
 
 ### 30. A subscription made from its key alone
 

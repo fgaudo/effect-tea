@@ -133,8 +133,8 @@ Each of these is a function of the parent's own state:
 ### The parent's inputs
 
 - If the parent has inputs, it declares them in `inputs`: `inputs: { Name: input({ at }) }`. Here `at` is an optic to a
-  value of the parent's own state (see [inputs](./inputs.md)). For inputs by id, use `inputById` (see
-  [inputs by id](./inputs.md#inputs-by-id)).
+  value of the parent's own state, beside which `store` may declare the form that a value is stored in (see
+  [inputs](./inputs.md)). For inputs by id, use `inputById` (see [inputs by id](./inputs.md#inputs-by-id)).
   - An input is not a child. The input's value is part of the parent's own state. The parent's `update` and
     `makeModel` read that value like the rest of the state.
   - A write into an input changes the parent's own state. So a write that changes what the state lists starts or
@@ -176,8 +176,8 @@ Three more facts hold for children and inputs:
   is why a program's state is always an object.
 - **A test reads a child's subscriptions by key.** `HashMap.has(app.subscriptions(state), ['Clock', 1, 'ticks'])`
   tells a test whether the Clock of the first start ticks (see [testing](./testing.md)).
-- **The rule of an input.** A write is stored wherever the input's place is there, and rejected where it is not. Every
-  other step leaves an input as that step wrote it.
+- **The rule of an input.** A write is stored, in the form that the input declares, wherever the input's place is
+  there, and rejected where it is not. Every other step leaves an input as that step wrote it.
 
 ### Precisely
 

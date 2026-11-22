@@ -1051,11 +1051,48 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a write of the value an input holds makes a new state",
     guarantees: ["An input stores what is written, where its place is there"],
     file: "src/input.ts",
-    from: "  Equal.equals(message.value, held) ? { state: held } : { state: message.value }",
-    to: "  ({ state: message.value })",
+    from: "  return Equal.equals(value, held) ? { state: held } : { state: value }",
+    to: "  return { state: value }",
     // A primitive value equal to the one held is the very same: only a structure tells the two apart.
     killedBy: [
       ["src/input.test.ts", "equal by Equal to the value held, whatever it is made of, leaves the very value held"]
+    ]
+  },
+  {
+    name: "a write stores the value written, not the form its input declares",
+    guarantees: ["An input stores what is written, where its place is there"],
+    file: "src/input.ts",
+    from: "store === undefined ? message.value : store(message.value)",
+    to: "message.value",
+    killedBy: [
+      ["src/input.test.ts", "is what a write stores, and the rest of the state is the place's to keep"],
+      ["src/input.test.ts", "is called once a write, with the value written, and set is given exactly what it returns"],
+      [
+        "src/input.test.ts",
+        "of inputs by id is the form of the write at each id, through an optic and through get and set"
+      ],
+      ["src/input.test.ts", "in a parent, a write in its form is a step on the parent's own state"],
+      [
+        "bridges/snabbdom.test.ts",
+        "a value stored in another form than the one typed is shown by the element at once, which keeps the focus"
+      ],
+      [
+        "bridges/react.test.ts",
+        "a value stored in another form than the one typed is shown by the element at once, which keeps the focus"
+      ]
+    ]
+  },
+  {
+    name: "a write compares the value written with the one held, not its stored form",
+    guarantees: ["An input stores what is written, where its place is there"],
+    file: "src/input.ts",
+    from: "  return Equal.equals(value, held) ? { state: held } : { state: value }",
+    to: "  return Equal.equals(message.value, held) ? { state: held } : { state: value }",
+    killedBy: [
+      [
+        "src/input.test.ts",
+        "equal by Equal to the value held, a structure, leaves the very value held, whatever was written"
+      ]
     ]
   },
   {

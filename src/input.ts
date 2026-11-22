@@ -9,7 +9,8 @@ import { type Transition } from "./update.ts"
  *
  * A view sends it through the input's dispatch, `forwardTo(dispatch, 'Name')`. A test writes it the same way.
  *
- * A write is stored wherever its place is there, whatever the value is, and whatever else the state says.
+ * A write is stored wherever its place is there, in the form its input declares, whatever the value is, and whatever
+ * else the state says.
  *
  * @example
  * ```ts
@@ -26,10 +27,13 @@ export type Written<A> = {
 }
 
 /**
- * The one rule of an input: what is written is stored, whatever it is and whatever else the state says, since the input
- * on screen already shows it. A place that is not there is the routing's to reject, before this is called. A value
- * equal to the one held, by `Equal`, leaves the very same value, so it makes no new model. It reads the message alone:
- * nothing is kept between two writes.
+ * The one rule of an input: what is written is stored, in the form the input declares, whatever it is and whatever
+ * else the state says, since the input on screen already shows it. A place that is not there is the routing's to
+ * reject, before this is called, so the form is called only where the place is there. A stored form equal to the one
+ * held, by `Equal`, leaves the very same value, so it makes no new model. It reads the message alone: nothing is kept
+ * between two writes.
  */
-export const written = <A>(message: Written<A>) => (held: A): Transition<A> =>
-  Equal.equals(message.value, held) ? { state: held } : { state: message.value }
+export const written = <A>(message: Written<A>, store?: (value: A) => A) => (held: A): Transition<A> => {
+  const value = store === undefined ? message.value : store(message.value)
+  return Equal.equals(value, held) ? { state: held } : { state: value }
+}

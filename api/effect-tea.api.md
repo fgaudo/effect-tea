@@ -341,6 +341,7 @@ export type Input<State, A> = {
     readonly kind: "one";
     readonly get: (state: State) => Opt.Option<A>;
     readonly set: (state: State, value: A) => State;
+    readonly store?: (value: A) => A;
 };
 
 // @public
@@ -348,6 +349,7 @@ export type InputById<State, Id, A> = {
     readonly kind: "byId";
     readonly get: (state: State, id: Id) => Opt.Option<A>;
     readonly set: (state: State, id: Id, value: A) => State;
+    readonly store?: (value: A) => A;
 };
 
 // @public
@@ -372,10 +374,12 @@ type Inputs<State> = Readonly<Record<string, Readonly<{
     kind: "one";
     get: (state: State) => Opt.Option<any>;
     set: (state: State, value: never) => State;
+    store?: (value: never) => unknown;
 }> | Readonly<{
     kind: "byId";
     get: (state: State, id: never) => Opt.Option<any>;
     set: (state: State, id: never, value: never) => State;
+    store?: (value: never) => unknown;
 }>>>;
 
 // @public
@@ -571,10 +575,12 @@ type Placement<State, A> = Readonly<{
     get: (state: State) => Opt.Option<A>;
     set: (state: State, value: A) => State;
     at?: never;
+    store?: (value: A) => A;
 }> | Readonly<{
     at: Optic.Optional<State, A>;
     get?: never;
     set?: never;
+    store?: (value: A) => A;
 }>;
 
 // @public
@@ -582,10 +588,12 @@ type PlacementById<State, Id, A> = Readonly<{
     get: (state: State, id: Id) => Opt.Option<A>;
     set: (state: State, id: Id, value: A) => State;
     at?: never;
+    store?: (value: A) => A;
 }> | Readonly<{
     at: (id: Id) => Optic.Optional<State, A>;
     get?: never;
     set?: never;
+    store?: (value: A) => A;
 }>;
 
 // @public (undocumented)

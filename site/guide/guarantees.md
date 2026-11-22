@@ -70,10 +70,10 @@ bridge's to promise (see [view](./view.md#rules)).
   times it is read. So every read gives the very same model, and a bridge need not draw it again.
   - A model that throws is a defect in `'render'`, recorded where the model is read, once while its state is the
     current one.
-- **An input stores what is written, where its place is there.** A write is stored when its place is there, and
-  rejected otherwise.
+- **An input stores what is written, where its place is there.** A write is stored, in the form that its input
+  declares, when its place is there, and rejected otherwise.
   - This holds whatever the value is, and whatever else the state says.
-  - A value equal, by `Equal`, to the one the place holds leaves the very same state.
+  - A value whose stored form is equal, by `Equal`, to the one the place holds leaves the very same state.
   - How a view writes into an input is in [inputs](./inputs.md). Which elements the package's bridges draw is in
     [what is left out](./writing-a-bridge.md#what-is-left-out).
 
@@ -160,7 +160,8 @@ bridge's to promise (see [view](./view.md#rules)).
   of the state, a view that draws and never decides, a value that the user writes held by the program whose rules use
   it. The one it enforces is that a parent never reads a child's state: a parent is given none.
 - **A `set` changes its place, and nothing else.** An input's place given as `get` and `set` has a `set` that puts the
-  value it is given where `get` reads it. The library does not check it (see [inputs](./inputs.md#rules)).
+  value it is given where `get` reads it, exactly as it is given. The library does not check it (see
+  [inputs](./inputs.md#rules)).
 - **Flags and keys made of values that `Equal` compares by value.** Other flags, or another key, start a child again.
   A function made anew in `flags` or `key` is other flags each time, since `Equal` compares a function by reference.
   Nothing says so: the child starts again, and loses its state (see
@@ -168,11 +169,11 @@ bridge's to promise (see [view](./view.md#rules)).
 - **Whatever a subscription depends on is in its key.** A new value left out of the key is not used while the key is
   kept (see [subscriptions](./subscriptions.md)).
 - **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and states are never mutated.** So are
-  an `init` that takes flags, the handlers of `onEvent`, the `get` and the `set` of an input and an `at` that is a
-  function of the id, and the functions that say which children are there and when they listen: `there`, `key`,
-  `flags`, `ids` and `listening`. The library calls them when it chooses. A child's `external`, its `init` when a step
-  of its parent starts it, its parent's handlers of `onEvent`, and the `get` and the `set` of a write run in the
-  parent's `update`. The library reuses a child's model, and its subscriptions, while the child's state is the same
+  an `init` that takes flags, the handlers of `onEvent`, the `get`, the `set` and the `store` of an input and an `at`
+  that is a function of the id, and the functions that say which children are there and when they listen: `there`,
+  `key`, `flags`, `ids` and `listening`. The library calls them when it chooses. A child's `external`, its `init` when
+  a step of its parent starts it, its parent's handlers of `onEvent`, and the `get`, the `set` and the `store` of a
+  write run in the parent's `update`. The library reuses a child's model, and its subscriptions, while the child's state is the same
   object.
 - **A function of the program never interrupts the fiber it runs in.** An `init` that takes flags, and `subscriptions`
   on the first state, run in the call of `start`: in the fiber of whoever starts the program, or in no fiber at all. The

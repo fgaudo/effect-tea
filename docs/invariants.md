@@ -93,12 +93,14 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   [`write-without-was.md`](records/write-without-was.md) why a write names no value it was written over). A write is a
   message of the composed program like any other, so the state stays the fold of `update` over the messages, `applyAll`
   replays it, and neither the engine nor the testing tools know of inputs. It is stored into its place whatever it is
-  and whatever the place held, since the element on screen already shows it, and a write of the value held, by
+  and whatever the place held, since the element on screen already shows it, in the form its input declares
+  (`store`, a function of the value alone, which `set` is given), and a write whose stored form is the value held, by
   `Equal`, leaves the very same value. A view writes `{ _tag: 'Written', value }` by hand, `value` what the element
   holds ([`rejected.md`](rejected.md), "An entry of each input in the model, which a view writes through"). A write
   into an input by id is routed as a child's message by id is, to the place of the id it names (`getInput` in
   `compose.ts`). A write whose place is not there, where `get` returns `None` or the state holds no such id, is
-  rejected by that routing before `written` is called: it does not apply in the state, the one meaning of `reject`.
+  rejected by that routing before `written` is called, and so before the form: it does not apply in the state, the
+  one meaning of `reject`.
   The rule reads the message alone and keeps nothing between two writes, so every other step, the parent's own, a
   child's and what `onEvent` makes of its events, leaves an input as it wrote it, and a reset, an undo by snapshot or a
   place that comes back cuts no history. A write comes only from a view: an own subscription and an own command send

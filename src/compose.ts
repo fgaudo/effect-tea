@@ -39,7 +39,8 @@ import type { Subscription, Subscriptions } from "./subscription.ts"
 import { reject, type Rejected, type Step, type Transition, type Update } from "./update.ts"
 
 /**
- * Where an input lives in its program's state: an optic, `at`, or the two functions an optic is, `get` and `set`.
+ * Where an input lives in its program's state: an optic, `at`, or the two functions an optic is, `get` and `set`, and
+ * the form its value is stored in, `store`, where it has one.
  *
  * @example
  * ```ts
@@ -55,17 +56,27 @@ type Placement<State, A> =
     /** The state with the value put where `get` finds it, and nothing else of it changed. */
     set: (state: State, value: A) => State
     at?: never
+    /**
+     * The form a value written is stored in, from the value alone: `(note) => note.toUpperCase()`. Without it, the
+     * value as it is written.
+     */
+    store?: (value: A) => A
   }>
   | Readonly<{
     /** An optic into the state, to the input's value. */
     at: Optic.Optional<State, A>
     get?: never
     set?: never
+    /**
+     * The form a value written is stored in, from the value alone: `(note) => note.toUpperCase()`. Without it, the
+     * value as it is written.
+     */
+    store?: (value: A) => A
   }>
 
 /**
  * Where an input by id lives in its program's state: an optic that is a function of the id, `at`, or `get` and `set`,
- * which take the id.
+ * which take the id, and the form its value is stored in, `store`, where it has one.
  *
  * @see The guide, "Inputs", "A write into an input by id names its id".
  */
@@ -76,12 +87,22 @@ type PlacementById<State, Id, A> =
     /** The state with the value of the input at `id` put where `get` finds it, and nothing else changed. */
     set: (state: State, id: Id, value: A) => State
     at?: never
+    /**
+     * The form a value written is stored in, from the value alone: `(note) => note.toUpperCase()`. Without it, the
+     * value as it is written.
+     */
+    store?: (value: A) => A
   }>
   | Readonly<{
     /** The optic into the state, to the value of the input at `id`. */
     at: (id: Id) => Optic.Optional<State, A>
     get?: never
     set?: never
+    /**
+     * The form a value written is stored in, from the value alone: `(note) => note.toUpperCase()`. Without it, the
+     * value as it is written.
+     */
+    store?: (value: A) => A
   }>
 
 // A child is checked as `start` checks a program, of the types read back from it: a child written as an object, and
@@ -207,6 +228,7 @@ export type ChildById<State, Id, P> = {
  *
  * - Its value is part of the program's own state.
  * - The library stores a write in every state where `get` finds its place.
+ * - It stores the value in the form that `store` gives, where the input has one.
  * - It rejects the write where `get` returns `None`.
  *
  * @example
@@ -226,12 +248,15 @@ export type Input<State, A> = {
   readonly get: (state: State) => Opt.Option<A>
   /** The state with the input's value put where `get` finds it. */
   readonly set: (state: State, value: A) => State
+  /** The form a value written is stored in, where the input declares one. `set` is given that form. */
+  readonly store?: (value: A) => A
 }
 
 /**
  * Inputs told apart by an id, such as one in each row: what `inputById` returns, for `inputs` in `make`.
  *
- * `get` and `set` take the id. A write names its id, and is stored at the place of that id, by the rule of every input.
+ * `get` and `set` take the id, and `store` does not. A write names its id, and is stored at the place of that id, by the
+ * rule of every input.
  *
  * @example
  * ```ts
@@ -248,18 +273,26 @@ export type InputById<State, Id, A> = {
   readonly get: (state: State, id: Id) => Opt.Option<A>
   /** The state with the value of the input at `id` put where `get` finds it. */
   readonly set: (state: State, id: Id, value: A) => State
+  /** The form a value written is stored in, where the inputs declare one. `set` is given that form. */
+  readonly store?: (value: A) => A
 }
 
-// `never` parameters: any `set` fits, whatever its value and id.
+// `never` parameters: any `set` and `store` fit, whatever their value and id.
 /** The inputs a program declares, by name: `{ Name: input({ at }), Count: inputById({ at }) }`. */
 type Inputs<State> = Readonly<
   Record<
     string,
-    | Readonly<{ kind: "one"; get: (state: State) => Opt.Option<any>; set: (state: State, value: never) => State }>
+    | Readonly<{
+      kind: "one"
+      get: (state: State) => Opt.Option<any>
+      set: (state: State, value: never) => State
+      store?: (value: never) => unknown
+    }>
     | Readonly<{
       kind: "byId"
       get: (state: State, id: never) => Opt.Option<any>
       set: (state: State, id: never, value: never) => State
+      store?: (value: never) => unknown
     }>
   >
 >
@@ -604,26 +637,33 @@ const modelsOf = (program: object) => {
 const mapOwn = <A, B>(record: Readonly<Record<string, A>>, f: (value: A, name: string) => B): Record<string, B> =>
   Object.fromEntries(Object.entries(record).map(([name, value]) => [name, f(value, name)]))
 
-// An optic focuses or not: `None` where it does not, and `replace` is only called where `get` focused.
+// An optic focuses or not: `None` where it does not, and `replace` is only called where `get` focused. The `set` is
+// the place's own, and applies no form: a write gives it the form that `written` makes.
 const placed = <S, A>(
   place: Placement<S, A>
-): Readonly<{ get: (state: S) => Opt.Option<A>; set: (state: S, value: A) => S }> =>
-  place.at === undefined
+): Readonly<{ get: (state: S) => Opt.Option<A>; set: (state: S, value: A) => S; store?: (value: A) => A }> => ({
+  ...(place.at === undefined
     ? { get: place.get, set: place.set }
     : {
-      get: (state) => Result.getSuccess(place.at.getResult(state)),
-      set: (state, value) => place.at.replace(value, state)
-    }
+      get: (state: S) => Result.getSuccess(place.at.getResult(state)),
+      set: (state: S, value: A) => place.at.replace(value, state)
+    }),
+  ...(place.store === undefined ? {} : { store: place.store })
+})
 
 const placedById = <S, Id, A>(
   place: PlacementById<S, Id, A>
-): Readonly<{ get: (state: S, id: Id) => Opt.Option<A>; set: (state: S, id: Id, value: A) => S }> =>
-  place.at === undefined
+): Readonly<
+  { get: (state: S, id: Id) => Opt.Option<A>; set: (state: S, id: Id, value: A) => S; store?: (value: A) => A }
+> => ({
+  ...(place.at === undefined
     ? { get: place.get, set: place.set }
     : {
-      get: (state, id) => Result.getSuccess(place.at(id).getResult(state)),
-      set: (state, id, value) => place.at(id).replace(value, state)
-    }
+      get: (state: S, id: Id) => Result.getSuccess(place.at(id).getResult(state)),
+      set: (state: S, id: Id, value: A) => place.at(id).replace(value, state)
+    }),
+  ...(place.store === undefined ? {} : { store: place.store })
+})
 
 /** Who receives what a child at `id` sends: `undefined` for a child that is alone. */
 type Place = Readonly<{ name: string; id: unknown }>
@@ -661,6 +701,7 @@ type UntypedInput = Readonly<{
   kind: "one" | "byId"
   get: (state: unknown, id?: unknown) => Opt.Option<unknown>
   set: (state: unknown, idOrValue: unknown, value?: unknown) => unknown
+  store?: (value: unknown) => unknown
 }>
 
 type UntypedConfig = Readonly<{
@@ -868,7 +909,7 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
     const own = composed ? (state as Kept<unknown, Slots>).own : state
     const held = getInput(place.name, place.id, own)
     if (Opt.isNone(held)) return reject
-    const value = (written(message as never)(held.value) as Step<unknown>).state
+    const value = (written(message as never, inputOf(place.name).store)(held.value) as Step<unknown>).state
     // `Object.is`, since a place may hold NaN, which a write of NaN leaves as it is.
     if (Object.is(value, held.value)) return { state, commands: [], events: [] }
     if (!composed) return { state: setInput(place.name, place.id, own, value), commands: [], events: [] }
@@ -1312,7 +1353,8 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * `{ _tag: 'Written', value }`, through `forwardTo(dispatch, 'Name')`.
    *
    * @param place - Where the input is: an optic into the program's state, `at`, or the two functions an optic is,
-   * `get` and `set`.
+   * `get` and `set`. And `store`, where the value is stored in another form than the one written: a function of the
+   * value alone, whose result `set` is given.
    * @returns The input, for `inputs` in `make`.
    *
    * @example
@@ -1322,6 +1364,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    *
    * @see The guide, "Composition", "The parent's inputs".
    * @see The guide, "Inputs", "The view writes what the element holds".
+   * @see The guide, "Inputs", "What is typed, in another form".
    */
   readonly input: DeclareInput<T>
   /**
@@ -1330,7 +1373,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * A write names its id, `{ _tag: 'Count', id, message }`, through `forwardTo(dispatch, 'Count', id)`.
    *
    * @param place - Where the input at an id is: an optic that is a function of the id, `at`, or `get` and `set`,
-   * which take the id.
+   * which take the id. And `store`, where the value is stored in another form than the one written.
    * @returns The inputs, for `inputs` in `make`.
    *
    * @example

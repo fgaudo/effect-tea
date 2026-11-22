@@ -1,14 +1,15 @@
 // The semantics of an input, as pure pieces: what `update` makes of what is written into one, and what a step of the
 // program leaves of one and of its subscriptions. Nothing here runs.
-import { describe, expect, test } from "bun:test"
+import { describe, expect, expectTypeOf, test } from "bun:test"
 import * as Arr from "effect/Array"
 import * as Channel from "effect/Channel"
 import * as Effect from "effect/Effect"
 import * as HashMap from "effect/HashMap"
 import * as Optic from "effect/Optic"
 import * as Opt from "effect/Option"
+import * as Order from "effect/Order"
 import * as fc from "fast-check"
-import { program } from "./compose.ts"
+import { type Input, program } from "./compose.ts"
 import { type Dispatch, forwardTo } from "./dispatch.ts"
 import type { Written } from "./input.ts"
 import type { MessageOf, Program } from "./program.ts"
@@ -627,6 +628,172 @@ describe("what input and inputById return", () => {
     expect([titleAt.get(locked), titleGot.get(locked)]).toEqual([Opt.none(), Opt.none()])
     expect([countAt.get(open, "a"), countGot.get(open, "a")]).toEqual([Opt.some("1"), Opt.some("1")])
     expect([countAt.get(open, "b"), countGot.get(open, "b")]).toEqual([Opt.none(), Opt.none()])
+  })
+})
+
+describe("the form of an input", () => {
+  type Note = Readonly<{ note: string; other: number }>
+  const notes = program<{ state: Note }>()
+  const at = Optic.id<Note>().key("note")
+  const write = (value: string) => ({ _tag: "Note" as const, message: { _tag: "Written" as const, value } })
+  const shouted = notes.make({
+    init: { state: { note: "", other: 0 } },
+    inputs: { Note: notes.input({ at, store: (note) => note.toUpperCase() }) },
+    makeModel: (state) => state.note
+  })
+
+  test("is what a write stores, and the rest of the state is the place's to keep", () => {
+    expect(stepped(shouted.update(write("ada"))({ note: "", other: 7 })).state).toEqual({ note: "ADA", other: 7 })
+  })
+
+  test("equal by Equal to the value held, a structure, leaves the very value held, whatever was written", () => {
+    type Tags = Readonly<{ tags: ReadonlyArray<string> }>
+    const tags = program<{ state: Tags }>()
+    const sorted = tags.make({
+      init: { state: { tags: [] } },
+      inputs: { Tags: tags.input({ at: Optic.id<Tags>().key("tags"), store: (tags) => Arr.sort(tags, Order.String) }) },
+      makeModel: (state) => state
+    })
+    const held: Tags = { tags: ["a", "b"] }
+    const write = (value: ReadonlyArray<string>) =>
+      sorted.update({ _tag: "Tags", message: { _tag: "Written", value } })(held)
+    expect(stepped(write(["b", "a"])).state).toBe(held)
+    expect(stepped(write(["c", "a"])).state).toEqual({ tags: ["a", "c"] })
+  })
+
+  test("is called once a write, with the value written, and set is given exactly what it returns", () => {
+    const formed: Array<string> = []
+    const given: Array<string> = []
+    const byHand = notes.make({
+      init: { state: { note: "", other: 0 } },
+      inputs: {
+        Note: notes.input({
+          get: (state) => Opt.some(state.note),
+          set: (state, note) => {
+            given.push(note)
+            return { ...state, note }
+          },
+          store: (note) => {
+            formed.push(note)
+            return note.toUpperCase()
+          }
+        })
+      },
+      makeModel: (state) => state.note
+    })
+    expect(stepped(byHand.update(write("ada"))({ note: "", other: 1 })).state).toEqual({ note: "ADA", other: 1 })
+    expect([formed, given]).toEqual([["ada"], ["ADA"]])
+  })
+
+  test("is not called where the place is not there: the write is rejected first", () => {
+    type Lock = Readonly<{ _tag: "Open"; text: string }> | Readonly<{ _tag: "Locked"; text: string }>
+    const locks = program<{ state: Lock }>()
+    const formed: Array<string> = []
+    const lock = locks.make({
+      init: { state: { _tag: "Open", text: "" } },
+      inputs: {
+        Text: locks.input({
+          at: Optic.id<Lock>().tag("Open").key("text"),
+          store: (text) => {
+            formed.push(text)
+            return text.trim()
+          }
+        })
+      },
+      makeModel: (state) => state
+    })
+    const typed = { _tag: "Text" as const, message: { _tag: "Written" as const, value: " a " } }
+    expect(lock.update(typed)({ _tag: "Locked", text: "" })).toBe(reject)
+    expect(formed).toEqual([])
+    expect(stepped(lock.update(typed)({ _tag: "Open", text: "" })).state).toEqual({ _tag: "Open", text: "a" })
+  })
+
+  test("of inputs by id is the form of the write at each id, through an optic and through get and set", () => {
+    type Rows = Readonly<{ rows: Readonly<Record<string, string>> }>
+    const rows = program<{ state: Rows }>()
+    const trimmed = rows.make({
+      init: { state: { rows: { a: "", b: "" } } },
+      inputs: {
+        Count: rows.inputById({
+          at: (id: string) => Optic.id<Rows>().key("rows").at(id),
+          store: (text) => text.trim()
+        }),
+        Other: rows.inputById({
+          get: (state, id: string) => Opt.fromNullishOr(state.rows[id]),
+          set: (state, id, text) => ({ rows: { ...state.rows, [id]: text } }),
+          store: (text) => text.trim()
+        })
+      },
+      makeModel: (state) => state
+    })
+    const written = (_tag: "Count" | "Other", id: string, value: string) =>
+      trimmed.update({ _tag, id, message: { _tag: "Written", value } })(trimmed.init.state)
+    expect(stepped(written("Count", "b", " 2 ")).state).toEqual({ rows: { a: "", b: "2" } })
+    expect(stepped(written("Other", "a", " 1 ")).state).toEqual({ rows: { a: "1", b: "" } })
+  })
+
+  test("in a parent, a write in its form is a step on the parent's own state", () => {
+    const kid = program<{ state: Readonly<{ n: number }> }>().make({ init: { state: { n: 0 } }, makeModel: (s) => s.n })
+    const parent = notes.withChildren({ Kid: notes.child(kid) }).make({
+      init: { state: { note: "", other: 0 } },
+      inputs: { Note: notes.input({ at, store: (note) => note.toUpperCase() }) },
+      makeModel: (state, children) => ({ note: state.note, kid: children.Kid() })
+    })
+    const next = stepped(parent.update(write("ada"))(parent.init.state)).state
+    expect(parent.makeModel(next)).toEqual({ note: "ADA", kid: 0 })
+    expect(stepped(parent.update(write("Ada"))(next)).state).toBe(next)
+  })
+
+  // The form needs no law: one that is not idempotent stores the form of each value written, and reads the value
+  // alone, so the same write sent twice from one model acts once.
+  test("that is not idempotent stores the form of what is written, each time, and acts once for a write sent twice", () => {
+    const eager = notes.make({
+      init: { state: { note: "", other: 0 } },
+      inputs: { Note: notes.input({ at, store: (note) => `${note}!` }) },
+      makeModel: (state) => state.note
+    })
+    const first = stepped(eager.update(write("a"))({ note: "", other: 0 })).state
+    expect(first.note).toBe("a!")
+    expect(stepped(eager.update(write("a!"))(first)).state.note).toBe("a!!")
+    expect(dispatchViolations(eager.update, { state: { note: "", other: 0 }, held: [write("a")] })).toEqual([])
+  })
+
+  test("the types: its parameter is the place's value, wherever it stands beside an optic, and after a get", () => {
+    const after = notes.input({ at, store: (note) => note.toUpperCase() })
+    const before = notes.input({ store: (note) => note.toUpperCase(), at })
+    const byHand = notes.input({
+      get: (state) => Opt.some(state.note),
+      store: (note) => note.toUpperCase(),
+      set: (state, note) => ({ ...state, note })
+    })
+    expectTypeOf(after).toEqualTypeOf<Input<Note, string>>()
+    expectTypeOf(before).toEqualTypeOf<Input<Note, string>>()
+    expectTypeOf(byHand).toEqualTypeOf<Input<Note, string>>()
+    expectTypeOf(after.store).toEqualTypeOf<((value: string) => string) | undefined>()
+    const made = notes.make({ init: { state: { note: "", other: 0 } }, inputs: { Note: byHand }, makeModel: (s) => s })
+    expectTypeOf<MessageOf<typeof made>>().toEqualTypeOf<Readonly<{ _tag: "Note"; message: Written<string> }>>()
+  })
+
+  test("the types: before a get, its parameter is not known yet, as a set's is not", () => {
+    notes.input({
+      // @ts-expect-error: 'note' is of type 'unknown' before `get` gives the value's type.
+      store: (note) => note.toUpperCase(),
+      get: (state) => Opt.some(state.note),
+      set: (state, note) => ({ ...state, note: String(note) })
+    })
+    notes.input({
+      store: (note: string) => note.toUpperCase(),
+      get: (state) => Opt.some(state.note),
+      set: (state, note) => ({ ...state, note })
+    })
+  })
+
+  test("the types: a form of another type than the place's does not compile, alone or by id", () => {
+    // @ts-expect-error: the place holds a string.
+    notes.input({ at, store: (note) => note.length })
+    type Rows = Readonly<{ rows: Readonly<Record<string, string>> }>
+    // @ts-expect-error: each row holds a string.
+    program<{ state: Rows }>().inputById({ at: (id: string) => Optic.id<Rows>().key("rows").at(id), store: () => 0 })
   })
 })
 

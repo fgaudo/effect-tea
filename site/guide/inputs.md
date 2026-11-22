@@ -52,20 +52,23 @@ In general, a view writes the value that the element holds, through the input's 
   - Give `get` and `set` where the place must be found: an element of an array that a predicate picks, such as a row
     found by its id. No path leads to such an element, because its index changes as the array does.
   - An optic that may focus nothing, as one composed with `Optic.some()`, declares an input that is not always there.
+  - Beside the place, `store` declares the form that a value is stored in: a function of the value alone, such as
+    `(note) => note.toUpperCase()`. Without it, a value is stored as it is written (see
+    [what is typed, in another form](#what-is-typed-in-another-form)).
 - **A `set` changes its place, and nothing else.** A `set` puts the value it is given at the place that `get` reads,
   and changes nothing else of the state, as an optic does.
   - A `set` that does more is not supported. The library need not call `set` where nothing is to be stored, as for a
     write equal to the value held. So what else a `set` did would follow some writes and not others.
+  - A `set` stores exactly the value it is given. That value is already in the form that `store` gives.
   - Compute what follows a write where the state is read, in `update` and `makeModel`.
-  - A `set` may store the value in another form. This is the one exception (see
-    [what is typed, in another form](#what-is-typed-in-another-form)).
   - `inputById` declares an input by id, one for each row. The view writes into it through
     `forwardTo(dispatch, 'Count', id)` (see [inputs by id](#inputs-by-id)).
 - **The view writes what the element holds**: `{ _tag: 'Written', value: text }`, through
   `forwardTo(dispatch, 'Name')`. An element that reports a value, as a scroll reports its offset, writes it the same
   way (see [what an element reports](#what-an-element-reports)).
-- **The library stores what is written, whatever it is**, in every state where the input's place is there, whatever
-  else the state says. A value equal, by `Equal`, to the one the place holds leaves the very same state.
+- **The library stores what is written, whatever it is**, in the form that the input declares, in every state where
+  the input's place is there, whatever else the state says. A value whose stored form is equal, by `Equal`, to the one
+  the place holds leaves the very same state.
 - **The library rejects the write where its place is not there**: in a state where the input's optic focuses nothing,
   or where its `get` returns `None`.
 - **The program changes an input by leaving another value in its place**, such as `name: ''`.
@@ -110,8 +113,8 @@ What a model shows of such a value is in [a value that an element reports](#a-va
 
 ### What is typed, in another form
 
-The library stores what is written as it is, because the element already shows that value. A program that wants the
-value in another form has four ways:
+The library stores what is written, because the element already shows that value. A program that wants the value in
+another form has four ways:
 
 - **Parse the text where the program reads it.** The state holds the text as typed. A function of the program says
   what the text means, to `update` and to `makeModel`. `stocktake` reads each count with `countOf`: a whole number,
@@ -119,17 +122,17 @@ value in another form has four ways:
 - **Replace the text on a message of the program.** `update` leaves another value in the input's place: for example,
   the name without the spaces around it, when the user saves. The element is then drawn with the program's value (see
   [the element on screen](#the-element-on-screen)).
-- **Change the text as it is stored, in `set`.** A `set` may store another value than the one written: for example,
-  the text in capitals. The element is then drawn with the value stored, at once, and keeps its focus. Where the caret
-  goes then is the browser's, and is not promised: Chromium puts it at the end of the text. This is the one exception
-  to the rule of a `set` (see [the rules](#rules)). The input gives `get` and
-  `set` in place of `at`:
+- **Change the text as it is stored, with `store`.** The input declares the form that a value is stored in: for
+  example, the text in capitals. The form is given the value alone, never the state. The element is then drawn with
+  the value stored, at once, and keeps its focus. Where the caret goes then is the browser's, and is not promised:
+  Chromium puts it at the end of the text.
 
   ```ts
-  inputs: {
-    Note: input({ get: (state) => Opt.some(state.note), set: (state, note) => ({ ...state, note: note.toUpperCase() }) }),
-  },
+  inputs: { Note: input({ at: Optic.id<State>().key('note'), store: (note) => note.toUpperCase() }) },
   ```
+
+  With `get` and `set`, write `store` after `get`, or annotate its parameter: before `get`, the type of the value is
+  not known yet.
 
 - **Format the text in the element, before the write.** A limit that the element keeps by itself, such as
   `maxlength`, needs nothing: the element reports the value that it holds. A mask changes the element's own value. So
@@ -141,7 +144,8 @@ value in another form has four ways:
 A value that the user types into each row, such as the count of each item, is an input by id where the program that
 holds the rows uses it (see [splitting a program](./structuring-a-program.md#splitting-a-program)). Use `inputById`
 instead of `input`. Give the place of each id in the same ways as for an input alone, as functions of the id: an optic
-that is a function of the id, or `get` and `set` that take the id.
+that is a function of the id, or `get` and `set` that take the id. A form, `store`, is given the value alone, and is
+the same for every id.
 
 Rows kept in a record by id are reached with an optic of the id:
 

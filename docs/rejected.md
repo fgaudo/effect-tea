@@ -630,6 +630,12 @@ answer, and saying so in the proposal.
   microtask. The guide lists it as the fourth way, with the caret described and not promised: it goes to the end after
   a key whose value `set` changes ("What is typed, in another form"). Whether `normalize` as an option of `input` earns
   a place is not reopened, since a `set` does it.
+
+  Reversed on 22 November 2026 ([`stored-form.md`](records/stored-form.md)), for a reason this entry did not have: a
+  `set` that stores another form cannot be told from a `set` that does more, so the rule of a `set` kept an exception
+  that no check could hold. The form is a field of the input, `store`, a function of the value alone, which needs no
+  law, and a `set` stores exactly what it is given. The probe of the first paragraph no longer applies, since a write
+  carries its value alone.
 - **A condition on an input's declaration** (`input({ at, when })`), to say in which states a write applies, in place
   of a `get` that returns `None`. Reasoned, 18 November 2026: it is that `get` under another name, an option for what a
   place already says. What it answered, a rule of the program written inside a `get`
@@ -709,10 +715,10 @@ answer, and saying so in the proposal.
   But Effect has none for the element of an array that a predicate picks, the place of the inputs of the rows of the
   stock-take: a user would write `Optic.makeOptional` by hand, the same two functions with the same
   freedom, over `Result` and `SchemaIssue` where the library asks for an `Option`. The hole would move into a type of
-  Effect's, and the examples of a list would be harder to write. What was taken in its place, with a spike first, is
-  the form of a value out of `set`, and a check of a place's laws
-  ([`application-report.md`](records/application-report.md), "What the owner decided"). _Reopen if_ Effect gives an
-  optic for the element of an array that a predicate picks.
+  Effect's, and the examples of a list would be harder to write. What was taken in its place, after a spike
+  ([`stored-form.md`](records/stored-form.md)), is the form of a value out of `set`, as `store`, and a check of a
+  place's laws, `placeViolations`, step 37 of `ROADMAP.md`. _Reopen if_ Effect gives an optic for the element of an
+  array that a predicate picks.
 - **The form's place kept while it saves, with its writes `withheld`**, and a sentence of "Testing" that a place shown
   read-only on purpose is `withheld`. Reasoned, 22 November 2026, as the advice of the record
   ([`application-report.md`](records/application-report.md), point 3), which kept the first example of an input on a

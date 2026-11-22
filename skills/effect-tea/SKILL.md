@@ -94,11 +94,11 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   unused. The guide, "Guarantees", "Whoever starts a program runs it". The guide, "Running", "A program is started,
   then run".
 - **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and a state is never mutated.** So are
-  an `init` that takes flags, the handlers of `onEvent`, the `get` and the `set` of an input and an `at` that is a
-  function of the id, and `there`, `key`, `flags`, `ids` and `listening`, which say which children are there and when
-  they listen. `update` may be called at any time: never assume it runs once per message. A child's `external`, its
-  `init` when a step of its parent starts it, its parent's handlers of `onEvent`, and the `get` and the `set` of a
-  write run in the parent's `update`. The library reuses a child's model and subscriptions while the child's state is the same object. The
+  an `init` that takes flags, the handlers of `onEvent`, the `get`, the `set` and the `store` of an input and an `at`
+  that is a function of the id, and `there`, `key`, `flags`, `ids` and `listening`, which say which children are there
+  and when they listen. `update` may be called at any time: never assume it runs once per message. A child's
+  `external`, its `init` when a step of its parent starts it, its parent's handlers of `onEvent`, and the `get`, the
+  `set` and the `store` of a write run in the parent's `update`. The library reuses a child's model and subscriptions while the child's state is the same object. The
   guide, "Guarantees", "What is left to you". The guide, "Update",
   "Keep it pure". The guide, "Update", "It may be called at any time". The guide, "Update", "Never mutate the state".
   The guide, "Events and external messages", "A child answers its external messages in every state".
@@ -139,8 +139,10 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   reference: give plain values. The guide, "Composition", "Ids are compared by value". The guide, "Composition",
   "When the children are compared".
 - **A `set` changes its place, and nothing else.** An input's place given as `get` and `set` has a `set` that puts the
-  value it is given where `get` reads it, as an optic does. What follows a write is computed where the state is read.
-  A `set` may store the value in another form, the one exception. The guide, "Inputs", "Rules". The guide, "Inputs", "What is typed, in another form".
+  value it is given where `get` reads it, exactly as it is given, as an optic does. What follows a write is computed
+  where the state is read. A value stored in another form than the one written is declared with `store`, a function
+  of the value alone, beside the place: `input({ at, store: (note) => note.toUpperCase() })`. The guide, "Inputs",
+  "Rules". The guide, "Inputs", "What is typed, in another form".
 - **Whatever a subscription depends on is in its key.** A new subscription under a kept key is not used. A value that
   stays the same while the key is kept, as a child's own id, can stay out. The guide, "Subscriptions", "A subscription
   sees the state only through its key". The guide, "Subscriptions", "A value that stays the same while the key is kept

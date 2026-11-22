@@ -116,6 +116,8 @@ type Case = Readonly<{
   place: Place
   // Where an input is: an optic, or `get` and `set`.
   inputPlace: "at" | "getset"
+  // Whether the input declares the form its value is stored in, `store`, after its place.
+  inputForm: boolean
   // How the parent's steps tell its child an external message.
   tell: Tell
   // The pieces of `make` in the order of the guide, or the reverse.
@@ -252,22 +254,24 @@ const generate = (c: Case): string => {
   entries.push(flagsHere ? `    init: (flags${a("number")}) => (${initStep}),` : `    init: ${initStep},`)
   // inputs
   if (c.comp === "input" || c.comp === "mixed") {
+    const form = c.inputForm ? `, store: (name${a("string")}) => name.trim()` : ""
     entries.push(
       c.inputPlace === "at"
-        ? `    inputs: { Name: input({ at: Optic.id<${state}>().key('name') }) },`
+        ? `    inputs: { Name: input({ at: Optic.id<${state}>().key('name')${form} }) },`
         : `    inputs: { Name: input({ get: (state${a(state)}) => Opt.some(state.name), set: (state${a(state)}, name${
           a("string")
-        }) => ({ ...state, name }) }) },`
+        }) => ({ ...state, name })${form} }) },`
     )
   } else if (c.comp === "inputById") {
+    const form = c.inputForm ? `, store: (count${a("number")}) => Math.round(count)` : ""
     entries.push(
       c.inputPlace === "at"
-        ? "    inputs: { Count: inputById({ at: (id: string) => Optic.id<SInputById>().key('counts').at(id) }) },"
+        ? `    inputs: { Count: inputById({ at: (id: string) => Optic.id<SInputById>().key('counts').at(id)${form} }) },`
         : `    inputs: { Count: inputById({ get: (state${
           a(state)
         }, id: string) => Opt.fromNullishOr(state.counts[id]), set: (state${a(state)}, id${a("string")}, count${
           a("number")
-        }) => ({ ...state, counts: { ...state.counts, [id]: count } }) }) },`
+        }) => ({ ...state, counts: { ...state.counts, [id]: count } })${form} }) },`
     )
   }
   // What the parent's `update` reads of its child's output, and its type, for a step written apart: by id for children
@@ -596,17 +600,20 @@ const generateHand = (c: HandCase): string => {
 const subsets = <A>(items: ReadonlyArray<A>): ReadonlyArray<ReadonlySet<A>> =>
   Array.from({ length: 2 ** items.length }, (_, mask) => new Set(items.filter((_, i) => (mask >> i) & 1)))
 
-// The layouts of a parent: where its child is, whether it starts from flags, where its input is, and how its steps tell
-// the child. Each place is crossed with a tell written inline, and each other tell with the plain place.
-type Layout = Readonly<{ kidFlags: boolean; place: Place; inputPlace: "at" | "getset"; tell: Tell }>
+// The layouts of a parent: where its child is, whether it starts from flags, where its input is and whether it has a
+// form, and how its steps tell the child. Each place is crossed with a tell written inline, and each other tell with
+// the plain place; a form is crossed with each place of an input, and beside a child with the plain place alone.
+type Layout = Readonly<{ kidFlags: boolean; place: Place; inputPlace: "at" | "getset"; inputForm: boolean; tell: Tell }>
 const layoutsOf = (comp: Comp): ReadonlyArray<Layout> => {
-  const plain = { kidFlags: false, place: "plain", inputPlace: "getset", tell: "none" } as const
+  const plain = { kidFlags: false, place: "plain", inputPlace: "getset", inputForm: false, tell: "none" } as const
   switch (comp) {
     case "none":
       return [plain]
     case "input":
     case "inputById":
-      return (["at", "getset"] as const).map((inputPlace) => ({ ...plain, inputPlace }))
+      return (["at", "getset"] as const).flatMap((inputPlace) =>
+        [false, true].map((inputForm) => ({ ...plain, inputPlace, inputForm }))
+      )
     case "child":
       return [
         ...(["plain", "key", "there", "listening"] as const).map((place) => ({
@@ -638,7 +645,8 @@ const layoutsOf = (comp: Comp): ReadonlyArray<Layout> => {
       return (["at", "getset"] as const).flatMap((inputPlace) => [
         { ...plain, inputPlace, tell: "inline" as const },
         { ...plain, inputPlace, place: "there" as const, tell: "inline" as const },
-        { ...plain, inputPlace }
+        { ...plain, inputPlace },
+        { ...plain, inputPlace, inputForm: true }
       ])
   }
 }
@@ -665,6 +673,7 @@ for (const comp of comps) {
                 ...(layout.kidFlags ? ["kidFlags"] : []),
                 ...(isKid(comp) ? [layout.place, `tell-${layout.tell}`] : []),
                 ...(comp === "input" || comp === "inputById" || comp === "mixed" ? [layout.inputPlace] : []),
+                ...(layout.inputForm ? ["store"] : []),
                 order,
                 ...(annotate ? ["annotated"] : [])
               ].join(".")
@@ -726,6 +735,7 @@ for (const comp of comps) {
         kidFlags: false,
         place: "plain",
         inputPlace: "getset",
+        inputForm: false,
         tell: isKid(comp) ? "inline" : "none",
         order: "canonical",
         annotate: false,

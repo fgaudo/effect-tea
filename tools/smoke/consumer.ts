@@ -107,7 +107,8 @@ export const inputs = {
     set: (state, id, label) => ({
       ...state,
       labels: Arr.map(state.labels, (row) => row.id === id ? { id, label } : row)
-    })
+    }),
+    store: (label) => label.trim()
   })
 }
 
@@ -473,7 +474,10 @@ const sheets = program<{ state: Sheet }>()
 const sheet = sheets.make({
   init: { state: { counts: { a: "" }, rows: [{ id: 1, note: "" }] } },
   inputs: {
-    Count: sheets.inputById({ at: (id: string) => Optic.id<Sheet>().key("counts").at(id) }),
+    Count: sheets.inputById({
+      at: (id: string) => Optic.id<Sheet>().key("counts").at(id),
+      store: (count) => count.trim()
+    }),
     Note: sheets.inputById({
       get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.note),
       set: (state, id, note) => ({ ...state, rows: Arr.map(state.rows, (row) => row.id === id ? { id, note } : row) })
@@ -570,10 +574,13 @@ assert(
   "a write is stored whatever its place held"
 )
 
-const counted = sheet.update({ _tag: "Count", id: "a", message: { _tag: "Written", value: "1" } })(
+const counted = sheet.update({ _tag: "Count", id: "a", message: { _tag: "Written", value: " 1 " } })(
   sheet.init.state
 )
-assert(counted !== reject && counted.state.counts.a === "1", "a write into an input by id is stored at its id")
+assert(
+  counted !== reject && counted.state.counts.a === "1",
+  "a write into an input by id is stored at its id, in the form its input declares"
+)
 const nowhere = sheet.update({ _tag: "Count", id: "b", message: { _tag: "Written", value: "1" } })(
   sheet.init.state
 )
