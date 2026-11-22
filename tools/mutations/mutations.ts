@@ -1303,7 +1303,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "Host reports nothing of a death no render threw as it unmounts",
     file: "bridges/react.ts",
-    from: "        reportError(set.error)\n",
+    from: "        report(set.error)\n",
     to: "",
     killedBy: [
       [
@@ -3475,7 +3475,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the React bridge's Host does not report what its run dies of once unmounted",
     file: "bridges/react.ts",
-    from: "          } else reportError(error)\n",
+    from: "          } else report(error)\n",
     to: "          }\n",
     killedBy: [
       ["bridges/react.test.ts", "gives what it dies of once Host has unmounted to reportError"]
