@@ -6,6 +6,10 @@ premises. The owner took the direction the same day, to be spiked: step 33 of [`
 closes its step 32 and takes in its step 31. Nothing of the library, of the guide or of the examples was changed.
 Everything below is reasoned from the code and the documents read, and not run, but where it says **run**.
 
+**Spiked** the same day, by another session of Fable 5.2: `91d03d2` on `spike/kept-children`, never to be merged.
+What it ran and found is under "The spike, run", and what is left to the owner under "What the owner decides". Both
+parts ran as proposed, and the probe no longer dies. The owner has not decided yet.
+
 ## What the owner asked
 
 Step 32 of the roadmap weighed a child that its parent starts again, whose new instance gets the answer of the one
@@ -281,6 +285,231 @@ For the store:
 
 For `output`: its name, where a parent reads it, what the types refuse, and `list` with a "Stop all" that is there only
 while a stopwatch runs.
+
+## The spike, run
+
+**Run** on 22 November 2026, on `spike/kept-children` (`91d03d2`, three commits from `e1f5ce7`): Bun 1.4.5, Windows,
+TypeScript 7.0.2, Effect 4.1.4. What was written there:
+
+- `src/kept.ts`, a `program` of its own beside the one of `compose.ts`, which stays as it is, so that the two are
+  compared. It has `stateOf` too, for a test.
+- `pages`, `list`, `timers`, `named-timers` and `named` in the new form, with their tests. Their views and the bridges
+  were not touched: the models have the shapes they had.
+- `src/kept.test.ts`, 24 tests of the store, of `tell` and of `output`, and `examples/form/probe.test.ts`, the probe.
+- `spike/`, the benchmark and the probes of the types.
+
+`bun run typecheck` and `bun run test` pass on the branch: 1023 tests, those of `compose.ts` among them, unchanged.
+`simulate`, `rehearse`, `start`, `applyAll` and `dispatchViolations` took the composed programs as they are: nothing of
+the engine or of a testing tool was changed. **Not run:** `bun run test:node`, `bun run interleavings`,
+`bun run mutations`, the inference matrix, whose generator writes programs in the form of today, and the views in a
+browser. `bun run lint` fails on the spike's own files.
+
+### The probe
+
+The parent of "The probe, run", in the new form: the form is there while `open` holds, under a `generation` as its key.
+Each case was run with `start`, with a save that waits.
+
+| While the save waits, the parent          | With `compose.ts`               | With `kept.ts`                      |
+| ----------------------------------------- | ------------------------------- | ----------------------------------- |
+| closes the form                           | the answer is rejected          | the same                            |
+| closes the form, and opens it again       | the run dies, a `ProgramDefect` | the answer is rejected, the run not |
+| starts it again in one step, by a new key | not run here                    | the answer is rejected, the run not |
+
+The first column of results is the run of "The probe, run". Its third case, a step that puts a new state at the child's
+place, is the one that the second form of step 32 did not hold for.
+
+`onIgnored` hears `{ _tag: 'Form', instance: 1, message: SaveSucceeded }`, of origin `Command`, and the form that is
+there is the second, as it starts. `examples/form` was not changed.
+
+### The form that ran
+
+As "The proposal" has it, but for what follows.
+
+- **A child alone** is `child(P)`, always there, or `child(P, { there })`, `child(P, { key })` or
+  `child(P, { flags })`, there in the states these say. `listening` is beside each. **Children by id** are
+  `childById(P, { ids })`, or `childById(P, { starts })`, which gives each id with its flags.
+- **`init` is a step of the parent's own**, `init: { state }`, with children or without: the library starts the
+  children that the state lists. No `children.X.init` and no `children.X.external` is left.
+- **`makeModel`** reads `children.Clock()`, the model of a child that is always there, `children.About()`, an `Option`
+  of the model of one that may not be, and `children.Stopwatch(id)`, the model of a child by id.
+- **A program without children keeps its state as it is.** `clock`, `about`, `timer` and `form` were not touched, and
+  `stopwatch` only for its output.
+
+The examples got shorter: `pages/app.ts` from 51 lines to 43, `list.ts` from 70 to 54, `timers.ts` from 70 to 51,
+`named-timers.ts` from 66 to 47, `named.ts` from 31 to 30. `list`, in the two parts together:
+
+```ts
+export const list = make({
+  init: { state: { nextId: 1, ids: [] } },
+  children: { Stopwatch: childById(Stopwatch.stopwatch, { ids: (state) => state.ids }) },
+  update: (message, children) => (state) => {
+    switch (message._tag) {
+      case "AddClicked":
+        return { state: { nextId: state.nextId + 1, ids: [...state.ids, state.nextId] } }
+      case "StopAllClicked": {
+        const running = Arr.filter(state.ids, (id) => children.Stopwatch.output(id).running)
+        const halt = (id: number) => ({ _tag: "Stopwatch", id, message: { _tag: "Halted" } }) as const
+        return Arr.isReadonlyArrayEmpty(running) ? reject : { state, tell: Arr.map(running, halt) }
+      }
+    }
+  },
+  onEvent: {
+    Stopwatch: (id) => (state) => ({ state: { ...state, ids: Arr.filter(state.ids, (other) => other !== id) } })
+  },
+  makeModel: (state, children) => ({
+    add: { _tag: "AddClicked" } as AddClicked,
+    stopAll: Arr.some(state.ids, (id) => children.Stopwatch.output(id).running)
+      ? Opt.some<StopAllClicked>({ _tag: "StopAllClicked" })
+      : Opt.none(),
+    stopwatches: Arr.map(state.ids, (id) => ({ id, model: children.Stopwatch(id) }))
+  })
+})
+```
+
+### What it found, for the store
+
+By the list of "What the spike must find".
+
+**The state.** `StateOf<typeof app>` is `Kept<Own, …>`, an object `{ own, starts, children }`. `own` is the parent's own
+state, `starts` counts the children started, and `children.<name>` is an `Option` of an instance, or a `HashMap` of
+instances by id. An instance is `{ instance, key, state }`.
+
+- **A test writes one with `stateOf(program, own, states)`.** It starts each child that `own` lists, and then puts it in
+  the state given for it. It refuses a state for a child that `own` does not list. The arbitrary of each of the five
+  tests moved to it, in 3 to 10 lines, and a parent of parents nests two calls. It would be of `./testing`. It reaches
+  what `make` keeps to itself through a symbol on the program.
+- **A test reads a child's state** at `state.children.About`, or through the model. A test that compared a whole state
+  now compares `state.own`, or `{ ...start, own: { name: "Tea" } }`.
+- **A state written by hand may still list a child and hold none.** Nothing refuses it. A child that is always there
+  and is missing is a `CompositionDefect` when its model is asked for. For the others, a message is rejected.
+- **A declaration prints the whole program of each child inside the state's type**, `Kept<Own, KeptOf<{ Clock:
+  Child<Own, Program<{ … }>, "always">; … }>>`, at each level: today it prints the child's state alone there. A type
+  that names the children's states alone would print as little. It would be one of the types that only print, to be
+  weighed by the four conditions of `AGENTS.md`.
+
+**Flags are the key.** They ran so: other flags by `Equal` start the child again in one step, with its first
+commands, and its subscriptions under other keys. Equal flags in another object keep the child. A child without flags
+that must start again is given a `key`, a value of the parent's state that changes. Measured with Effect 4.1.4:
+`Equal.equals` compares by value structs, tuples, `Option`, `DateTime`, `Date`, `Map` and instances of a class, and
+compares functions by reference. So a `flags` that builds a function anew at each call starts its child again at each
+step of the parent's own. The same holds today for a subscription key.
+
+**The number of an instance** is counted once for each parent, in `starts`: nothing is kept for an id that left. A
+child of a child is wrapped once at each level, each with the number of its level.
+
+- A lifted command is `{ _tag: 'About', instance: 2, command }`, and so is its answer, with `message`.
+- A lifted key is `['Clock', 1, 'ticks']`, and `['Stopwatch', 2, 2, 'ticks']` by id: the id, then the number.
+- A message of a view has no number, and `forwardTo` is as it was. Its type had to admit the field `instance`.
+- A test that writes a number knows how many children started before: in `pages`, the Clock is 1 and About is 2. It
+  reads it at `state.children.About` where it does not.
+
+**`tell` as data** ran as proposed: `{ state, tell: [{ _tag: 'Row', id, message }] }`, typed by the children's
+external messages. The parent's `update` no longer takes handles.
+
+- **The order.** The step's state first, then the children that it lists, then each `tell` in order, each to its end:
+  the events of the child that was told are handled before the next is told. A child that the step lists anew is
+  started before it is told.
+- **A child that is not there.** Each `tell` is checked once the step is reconciled: a child that is not there then is
+  the step's own mistake, a `CompositionDefect`, as today. A child that an earlier `tell` of the same step dropped or
+  started again, through an event, is told nothing. Without this second rule a parent could not tell all its children
+  where the answer of one removes another. It is new, and the owner decides it.
+- **Its literals lose their types, in TypeScript 7.0.2.** Where the children are inferred in the call of `make`, the
+  items of a `tell` get `_tag: string`, and each needs `as const`. It holds for an array literal too, whose message
+  alone widens. Where the children are given as a type argument, nothing widens, in any form (`spike/tell-matrix.ts`,
+  24 cases, and `spike/tell-fixed.ts`). So children declared in a call of their own, before the pieces that tell them,
+  would need no `as const`. Today a handle types its argument, and has no such cost.
+- **`andThen` and `forEach` lose their use in the examples.** `list` was the one use of `forEach`, and no example uses
+  `andThen`. They fold the steps of one program still, and they drop a `tell` in silence as they are: they take it
+  into their fold, or they go.
+- **`init` with a `tell`** was not spiked: the parent's first step tells nothing.
+
+**A child's model where the child is not there.** An `Option` for a child alone that may not be there, which reads
+well: `pages` draws the page on top with `Opt.match(children.About(), …)`, and reads no state for it. For a child by
+id, an `Option` made `list` filter a list whose every id is there, so the spike took the model, and a
+`CompositionDefect` for an id that the state does not list, as today.
+
+**What it costs**, measured with `spike/bench.ts`, in microseconds, for one call. "Stored" is `compose.ts`, with `get`
+and `set` over an array, as `examples/list` has them.
+
+| Children by id, kept and stored                       | 10 kept | stored | 1000 kept | stored | 10000 kept | stored |
+| ----------------------------------------------------- | ------- | ------ | --------- | ------ | ---------- | ------ |
+| A step of the parent's own, the ids as they were      | 1.6     | 0.1    | 171       | 0.1    | 2152       | 0.1    |
+| A step of the parent's own that adds a child          | 1.9     | 0.2    | 174       | 2.5    | 2223       | 18     |
+| A step of one child                                   | 0.5     | 0.5    | 0.8       | 6.1    | 0.8        | 54     |
+| A step of one child, then its subscriptions and model | 4.0     | 5.0    | 242       | 1276   | 2643       | 94202  |
+
+The last row of "stored" is quadratic by the example's own `get`, which looks each id up in the array.
+
+- A step of a child does not reconcile: the parent's own state is the same object.
+- A step of the parent's own reconciles every child, also when the ids did not change. With a shortcut by the
+  identity of what `ids` returns, kept in the state, such a step costs 0.2 to 0.4 microseconds at every size
+  (`spike/bench-shortcut.ts`). A step that changes the ids stays linear.
+- `subscriptions` is linear in the children after every step, today too. So the reconciliation at most doubles what a
+  step of the parent's own costs in a run.
+
+**The types.** The five examples, the programs of the spike's tests and `inDialog` compile, and their types are
+inferred with no annotation but the `as const` of a `tell`. `inDialog` names `Kept<Dialog, KeptOf<…>>` in its
+signature. `child` is two overloads, so an error of a child's place is the one of the last overload. A child with
+flags and no place does not compile, nor does reading the output of a child that declares none. The inference matrix
+was not run: this is not the check that step 16 asks for.
+
+**The premises.** None is new. The store rests on `Equal.equals` for the flags and the keys, as the library does today
+for ids and subscription keys. What `Equal.equals` compares by value was run, above, and not read in Effect's
+documentation: the step that writes the store reads it there first, or asks the owner for a premise.
+
+**What else changed.**
+
+- The cache of the lifted subscriptions is one `WeakMap` by the instance's object. `Kept`, `liftedAt` and the count of
+  the calls are gone.
+- An id listed twice is a defect in `update` and in `init`, where the state is reconciled, and no longer in
+  `subscriptions`.
+- A write into an input of the parent's is a step on its own state: the children are reconciled after it. A write
+  that changes a child's flags starts it again.
+- A step that changes nothing gives the very same state, and a step of one child leaves the instances of the others
+  the very same objects: the models of the others are kept, as today.
+
+### What it found, for `output`
+
+- **The form.** A program names `output` with its other types, `program<{ …; output: Output }>()`, and gives the
+  piece `output: (state) => Output`. `Program` has one more piece, there exactly when the type is named.
+- **Where a parent reads it.** In `update`, `external` and the handlers of `onEvent`, as a last parameter `children`,
+  which holds the outputs alone. And in `makeModel` and in its own `output`, as `children.Stopwatch.output(id)`,
+  beside the model `children.Stopwatch(id)`. An output is read as the model is: a value for a child that is always
+  there and for a listed id, an `Option` for a child alone that may not be there.
+- **When.** In `update`, the outputs are of the children as they were before the step. In a handler of `onEvent`, they
+  are of the children as the child's step left them.
+- **What the types refuse.** Reading the output of a child that declares none, and reading a child's model in
+  `update`. A parent's own output may read its children's.
+- **`list`.** "Stop all" is there only while a stopwatch runs, `update` rejects it where none does, and only the
+  stopwatches that run are told. The test that the model holds what `update` accepts passes with no exception for it.
+  The comment "the parent never reads a child's state to decide" is gone, with the control that did nothing.
+- **Its costs.** A parent's `update` has a second parameter again, which the store had taken away with the handles.
+  `children.Stopwatch` is a function with a property in `makeModel`. A parent's test puts a child in the state that
+  gives the output, with `stateOf`. The name was not weighed against others.
+
+### Against, after the run
+
+Each point of "Against, by the session itself" stands as written. The run adds three: the `as const` of a `tell`,
+which a declaration in two calls removes; the reconciliation of a step of the parent's own, which a shortcut removes
+where the ids are the same object; and the declarations, which print each child's program once more.
+
+## What the owner decides
+
+1. **The store**: taken, to be written anew from `main` as a step of its own, or refused, with an entry of
+   `docs/rejected.md`.
+2. **`output`**: the same. It can be taken with the store, or left for later: the store alone gives `update` no
+   second parameter, and adding one later changes no parent that reads nothing.
+3. If the store is taken, what the spike chose and the owner may choose otherwise:
+   - a `tell` for a child that an earlier `tell` of the same step dropped is dropped, and not a defect;
+   - the model of a child by id is the model, with a defect for an id not listed, and not an `Option`;
+   - a child without flags has `there` and `key`, or `key` alone;
+   - the children are declared in the call of `make`, with `as const` in a `tell`, or in a call before it;
+   - the shortcut of the reconciliation, which adds a field to the state;
+   - whether `andThen` and `forEach` fold a `tell`, or go;
+   - whether the state's type names the children's states alone, as a type that only prints;
+   - whether `init` may tell.
+4. Whether "Handlers of `update` by the case of the state" gets an entry of `docs/rejected.md`, as step 33 leaves to
+   the owner.
 
 ## What becomes of the steps
 

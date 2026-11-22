@@ -78,6 +78,12 @@ never merged, with what it ran written in the record. Two parts, decided apart:
 What the spike must find is listed in the record ("What the spike must find"), with what the session held against the
 form ("Against, by the session itself"). A premise that it would rest on is asked of the owner first (`AGENTS.md`).
 
+**The spike was run** on 22 November 2026: `91d03d2` on `spike/kept-children`, in the worktree
+`.claude/worktrees/spike-kept-children`, never to be merged. Both parts ran as proposed, and the probe no longer dies.
+What it ran and found is in the record ("The spike, run"). What is left of this step is the owner's: the record lists
+each decision ("What the owner decides"). Once they are taken, a session writes the steps or the entries that "Done
+when" asks for, below, and removes this step.
+
 Left for the owner, with this step: whether "Handlers of `update` by the case of the state", which step 32 and the
 record advise against, gets an entry of `docs/rejected.md`.
 
