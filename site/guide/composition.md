@@ -295,6 +295,8 @@ const view: View<Model, Message> = (model, dispatch) =>
 - **Use `forwardTo` for every child**, memoized or not. Then you do not have to remember which views are memoized. A
   lambda that wraps the message, `(message) => dispatch({ _tag: 'Clock', message })`, sends the same messages. But the
   lambda is a new function in every draw, so a view memoized on it is drawn every time.
+- **A parent's view draws its own controls around a child's view.** [`timer`](../../examples/timer/view.ts) draws a
+  "Remove" button of the parent beside each timer.
 - **A grandchild's dispatch is made from its parent's**: `forwardTo(forwardTo(dispatch, 'Home'), 'Products')`. A view
   usually writes it in two steps: each view takes the dispatch that its parent's view gave it.
 

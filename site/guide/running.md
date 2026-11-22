@@ -289,6 +289,17 @@ end.
 The end may begin on the stack of a dispatch whose step met the defect, once that dispatch has applied its messages
 and told the listeners, and never inside a step. This is described, and not promised.
 
+**Plain code stops a run, and waits for it,** with Effect's `Fiber.interrupt`, which ends once the run has ended: its
+commands and its subscriptions are stopped, and what they acquired is released.
+
+```ts
+const fiber = Effect.runFork(run)
+const stop = (): Promise<void> => {
+  stopDrawing()
+  return Effect.runPromise(Fiber.interrupt(fiber))
+}
+```
+
 ### The defects in the cause
 
 - A defect met while the run ends joins the cause. Every defect is in it, each with where it happened.

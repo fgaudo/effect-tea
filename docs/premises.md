@@ -339,6 +339,14 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   JSDoc says what the runtime keeps of a fiber, or a closed scope of its finalizers. Agreed to by the owner on 21
   November 2026. Its test: "of a thousand fibers ended, a few collections leave a few at most, with what they acquired
   and ended with", on Bun and on Node, which fails with a fiber that the runtime keeps as it is made.
+- **`Stream.callback` closes the scope it gives its callback once the stream ends, however it ends**: by the end of
+  its queue, or interrupted, as a subscription is when its key goes away or the run ends. So a release that the
+  callback acquires with `Effect.acquireRelease` stops the source: the guide's "Subscriptions", "Precisely", "A source
+  of callbacks as a subscription", and the streams of `examples/volume/main.ts` and `examples/bounce/main.ts`, rest on
+  it. The JSDoc of `Stream.callback` shows the `Scope` only in its type, and says nothing of when it closes. Agreed to
+  by the owner on 22 November 2026. Its tests: "Stream.callback closes the scope it gives its callback once the stream
+  ends, however it ends", by the end of its queue and interrupted, which fail with the release added to a scope of the
+  test's own in place of the callback's.
 - **snabbdom reuses an `<input>` with no key in the same place**, which is how a controlled element drawn by the
   bridge to snabbdom (`bridges/snabbdom.ts`), which needs no key, stays the same element, with its focus, caret and
   selection, while the program changes its value: the shared tests of the lid, the steps and the lock

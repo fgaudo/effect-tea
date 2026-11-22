@@ -42,7 +42,11 @@ reports is what the guide leaves to the examples.
 1. Ask the author whether the reader is a subagent, unless the author has just asked for one.
 2. Choose the pages the check is for, or all of the guide and the tutorial, and the mode: closed for pages of the
    guide, package where the tutorial or the skill is among them, unless the author says otherwise.
-3. Choose a requirement that needs every page the check is for. In a check of the package no example may hold it:
+3. Choose a requirement that needs every page the check is for. It needs a page only where no simpler design meets
+   it: the acceptance tests pass through the page and the world, so they cannot impose a design, and a reader of the
+   package rightly takes the smallest one, as the reader of the loading dock kept its trucks in the parent's state.
+   A design that the guide allows but does not require, as children by id, is checked by a closed check, whose brief
+   names its pages. In a check of the package no example may hold it:
    what `bounce`, `counter`, `form`, `list`, `pages`, `stocktake`, `timer` and `volume` do is taken, since a reader
    would copy them. In either mode, so is every requirement of an earlier check, listed here. An open check read the
    repository's guide and all its examples, as a check of the package now reads them in the package.

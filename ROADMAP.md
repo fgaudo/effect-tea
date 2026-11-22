@@ -28,9 +28,8 @@ number unused.
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. what is wrong in what is released: step 36, a reader's check of the guide written for the store of step 34 and
-   the `output` of step 35, which the owner put first though they break the API, since the other decisions that
-   break it are weighed against what they leave, and step 27, which looks for more of its kind;
+1. what is wrong in what is released: step 27, which looks for more of the kind that step 36, a reader's check of the
+   guide written for the store of step 34 and the `output` of step 35, found and fixed;
 2. what is small and waits for nothing: step 26;
 3. the other decisions that break the API, steps 29, 30 and 9, so that one release takes what they break, while the
    library has few users, and step 10 with them, which waits for the owner alone;
@@ -49,65 +48,11 @@ None is open.
 
 ## Next, in order
 
-### 36. A reader's check of the guide, for the store and `output`
-
-**Model and effort.** Opus 5.5, `high`: the reader's report is weighed against the guide as a specification.
-
-**Depends on** nothing: the pages for steps 34 and 35 are written. It comes before the release that has them.
-
-**Why.** The guide, the tutorial, the README, the skill and the doc comments were written again for the children that
-the library keeps and for `output`, in one pass, and checked by `bun run comments`, the site's build, the typecheck and
-the tests. No reader has built a program from them yet, and the owner asked for one before the release.
-
-**How.** As [`guide-reader`](.agents/skills/guide-reader/SKILL.md) says, asking the owner first whether the reader is a
-subagent, and the mode. The pages most changed are "Composition", "Events and external messages" (its new "Outputs"),
-"Structuring a program", "Guarantees", "Inputs", "Testing" ("The model of any state", for `stateOf` and the number of
-an instance), and the tutorial's third and fourth steps. A requirement that needs them: children by id with an output
-that the parent reads, a child that comes back and starts again, and a value typed into a row that a child's own rules
-use. What was decided for the pages, and the code does not say:
-
-- **Who holds a value that the user writes.** The owner took, on 22 November 2026, the rule that a session advised: it
-  belongs to the program whose rules use it, the one that says what the text means, changes it or locks it. The
-  parent's where the parent changes or locks it (`stocktake`), and the child's where only the child's rules use it: the
-  parent then reads what the child concludes from it, through `output`, not the text. "Structuring a program" states
-  it, and the note under the three entries of 16 November 2026 in `docs/rejected.md` says what it narrows. Nothing
-  checks it: an `output` that gives the text compiles. No example yet shows a child's input read through `output`.
-- **A message of a view names no instance**, so a click on a view drawn for a row removed reaches a new row listed at
-  the same id. "Composition", "Ids that come back", says so, and the tutorial keeps its ids unique for it.
-- **Descriptions, not promises**: the order of the starts and the numbers of the instances, when the children are
-  compared (after a step of the parent's own, or a write, that changes its own state), and the order inside a step in
-  which a handler of `onEvent` reads the outputs.
-
-**The check ran on 22 November 2026**, with a loading dock console as the requirement, in both modes, each reader an
-Opus 5.5 at `medium`, with acceptance tests: 30 of 30 passed for each reader at the first run. The reader of the closed
-check made the trucks children by id, the cargo an input of the child, and read the child's conclusion through
-`output`, as "Structuring a program" says. The reader of the package kept the trucks in the parent's state, by "Inputs
-by id" and `stocktake`, and never opened "Composition": a correct program, which checked nothing of the store or of
-`output`. Fixed in the same commit: the `@param key` of `Rehearsal.hear`, which still named a child's key without its
-instance; the number of a program's pieces in the guide's index; where `input` and `inputById` come from ("Inputs",
-"Rules"); which modules of snabbdom the bridge loads, so that a node's `class` and `attrs` are not drawn ("Writing a
-bridge", the doc comment of `drawInto` and the skill, as a description); and how a test under a renderer waits for what
-a subscription or a command brings ("Testing", "A program run under its renderer"). Left for the owner to weigh:
-
-- **A subscription over a source of callbacks that returns what stops it**, the usual shape of a world written by
-  others. Both readers found it only in Effect's JSDoc: `Stream.callback`, with the source's stop as the release of an
-  `Effect.acquireRelease`, then `Stream.toChannel`. A snippet under "Subscriptions", "Precisely", beside the `Stream`
-  one, or in an example's code.
-- **Stopping a run from plain code, and waiting for it**: `Effect.runPromise(Fiber.interrupt(fiber))`. "Running" says
-  only that the run ends by interrupting its fiber.
-- **A control of the parent drawn inside a child's element**: the closed reader wrapped the child's view in the
-  parent's own element, with the parent's button beside it, by a guess. "Composition", "Children's views" shows a
-  child's view drawn whole.
-- **Whether the skill should lead to "Composition" for rows with rules of their own**: the reader of the package
-  followed "keep a value that an element holds" to "Inputs", and from there to `stocktake`.
-
-**Done when** the owner has weighed these four, and each one taken is fixed as `guide-reader` says.
-
 ### 27. What the guide says of each function a program gives the library
 
 **Model and effort.** Opus 5.5, `high`: a review, of the guide against the API.
 
-**Depends on** step 36: the table is of the guide as that step leaves it. What a `set` may do is in the guide,
+**Depends on** nothing: the table is of the guide as step 36 left it. What a `set` may do is in the guide,
 "Composition", "Where a child lives": it changes its place and nothing else, and "the library need not call `set`"
 where nothing is stored, which promises nothing of when it is called. Whether that is described is this step's to
 weigh. The store (step 34) removes a child's `get`, `set`, `at` and `subscribed`: the table has no row of them, and
@@ -297,7 +242,7 @@ lacks. To find:
 
 **Model and effort.** Fable 5.2, `high`: each entry is a design weighed again.
 
-**Depends on** steps 34 to 36, 29 and 30, whose decisions it is weighed with: each parked entry is taken or kept
+**Depends on** steps 29 and 30, whose decisions it is weighed with: each parked entry is taken or kept
 against what they change. Steps 2 to 4, which took the changes that the review of the architecture found, are done.
 
 **Why.** A user who adopts the library asks that its API stays, and a change that breaks it costs less the fewer users
@@ -626,6 +571,10 @@ otherwise.
   (`tools/bench/subscriptions.ts`) measures a parent's subscriptions only, and `tools/bench/writes.ts`, run by hand,
   what a write into an input and a dispatch with its model read cost; neither runs in the CI. To be designed:
   what is measured, and against what it fails, since a CI machine's times vary.
+- **Ask Effect to document when `Stream.callback` closes the scope it gives its callback**, in general: once the
+  stream ends, by the end of its queue or interrupted. The premise "`Stream.callback` closes the scope it gives its
+  callback once the stream ends, however it ends" (`docs/premises.md`) rests on what its JSDoc does not say, and leaves
+  the list once Effect documents it. The owner is asked before the issue is opened.
 - **A devtools bridge over `onApplied`** (e.g. Redux DevTools), with time travel through `init: { state }` and
   replay through `applyAll`.
 - **An example of routing**: flags from the URL, `popstate` as a subscription, navigation as a command.
@@ -671,7 +620,7 @@ otherwise.
   ([`kept-children.md`](docs/records/kept-children.md)), and not tried: it is tried first on a copy of an example that
   is not kept, as `stocktake`, for what it costs with the types of a `Step`. Then the owner is asked: it adds to a
   rule of the guide, and an example never brings the rule that allows it (`AGENTS.md`). It is weighed against the page
-  as step 36 leaves it: with `output` (step 35), a parent reads a value that its child declares, so "a part that the
+  as step 36 left it: with `output` (step 35), a parent reads a value that its child declares, so "a part that the
   parent reads is no child" is written again there. Opus 5.5, `high`: a page of the guide is a specification.
 
 ## Low priority

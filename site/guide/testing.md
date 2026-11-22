@@ -152,7 +152,8 @@ Then the test does these steps:
    subscription or the answer of a command comes later, from a fiber of the run, after more than a microtask. So, for
    what they bring, the test looks at the page again after each turn of the event loop (`setTimeout(resolve, 0)`),
    with a bound that only a failing test reaches.
-3. At the end, it stops the bridge, and interrupts the run's fiber.
+3. At the end, it stops the bridge, interrupts the run's fiber, and waits for it (see
+   [how the run ends](./running.md#how-the-run-ends)).
 
 The tests of the package's bridges go further (see [their tests](./writing-a-bridge.md#their-tests)). In those tests,
 the run's fibers go on when the test says.

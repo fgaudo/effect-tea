@@ -112,6 +112,10 @@ program of its own. Split a program this way:
 - **Not every part is a child.** These parts are not children:
   - a part whose controls the parent would enable from the parent's own state;
   - a part whose state the parent would copy down and back up.
+- **A row that is a child is an instance of its own.** When its id goes away and comes back, the row starts again from
+  its `init`, the old row's answers are rejected, and its subscriptions do not run on for the new row (see
+  [children by id](./composition.md#children-by-id), "Ids that come back"). A row kept in the parent's state has no
+  instance: the parent's `update` tells an old row from a new one by what its state keeps.
 
 - **A value that the user writes belongs to the program whose rules use it**: the program that says what the text
   means, changes it, or locks it.

@@ -136,3 +136,28 @@ const dragging: Subscription<Message, Pointer> = Channel.unwrap(
 
 The whole program is in [`volume`](../../examples/volume/volume.ts). The scanner feed of
 [`stocktake`](../../examples/stocktake/stocktake.ts) ends the same way, with a message that says the scanner is gone.
+
+**A source of callbacks as a subscription.** A source that calls back with each value, and returns what stops it,
+becomes a `Stream` with `Stream.callback`. Give the source's stop as the release of an `Effect.acquireRelease`: it runs
+when the stream ends, by the end of the source or because its key went away or the run ended. `Queue.endUnsafe` ends
+the stream, and `Channel.mapDone` says what that end means:
+
+```ts
+const scans: Subscription<Message, Scanner> = Channel.unwrap(
+  Effect.map(Effect.service(Scanner), (scanner) =>
+    Stream.callback<string>((queue) =>
+      Effect.acquireRelease(
+        Effect.sync(() => scanner.listen((code) => Queue.offerUnsafe(queue, code), () => Queue.endUnsafe(queue))),
+        (stop) => Effect.sync(stop)
+      )
+    ).pipe(
+      Stream.toChannel,
+      Channel.flattenArray,
+      Channel.map((code) => Message.Scanned({ code })),
+      Channel.mapDone(() => Message.ScannerGone())
+    ))
+)
+```
+
+The `main.ts` of [`volume`](../../examples/volume/main.ts) and of [`bounce`](../../examples/bounce/main.ts) make their
+streams this way.

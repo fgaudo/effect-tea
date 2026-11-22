@@ -25,6 +25,7 @@ import * as Opt from "effect/Option"
 import * as Pull from "effect/Pull"
 import * as Queue from "effect/Queue"
 import * as Scope from "effect/Scope"
+import * as Stream from "effect/Stream"
 import * as TestClock from "effect/testing/TestClock"
 import * as Tracer from "effect/Tracer"
 import { collectGarbage } from "./gc.test_helper.ts"
@@ -952,5 +953,44 @@ describe("Scope.close dies with every defect its finalizers die of, none merged 
       })
     )
     expect(described(exit)).toEqual([["Die", closing()], ["Die", closing()]])
+  })
+})
+
+describe("Stream.callback closes the scope it gives its callback once the stream ends, however it ends", () => {
+  // A source of callbacks as "Subscriptions" shows it, run as a channel: the log says when it listens and stops.
+  const source = (log: Array<string>, listened: Deferred.Deferred<() => void>) =>
+    Stream.callback<number>((queue) =>
+      Effect.acquireRelease(
+        Effect.gen(function*() {
+          log.push("listen")
+          yield* Deferred.succeed(listened, () => Queue.endUnsafe(queue))
+          return () => log.push("stop")
+        }),
+        (stop) => Effect.sync(stop)
+      )
+    ).pipe(Stream.toChannel, Channel.flattenArray, Channel.mapDone(() => "ended"))
+
+  test("by the end of its queue", async () => {
+    const log: Array<string> = []
+    const done = await Effect.runPromise(Effect.gen(function*() {
+      const listened = yield* Deferred.make<() => void>()
+      const fiber = yield* Effect.forkChild(Channel.runDrain(source(log, listened)))
+      const end = yield* Deferred.await(listened)
+      end()
+      return yield* Fiber.join(fiber)
+    }))
+    expect(done).toBe("ended")
+    expect(log).toEqual(["listen", "stop"])
+  })
+
+  test("interrupted", async () => {
+    const log: Array<string> = []
+    await Effect.runPromise(Effect.gen(function*() {
+      const listened = yield* Deferred.make<() => void>()
+      const fiber = yield* Effect.forkChild(Channel.runDrain(source(log, listened)))
+      yield* Deferred.await(listened)
+      yield* Fiber.interrupt(fiber)
+    }))
+    expect(log).toEqual(["listen", "stop"])
   })
 })
