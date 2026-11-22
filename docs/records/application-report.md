@@ -215,6 +215,16 @@ code and the guide. Nothing was written of the guide or of the examples: steps 2
 - **Asked last: whether a `set` is the last such hole.** It is not known to be. The rules that nothing checks are
   listed in "What is left to you", and a `set` was not among them until an application asked. Step 27 is the reading
   that looks for the others, a function of the user's at a time.
+- **The owner's rule for a hole.** Only a misuse that leaves the library's behaviour not defined needs a refusal. It
+  is refused by construction; where that cannot be, by a defect as the program is made; and a rule that nothing checks
+  is the last resort. Of the rules that "What is left to you" lists, the owner said:
+  - **Axioms**: that `update`, `external`, `makeModel` and `subscriptions` are pure, that a state is never mutated,
+    and that a model holds no function. The library is defined on them, and nothing is looked for to refuse them.
+  - **No hole**: a view that sends what its model does not hold. The behaviour stays defined, and the user is only
+    more exposed to a bug of their own.
+  - **Accepted**: `start` apart from `run`, a pure part fitted to a place that is not pure.
+  - **To explore**: a subscription made from its key alone, as an execution is made from a command (step 30), and a
+    child's state that its parent cannot read (step 31).
 
 ## Found beside the report
 

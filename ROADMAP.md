@@ -12,12 +12,12 @@ for on 20 November 2026 and asked to be written here in the order it advises. St
 4 and 6, and steps 17 to 21 its part 5, as the owner took it on 21 November 2026
 ([`one-engine.md`](docs/records/one-engine.md)). Step 16 comes from the owner's question, on 21 November
 2026, of why the findings api-1, api-2 and api-4 of [`library-review.md`](docs/records/library-review.md) passed the
-inference matrix and the tests. Steps 22 to 29 come from
+inference matrix and the tests. Steps 22 to 31 come from
 [`application-report.md`](docs/records/application-report.md), a report of an application's upgrade to 0.8.0 that the
 owner asked to weigh on 22 November 2026. They come first: each is small, none waits for the steps of the engine, and
 step 25 changes a type of `src/testing/rehearse.ts`, which step 19 writes anew. From the same record, "Why no check
 found them", come step 27, point 5 of step 16, point 5 of step 26, and two items of "Any time"; and from "What the
-owner decided", steps 28 and 29. A step done leaves its number unused.
+owner decided", steps 28 to 31. A step done leaves its number unused.
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
 
@@ -214,41 +214,42 @@ empty. An empty cell that the code and the tests already keep is written in the 
 `src/` and its tests first, as the last section of [`guide-reader`](.agents/skills/guide-reader/SKILL.md) says, with
 its test first where none holds it. One that would promise something new goes under "Waiting for the owner".
 
-A last column says what refuses a misuse of the function: the types, the shape of the API (as `onApplied`, which is
-given no dispatch), a defect, a testing tool, or nothing. The owner's order of preference, of 22 November 2026: a
-misuse is refused by construction; where that cannot be, by a defect as the program is made; a rule that nothing
-checks is the last resort. So for each row that says a testing tool or nothing, the record says whether a construction
-is conceivable, then whether a defect in `make` is, and what each would cost. Two limits are said where they apply. A
+Two last columns are of a misuse of the function. One says what a misuse leaves: the library's behaviour defined, where
+the user is only more exposed to a bug of their own, or not defined. The other says what refuses the misuse: the
+types, the shape of the API (as `onApplied`, which is given no dispatch), a defect, a testing tool, or nothing. The
+owner's rule, of 22 November 2026: only a misuse that leaves the behaviour not defined needs a refusal; it is refused
+by construction; where that cannot be, by a defect as the program is made; and a rule that nothing checks is the last
+resort. So for each such row that says a testing tool or nothing, the record says whether a construction is
+conceivable, then whether a defect in `make` is, and what each would cost. Two limits are said where they apply. A
 defect in `make` sees the config and at most the first state, so it cannot hold a rule of every state, as the laws of
 a place. And the invariants stand: no check at run time of the model against `update` (`AGENTS.md`). A candidate is
 listed under "Waiting for the owner", not designed: each is a change of the API, read against `docs/rejected.md`
 first, and designed in a step of its own.
 
-Leads of the session that closed step 23, reasoned and not run, each to be checked here:
+Leads of the session that closed step 23, reasoned and not run, with what the owner said of each the same day:
 
-- **Rules of the same kind as a `set`'s, which no sentence was found for**: a `get` that is not pure, or that does not
+- **To be checked here: rules of the same kind as a `set`'s, which no sentence was found for**: a `get` that is not pure, or that does not
   read what its `set` stored; an `at` of an id that gives another place for the same id; a `subscribed` that gives a
   state that is not the child's ("Composition" names only an id listed twice); an optic made by hand with
   `Optic.makeLens` or `Optic.makeOptional`, which reaches `at` with the freedom of a `set`; an `Equal` written wrong
   for a value of the state or for an id, which the skip of an equal write and the cache of `forwardTo` rest on. Step
   29 weighs a check for the first four.
-- **"Whatever a subscription depends on is in its key" may hold by construction**: `subscriptions` would give the
-  keys alone, as data, and a function of the program would make a subscription from its key, as `runCommand` makes an
-  execution from a command. A subscription could then use nothing of the state that its key lacks. `examples/bounce`
-  shows the rule left to the user: its subscription is made from `state.dt` under the key `"steps"`, and a comment
-  says why `dt` cannot change. No entry of `docs/rejected.md` was found for it: to be looked for again, in the
-  records too, before it is listed.
-- **"A parent never reads a child's state to decide" may hold by the types**, with a child's state that its parent
-  cannot read. Weaker: a test of the parent builds that state, and nothing was read for what it would cost.
-- **Not by construction, as far as was reasoned**: that a function is pure, and that it never interrupts its fiber,
-  since TypeScript has no type for either; that a state is never mutated, since a deep `readonly` of the library's
-  would refuse Effect's own types and print in every hover, and a freeze at run time would rest on whether Effect
-  writes into its own objects, which was not read; that a model holds no function, since the types cannot tell a
-  method of a `Data` class from a field that is a function. A testing tool could call a pure function twice and
-  compare.
-- **Weighed already, and refused**: a view that can send only what its model holds (`docs/rejected.md`, "Offers as
-  tokens, checked against `update`", "An entry of each input in the model, which a view writes through"). And `start`
-  apart from `run` is meant: a server draws the first model of a program that never runs.
+- **Axioms, by the owner**: that `update`, `external`, `makeModel` and `subscriptions` are pure, that a state is never
+  mutated, and that a model holds no function. The library is defined on them, and no construction nor check is
+  looked for: their rows say so, and they stay in "What is left to you". Reasoned, with them: TypeScript has no type
+  for a function that is pure, a deep `readonly` of the library's would refuse Effect's own types, and the types
+  cannot tell a method of a `Data` class from a field that is a function.
+- **No hole, by the owner: a view that sends what its model does not hold.** The library's behaviour stays defined:
+  what arrives is a message, which `update` judges, or a write, stored where its place is there. The user is more
+  exposed to a bug of their own, and nothing is to be refused. Both forms that would refuse it are in
+  `docs/rejected.md` ("Offers as tokens, checked against `update`", "An entry of each input in the model, which a view
+  writes through").
+- **Accepted, by the owner: `start` apart from `run`.** A pure part is fitted to a place that is not pure: a server
+  draws the first model of a program that never runs.
+- **To explore, by the owner**: a subscription made from its key alone (step 30), and a child's state that its parent
+  cannot read (step 31).
+- **Not spoken of**: that a function of the program never interrupts the fiber it runs in. No type says it, as far as
+  was reasoned.
 
 **Done when** the table is in a record, each empty cell is written or listed, and each row whose misuse nothing
 refuses is in "What is left to you" or is a candidate under "Waiting for the owner". The owner then weighs whether a
@@ -295,6 +296,63 @@ November 2026 for what can be correct by construction, and took the two parts be
 **Done when** the record has what the spike ran, the owner has decided each part, and what was taken is a step here,
 or an entry of `docs/rejected.md`. A part taken moves the rule of step 24 from "What is left to you" to what a test
 checks, in the guide and in the skill.
+
+### 30. A subscription made from its key alone
+
+**Model and effort.** Fable 5.2, `high`: a design with a spike, of a change that breaks the API and reaches what runs
+a subscription ([`change-api`](.agents/skills/change-api/SKILL.md),
+[`change-engine`](.agents/skills/change-engine/SKILL.md)).
+
+**Depends on** no other step, for the spike. What the owner takes is written as a step of its own, and placed against
+steps 18 and 19, which write anew what starts and stops a subscription.
+
+**Why.** "Whatever a subscription depends on is in its key" is left to the user ("Guarantees", "What is left to
+you"): `subscriptions` gives each key with a subscription already made from the state, so a subscription may use what
+its key lacks. `examples/bounce` makes its subscription from `state.dt` under the key `"steps"`, and a comment says
+why `dt` cannot change. The owner prefers a misuse refused by construction (step 27), and took this lead for a spike
+on 22 November 2026.
+
+**How.** First `docs/rejected.md` and the records are read for whether it was weighed: the session that found the
+lead searched the titles of `docs/rejected.md` alone, and found nothing. Then a spike, on a branch that is never
+merged. `subscriptions` gives the keys alone, as data, and a function of the program makes a subscription from its
+key, as `runCommand` makes an execution from a command: a subscription can then use nothing of the state that its key
+lacks. To find:
+
+- what a key is then: it carries what its subscription needs, as a command does, and is still compared by `Equal`;
+- the name of the function, and what a program without subscriptions leaves out;
+- what a parent lifts of a child, whose keys would be wrapped under its place as its commands are;
+- what the testing tools read and run: `program.subscriptions(state)`, `hearNext`, and what `rehearse` starts;
+- the services a subscription asks for (`SubscriptionServicesOf`), and what the types infer (`bun run inference`);
+- whether the parked "What a key sends is not data" comes nearer, since a key would be data that a test can list;
+- `bounce`, `volume` and the timer written in the new form, and what each gains or loses;
+- whether it rests on any premise that `docs/premises.md` does not hold.
+
+**Done when** a record has what the spike ran, and the owner has decided: a step here, or an entry of
+`docs/rejected.md`.
+
+### 31. A child's state that its parent cannot read
+
+**Model and effort.** Fable 5.2, `high`: a design that the types must hold, weighed before a spike.
+
+**Depends on** no other step.
+
+**Why.** "A parent never reads a child's state to decide" is left to the user ("Structuring a program", and
+"Guarantees", "What is left to you"): a parent's state holds its child's state under a type that the parent can read.
+The owner asked on 22 November 2026 to explore whether the types can refuse it. The lead is weak: nothing was read
+for what it would cost.
+
+**How.** Reasoned first, against `docs/rejected.md` and the records, and spiked only if a form stands: a child's
+state under a type that its parent holds, passes to `get`, `set` and `subscribed`, and cannot read. To find:
+
+- how a parent's test builds that state, and how a property test draws it, as the examples' tests do;
+- what the child's own module reads, and what the library would export for the type;
+- what the type prints in a consumer's hover and declarations (`AGENTS.md`, the four conditions);
+- what a parent may still do by the guide: "a part that the parent reads" is no child, so the rule has no exception
+  to keep;
+- whether a cast is the one way past it, as for the other rules of the types.
+
+**Done when** a record has what was reasoned or run, and the owner has decided: a step here, or an entry of
+`docs/rejected.md`.
 
 ### 16. The types checked in every form a program is written
 
