@@ -42,6 +42,8 @@ In general, a view writes the value that the element holds, through the input's 
 - **What the user gives an input is no message of the program.** No `update` of the program sees it (see
   [why](#why-what-the-user-types-is-no-message)).
 - **The program declares where it goes**: `inputs: { Name: input({ at }) }` in `make`.
+  - `input` and `inputById` come from `program`, as `make` does:
+    `const { make, input } = program<{ state: State }>()`.
   - `at` is an optic to a plain value of the program's state, an `Optic` of Effect:
     `Optic.id<State>().key('name')`. In place of `at`, you can give the two functions that an optic is: `get` and
     `set`.

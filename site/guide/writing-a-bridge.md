@@ -192,6 +192,11 @@ snabbdom's props module sets the props a view gives, and never removes one. So a
 a prop it changes in every state: `disabled: false` where a button is enabled, as the view of
 [`form`](../../examples/form/view-snabbdom.ts) does. Without it, a button once disabled stays disabled.
 
+Give an element's id and classes in its selector, as `h('span.weight')`, and the rest as props, a style or
+listeners. The bridge to snabbdom loads snabbdom's props, style and event listeners modules, and no other: so it draws
+no `class`, `attrs` or `dataset` of a node, and nothing reports it. This is described, not promised: a later bridge may
+load more.
+
 [`counter`](../../examples/counter) and [`form`](../../examples/form) draw their programs with the bridge to snabbdom
 and with the bridge to React, one under the other. Both bridges draw the `App` of one program, which React draws with
 `Draw`. A bridge to React Native would be written the same way, but the repository has none. The sections above show

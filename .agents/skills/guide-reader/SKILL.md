@@ -67,6 +67,11 @@ reports is what the guide leaves to the examples.
      when invalid, in flight or paused, an event the parent counts, a pause the parent tells every order, a count in
      the page's title, and a run under snabbdom in a DOM (2026-11-21, package; 47 of 47 acceptance tests passed at the
      first run).
+   - a loading dock console: trucks docked by plate, as children by id, each with a scale feed that ends and is
+     listened to anew on a reconnect, a typed cargo that the truck's own rules check against its weight, read by the
+     parent through its output, a dispatch of every truck that may fail and is retried, and a truck that leaves and is
+     docked again as a new one, under snabbdom in a DOM (2026-11-22, package and closed; 30 of 30 acceptance tests
+     passed for each reader at the first run; the reader of the package kept the trucks in the parent's state).
 4. Make the project, from the repository's root, with the versions the repository is developed with:
 
    ```bash

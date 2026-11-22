@@ -148,7 +148,10 @@ Then the test does these steps:
    `root` with no parent, and may draw a second program into the same `root`, once it has stopped the first bridge.
 2. It acts on the page. Then it waits until the page shows what it expects, because a renderer may draw a new state
    later. The bridge to snabbdom draws in a microtask after each new state, a message of its view's included: so the
-   test awaits a microtask after each event it dispatches. React renders as React schedules it.
+   test awaits a microtask after each event it dispatches. React renders as React schedules it. A message of a
+   subscription or the answer of a command comes later, from a fiber of the run, after more than a microtask. So, for
+   what they bring, the test looks at the page again after each turn of the event loop (`setTimeout(resolve, 0)`),
+   with a bound that only a failing test reaches.
 3. At the end, it stops the bridge, and interrupts the run's fiber.
 
 The tests of the package's bridges go further (see [their tests](./writing-a-bridge.md#their-tests)). In those tests,

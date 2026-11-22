@@ -80,6 +80,8 @@ const giveBack = (controlled: Map<Element, Controlled>): void => {
  * - After each draw, an element drawn with a `value` or a `checked` in `props` is given it back where the element
  *   differs from it: what the user typed and the program rejected is taken back.
  * - snabbdom never removes a prop. So a view gives a prop it changes in every state: `disabled: false` too.
+ * - A view gives an id and classes in its selector, as `h('span.weight')`. Today it loads snabbdom's props, style
+ *   and event listeners modules, and no other: a node's `class`, `attrs` and `dataset` are not drawn.
  * - What a view or `makeModel` throws as it is drawn ends the run, the first draw's too: it draws nothing more, and
  *   the program's `run` dies of it, in `'render'`.
  *

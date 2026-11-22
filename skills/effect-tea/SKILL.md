@@ -32,7 +32,8 @@ versions. The paths below are relative to this file.
   `window` when it loads. So a test file that imports snabbdom before a DOM is registered must first load a file that
   sets `window` to `undefined`, as [`bridges/snabbdom-preload.ts`](../../bridges/snabbdom-preload.ts) does. This holds
   for a file that registers a DOM in `beforeAll` too: its imports run first. The preload's comment says how.
-  snabbdom never removes a prop: a view gives a prop it changes in every state, `disabled: false` too. The guide,
+  snabbdom never removes a prop: a view gives a prop it changes in every state, `disabled: false` too. Give an id and
+  classes in the selector: the bridge to snabbdom draws no `class`, `attrs` or `dataset` of a node today. The guide,
   "Writing a bridge", "The package's bridges". The
   examples import their own files with the `.ts` extension. If your `tsconfig.json` does not set
   `allowImportingTsExtensions`, write `.js` instead under `moduleResolution` `nodenext`, or remove the extension under

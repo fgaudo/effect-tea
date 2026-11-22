@@ -78,7 +78,30 @@ use. What was decided for the pages, and the code does not say:
   compared (after a step of the parent's own, or a write, that changes its own state), and the order inside a step in
   which a handler of `onEvent` reads the outputs.
 
-**Done when** the owner has weighed the reader's report, and each gap it found is fixed as `guide-reader` says.
+**The check ran on 22 November 2026**, with a loading dock console as the requirement, in both modes, each reader an
+Opus 5.5 at `medium`, with acceptance tests: 30 of 30 passed for each reader at the first run. The reader of the closed
+check made the trucks children by id, the cargo an input of the child, and read the child's conclusion through
+`output`, as "Structuring a program" says. The reader of the package kept the trucks in the parent's state, by "Inputs
+by id" and `stocktake`, and never opened "Composition": a correct program, which checked nothing of the store or of
+`output`. Fixed in the same commit: the `@param key` of `Rehearsal.hear`, which still named a child's key without its
+instance; the number of a program's pieces in the guide's index; where `input` and `inputById` come from ("Inputs",
+"Rules"); which modules of snabbdom the bridge loads, so that a node's `class` and `attrs` are not drawn ("Writing a
+bridge", the doc comment of `drawInto` and the skill, as a description); and how a test under a renderer waits for what
+a subscription or a command brings ("Testing", "A program run under its renderer"). Left for the owner to weigh:
+
+- **A subscription over a source of callbacks that returns what stops it**, the usual shape of a world written by
+  others. Both readers found it only in Effect's JSDoc: `Stream.callback`, with the source's stop as the release of an
+  `Effect.acquireRelease`, then `Stream.toChannel`. A snippet under "Subscriptions", "Precisely", beside the `Stream`
+  one, or in an example's code.
+- **Stopping a run from plain code, and waiting for it**: `Effect.runPromise(Fiber.interrupt(fiber))`. "Running" says
+  only that the run ends by interrupting its fiber.
+- **A control of the parent drawn inside a child's element**: the closed reader wrapped the child's view in the
+  parent's own element, with the parent's button beside it, by a guess. "Composition", "Children's views" shows a
+  child's view drawn whole.
+- **Whether the skill should lead to "Composition" for rows with rules of their own**: the reader of the package
+  followed "keep a value that an element holds" to "Inputs", and from there to `stocktake`.
+
+**Done when** the owner has weighed these four, and each one taken is fixed as `guide-reader` says.
 
 ### 27. What the guide says of each function a program gives the library
 
