@@ -117,6 +117,13 @@ Leads of the session that closed step 23, reasoned and not run, with what the ow
 - **Not spoken of**: that a function of the program never interrupts the fiber it runs in. No type says it, as far as
   was reasoned.
 
+A lead of the reader's check of step 36: the `@param key` of `Rehearsal.hear` still wrote a child's key without its
+instance, `['Clock', 'ticks']`, after step 34 had added the instance, and nothing failed on it: `bun run comments`
+checks the names of the sections a comment cites, not the forms it writes. A grep of the doc comments, the skill and
+the guide for a child's key written that way found no other. So the rows of what `hear`, `send` and `run` take, and of
+a child's message, command and key, check each form a doc comment writes against the guide's, and the record says
+whether a check could keep such forms true, as `bun run comments` keeps the names.
+
 **Done when** the table is in a record, each empty cell is written or listed, and each row whose misuse nothing
 refuses is in "What is left to you" or is a candidate under "Waiting for the owner". The owner then weighs whether a
 tool keeps the table, as `bun run comments` keeps the `guarantees`.
