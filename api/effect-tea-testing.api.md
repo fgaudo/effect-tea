@@ -160,7 +160,7 @@ type Origin = {
 type Primitive = string | number | bigint | boolean | symbol;
 
 // @public
-type Program<T extends ProgramTypes> = Shape<Field<T, "state">, Field<T, "model">, Field<T, "message">, Field<T, "command">, Field<T, "commandServices">, Field<T, "subscriptionServices">, Field<T, "event">, Field<T, "external">, Field<T, "flags">>;
+type Program<T extends ProgramTypes> = Shape<Field<T, "state">, Field<T, "model">, Field<T, "message">, Field<T, "command">, Field<T, "commandServices">, Field<T, "subscriptionServices">, Field<T, "event">, Field<T, "external">, Field<T, "flags">, Field<T, "output">>;
 
 // @public
 type ProgramTypes = Readonly<{
@@ -173,6 +173,7 @@ type ProgramTypes = Readonly<{
     event?: unknown;
     external?: unknown;
     flags?: unknown;
+    output?: unknown;
 }>;
 
 // @public
@@ -217,12 +218,14 @@ interface RunOptions<State, Message, Command = unknown> {
 }
 
 // @public (undocumented)
-type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> = ObjectState<State> & {
+type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never, Output = never> = ObjectState<State> & {
     readonly init: Init<State, Command, Flags>;
     readonly update: Update<State, Message, Command, Event>;
     readonly subscriptions: Subscriptions<State, Message, RS, unknown>;
     readonly makeModel: (state: State) => Model;
-} & Interpreter<Command, Message, RC> & ExternalHandler<External, State, Command, Event>;
+} & Interpreter<Command, Message, RC> & ExternalHandler<External, State, Command, Event> & ([Output] extends [never] ? object : {
+    readonly output: (state: State) => Output;
+});
 
 // @public
 export const simulate: <State, Message, Command, Event, R = never>(program: Readonly<{

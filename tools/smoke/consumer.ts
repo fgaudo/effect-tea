@@ -1,6 +1,8 @@
 // A consumer of the packed package, run with Node and typechecked by `smoke.ts` under several TypeScript versions
 // and module resolutions. It instantiates the types of `program` (a child, children by id, with a key, flags and
-// `listening`, events and external messages told in a step, inputs, a parent of parents, a function over programs), checks that what they reject does not compile, and that the declarations of what it exports can be emitted.
+// `listening`, events and external messages told in a step, an output its parent reads, inputs, a parent of parents,
+// a function over programs), checks that what they reject does not compile, and that the declarations of what it
+// exports can be emitted.
 import {
   andThen,
   type CommandServicesOf,
@@ -191,6 +193,44 @@ export const outer = outerOf.withChildren({ Relay: outerOf.child(relay) }).make(
   update: () => (state) => ({ state, tell: [{ _tag: "Relay", message: { _tag: "Reset" } }] }),
   onEvent: { Relay: () => (state) => ({ state: { heard: state.heard + 1 } }) },
   makeModel: (state, children) => ({ heard: state.heard, inner: children.Relay() })
+})
+
+// A child's output, which its parent reads in its steps and its model, and a parent's own output made of it.
+type Lamp = Readonly<{ on: boolean }>
+
+export const lamp = program<{ state: Lamp; model: boolean; message: "Pressed"; output: boolean }>().make({
+  init: { state: { on: false } },
+  update: () => (state) => ({ state: { on: !state.on } }),
+  output: (state) => state.on,
+  makeModel: (state) => state.on
+})
+
+const lighting = program<
+  { state: Readonly<{ ids: ReadonlyArray<number>; lit: number }>; message: ResetAll; output: number }
+>()
+
+export const lamps = lighting.withChildren({
+  Lamp: lighting.childById(lamp, { ids: (state) => state.ids }),
+  Main: lighting.child(counter)
+}).make({
+  init: { state: { ids: [1, 2], lit: 0 } },
+  update: (_, children) => (state) => ({
+    state: { ...state, lit: Arr.filter(state.ids, children.Lamp.output).length }
+  }),
+  onEvent: { Main: () => (state) => ({ state }) },
+  output: (state, children) => Arr.filter(state.ids, children.Lamp.output).length,
+  makeModel: (state, children) =>
+    Arr.map(state.ids, (id) => ({ model: children.Lamp(id), on: children.Lamp.output(id) }))
+})
+
+// A parent reads only the output of a child that declares one.
+lighting.withChildren({ Main: lighting.child(counter) }).make({
+  init: { state: { ids: [], lit: 0 } },
+  // @ts-expect-error
+  update: (_, children) => (state) => ({ state: { ...state, lit: children.Main.output() } }),
+  onEvent: { Main: () => (state) => ({ state }) },
+  output: (state) => state.lit,
+  makeModel: () => null
 })
 
 // A parent's own command answers with the parent's own messages, never with a child's: an external message is none.
@@ -505,6 +545,14 @@ const placedModel = app.makeModel(placed)
 assert(placedModel.main.count === 2 && placedModel.rows[1]?.model.count === 1, "stateOf puts the children in place")
 // @ts-expect-error
 stateOf(app, first, { Main: { count: "2" } })
+
+const lampsLit = stateOf(lamps, { ids: [1, 2], lit: 0 }, { Lamp: [[2, { on: true }]] })
+const read = lamps.update({ _tag: "ResetAll" })(lampsLit)
+assert(
+  read !== reject && read.state.own.lit === 1 && lamps.output(lampsLit) === 1 &&
+    lamps.makeModel(lampsLit)[1]?.on === true,
+  "a parent reads its children's outputs"
+)
 
 const relayed = applyAll(outer.update)([{ _tag: "ResetAll" }], outer.init.state)
 assert(relayed.state.own.heard === 0, "a parent of parents tells its child, which tells its own")

@@ -42,10 +42,12 @@ const kidPieces = {
   external: (_: KReset) => () => ({ state: { k: 0 } }),
   runCommand: () => Effect.as(Effect.service(KidDb), Opt.none()),
   subscriptions: () => HashMap.make(["kid", Channel.unwrap(Effect.map(Effect.service(KidFeed), (feed) => feed.ticks))]),
-  makeModel: (state: KidState) => state.k
+  makeModel: (state: KidState) => state.k,
+  output: (state: KidState) => state.k > 0
 }
 
-// The child: it has commands, events, an external message and services, so that each is lifted into its parent.
+// The child: it has commands, events, an external message, an output and services, so that each is lifted into its
+// parent, and its output read by it.
 export const kid = program<{
   state: KidState
   model: number
@@ -53,6 +55,7 @@ export const kid = program<{
   command: KidCommand
   event: KidEvent
   external: KReset
+  output: boolean
 }>().make({ init: { state: { k: 0 }, commands: [{ _tag: "KSave" }] }, ...kidPieces })
 
 // The same child, started from flags.
@@ -64,6 +67,7 @@ export const kidF = program<{
   event: KidEvent
   external: KReset
   flags: number
+  output: boolean
 }>().make({ init: (k) => ({ state: { k }, commands: [{ _tag: "KSave" }] }), ...kidPieces })
 
 export type SNone = Readonly<{ n: number }>

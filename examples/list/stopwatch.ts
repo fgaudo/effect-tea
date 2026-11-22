@@ -1,5 +1,5 @@
 // A stopwatch that ticks every second while it runs: its subscription exists only in the running state. It
-// asks its parent to be removed with an event, and its parent may halt it, in any state.
+// asks its parent to be removed with an event, its parent may halt it, in any state, and reads whether it runs.
 import { defect, program, reject, type Subscription, type Update } from "@fgaudo/effect-tea"
 import * as Channel from "effect/Channel"
 import * as Data from "effect/Data"
@@ -26,6 +26,9 @@ export type Event = Readonly<{ _tag: "RemoveRequested" }>
 
 /** What only its parent sends it: no view, command or subscription of its own can. */
 export type External = Readonly<{ _tag: "Halted" }>
+
+/** What its parent reads of it: a condition that holds while it runs, where an event would say only that it began. */
+export type Output = Readonly<{ running: boolean }>
 
 export const update: Update<State, Message, never, Event> = (message) => (state) => {
   switch (message._tag) {
@@ -70,10 +73,12 @@ export const stopwatch = program<{
   message: Message
   event: Event
   external: External
+  output: Output
 }>().make({
   init: { state: { seconds: 0, watch: Watch.Stopped() } },
   update,
   external,
+  output: (state) => ({ running: state.watch._tag === "Running" }),
   subscriptions: (state) => state.watch._tag === "Running" ? HashMap.make(["ticks", ticks]) : HashMap.empty(),
   makeModel: (state) => ({
     seconds: state.seconds,

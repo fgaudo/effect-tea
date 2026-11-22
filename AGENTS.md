@@ -171,9 +171,9 @@ this summary says less. What every change keeps, an example's and a document's t
 - **`reject` means one thing: the message does not apply in the state.** Never add a runtime check of the model
   against `update`, nor a way for a model to ask `update` what it accepts. A `defect` is only for a message the state
   and the engine together rule out: an example never dies on a message of its view, nor on an event raised for one.
-- **A parent and its children talk only through external messages and events**: a parent is not given its children's
-  states, and tells them what to do in the `tell` of its step. A break of what a parent declared is a
-  `CompositionDefect`, and the types enforce what it declares.
+- **A parent and its children talk only through external messages, events and outputs**: a parent is not given its
+  children's states, reads only the `output` a child declares, and tells them what to do in the `tell` of its step. A
+  break of what a parent declared is a `CompositionDefect`, and the types enforce what it declares.
 - **The library keeps a parent's children**: they are those that the parent's own state lists, reconciled after each
   step of the parent's own code, and an answer reaches the instance that asked for it, or is rejected. Never give a
   parent a way to write a child's state.

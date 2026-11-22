@@ -45,6 +45,8 @@ type ProgramTypes = Readonly<{
   external?: unknown
   /** What it starts from, given by whoever starts it. */
   flags?: unknown
+  /** What its parent reads of it: what its `output` returns. */
+  output?: unknown
 }>
 
 /**
@@ -62,8 +64,8 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  *
  * `init` says where the program starts. `update` says how each message changes the state. `makeModel` says what the
  * view draws. `subscriptions` says what it listens to in each state. `runCommand` is there when the program has
- * commands, and `external` when its parent may send it messages. A program is made with `program`. `make` returns this
- * type, and a function that takes a program names this type.
+ * commands, `external` when its parent may send it messages, and `output` when its parent may read a value of it. A
+ * program is made with `program`. `make` returns this type, and a function that takes a program names this type.
  *
  * - The view is not part of it: `start` gives the renderer an `App`, `{ model, subscribe, dispatch, die }`.
  * - Its state is an object. A program written as an object and typed `Program<…>` does not compile otherwise: with a
@@ -74,8 +76,8 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * - The run makes the model of a state with `makeModel(state)`. A test can call `makeModel` the same way, on any state.
  * - Every program has `subscriptions`. One that `make` makes without them listens to nothing. A test calls
  *   `subscriptions(state)` as the run does, on any state.
- * - `update`, `external`, `makeModel` and `subscriptions` are pure, and states are never mutated. The library reuses
- *   a child's model and subscriptions while the child's state is the same object.
+ * - `update`, `external`, `makeModel`, `subscriptions` and `output` are pure, and states are never mutated. The
+ *   library reuses a child's model and subscriptions while the child's state is the same object.
  *
  * @example
  * ```ts
@@ -106,7 +108,8 @@ export type Program<T extends ProgramTypes> = Shape<
   Field<T, "subscriptionServices">,
   Field<T, "event">,
   Field<T, "external">,
-  Field<T, "flags">
+  Field<T, "flags">,
+  Field<T, "output">
 >
 
 /**
@@ -185,7 +188,7 @@ type Primitive = string | number | bigint | boolean | symbol
 
 // A program's pieces, of the types given in a row. Kept to this module: the API and the rest of the library name a
 // program by `Program<{ … }>`, which gives these types by name.
-type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never> =
+type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never, Output = never> =
   & ObjectState<State>
   & {
     readonly init: Init<State, Command, Flags>
@@ -196,6 +199,7 @@ type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = neve
   & Interpreter<Command, Message, RC>
   // A parameter: a program may be given a type that names fewer external messages than it takes, never more.
   & ExternalHandler<External, State, Command, Event>
+  & ([Output] extends [never] ? object : { readonly output: (state: State) => Output })
 
 // Only what every program has: `Shape<any, …>` would demand a `runCommand` (`[any] extends [never]` is false).
 /**
@@ -316,6 +320,19 @@ export type FlagsOf<P> = P extends { readonly init: (flags: infer F) => any } ? 
  * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
  */
 export type ExternalOf<P> = P extends { readonly external: (message: infer E) => any } ? E : never
+/**
+ * What a program's parent reads of it: what its `output` returns, a value of its state.
+ *
+ * It is `never` for a program without `output`.
+ *
+ * @example
+ * ```ts
+ * type Output = OutputOf<typeof stopwatch>
+ * ```
+ *
+ * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
+ */
+export type OutputOf<P> = P extends { readonly output: (state: any) => infer O } ? O : never
 /**
  * The events a program's `update` and `external` return for its parent.
  *

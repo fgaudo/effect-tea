@@ -1,5 +1,6 @@
 // The stopwatches are children by id, which the library keeps. The parent's own state is their ids, in their order:
-// adding one, and halting them all, are the parent's own messages, and it says what a stopwatch's event means.
+// adding one, and halting those that run, are the parent's own messages, and it says what a stopwatch's event means.
+// Which ones run it reads from their output, and keeps no copy of it in its own state.
 import { type MessageOf, type ModelOf, program, reject, type StateOf } from "@fgaudo/effect-tea"
 import * as Arr from "effect/Array"
 import * as Opt from "effect/Option"
@@ -17,16 +18,17 @@ const { childById, withChildren } = program<{ state: Own; message: AddClicked | 
 // A stopwatch is there while its id is listed: one removed is not, and its late messages are rejected.
 export const list = withChildren({ Stopwatch: childById(Stopwatch.stopwatch, { ids: (state) => state.ids }) }).make({
   init: { state: { nextId: 1, ids: [] } },
-  update: (message) => (state) => {
+  update: (message, children) => (state) => {
     switch (message._tag) {
       case "AddClicked":
         return { state: { nextId: state.nextId + 1, ids: [...state.ids, state.nextId] } }
-      // Every stopwatch is told, running or not: the parent is not given a child's state to decide. Over an empty
-      // list, which the parent's own state tells, there is nothing to stop.
-      case "StopAllClicked":
-        return Arr.isReadonlyArrayEmpty(state.ids)
+      // Only the stopwatches that run are told. Where none runs, there is nothing to stop.
+      case "StopAllClicked": {
+        const running = Arr.filter(state.ids, (id) => children.Stopwatch.output(id).running)
+        return Arr.isReadonlyArrayEmpty(running)
           ? reject
-          : { state, tell: Arr.map(state.ids, (id) => ({ _tag: "Stopwatch", id, message: { _tag: "Halted" } })) }
+          : { state, tell: Arr.map(running, (id) => ({ _tag: "Stopwatch", id, message: { _tag: "Halted" } })) }
+      }
     }
   },
   onEvent: {
@@ -34,9 +36,9 @@ export const list = withChildren({ Stopwatch: childById(Stopwatch.stopwatch, { i
   },
   makeModel: (state, children) => ({
     add: { _tag: "AddClicked" } as AddClicked,
-    stopAll: Arr.isReadonlyArrayEmpty(state.ids)
-      ? Opt.none()
-      : Opt.some<StopAllClicked>({ _tag: "StopAllClicked" }),
+    stopAll: Arr.some(state.ids, (id) => children.Stopwatch.output(id).running)
+      ? Opt.some<StopAllClicked>({ _tag: "StopAllClicked" })
+      : Opt.none(),
     stopwatches: Arr.map(state.ids, (id) => ({ id, model: children.Stopwatch(id) }))
   })
 })

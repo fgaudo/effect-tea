@@ -270,6 +270,16 @@ const generate = (c: Case): string => {
         }) => ({ ...state, counts: { ...state.counts, [id]: count } }) }) },`
     )
   }
+  // What the parent's `update` reads of its child's output, and its type, for a step written apart: by id for children
+  // by id, an `Option` for a child alone that may not be there.
+  const read = c.comp === "childById"
+    ? "children.Kid.output(1)"
+    : sometimes(c)
+    ? "Opt.getOrElse(children.Kid.output(), () => false)"
+    : "children.Kid.output()"
+  const outputs = `Readonly<{ Kid: Readonly<{ output: ${
+    c.comp === "childById" ? "(id: number) => boolean" : sometimes(c) ? "() => Opt.Option<boolean>" : "() => boolean"
+  } }> }>`
   // The type of what the parent tells its child, for a step written apart.
   const told = `Readonly<{ _tag: 'Kid'; message: KReset }>${
     c.comp === "childById" ? " & Readonly<{ id: number }>" : ""
@@ -279,17 +289,21 @@ const generate = (c: Case): string => {
     const message = v === "wrongMessage" ? "Readonly<{ _tag: 'Other' }>" : "Own"
     const commandType = has("command") ? "Cmd" : "never"
     const eventType = has("event") ? "Ev" : "never"
+    // A parent's `update` reads its child's output last, in each form a step is written in.
+    const children = kidded ? (c.update === "contextual" ? ", children" : `, children: ${outputs}`) : ""
     const head = c.update === "annotated"
-      ? `(message: ${message}) => (state: ${state}) =>`
+      ? `(message: ${message}${children}) => (state: ${state}) =>`
       : c.update === "outside"
       ? kidded
-        ? `(message: ${message}) => (state: ${state}): Transition<${state}, ${commandType}, ${eventType}, ${told}> =>`
+        ? `(message: ${message}${children}) => (state: ${state}): `
+          + `Transition<${state}, ${commandType}, ${eventType}, ${told}> =>`
         : "(message) => (state) =>"
-      : `(message${has("message") && v !== "wrongMessage" ? "" : `: ${message}`}) => (state) =>`
+      : `(message${has("message") && v !== "wrongMessage" ? "" : `: ${message}`}${children}) => (state) =>`
     const tellVia = v === "tellWithoutChildren" ? `, tell: [${itemOf(c, "KReset")}]` : ""
+    const zero = kidded ? `${read} ? 0 : 1` : "0"
     const reset = kidded && c.tell !== "none"
-      ? `{ state: { ...state, n: 0 }, tell: ${tellsOf(c, v === "ownToChild" ? "KInc" : "KReset")} }`
-      : `{ state: { ...state, n: 0 }${tellVia} }`
+      ? `{ state: { ...state, n: ${zero} }, tell: ${tellsOf(c, v === "ownToChild" ? "KInc" : "KReset")} }`
+      : `{ state: { ...state, n: ${zero} }${tellVia} }`
     const commands = v === "wrongCommand"
       ? ", commands: [{ _tag: 'Load' }]"
       : has("command") || v === "unnamedCommand"

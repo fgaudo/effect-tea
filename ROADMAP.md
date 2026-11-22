@@ -28,9 +28,9 @@ number unused.
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. what is wrong in what is released: steps 35 and 36, after the store of step 34, which the owner put first though
-   they break the API, since the
-   other decisions that break it are weighed against what they leave, and step 27, which looks for more of its kind;
+1. what is wrong in what is released: step 36, the guide for the store of step 34 and the `output` of step 35, which
+   the owner put first though they break the API, since the other decisions that break it are weighed against what
+   they leave, and step 27, which looks for more of its kind;
 2. what is small and waits for nothing: step 26;
 3. the other decisions that break the API, steps 29, 30 and 9, so that one release takes what they break, while the
    library has few users, and step 10 with them, which waits for the owner alone;
@@ -49,67 +49,11 @@ None is open.
 
 ## Next, in order
 
-### 35. `output`: a value of a child that its parent reads
-
-**Model and effort.** Opus 5.5, `high` ([`change-api`](.agents/skills/change-api/SKILL.md),
-[`change-engine`](.agents/skills/change-engine/SKILL.md)).
-
-**Depends on** step 34, done: the store is in `src/compose.ts`.
-
-**Why.** A child can tell its parent a moment, by an event, and not a condition that holds over time: the parent
-would copy it into its own state at each change, which is derived data in a state. `examples/list` pays for it: it
-offers "Stop all" also when no stopwatch runs, a control that does nothing, against "Show less than `update` accepts,
-never more" ([`kept-children.md`](docs/records/kept-children.md), "A value that a parent reads"). And once the library
-keeps the children, what a parent is not told by an event it cannot know. The owner took `output` on 22 November
-2026, after the spike.
-
-**How.** As the spike ran it (the record, "What it found, for `output`"), written anew over the store of step 34. What
-the store left that this step needs:
-
-- A parent is `withChildren({ … }).make(config)`: the children are fixed by `withChildren`, so that nothing of a `tell`
-  is inferred in `make` (`MakeParent` in `compose.ts`, and `docs/rejected.md`, "A parent's children declared in the call
-  of `make`"). A parent's `update`, `external` and handlers of `onEvent` take no second parameter today: the `children`
-  of their outputs is added there, and a parent that reads nothing writes nothing new.
-- The services of a parent are joined by `Needs` in `compose.ts`: a plain union of the parent's own and its
-  children's gave `never` where one child needed `unknown`, with TypeScript 7.0.2, for a reason not found. A type that
-  carries the outputs into `MakeParent` is checked the same way: the test "services that a type does not say, any or
-  unknown, are needed as unknown, by the program and by its parent" of `compose.test.ts`.
-- `examples/list` offers "Stop all" while the list is not empty, and tells every stopwatch, as before: its comment says
-  why, and goes with the change below.
-- The inference matrix (`tools/inference/generate.ts`) writes parents in the form of the store, with a `tell` in each
-  of its forms: a read of an output in `update` is added to it, with the forms that the matrix has for a `tell`.
-
-- A program names `output` with its other types, `program<{ …; output: Output }>()`, and gives the piece
-  `output: (state) => Output`. `Program` has the piece exactly when the type is named.
-- A parent reads it in `update`, in `external` and in the handlers of `onEvent`, as a last parameter `children` that
-  holds the outputs alone; and in `makeModel` and in its own `output`, as `children.Stopwatch.output(id)`, beside the
-  model. It is read as the model is: a value for a child that is always there and for a listed id, an `Option` for a
-  child alone that may not be there.
-- In `update`, the outputs are of the children as they were before the step. In a handler of `onEvent`, they are of
-  the children as the child's step left them.
-- The types refuse the output of a child that declares none, and a child's model in `update`.
-
-To decide in the step:
-
-- **The name.** The spike did not weigh `output` against others. The step lists the names it weighed, and the owner
-  chooses.
-- **What reads the `output` of a program that has no parent.** A test reads `program.output(state)`, as it reads
-  `program.makeModel(state)`. Whether a testing tool or the handle of `start` gives it is weighed with the symmetry of
-  the tools (`change-api`), and asked of the owner if it adds an export.
-- **`examples/list`**: "Stop all" is there only while a stopwatch runs, `update` rejects it where none does, and only
-  the stopwatches that run are told. Its test that the model holds what `update` accepts passes with no exception for
-  it.
-- **`docs/rejected.md`**: the three entries of 16 November 2026 on what a parent reads stay rejected, by the note
-  under them. The step reads them, and the note, against the code it wrote.
-
-**Done when** the checks of `change-api` and `change-engine` pass, `list` is in that form, the tests of the types hold
-the two refusals, the checks have their mutations, and the changelog has the entry.
-
 ### 36. The guide, the tutorial and the skill, for the store and `output`
 
 **Model and effort.** Opus 5.5, `high`: a page of the guide is a specification.
 
-**Depends on** step 35, and on step 34, done. It comes before the release that has them.
+**Depends on** steps 34 and 35, done. It comes before the release that has them.
 
 **Why.** Steps 34 and 35 change what a parent writes, and the guide still describes the children of 0.8.0. The pages
 are written once, for both: the owner asked for `output` to be decided with the store so that nothing is written
@@ -162,6 +106,37 @@ What step 34 left that the pages need, and the code does not say:
   and the search has the property "an answer reaches the row that asked for it, or is rejected"
   (`src/interleaving.test.ts`): the item of "Guarantees" that this step adds names them through the mutations of its
   checks.
+
+What step 35 left that the pages need, and the code does not say:
+
+- **The name.** The owner chose `output` on 22 November 2026, over `exposed` and `status`, which the step weighed: a
+  common word that fits any value. Its cost, which the pages answer: it reads as the opposite of an input, and is not.
+  An input is a place that the view writes into; an output is what a parent reads of its child.
+- **Where a parent reads it, and when.** In a last parameter `children` of `update`, `external`, the handlers of
+  `onEvent` and its own `output`, which holds the outputs alone, and in `makeModel` as `children.Row.output(id)`, beside
+  the model, so that `children.Row` is there a function with a property. A program without children has no such
+  parameter. In `update` and `external`, the outputs are of the children as they were before the step; in a handler of
+  `onEvent`, of the children as they are when the handler is called, after the child's step and the handlers of its
+  earlier events (`outputsOf` in `src/compose.ts`, and the mutation "a handler of onEvent reads the outputs of before
+  the child's step"). Whether each is a promise or a description is the page's to decide, by `AGENTS.md`.
+- **An id that is not listed** is a `CompositionDefect`, "The output of "Row", which is not in this state", as for a
+  model: "What is a defect" says it of the model alone today.
+- **`output` is pure**, as `makeModel` is: the item of "Guarantees" "`update`, `external`, `makeModel` and
+  `subscriptions` are pure, and states are never mutated" names it, and the doc comment of `Program`, which already
+  lists `output`, names the new title (`bun run comments`).
+- **No tool reads the output of a program that has no parent**, nor the handle of `start`: a test reads
+  `program.output(state)`, as it reads `program.makeModel(state)`. Decided in step 35, with no export added: "Anatomy
+  of a program" and "Testing" say it.
+- **A child can give its parent the value of an input of its own through `output`.** "Structuring a program" says
+  which of the two a value is that the user writes and the parent reads (above), and the note under the three entries
+  of 16 November 2026 in `docs/rejected.md`, which says that a parent "reads no input of the child's", is read again
+  with the owner's answer.
+- **The doc comments of step 35 name sections of 0.8.0**: `OutputOf`, "Anatomy of a program", "Its type lists the types
+  it is made of"; the `output` of `make`, "Its types are named first, then it is made"; the outputs of a parent,
+  "Composition", "What the library derives". They name the new sections once these are written.
+- **`examples/list`** offers "Stop all" only while a stopwatch runs, and tells only those that run: the pages that link
+  it ("Composition", "Events and external messages") are read against it. Its row of the README's table is in the new
+  form; the row of `pages` still names optics and `subscribed`, which step 34 removed.
 
 **Done when** `bun run comments` and the site's build pass, every code block of the guide, of the tutorial, of the
 README and of the skill is in the new form, and the owner has weighed a reader's check

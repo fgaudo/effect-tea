@@ -56,14 +56,19 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   model that asked would make a wrong rejection a control that silently disappears. A `defect` is only for a
   message the state and the engine together rule out, never one that what was drawn rules out: an example
   never dies on a message of its view, nor on an event raised for one.
-- **A parent and its children talk only through external messages and events**, so that `reject` means the
+- **A parent and its children talk only through external messages, events and outputs**, so that `reject` means the
   same everywhere: a child answers an external message in its `external`, whose type returns a step, never a
   rejection, and a parent telling one to a child that is not there once its step is reconciled is a defect: a
   `CompositionDefect`, as every break of what a parent declared is (`defectAt` in `compose.ts`), so that reports group
   them and name the child. A parent is not given its children's states: its functions take its own state, and the
   library keeps the children beside it, in the state of the composed program
   ([`kept-children.md`](records/kept-children.md)). So nothing but a child's own `update` and `external` changes a
-  child's state while it lives, and a parent cannot read one to decide. What a parent tells is data of its step,
+  child's state while it lives, and a parent cannot read one to decide: it reads only what a child declares as its
+  `output`, a pure function of the child's state, which keeps no copy of it in the parent's. The outputs a parent's
+  function is given are read from the children of the moment it is called, which are replaced and never changed
+  (`outputsOf` in `compose.ts`): in `update` and `external`, of before the step; in a handler of `onEvent`, as the
+  child's step left them, which a mutation holds. The types give a parent the outputs alone outside `makeModel`, and
+  only of the children that declare one. What a parent tells is data of its step,
   `tell`, given to the children once the step's state is reconciled, in order, each to its end (`ownStep` in
   `compose.ts`); an item bound to an instance that an earlier item dropped or started again is told nothing, so that a
   parent can tell all its children where the answer of one removes another. The types enforce what a parent declares:

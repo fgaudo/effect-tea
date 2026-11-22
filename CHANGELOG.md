@@ -9,6 +9,8 @@ version, and everything else, features included, the patch version.
 
 - `stateOf(program, own, states)`, in `@fgaudo/effect-tea/testing`, makes a parent's whole state for a test, from its
   own state and the states of its children.
+- `output`: a program that names `output: Output` gives `output: (state) => Output`, which its parent reads as
+  `children.X.output()` in `makeModel` and in a last parameter of its `update`, `external` and `onEvent`; `OutputOf`.
 
 ### Changed
 

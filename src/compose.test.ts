@@ -27,6 +27,7 @@ import type {
   FlagsOf,
   MessageOf,
   ModelOf,
+  OutputOf,
   Program,
   StateOf,
   SubscriptionServicesOf
@@ -1136,6 +1137,155 @@ describe("what a parent tells its children", () => {
     expect(keysOf(rowList.subscriptions(listening)).map(String).sort()).toEqual(["Row,1,1,bumps", "Row,2,2,bumps"])
     expect(keysOf(rowList.subscriptions(applyAll(rowList.update)([{ _tag: "Quieted" }], listening).state)))
       .toEqual([])
+  })
+})
+
+describe("what a parent reads of its children", () => {
+  // A lamp that its button flips, telling its parent, and that its parent may flip: whether it is on is its output.
+  type Lamp = Readonly<{ on: boolean }>
+  type Flip = Readonly<{ _tag: "Flip" }>
+  const flip: Flip = { _tag: "Flip" }
+  const lamp = program<{ state: Lamp; message: "Pressed"; event: "Flipped"; external: Flip; output: boolean }>()
+    .make({
+      init: { state: { on: false } },
+      update: () => (state) => ({ state: { on: !state.on }, events: ["Flipped"] }),
+      external: () => (state) => ({ state: { on: !state.on } }),
+      output: (state) => state.on,
+      makeModel: (state) => (state.on ? "on" : "off")
+    })
+  // A room that writes down what it reads of its lamps, and counts those that are on.
+  type Room = Readonly<{ seen: ReadonlyArray<unknown>; lamps: ReadonlyArray<number>; desk: boolean }>
+  const Room = program<{ state: Room; message: "Looked" | "FlipCeiling"; external: "Looked"; output: number }>()
+  const room = Room.withChildren({
+    Ceiling: Room.child(lamp),
+    Desk: Room.child(lamp, { there: (state) => state.desk }),
+    Wall: Room.childById(lamp, { ids: (state) => state.lamps })
+  }).make({
+    init: { state: { seen: [], lamps: [1, 2], desk: false } },
+    update: (message, children) => (state) => {
+      const seen = [
+        children.Ceiling.output(),
+        children.Desk.output(),
+        ...state.lamps.map((id) => children.Wall.output(id))
+      ]
+      return message === "Looked"
+        ? { state: { ...state, seen } }
+        : { state: { ...state, seen }, tell: [{ _tag: "Ceiling", message: flip }] }
+    },
+    external: (_, children) => (state) => ({ state: { ...state, seen: [children.Ceiling.output()] } }),
+    onEvent: {
+      Ceiling: (_, children) => (state) => ({ state: { ...state, seen: [children.Ceiling.output()] } }),
+      Desk: () => (state) => ({ state }),
+      Wall: (id, _, children) => (state) => ({ state: { ...state, seen: [id, children.Wall.output(id)] } })
+    },
+    output: (state, children) =>
+      [children.Ceiling.output(), ...Opt.toArray(children.Desk.output()), ...state.lamps.map(children.Wall.output)]
+        .filter((on) => on).length,
+    makeModel: (state, children) => ({
+      ceiling: { model: children.Ceiling(), on: children.Ceiling.output() },
+      desk: children.Desk.output(),
+      wall: state.lamps.map((id) => children.Wall.output(id))
+    })
+  })
+  const lit = stateOf(room, { seen: [], lamps: [1, 2], desk: true }, {
+    Ceiling: { on: true },
+    Wall: [[2, { on: true }]]
+  })
+
+  test("update reads the outputs of the children as they were before its step", () => {
+    const { state } = accepted(room.update("FlipCeiling")(lit))
+    expect(state.own.seen).toEqual([true, Opt.some(false), false, true])
+    expect(stateAt(state.children.Ceiling)).toEqual({ on: false })
+    expect(accepted(room.external("Looked")(lit)).state.own.seen).toEqual([true])
+  })
+
+  test("a handler of onEvent reads the outputs as the child's step left them", () => {
+    const off = stateOf(room, { seen: [], lamps: [1, 2], desk: false })
+    expect(accepted(room.update({ _tag: "Ceiling", message: "Pressed" })(off)).state.own.seen).toEqual([true])
+    expect(accepted(room.update({ _tag: "Wall", id: 2, message: "Pressed" })(off)).state.own.seen).toEqual([2, true])
+  })
+
+  test("an output is read as a model is: a value, an Option for a child that may not be there, by id", () => {
+    expect(room.makeModel(lit)).toEqual({
+      ceiling: { model: "on", on: true },
+      desk: Opt.some(false),
+      wall: [false, true]
+    })
+    expect(room.makeModel(room.init.state).desk).toEqual(Opt.none())
+    expect(room.output(lit)).toBe(2)
+    expect(room.output(room.init.state)).toBe(0)
+  })
+
+  test("a parent's output is read by its own parent", () => {
+    const House = program<{ state: object }>()
+    const house = House.withChildren({ Room: House.child(room) }).make({
+      init: { state: {} },
+      makeModel: (_, children) => children.Room.output()
+    })
+    expect(house.makeModel(stateOf(house, {}, { Room: lit }))).toBe(2)
+  })
+
+  test("the output of a child at an id that is not there is a defect that names it and its id", () => {
+    const Peek = program<{ state: object; message: "Peeked" }>()
+    const peek = Peek.withChildren({ Wall: Peek.childById(lamp, { ids: () => [1] }) }).make({
+      init: { state: {} },
+      update: (_, children) => (state) => (children.Wall.output(9) ? { state } : reject),
+      onEvent: { Wall: () => (state) => ({ state }) },
+      makeModel: () => null
+    })
+    const error = thrown(() => peek.update("Peeked")(peek.init.state))
+    expect(error).toBeInstanceOf(CompositionDefect)
+    expect(error).toMatchObject({ child: "Wall", id: 9, message: "The output of \"Wall\", which is not in this state" })
+  })
+
+  test("a parent reads only the outputs its children declare, and no model, outside makeModel", () => {
+    const Reading = program<{ state: object; message: "Go" }>()
+    const reading = Reading.withChildren({ Lamp: Reading.child(lamp), Counter: Reading.child(counter) }).make({
+      init: { state: {} },
+      update: (_, children) => (state) => {
+        expectTypeOf(children.Lamp.output).toEqualTypeOf<() => boolean>()
+        // @ts-expect-error: the counter declares no output.
+        void children.Counter
+        // @ts-expect-error: a child's model is for the view, and is read in `makeModel` alone.
+        void children.Lamp()
+        return { state }
+      },
+      onEvent: { Lamp: () => (state) => ({ state }), Counter: () => (state) => ({ state }) },
+      makeModel: (_, children) => {
+        // @ts-expect-error: the counter declares no output.
+        void children.Counter.output
+        return children.Lamp.output()
+      }
+    })
+    expectTypeOf<ModelOf<typeof reading>>().toEqualTypeOf<boolean>()
+  })
+
+  test("a program has an output exactly when it names one, and one without children reads none", () => {
+    expectTypeOf<OutputOf<typeof lamp>>().toEqualTypeOf<boolean>()
+    expectTypeOf<OutputOf<typeof room>>().toEqualTypeOf<number>()
+    expectTypeOf<OutputOf<typeof counter>>().toEqualTypeOf<never>()
+    // @ts-expect-error: an output named is given.
+    program<{ state: Lamp; output: boolean }>().make({ init: { state: { on: false } }, makeModel: () => null })
+    program<{ state: Lamp }>().make({
+      init: { state: { on: false } },
+      // @ts-expect-error: an output not named is not given.
+      output: (state) => state.on,
+      makeModel: () => null
+    })
+    // @ts-expect-error: a program typed with an output has one.
+    const unread: Program<{ state: Lamp; model: null; message: never; output: boolean }> = {
+      init: { state: { on: false } },
+      update: () => () => reject,
+      subscriptions: () => HashMap.empty(),
+      makeModel: () => null
+    }
+    program<{ state: Lamp; message: "Pressed" }>().make({
+      init: { state: { on: false } },
+      // @ts-expect-error: a program without children has no outputs to read.
+      update: (_, children) => (state) => ({ state: children === undefined ? state : state }),
+      makeModel: () => null
+    })
+    expect(unread.makeModel(unread.init.state)).toBeNull()
   })
 })
 

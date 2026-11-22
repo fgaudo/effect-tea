@@ -42,6 +42,7 @@ export type {
   MessageOf,
   ModelOf,
   ObjectState,
+  OutputOf,
   Program,
   StateOf,
   SubscriptionServicesOf

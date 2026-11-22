@@ -797,6 +797,24 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
+    name: "a handler of onEvent reads the outputs of before the child's step",
+    file: "src/compose.ts",
+    from: "    if (!Object.is(result.state, entry.state)) {\n"
+      + "      putAt(gathered, place, { instance: entry.instance, key: entry.key, state: result.state })\n"
+      + "    }\n"
+      + "    for (const command of result.commands ?? []) gathered.commands.push(wrapCommand(place, entry.instance)(command))\n"
+      + "    for (const event of result.events ?? []) {\n"
+      + "      ownStep(gathered, onEventAt(place, event, gathered.children)(gathered.own))\n",
+    to: "    const read = gathered.children\n"
+      + "    if (!Object.is(result.state, entry.state)) {\n"
+      + "      putAt(gathered, place, { instance: entry.instance, key: entry.key, state: result.state })\n"
+      + "    }\n"
+      + "    for (const command of result.commands ?? []) gathered.commands.push(wrapCommand(place, entry.instance)(command))\n"
+      + "    for (const event of result.events ?? []) {\n"
+      + "      ownStep(gathered, onEventAt(place, event, read)(gathered.own))\n",
+    killedBy: [["src/compose.test.ts", "a handler of onEvent reads the outputs as the child's step left them"]]
+  },
+  {
     name: "a child that an earlier item of the same step started again is told",
     file: "src/compose.ts",
     from: "      if (Opt.isNone(entry) || entry.value.instance !== instance) continue\n",
