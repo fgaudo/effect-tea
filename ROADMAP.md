@@ -28,15 +28,13 @@ number unused.
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. what is wrong in what is released: step 27, which looks for more of the kind that step 36, a reader's check of the
-   guide written for the store of step 34 and the `output` of step 35, found and fixed;
-2. what is small and waits for nothing: step 26;
-3. the other decisions that break the API, steps 29, 30 and 9, so that one release takes what they break, while the
+1. what is small and waits for nothing: step 26;
+2. the other decisions that break the API, steps 29, 30 and 9, so that one release takes what they break, while the
    library has few users, and step 10 with them, which waits for the owner alone;
-4. the checks, steps 16 and 6: of the types, once the decisions that change them are taken, and of the bridges in a
+3. the checks, steps 16 and 6: of the types, once the decisions that change them are taken, and of the bridges in a
    real browser;
-5. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
-6. the engine, steps 18 to 21, which change nothing that a user writes.
+4. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
+5. the engine, steps 18 to 21, which change nothing that a user writes.
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
 
@@ -47,86 +45,6 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 None is open.
 
 ## Next, in order
-
-### 27. What the guide says of each function a program gives the library
-
-**Model and effort.** Opus 5.5, `high`: a review, of the guide against the API.
-
-**Depends on** nothing: the table is of the guide as step 36 left it. What a `set` may do is in the guide,
-"Composition", "Where a child lives": it changes its place and nothing else, and "the library need not call `set`"
-where nothing is stored, which promises nothing of when it is called. Whether that is described is this step's to
-weigh. The store (step 34) removes a child's `get`, `set`, `at` and `subscribed`: the table has no row of them, and
-has the rows of what a parent gives in their place.
-
-**Why.** What a `set` may do, and when it is called, was a question that no sentence answered. The checks of the
-documentation start from the sentences the guide has ([`promises-and-tests.md`](docs/records/promises-and-tests.md)),
-or from a requirement chosen for its pages (`guide-reader`): neither finds a question that nobody wrote down. The API
-does: each function that a user gives the library is a place where the user asks when it runs, and what it may do
-([`application-report.md`](docs/records/application-report.md), "Why no check found them"). And the owner asked, on 22
-November 2026, whether a `set` was the last place where the API lets a user write what the guide leaves undefined. It
-is not known to be: so the table also says what refuses a misuse.
-
-**How.** A table, in a record, of every function that a user gives: `init` in each of its forms, `update`, `external`,
-`makeModel`, `subscriptions`, `runCommand`, `output`, what declares a child (`there`, `key`, `flags`, `ids`, `starts`
-and `listening`, as step 34 names them), the `get` and the `set` of an input, alone and by id, `at` as a function of
-the id, a handler of `onEvent`, `onApplied` and `onIgnored`, a listener of the `App`, a
-view and the `fork` of `Host`, and in the testing tools `repeatable`, `withheld`, what `send` selects by, what `run`
-matches by and a scenario. For each: when it is called, how many times, whether it may be called more, what it may
-change or throw, and what becomes of what it returns. A cell names the sentence of the guide that says it, or is
-empty. An empty cell that the code and the tests already keep is written in the guide, each sentence checked against
-`src/` and its tests first, as the last section of [`guide-reader`](.agents/skills/guide-reader/SKILL.md) says, with
-its test first where none holds it. One that would promise something new goes under "Waiting for the owner".
-
-Two last columns are of a misuse of the function. One says what a misuse leaves: the library's behaviour defined, where
-the user is only more exposed to a bug of their own, or not defined. The other says what refuses the misuse: the
-types, the shape of the API (as `onApplied`, which is given no dispatch), a defect, a testing tool, or nothing. The
-owner's rule, of 22 November 2026: only a misuse that leaves the behaviour not defined needs a refusal; it is refused
-by construction; where that cannot be, by a defect as the program is made; and a rule that nothing checks is the last
-resort. So for each such row that says a testing tool or nothing, the record says whether a construction is
-conceivable, then whether a defect in `make` is, and what each would cost. Two limits are said where they apply. A
-defect in `make` sees the config and at most the first state, so it cannot hold a rule of every state, as the laws of
-a place. And the invariants stand: no check at run time of the model against `update` (`AGENTS.md`). A candidate is
-listed under "Waiting for the owner", not designed: each is a change of the API, read against `docs/rejected.md`
-first, and designed in a step of its own.
-
-Leads of the session that closed step 23, reasoned and not run, with what the owner said of each the same day:
-
-- **To be checked here: rules of the same kind as a `set`'s, which no sentence was found for**: a `get` that is not
-  pure, or that does not read what its `set` stored; an `at` of an id that gives another place for the same id; an
-  optic made by hand with `Optic.makeLens` or `Optic.makeOptional`, which reaches `at` with the freedom of a `set`; an
-  `Equal` written wrong for a value of the state or for an id, which the skip of an equal write and the cache of
-  `forwardTo` rest on. Step 29 weighs a check for the first three, of an input's place: the store (step 34) removes
-  them for a child's, and `subscribed` with them. And of the store, run by its spike
-  ([`kept-children.md`](docs/records/kept-children.md), "Flags are the key"): a `flags` or a `key` that gives a value
-  which `Equal` does not hold equal from one call to the next, as one that builds a function anew, starts its child
-  again at each step of the parent's own.
-- **Axioms, by the owner**: that `update`, `external`, `makeModel` and `subscriptions` are pure, that a state is never
-  mutated, and that a model holds no function. The library is defined on them, and no construction nor check is
-  looked for: their rows say so, and they stay in "What is left to you". Reasoned, with them: TypeScript has no type
-  for a function that is pure, a deep `readonly` of the library's would refuse Effect's own types, and the types
-  cannot tell a method of a `Data` class from a field that is a function.
-- **No hole, by the owner: a view that sends what its model does not hold.** The library's behaviour stays defined:
-  what arrives is a message, which `update` judges, or a write, stored where its place is there. The user is more
-  exposed to a bug of their own, and nothing is to be refused. Both forms that would refuse it are in
-  `docs/rejected.md` ("Offers as tokens, checked against `update`", "An entry of each input in the model, which a view
-  writes through").
-- **Accepted, by the owner: `start` apart from `run`.** A pure part is fitted to a place that is not pure: a server
-  draws the first model of a program that never runs.
-- **To explore, by the owner**: a subscription made from its key alone (step 30), and a child's state that its parent
-  cannot read, which the store gives (step 34).
-- **Not spoken of**: that a function of the program never interrupts the fiber it runs in. No type says it, as far as
-  was reasoned.
-
-A lead of the reader's check of step 36: the `@param key` of `Rehearsal.hear` still wrote a child's key without its
-instance, `['Clock', 'ticks']`, after step 34 had added the instance, and nothing failed on it: `bun run comments`
-checks the names of the sections a comment cites, not the forms it writes. A grep of the doc comments, the skill and
-the guide for a child's key written that way found no other. So the rows of what `hear`, `send` and `run` take, and of
-a child's message, command and key, check each form a doc comment writes against the guide's, and the record says
-whether a check could keep such forms true, as `bun run comments` keeps the names.
-
-**Done when** the table is in a record, each empty cell is written or listed, and each row whose misuse nothing
-refuses is in "What is left to you" or is a candidate under "Waiting for the owner". The owner then weighs whether a
-tool keeps the table, as `bun run comments` keeps the `guarantees`.
 
 ### 26. The entry for React outside a browser, and the syntax the package ships
 
@@ -172,10 +90,12 @@ consumer notices.
 back. What the owner takes is then written as a step of its own, for Opus 5.5, `high`
 ([`change-api`](.agents/skills/change-api/SKILL.md)).
 
-**Depends on** step 27, the rule being in the guide ("Composition", "Where a child lives"): the table of step 27 says
-what a `get`, a `set` and an `at` of an id are asked, and may find other rules of the same kind, which the same check
-could hold. And on step 34: the library keeps the children, so a child has no `get` and no `set`, and this step is of
-an input's place alone.
+**Depends on** nothing. Step 27 left the table of what a `get`, a `set` and an `at` of an id are asked
+([`given-functions.md`](docs/records/given-functions.md)): each is pure, and runs in `update` ("Guarantees", "What is
+left to you"), and the rule of a `set` is in "Inputs", "A `set` changes its place, and nothing else". An `at` of an id
+runs inside the `get` and the `set` of that id (`placedById` in `src/compose.ts`), so a check that draws ids holds it
+too. The table found no other rule of the same kind for the check to hold. Step 34 is done: a child has no `get` and
+no `set`, and this step is of an input's place alone.
 
 **Why.** The rule of the guide, that a `set` changes its place and nothing else, is checked by nothing. For a child's
 place the store answers it, since no `set` of a child is written (step 34): it stays for an input's. No signature of
@@ -204,7 +124,7 @@ by construction, and took the two parts below as a step
    for a model. The second law needs part 1, or the check must be told the form. To decide in the spike: how the check
    is given a place, since what `input` returns has the `get` alone; its name and what it returns, beside
    `dispatchViolations`; whether it is asked of an optic made with `Optic.makeLens` or `Optic.makeOptional`; and
-   whether an `at` of an id falls under it (step 27).
+   how the ids are drawn, which an `at` of an id needs.
 
 **Done when** the record has what the spike ran, the owner has decided each part, and what was taken is a step here,
 or an entry of `docs/rejected.md`. A part taken moves the rule of a `set` from "What is left to you" to what a test
@@ -224,8 +144,8 @@ subscription.
 **Why.** "Whatever a subscription depends on is in its key" is left to the user ("Guarantees", "What is left to
 you"): `subscriptions` gives each key with a subscription already made from the state, so a subscription may use what
 its key lacks. `examples/bounce` makes its subscription from `state.dt` under the key `"steps"`, and a comment says
-why `dt` cannot change. The owner prefers a misuse refused by construction (step 27), and took this lead for a spike
-on 22 November 2026.
+why `dt` cannot change. The owner prefers a misuse refused by construction
+([`given-functions.md`](docs/records/given-functions.md)), and took this lead for a spike on 22 November 2026.
 
 **How.** First `docs/rejected.md` and the records are read for whether it was weighed: the session that found the
 lead searched the titles of `docs/rejected.md` alone, and found nothing. Then a spike, on a branch that is never
@@ -499,6 +419,17 @@ run thousands: measured before it is decided ([`one-engine.md`](docs/records/one
 
 Where a step above would answer a point below, the point stays here until the step is done. Step 19 would answer point
 4 of the seven. A point of the seven that is gone leaves its number unused.
+
+- **Two points of the table of step 27** ([`given-functions.md`](docs/records/given-functions.md), "For the owner"):
+  1. **An `Equal` and a `Hash` that keep Effect's laws.** The library compares keys, ids, flags and values written by
+     `Equal`. No sentence says that an `Equal` a program writes must keep Effect's laws, and nothing checks one: a
+     wrong one leaves the reconciling of keys and children, the cache of `forwardTo` and the skip of an equal write
+     not defined. To decide: whether "Guarantees", "What is left to you" names it, beside "Flags and keys made of
+     values that `Equal` compares by value", and the skill with it. For Opus 5.5, `medium`, once decided.
+  2. **Whether a tool keeps the table**, as `bun run comments` keeps the `guarantees`: each function that a user gives,
+     read from the declarations, would name a row. Advised against by the step: a new function of the API goes
+     through `change-api`, which could ask for its row in a line. To decide: a tool, a line of `change-api`, or
+     neither.
 
 - **A child with flags has no `key`**, so it cannot start again in one step with flags equal to those it has: it
   starts again by other flags, or by a step in which it is not there. Left so by step 34, as the owner was told

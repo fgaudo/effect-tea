@@ -47,6 +47,8 @@ A parent and its children talk only through events, external messages and output
   [an event keeps the timing of its cause](./rejections-and-defects.md#an-event-keeps-the-timing-of-its-cause).
   - The handler's step is a step of the parent's own: it may change the parent's state, run commands, raise events and
     tell children.
+  - It is pure, as `update` is. It runs in its parent's `update` (see
+    [what is left to you](./guarantees.md#what-is-left-to-you)).
   - Its `children` holds the children's outputs, as the child's step left them (see [outputs](#outputs)).
   - Each event of a step is handled to its end before the next one.
 - **An event to pass on.** Sometimes the parent has nothing to say about an event, and the parent's own parent handles

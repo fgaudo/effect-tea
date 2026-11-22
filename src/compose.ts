@@ -422,10 +422,11 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
      *
      * It is required exactly when a child has events. A handler takes the event, and returns the parent's step as a
      * function of its own state. For children by id, it takes the id first. It takes the children's outputs last, as
-     * the child's step left them.
+     * the child's step left them. A handler is pure, as `update` is: it runs in the parent's `update`.
      *
      * @see The guide, "Events and external messages", "The parent handles an event in `onEvent`".
      * @see The guide, "Events and external messages", "`onEvent`".
+     * @see The guide, "Guarantees", "`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and states are never mutated".
      */
     onEvent?: OnEvents<State, C, Command, Event>
   }>
@@ -435,10 +436,11 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
      *
      * It is required exactly when a child has events. A handler takes the event, and returns the parent's step as a
      * function of its own state. For children by id, it takes the id first. It takes the children's outputs last, as
-     * the child's step left them.
+     * the child's step left them. A handler is pure, as `update` is: it runs in the parent's `update`.
      *
      * @see The guide, "Events and external messages", "The parent handles an event in `onEvent`".
      * @see The guide, "Events and external messages", "`onEvent`".
+     * @see The guide, "Guarantees", "`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and states are never mutated".
      */
     onEvent: OnEvents<State, C, Command, Event>
   }>

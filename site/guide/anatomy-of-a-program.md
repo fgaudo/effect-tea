@@ -133,8 +133,9 @@ It is what the run reconciles. For a program made without `subscriptions`, it is
 of each child under `[<child>, instance, key]`. For children by id, the parent lists them under
 `[<child>, id, instance, key]` (see [what the library derives](./composition.md#what-the-library-derives)).
 
-**A program with flags.** Its `init` is a function of the flags: `init: ({ id }) => ({ state, commands })`. Whoever
-starts the program gives the flags:
+**A program with flags.** Its `init` is a function of the flags: `init: ({ id }) => ({ state, commands })`. It is
+pure, as `update` is: a child's `init` runs in its parent's `update` when a step starts the child (see
+[what is left to you](./guarantees.md#what-is-left-to-you)). Whoever starts the program gives the flags:
 
 - A parent gives them to its child, from its own state (see [composition](./composition.md#when-a-child-is-there)).
 - `start` gives them to the root (see [running](./running.md)).

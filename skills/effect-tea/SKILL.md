@@ -94,9 +94,11 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   unused. The guide, "Guarantees", "Whoever starts a program runs it". The guide, "Running", "A program is started,
   then run".
 - **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and a state is never mutated.** So are
-  `there`, `key`, `flags`, `ids` and `listening`, which say which children are there and when they listen. `update`
-  may be called at any time: never assume it runs once per message. A child's `external` runs in its parent's
-  `update`. The library reuses a child's model and subscriptions while the child's state is the same object. The
+  an `init` that takes flags, the handlers of `onEvent`, the `get` and the `set` of an input and an `at` that is a
+  function of the id, and `there`, `key`, `flags`, `ids` and `listening`, which say which children are there and when
+  they listen. `update` may be called at any time: never assume it runs once per message. A child's `external`, its
+  `init` when a step of its parent starts it, its parent's handlers of `onEvent`, and the `get` and the `set` of a
+  write run in the parent's `update`. The library reuses a child's model and subscriptions while the child's state is the same object. The
   guide, "Guarantees", "What is left to you". The guide, "Update",
   "Keep it pure". The guide, "Update", "It may be called at any time". The guide, "Update", "Never mutate the state".
   The guide, "Events and external messages", "A child answers its external messages in every state".
@@ -161,6 +163,8 @@ The run does not check these. A test does, with the tool named.
 - **A view sends only the messages its model holds**: your renderer's tools, as `messagesSentBy` for snabbdom. The
   guide, "Testing", "The view". The guide, "Model", "Precisely".
 - **A rejection is asserted as `reject` itself**, with `toBe(reject)`. The guide, "Testing", "Do and don't".
+- **A model is data, and holds no function**: `Equal.equals` on the models of two equal states built apart, never on
+  one state used twice. The guide, "Model", "A model is data". The guide, "Testing", "That the model is data".
 
 ## What the compiler refuses
 

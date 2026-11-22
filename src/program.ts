@@ -76,8 +76,9 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * - The run makes the model of a state with `makeModel(state)`. A test can call `makeModel` the same way, on any state.
  * - Every program has `subscriptions`. One that `make` makes without them listens to nothing. A test calls
  *   `subscriptions(state)` as the run does, on any state.
- * - `update`, `external`, `makeModel`, `subscriptions` and `output` are pure, and states are never mutated. The
- *   library reuses a child's model and subscriptions while the child's state is the same object.
+ * - `update`, `external`, `makeModel`, `subscriptions` and `output` are pure, and so is an `init` that takes flags.
+ *   States are never mutated. The library reuses a child's model and subscriptions while the child's state is the
+ *   same object.
  *
  * @example
  * ```ts

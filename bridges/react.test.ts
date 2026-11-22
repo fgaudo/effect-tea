@@ -535,6 +535,20 @@ describe("Host", () => {
     expect(forks).toEqual(["first", "first"])
   })
 
+  test("shown again by Activity, starts anew the program of its first render", async () => {
+    const node = (mode: "visible" | "hidden", program: typeof counter) =>
+      createElement(Activity, { mode, children: host({ program, fork: heldFork, children: counterView }) })
+    const later = { ...counter, init: { state: { count: 5 } } }
+    const root = await hostInto(node("visible", counter))
+    await started()
+    await acting(() => root.render(node("visible", later)))
+    await acting(() => root.render(node("hidden", later)))
+    settle()
+    await acting(() => root.render(node("visible", later)))
+    await started()
+    expect(element("output").textContent).toBe("0")
+  })
+
   test("shown again by Activity, starts the program anew with the options of its first render", async () => {
     const applied: Array<string> = []
     const node = (mode: "visible" | "hidden", name: string) =>

@@ -30,7 +30,7 @@ import { CompositionDefect, defect, type DefectSite, InvariantDefect, ProgramDef
 import { forwardTo } from "./dispatch.ts"
 import type { Applied, Ignored, RunOptions } from "./engine.ts"
 import type { Program } from "./program.ts"
-import { type App, start } from "./run.ts"
+import { type App, start, type Started } from "./run.ts"
 import type { Subscription } from "./subscription.ts"
 import { reject, type Step } from "./update.ts"
 
@@ -1042,6 +1042,244 @@ describe("defects", () => {
       "Saver",
       true
     ])
+  })
+
+  // What a parent declares, its children's functions and its inputs are called where the library needs them: in the
+  // step of the parent's `update`, in `subscriptions`, or where the model is read. What they throw is a defect there.
+  describe("a defect in a function that a parent or an input gives is recorded where the library calls it", () => {
+    type Desk = Readonly<{ step: number; note: string }>
+    type Leaf = Readonly<{ on: boolean }>
+    const initial = { state: { step: 0, note: "" } }
+    const Desk = program<{ state: Desk; message: "Next" }>()
+    const next = () => (state: Desk) => ({ state: { ...state, step: state.step + 1 } })
+    const quiet = program<{ state: Leaf }>().make({ init: { state: { on: false } }, makeModel: () => null })
+    const flagged = (init: (flags: Leaf) => Step<Leaf>) =>
+      program<{ state: Leaf; flags: Leaf }>().make({ init, makeModel: () => null })
+    const reading = program<{ state: Leaf; output: boolean }>().make({
+      init: { state: { on: false } },
+      output: () => boom(),
+      makeModel: () => null
+    })
+    const written = { _tag: "Note", message: { _tag: "Written", value: "Ada" } } as const
+
+    /** Starts the program, reads its model at each new state as a renderer does, sends `message`, and tells where
+     * the run died of a `Boom`. */
+    const diedIn = async <Model, Message>({ app, run }: Started<Model, Message>, message: Message) => {
+      app.subscribe(() => {
+        app.model()
+      })
+      const fiber = Effect.runFork(run)
+      app.dispatch(message)
+      const exit = await ended(fiber)
+      const thrown = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+      return thrown instanceof ProgramDefect && thrown.cause instanceof Boom ? thrown.where : thrown
+    }
+
+    test.each<[string, DefectSite, () => Promise<unknown>]>([
+      [
+        "there",
+        "update",
+        () =>
+          diedIn(
+            start(
+              Desk.withChildren({ Leaf: Desk.child(quiet, { there: (state) => state.step === 1 ? boom() : true }) })
+                .make({ init: initial, update: next, makeModel: () => null })
+            ),
+            "Next"
+          )
+      ],
+      [
+        "key",
+        "update",
+        () =>
+          diedIn(
+            start(
+              Desk.withChildren({ Leaf: Desk.child(quiet, { key: (state) => state.step === 1 ? boom() : 0 }) })
+                .make({ init: initial, update: next, makeModel: () => null })
+            ),
+            "Next"
+          )
+      ],
+      [
+        "flags",
+        "update",
+        () =>
+          diedIn(
+            start(
+              Desk.withChildren({
+                Leaf: Desk.child(flagged((flags) => ({ state: flags })), {
+                  flags: (state) => state.step === 1 ? boom() : Opt.some({ on: false })
+                })
+              }).make({ init: initial, update: next, makeModel: () => null })
+            ),
+            "Next"
+          )
+      ],
+      [
+        "ids",
+        "update",
+        () =>
+          diedIn(
+            start(
+              Desk.withChildren({ Leaf: Desk.childById(quiet, { ids: (state) => state.step === 1 ? boom() : [1] }) })
+                .make({ init: initial, update: next, makeModel: () => null })
+            ),
+            "Next"
+          )
+      ],
+      [
+        "a child's init, as a step of its parent starts it",
+        "update",
+        () =>
+          diedIn(
+            start(
+              Desk.withChildren({
+                Leaf: Desk.child(flagged((flags) => flags.on ? boom() : { state: flags }), {
+                  flags: (state) => Opt.some({ on: state.step === 1 })
+                })
+              }).make({ init: initial, update: next, makeModel: () => null })
+            ),
+            "Next"
+          )
+      ],
+      [
+        "a child's external",
+        "update",
+        () =>
+          diedIn(
+            start(
+              Desk.withChildren({
+                Leaf: Desk.child(
+                  program<{ state: Leaf; external: "Told" }>().make({
+                    init: { state: { on: false } },
+                    external: () => () => boom(),
+                    makeModel: () => null
+                  })
+                )
+              }).make({
+                init: initial,
+                update: () => (state) => ({ state, tell: [{ _tag: "Leaf", message: "Told" }] }),
+                makeModel: () => null
+              })
+            ),
+            "Next"
+          )
+      ],
+      [
+        "a child's output, read in its parent's update",
+        "update",
+        () =>
+          diedIn(
+            start(
+              Desk.withChildren({ Leaf: Desk.child(reading) }).make({
+                init: initial,
+                update: (_, children) => (state) => ({ state: { ...state, step: children.Leaf.output() ? 1 : 2 } }),
+                makeModel: () => null
+              })
+            ),
+            "Next"
+          )
+      ],
+      [
+        "the get of an input",
+        "update",
+        () =>
+          diedIn(
+            start(Desk.make({
+              init: initial,
+              inputs: {
+                Note: Desk.input({ get: (): Opt.Option<string> => boom(), set: (state, note) => ({ ...state, note }) })
+              },
+              update: next,
+              makeModel: () => null
+            })),
+            written
+          )
+      ],
+      [
+        "the set of an input",
+        "update",
+        () =>
+          diedIn(
+            start(Desk.make({
+              init: initial,
+              inputs: { Note: Desk.input({ get: (state) => Opt.some(state.note), set: () => boom() }) },
+              update: next,
+              makeModel: () => null
+            })),
+            written
+          )
+      ],
+      [
+        "listening",
+        "subscriptions",
+        () =>
+          diedIn(
+            start(
+              Desk.withChildren({
+                Leaf: Desk.child(quiet, { listening: (state) => state.step === 1 ? boom() : true })
+              }).make({ init: initial, update: next, makeModel: () => null })
+            ),
+            "Next"
+          )
+      ],
+      [
+        "a child's subscriptions",
+        "subscriptions",
+        () =>
+          diedIn(
+            start(
+              Desk.withChildren({
+                Leaf: Desk.child(
+                  program<{ state: Leaf; message: "Go" }>().make({
+                    init: { state: { on: false } },
+                    update: () => () => ({ state: { on: true } }),
+                    subscriptions: (state) => state.on ? boom() : HashMap.empty(),
+                    makeModel: () => null
+                  })
+                )
+              }).make({ init: initial, update: next, makeModel: () => null })
+            ),
+            { _tag: "Leaf", message: "Go" }
+          )
+      ],
+      [
+        "a child's output, read in its parent's makeModel",
+        "render",
+        () =>
+          diedIn(
+            start(
+              Desk.withChildren({ Leaf: Desk.child(reading) }).make({
+                init: initial,
+                update: next,
+                makeModel: (state, children) => state.step === 1 ? children.Leaf.output() : null
+              })
+            ),
+            "Next"
+          )
+      ],
+      [
+        "a child's makeModel",
+        "render",
+        () =>
+          diedIn(
+            start(
+              Desk.withChildren({
+                Leaf: Desk.child(
+                  program<{ state: Leaf }>().make({ init: { state: { on: false } }, makeModel: () => boom() })
+                )
+              }).make({
+                init: initial,
+                update: next,
+                makeModel: (state, children) => state.step === 1 ? children.Leaf() : null
+              })
+            ),
+            "Next"
+          )
+      ]
+    ])("%s", async (_, where, died) => {
+      expect(await died()).toBe(where)
+    })
   })
 
   test("a defect in a subscription carries its key", async () => {

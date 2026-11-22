@@ -46,7 +46,8 @@ In general, a view writes the value that the element holds, through the input's 
     `const { make, input } = program<{ state: State }>()`.
   - `at` is an optic to a plain value of the program's state, an `Optic` of Effect:
     `Optic.id<State>().key('name')`. In place of `at`, you can give the two functions that an optic is: `get` and
-    `set`.
+    `set`. They are pure, as an optic is: a write runs them in `update` (see
+    [what is left to you](./guarantees.md#what-is-left-to-you)).
   - Give an optic where the place is a path into the state: a field, a case of a tagged union, a key of a record.
   - Give `get` and `set` where the place must be found: an element of an array that a predicate picks, such as a row
     found by its id. No path leads to such an element, because its index changes as the array does.

@@ -134,7 +134,9 @@ bridge's to promise (see [view](./view.md#rules)).
   element is the value its model gave it. With the bridge to React, the application's components may keep state of
   their own (see [view](./view.md#rules)).
 - **With the bridge to React, the run lives as long as the effect that starts it.** That is the effect of `Host`.
-  `Host` starts the program as it first renders, and starts its run after its effect.
+  `Host` starts the program as it first renders, and starts its run after its effect. It takes the `program`, the
+  `options` and the `fork` of that first render, and reads no later ones, also when it starts the program again. A new
+  `key` mounts another `Host`, which takes those of its own first render.
   - React ends the effect, and `Host` interrupts the run, when it unmounts `Host`, and when `<Activity>` hides it. The
     next effect starts the program again from `init`. So do a new `key` and a remount. The first run may have started
     the commands of `init` before it is interrupted.
@@ -166,9 +168,12 @@ bridge's to promise (see [view](./view.md#rules)).
 - **Whatever a subscription depends on is in its key.** A new value left out of the key is not used while the key is
   kept (see [subscriptions](./subscriptions.md)).
 - **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and states are never mutated.** So are
-  the functions that say which children are there and when they listen: `there`, `key`, `flags`, `ids` and
-  `listening`. The library calls them when it chooses. A child's `external` runs in its parent's `update`. The library
-  reuses a child's model, and its subscriptions, while the child's state is the same object.
+  an `init` that takes flags, the handlers of `onEvent`, the `get` and the `set` of an input and an `at` that is a
+  function of the id, and the functions that say which children are there and when they listen: `there`, `key`,
+  `flags`, `ids` and `listening`. The library calls them when it chooses. A child's `external`, its `init` when a step
+  of its parent starts it, its parent's handlers of `onEvent`, and the `get` and the `set` of a write run in the
+  parent's `update`. The library reuses a child's model, and its subscriptions, while the child's state is the same
+  object.
 - **A function of the program never interrupts the fiber it runs in.** An `init` that takes flags, and `subscriptions`
   on the first state, run in the call of `start`: in the fiber of whoever starts the program, or in no fiber at all. The
   children of a parent without flags are started in the call of `make`, their `init` with them (see

@@ -176,6 +176,15 @@ A defect anywhere ends the run, which dies with a `ProgramDefect`:
 
   When the program logs something, a defect in that log is in the place the program logs from.
 
+  A function that a parent or an input gives runs where the library needs it, and a defect in it is recorded there.
+  This is described, not promised:
+
+  - in `'update'`: a child's `external`, a child's `init` when a step of its parent starts it, `there`, `key`, `flags`
+    and `ids`, an output read in `update`, and the `get` and the `set` of an input;
+  - in `'subscriptions'`: `listening`, and a child's `subscriptions`;
+  - in `'render'`: a child's `makeModel`, and an output read in `makeModel`;
+  - in `'command'`: `runCommand` itself, as it makes the command's effect.
+
 From the defect on, the run applies no message. Every defect is in the cause, each with where it happened. A program
 that was never run reports its defect only once `run` runs, and dies of it then (see [rules](#rules)).
 
@@ -236,6 +245,11 @@ message, so its state no longer changes. Nothing is thrown to whoever sent the m
 
 A listener added while the listeners are told of a state is not told of that state. It is told from the next new
 state on. So a listener that adds another each time it is told adds one per state, and the notice still ends.
+
+### A listener that throws
+
+A listener that throws is a defect, in `'render'`. The other listeners are still told of that state, and the run
+ends once every listener is told (see [how the run ends](#how-the-run-ends)). This is described, not promised.
 
 ### How a message is named by its tags
 
