@@ -131,6 +131,8 @@ point of a press.
     of another type, does not compile.
   - A value is never a reason to reject. The state decides whether the message applies, and the value decides what it
     means (see [structuring a program](./structuring-a-program.md#model-and-view)).
+  - [`volume`](../../examples/volume/view.ts) does this for a press on a track. The view fills the `clientX` of the
+    event, and the `left` and the `width` of the track. `update` computes the point.
 - **Only a plain tagged message can be held without a value.** A message that is a class, as a `Data.TaggedClass`, is
   no plain object: a spread of it is not an instance of the class, nor equal to one. For such a message, the handler
   writes the value into an input, then sends the message that its model holds, and `update` reads the value from the

@@ -582,11 +582,15 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
         bridge.drawInto,
         bridge.views.volume,
         start(volume),
-        Effect.provideService(Pointer, Pointer.of({ moves: Stream.make(40, 64.4) }))
+        Effect.provideService(Pointer, Pointer.of({ moves: Stream.make(140, 164.4) }))
       )
       settle()
       await bridge.drawn()
-      await act(() => element(".track.ringer").dispatchEvent(new Event("pointerdown", { bubbles: true })))
+      // happy-dom lays nothing out: the track says it lies from 100 to 200 across the page.
+      const track = element(".track.ringer")
+      track.getBoundingClientRect = () => DOMRect.fromRect({ x: 100, y: 0, width: 100, height: 10 })
+      await act(() => track.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: 120 })))
+      expect(element("output.ringer").textContent).toBe("20")
       await paint()
       await paint()
       expect(element("output.ringer").textContent).toBe("64")

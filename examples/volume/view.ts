@@ -4,12 +4,21 @@ import * as Opt from "effect/Option"
 import { h, type VNode } from "snabbdom"
 import type { Message, Model, Track } from "./volume.ts"
 
-// Drawn by the program: a press starts a drag, whose moves `update` puts within the bounds it holds.
+// Drawn by the program: a press starts a drag, whose moves `update` puts within the bounds it holds. The press is
+// filled with where the pointer is and where the track lies, as the event and the element report them.
 const track = (name: string, slider: Track, dispatch: Dispatch<Message>): VNode =>
   h(
     `div.track.${name}`,
     {
-      on: Opt.match(slider.press, { onNone: () => ({}), onSome: (press) => ({ pointerdown: () => dispatch(press) }) })
+      on: Opt.match(slider.press, {
+        onNone: () => ({}),
+        onSome: (press) => ({
+          pointerdown: (event: PointerEvent) => {
+            const { left, width } = (event.currentTarget as Element).getBoundingClientRect()
+            dispatch({ ...press, clientX: event.clientX, left, width })
+          }
+        })
+      })
     },
     [
       h("div.fill", { style: { width: `${slider.level}%` } }),

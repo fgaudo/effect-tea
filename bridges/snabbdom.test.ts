@@ -93,7 +93,12 @@ const volumeView: View<VolumeModel, VolumeMessage> = (model, dispatch) =>
     h("div.track.ringer", {
       on: Opt.match(model.ringer.press, {
         onNone: () => ({}),
-        onSome: (press) => ({ pointerdown: () => dispatch(press) })
+        onSome: (press) => ({
+          pointerdown: (event: PointerEvent) => {
+            const { left, width } = (event.currentTarget as Element).getBoundingClientRect()
+            dispatch({ ...press, clientX: event.clientX, left, width })
+          }
+        })
       })
     }, [h("div.fill", { style: { width: `${model.ringer.level}%` } })]),
     h("output.ringer", String(model.ringer.level))

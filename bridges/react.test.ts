@@ -33,6 +33,7 @@ import {
   createElement,
   type ErrorInfo,
   memo,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
   StrictMode,
   Suspense,
@@ -177,7 +178,10 @@ const volumeView: View<VolumeModel, VolumeMessage> = (model, dispatch) =>
         className: "track ringer",
         onPointerDown: Opt.match(model.ringer.press, {
           onNone: () => undefined,
-          onSome: (press) => () => dispatch(press)
+          onSome: (press) => (event: ReactPointerEvent<HTMLDivElement>) => {
+            const { left, width } = event.currentTarget.getBoundingClientRect()
+            dispatch({ ...press, clientX: event.clientX, left, width })
+          }
         })
       },
       createElement("div", { className: "fill", style: { width: `${model.ringer.level}%` } })

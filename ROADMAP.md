@@ -29,8 +29,8 @@ Step 40 was what was left of what the owner took of step 9, on 23 November 2026:
 of `docs/rejected.md` that breaks the API ([`inert-steps.md`](docs/records/inert-steps.md) and
 [`declared-inputs.md`](docs/records/declared-inputs.md), "Weighed again"). Steps 41 to 43 write what the owner took
 of its spike the same day, with the conditions of a second opinion
-([`value-in-message.md`](docs/records/value-in-message.md), "Decided"): step 41, the rule in the guide, and step 42,
-what `messagesSentBy` gives a handler, are done. A step done leaves its number unused.
+([`value-in-message.md`](docs/records/value-in-message.md), "Decided"): step 41, the rule in the guide, step 42, what
+`messagesSentBy` gives a handler, and step 43, `volume`'s press as its example, are done. A step done leaves its number unused.
 
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
@@ -38,7 +38,7 @@ library meets:
 1. the other decisions that break the API, so that one release takes what they break, while the library has few
    users: step 10, which waits for the owner alone;
 2. the checks, steps 16 and 6: of the types, once the decisions that change them are taken, and of the bridges in a
-   real browser; then the example of step 43;
+   real browser;
 3. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
 4. the engine, steps 18 to 21, which change nothing that a user writes.
 
@@ -51,25 +51,6 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 None is open.
 
 ## Next, in order
-
-### 43. An example of a fact that comes with a value
-
-**Model and effort.** Opus 5.5, `medium`: an example over rules that steps 41 and 42 fixed (`add-example`).
-
-**Depends on** step 42, done: the test of a snabbdom example uses `messagesSentBy`, whose third argument, `reports`,
-gives a handler what its element and its event report ("Writing a bridge", "Their tests"). For `volume`'s press, the
-test gives the track `element: { getBoundingClientRect: () => ({ left, width }) }` and the event `{ clientX }`, from
-the record it draws for the reader too.
-
-**Why.** No example shows the form. The spike's feed is not one to keep: its `update` holds the pixels of its CSS.
-
-**How.** Either a list that loads more from the values its element really reports, or `volume`'s press, which is at a
-point that its message cannot say today: `examples/volume/main.ts` keeps where the pointer is pressed in variables of
-the module, and computes `(clientX - left) / width * 100` there. Under the rule, its message carries `clientX`, `left`
-and `width`, copied as given, and `update` computes the point. Choose with the owner. The example's tests draw the
-values and exempt with `inert`, as "Testing", "The reader" says.
-
-**Done when** the example and its tests pass, the README lists what it shows, and `add-example`'s checks pass.
 
 ### 10. A view of the library's own
 

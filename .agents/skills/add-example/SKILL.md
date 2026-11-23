@@ -82,8 +82,9 @@ In `examples/` itself are [`README.md`](../../../examples/README.md), which says
   with a call of its own: the bridges have no helper for a click or a key. What the bridges do not support (the guide's
   "Writing a bridge": a form's reset, a value written past React's setter, and a value the element changes by itself)
   is used by no example, nor what React's bridge adds beside the program. A control drawn by the program, a slider
-  among them, has its press a message of the model and its drag a subscription (`volume`). A child's view is
-  memoized with snabbdom's `thunk`, its dispatch from `forwardTo` among the arguments (`pages/view.ts`).
+  among them, has its press a message of the model, held without the point that the view fills, and its drag a
+  subscription (`volume`). A child's view is memoized with snabbdom's `thunk`, its dispatch from `forwardTo` among the
+  arguments (`pages/view.ts`).
 - **An example that needs more than the guide gives is a change of design**, and the owner is asked before it is
   written: a renderer other than the bridges' `drawInto` and `Draw`; a view that takes more than its model and its dispatch;
   something the screen shows that is kept outside the program's state (a variable of `main.ts`, a service the renderer

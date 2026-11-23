@@ -1,8 +1,10 @@
 // Two sliders side by side, both drawn by the program: a native range changes its own value, bringing it within bounds
 // that narrow, which no edit of the user reports, so the bridges support none, and a widget that changes its own value
-// is replaced by one the program draws. Neither slider is an input: a press on its track starts a drag, a fixed message
-// of the model, and the moves are the messages of a subscription keyed by the slider dragged, which `update` puts
-// within the bounds it holds, whatever they were when the drag began. The media's bounds never change, and muting draws
+// is replaced by one the program draws. Neither slider is an input: a press on its track starts a drag, a message that
+// the model holds without where the pointer is and where the track lies, which the view fills as the element and its
+// event report them. `update` sets the level at the point pressed, and keeps where the track lies for the drag. The
+// moves are the messages of a subscription keyed by the slider dragged, each with where the pointer is, which `update`
+// puts along the track and within the bounds it holds, whatever they were when the drag began. The media's bounds never change, and muting draws
 // it at 0, with no press, without touching the level, which unmuting gives back; a mute ends a drag of it. The ringer's
 // bounds narrow: quiet hours bring its maximum down to 30, under a drag in progress too.
 import { defect, program, reject, type Subscription, type Update } from "@fgaudo/effect-tea"
@@ -14,8 +16,8 @@ import * as Opt from "effect/Option"
 import * as Stream from "effect/Stream"
 
 /**
- * Where the pointer is along the track pressed, from 0 to 100, while it is held after the press that started a drag,
- * ending when it is released. The program knows only this interface: `main.ts` and the tests provide it.
+ * Where the pointer is across the page, its `clientX`, while it is held after the press that started a drag, ending
+ * when it is released. The program knows only this interface: `main.ts` and the tests provide it.
  */
 export class Pointer extends Context.Service<Pointer, { readonly moves: Stream.Stream<number> }>()(
   "examples/volume/Pointer"
@@ -42,10 +44,13 @@ export const maxOf = (limit: Limit): number => limit._tag === "Quiet" ? 30 : 100
 /** The two sliders. */
 export type Slider = "Media" | "Ringer"
 
-/** The pointer, on one slider at a time: one state machine, idle or dragging one of them. */
+/** Where a track lies across the page, as the element reports it when it is pressed. */
+export type Span = Readonly<{ left: number; width: number }>
+
+/** The pointer, on one slider at a time: one state machine, idle or dragging one of them along its track. */
 export type Drag = Data.TaggedEnum<{
   Idle: object
-  Dragging: { slider: Slider }
+  Dragging: { slider: Slider; track: Span }
 }>
 
 export const Drag = Data.taggedEnum<Drag>()
@@ -63,8 +68,8 @@ export type Message = Data.TaggedEnum<{
   UnmuteClicked: object
   QuietClicked: object
   FullClicked: object
-  DragStarted: { slider: Slider }
-  Moved: { at: number }
+  DragStarted: { slider: Slider; clientX: number; left: number; width: number }
+  Moved: { clientX: number }
   DragEnded: object
 }>
 
@@ -76,12 +81,27 @@ const dragging: Subscription<Message, Pointer> = Channel.unwrap(
   Effect.map(Effect.service(Pointer), (pointer) =>
     Stream.toChannel(pointer.moves).pipe(
       Channel.flattenArray,
-      Channel.map((at) => Message.Moved({ at })),
+      Channel.map((clientX) => Message.Moved({ clientX })),
       Channel.mapDone(() => Message.DragEnded())
     ))
 )
 
 const within = (at: number, max: number) => Math.min(Math.max(Math.round(at), 0), max)
+
+// Where a pointer at `clientX` is along a track, from 0 to 100: nowhere on a track with no width.
+const along = (clientX: number, { left, width }: Span): Opt.Option<number> =>
+  width > 0 ? Opt.some(((clientX - left) / width) * 100) : Opt.none()
+
+// The state with the level of `slider` where the pointer is along `track`, within its bounds: as it was, where the
+// pointer is nowhere.
+const pointed = (state: State, slider: Slider, clientX: number, track: Span): State =>
+  Opt.match(along(clientX, track), {
+    onNone: () => state,
+    onSome: (at) =>
+      slider === "Media"
+        ? { ...state, media: within(at, 100) }
+        : { ...state, ringer: within(at, maxOf(state.limit)) }
+  })
 
 const dragged = (state: State): Opt.Option<Slider> =>
   state.drag._tag === "Dragging" ? Opt.some(state.drag.slider) : Opt.none()
@@ -106,21 +126,23 @@ export const update: Update<State, Message> = (message) => (state) => {
     case "FullClicked":
       return state.limit._tag === "Full" ? reject : { state: { ...state, limit: Limit.Full() } }
     // A press on a view drawn before the last one ended may come while a drag goes on, or on the media's track
-    // drawn before a mute: it starts nothing.
-    case "DragStarted":
-      return state.drag._tag === "Dragging" || (message.slider === "Media" && state.sound._tag === "Muted")
-        ? reject
-        : { state: { ...state, drag: Drag.Dragging({ slider: message.slider }) } }
+    // drawn before a mute: it starts nothing. Wherever it is, a press that applies starts a drag.
+    case "DragStarted": {
+      if (state.drag._tag === "Dragging" || (message.slider === "Media" && state.sound._tag === "Muted")) return reject
+      const track = { left: message.left, width: message.width }
+      return {
+        state: {
+          ...pointed(state, message.slider, message.clientX, track),
+          drag: Drag.Dragging({ slider: message.slider, track })
+        }
+      }
+    }
     // A move comes only while dragging: the subscription that sends it stops with the drag, and the run drops what
     // it sent after. Anywhere else it is a bug, and the run dies with it.
     case "Moved":
-      return Opt.match(dragged(state), {
-        onNone: () => defect("A move of a slider while nothing was dragged"),
-        onSome: (slider) =>
-          slider === "Media"
-            ? { state: { ...state, media: within(message.at, 100) } }
-            : { state: { ...state, ringer: within(message.at, maxOf(state.limit)) } }
-      })
+      return state.drag._tag === "Dragging"
+        ? { state: pointed(state, state.drag.slider, message.clientX, state.drag.track) }
+        : defect("A move of a slider while nothing was dragged")
     case "DragEnded":
       return state.drag._tag === "Dragging"
         ? { state: { ...state, drag: Drag.Idle() } }
@@ -128,8 +150,15 @@ export const update: Update<State, Message> = (message) => (state) => {
   }
 }
 
-/** What a slider is drawn from: its level, how far it may go, and the press that starts a drag of it, while any may. */
-export type Track = Readonly<{ level: number; max: number; press: Opt.Option<Message> }>
+/**
+ * What a slider is drawn from: its level, how far it may go, and the press that starts a drag of it, while any may.
+ * The press is held without where the pointer is and where the track lies, which the view fills.
+ */
+export type Track = Readonly<{
+  level: number
+  max: number
+  press: Opt.Option<Readonly<{ _tag: "DragStarted"; slider: Slider }>>
+}>
 
 export type Model = Readonly<{
   media: Track
@@ -142,9 +171,9 @@ export type Model = Readonly<{
     | Readonly<{ _tag: "Full"; quiet: Message }>
 }>
 
-const press = (state: State, slider: Slider): Opt.Option<Message> =>
+const press = (state: State, slider: Slider): Track["press"] =>
   state.drag._tag === "Idle" && !(slider === "Media" && state.sound._tag === "Muted")
-    ? Opt.some(Message.DragStarted({ slider }))
+    ? Opt.some({ _tag: "DragStarted", slider } as const)
     : Opt.none()
 
 export const volume = program<{ state: State; model: Model; message: Message; key: Slider }>().make({

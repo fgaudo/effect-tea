@@ -10,15 +10,13 @@ import { Pointer, volume } from "./volume.ts"
 const root = document.getElementById("app")
 if (root === null) throw new Error("index.html has no #app element")
 
-// Whether the pointer is held, and the track it was pressed on: a drag whose subscription starts once the pointer is
-// already released ends at once. A pointer the browser cancels (a gesture it takes over, a lost touch) is released too.
-// Heard in the capture phase, before the track's own listener sends `DragStarted`: the drag reads both when it
-// starts, whenever the run applies that message.
+// Whether the pointer is held: a drag whose subscription starts once the pointer is already released ends at once. A
+// pointer the browser cancels (a gesture it takes over, a lost touch) is released too. Heard in the capture phase,
+// before the track's own listener sends `DragStarted`: the drag reads it when it starts, whenever the run applies that
+// message.
 let held = false
-let pressed: Element | null = null
-document.addEventListener("pointerdown", (event) => {
+document.addEventListener("pointerdown", () => {
   held = true
-  pressed = event.target instanceof Element ? event.target.closest(".track") : null
 }, { capture: true })
 for (const released of ["pointerup", "pointercancel"]) {
   document.addEventListener(released, () => {
@@ -26,16 +24,12 @@ for (const released of ["pointerup", "pointercancel"]) {
   })
 }
 
-// Where the pointer is along the track pressed, from 0 to 100, until it is released or cancelled.
+// Where the pointer is across the page, until it is released or cancelled.
 const pointer = Pointer.of({
   moves: Stream.callback<number>((queue) =>
     Effect.acquireRelease(
       Effect.sync(() => {
-        const move = (event: PointerEvent) => {
-          if (pressed === null) return
-          const { left, width } = pressed.getBoundingClientRect()
-          Queue.offerUnsafe(queue, ((event.clientX - left) / width) * 100)
-        }
+        const move = (event: PointerEvent) => Queue.offerUnsafe(queue, event.clientX)
         const release = () => Queue.endUnsafe(queue)
         document.addEventListener("pointermove", move)
         document.addEventListener("pointerup", release)

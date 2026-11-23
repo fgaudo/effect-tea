@@ -121,6 +121,9 @@ fills it into each message that the model holds without it, as the view does (se
 - `Missing` compares whole messages, the value too. So fill the held messages and the `candidates` with the same
   values.
 
+[`volume`](../../examples/volume/volume.test.ts) does this, for a press with the point of the pointer and the place of
+its track.
+
 **Children.** A parent's reader calls the readers of its children. The parent's reader wraps what they return as the
 parent receives it: `{ _tag: 'Clock', message }`, with the `id` for children by id. The
 [`pages`](../../examples/pages/app.test.ts) and [`list`](../../examples/list/list.test.ts) examples do this. Where a
