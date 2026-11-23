@@ -852,6 +852,26 @@ comments are written by hand since, in plain English, and name the sections of t
   instead that `make` calls it ("Composition", "Precisely"), and the promise of "Running" is of an `init` that takes
   flags. _Reopen if_ a parent's `init` takes an input that `start` gives, or step 9 of `ROADMAP.md` makes the
   config's `init` one form that leaves `make` a step without calling it.
+- **A subscription made from its key alone, in other forms.** Weighed on 23 November 2026 beside the form the owner
+  took, the owner deciding ([`subscription-from-key.md`](records/subscription-from-key.md), "For the owner").
+  - **The keys listed in a `HashSet`.** Spiked, on `spike/subscription-from-key` at `40d9400`, with every test of the
+    library in that form. A parent of a thousand children lists and reconciles its keys in 600 µs for each change of
+    state, against 191 µs with an array and 328 µs on `main`: Effect's `HashSet` has no transient form, as
+    `HashMap.mutate` is. And `HashSet.make("ticks")` is a `HashSet<string>`, so a string key needs `as const`.
+  - **The key known to `make` alone**, and not among a program's types, as `K` was. Reasoned: a program's type would
+    not change when it gains a subscription, and a parent's keys, `KeyOf` and the check of `listen` against every key
+    would be lost.
+  - **`hear` and `hearNext` taking a key of the program's type.** Run as a probe and taken back: 14 errors in
+    `rehearse.test.ts`, eleven of them a `Rehearsal<…>` written by hand, which would name the key. A wrong key already
+    fails the test, so the check would only move an error.
+  - **A defect that names its key by its tags**, as it names a message. Reasoned: left as the entry on `describeKey`
+    says, whose "Reopen if" this form brings nearer, since a key holds all that its subscription needs. The guide says
+    that what must stay private goes in a service.
+  - **The name `runSubscription`**, as `runCommand`. Reasoned: nothing is run by it, and the guide's word is that a
+    program listens.
+
+  _Reopen if_ a key listed twice is found to hide a mistake that a set would have refused, or a test that gives
+  `hear` a wrong key passes.
 
 ## The bridges
 

@@ -23,13 +23,14 @@ the guide alone, asked how the relation of a parent and its children should be s
 spike, which was step 33. After the spike the owner took both of its parts, the store of the children and `output`,
 with the choices under them ([`kept-children.md`](docs/records/kept-children.md), "What the owner decides"): steps 34
 to 36 write them. From the same weighing come a paragraph of step 9 and an item of "Any time". Step 37 writes what
-the owner took of step 29, after its spike ([`stored-form.md`](docs/records/stored-form.md)). A step done leaves its
-number unused.
+the owner took of step 29, after its spike ([`stored-form.md`](docs/records/stored-form.md)), and step 38 what the
+owner took of step 30, after its own ([`subscription-from-key.md`](docs/records/subscription-from-key.md)). A step
+done leaves its number unused.
 
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. the other decisions that break the API, steps 30 and 9, so that one release takes what they break, while the
+1. the other decisions that break the API, steps 38 and 9, so that one release takes what they break, while the
    library has few users, and step 10 with them, which waits for the owner alone;
 2. the checks, steps 16 and 6: of the types, once the decisions that change them are taken, and of the bridges in a
    real browser;
@@ -46,35 +47,78 @@ None is open.
 
 ## Next, in order
 
-### 30. A subscription made from its key alone
+### 38. A subscription made from its key alone, written
 
-**Model and effort.** Fable 5.2, `high`, to weigh the decision with the owner. What the owner takes is written by
-Opus 5.5, `high`.
+**Model and effort.** Opus 5.5, `high`: it changes the engine, a testing tool and the API
+([`change-engine`](.agents/skills/change-engine/SKILL.md), [`change-api`](.agents/skills/change-api/SKILL.md)).
 
-**Depends on** nothing: its spike is done, on 23 November 2026, and its record is
-[`subscription-from-key.md`](docs/records/subscription-from-key.md).
+**Depends on** no other step. It comes before step 18, which writes anew what starts and stops a subscription, and
+before step 16, whose matrix it changes.
 
 **Why.** "Whatever a subscription depends on is in its key" is left to the user ("Guarantees", "What is left to
-you"). The owner prefers a misuse refused by construction ([`given-functions.md`](docs/records/given-functions.md)),
-and took this lead for a spike on 22 November 2026.
+you"). The owner took, on 23 November 2026, the form that
+[`subscription-from-key.md`](docs/records/subscription-from-key.md) spiked, each point as the record advises
+("Decided", there): a program lists its keys alone, as data, and a function of the program makes a subscription from
+its key, which then can use nothing of the state that its key lacks.
 
-**How.** The spike ran, on two branches that are never merged: `subscriptions` gives the keys alone, as data, and a
-function of the program, `listen`, makes a subscription from its key, as `runCommand` makes an execution from a
-command. It works on no new premise, and the whole suite passes in that form. The record advises to take it, with the
-keys listed in an array. What is left is the owner's decision, of the seven points of the record's "For the owner":
-whether to take it, the list, the names, the key among a program's types, the key that `hear` takes, what a defect
-carries of a key, and where the step goes.
+**How.** Written anew from `main`. The branch `spike/subscription-from-key-array`, at `2544407`, is a guide and is
+never merged: it has the sources, the six examples that listen, every test of the library and the inference matrix in
+this form, and its suite passes. What is decided:
 
-**Done when** the owner has decided: a step here, before step 18, which writes anew what starts and stops a
-subscription, or an entry of `docs/rejected.md`.
+- `subscriptions(state)` returns the keys in an array, `ReadonlyArray<Key>`. A key listed twice is listed once
+  (`reconcile`, in `src/core.ts`, which builds no set where nothing changed).
+- `listen(key)` makes the subscription of a key, and does not see the state. It is called in the subscription's
+  fiber, as the interpreter of the commands is in a command's: what it throws is a defect in `'subscription'`, with
+  its key.
+- `key` is among a program's types, as `command` is. `subscriptions` and `listen` are required in `make` exactly when
+  the program names a key, and refused otherwise. A program written as an object keeps `subscriptions`, and has
+  `listen` exactly when it has keys (`Listener`, `listenOf`, as `Interpreter` and `runCommandOf`). `Listen`, `Listener`
+  and `KeyOf` are exported.
+- A parent lists a child's key as `{ _tag: <child>, instance, key }`, with its `id` for a child by id, and lifts the
+  child's subscription in its own `listen`, once for each start. The types refuse an own key that could take a child's
+  name, and the `CompositionDefect` of an own key that is a child's goes.
+- `hear` and `hearNext` take a key typed `unknown`, as today. A defect carries its key whole.
+- `HostProps` and `Host`, of the bridge to React, take the type of the keys.
+
+What the spike left to this step:
+
+- **The search.** The row of `src/interleaving.test.ts` made its subscription from its id and its session, under one
+  key for every session, and told a message of an earlier session by what it carried. With those in the key, each
+  session has a key of its own, and the search meets a message of an earlier start of the same key only through a
+  subscription that sends nothing. The row is written anew, so that it does.
+- **The tests the spike marked.** Five tests of `src/testing/contract.test.ts` are `test.skip` there, with a comment
+  `// SPIKE:`. One has a program that the form rules out, and goes with its `describe`. Four are of the defect that
+  the types now refuse: the test of the types that the spike wrote replaces them. No `test.skip` is left: the shim of
+  `bun:test` for Node has none. `src/spike-listen.test.ts`, of a `listen` that throws, becomes a case of the contract.
+- **The mutations.** The list is rewritten where the code it mutates changed, with a mutation of the check of a key
+  listed twice, and `bun run mutations` runs.
+- **The documents that rule.** `docs/invariants.md` and `docs/premises.md`, where they name what changed, and the
+  lines of `AGENTS.md` on `subscriptions`, on a child's lifted subscriptions and on what is read through `runCommandOf`.
+- **The guide**, as a specification, one section at a time. "Subscriptions": `listen`, a key that carries what its
+  subscription needs, and the two rules that go, of a value left out of the key and of a new subscription under a kept
+  key. "Guarantees": the item on a subscription's key leaves "What is left to you", and a key listed twice is listed
+  once. "Composition": the shape of a child's key, and one defect less. "Running": where a defect of `listen` dies, and
+  that what must stay private goes in a service, not in a key. Then the tutorial, the skill, the README and the doc
+  comments that name those sections (`bun run comments`).
+- **The inference that is lost.** `start({ ...typed, update: (message) => … })`, with a parameter not annotated,
+  compiles on `main` and not in this form (the record, "Services, and what the types infer"). It is weighed here by the
+  three rules of `AGENTS.md`: a form that repeats another, or a lead for step 16. The owner is asked before a page of
+  the guide says which.
+- **What was not run**: `bun run smoke`, with `tools/smoke/consumer.ts` in the new form, `bun run api`, `bun run
+  lint`, and `bun run inference` in its twelve configurations.
+- **The changelog**: a `**Breaking**:` entry, with how a program that listens is upgraded, and the version it needs
+  ([`release`](.agents/skills/release/SKILL.md)).
+
+**Done when** the checks of `change-engine` and of `change-api` pass, `bun run mutations`, `bun run inference` and
+`bun run smoke` among them, and the guide, the skill, the doc comments and the changelog say the new form.
 
 ### 9. The changes that break the API
 
 **Model and effort.** Fable 5.2, `high`: each entry is a design weighed again.
 
-**Depends on** step 30, whose decision it is weighed with, as with those of step 29, which are taken
-([`stored-form.md`](docs/records/stored-form.md)) and written as step 37: each parked entry is taken or kept
-against what they change. Steps 2 to 4, which took the changes that the review of the architecture found, are done.
+**Depends on** step 38, which writes the decision of step 30
+([`subscription-from-key.md`](docs/records/subscription-from-key.md)), as step 37 wrote those of step 29
+([`stored-form.md`](docs/records/stored-form.md)): each parked entry is taken or kept against what they change. Steps 2 to 4, which took the changes that the review of the architecture found, are done.
 
 **Why.** A user who adopts the library asks that its API stays, and a change that breaks it costs less the fewer users
 it has. The API looks close to stable, but what `docs/rejected.md` parks would change it.
@@ -127,8 +171,8 @@ whether `@fgaudo/effect-tea/snabbdom` stays beside it.
 generator they run in.
 
 **Depends on** step 34 for what it reads of `src/compose.ts`: `child` and `childById` take other arguments there, and
-a parent declares its children in a call of their own, a form that the matrix writes too. It changes nothing a user
-writes. It adds a rule to `AGENTS.md` (the first point below), so the owner is asked first.
+a parent declares its children in a call of their own, a form that the matrix writes too. And on step 38, which
+changes what the matrix writes of a subscription. It changes nothing a user writes. It adds a rule to `AGENTS.md` (the first point below), so the owner is asked first.
 
 **Why.** api-1, api-2 and api-4 lived in one form of a program, an object not typed `Program<…>`, which `child`,
 `childById`, `start` and the testing tools take as it is. The inference matrix (`tools/inference/generate.ts`) writes
@@ -260,8 +304,8 @@ the tilde. The skills are [`premise-review`](.agents/skills/premise-review/SKILL
 
 **Model and effort.** Opus 5.5, `high`: code that keeps the invariants.
 
-**Depends on** no other step: 0.8.0, released, is the engine that the review of the premises read. It changes
-nothing a user writes.
+**Depends on** step 38, which changes what a job holds of a subscription and where its subscription is made. It
+changes nothing a user writes.
 
 **Why.** `rehearse` is a second engine, kept in step with the first by hand and by the contract's tests
 ([`architecture-review.md`](docs/records/architecture-review.md), part 5). The owner took, on 21 November 2026, the

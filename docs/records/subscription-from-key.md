@@ -4,8 +4,9 @@
 of Opus 5.5, each with its files. On two branches, never to be merged: `spike/subscription-from-key` at `40d9400`,
 where the keys are listed in a `HashSet`, and `spike/subscription-from-key-array` at `2544407`, where they are listed
 in an array, the form this record advises. It is step 30 of [`ROADMAP.md`](../../ROADMAP.md), which the owner took
-from [`application-report.md`](application-report.md), "What the owner decided". Waiting for the owner's decision
-("For the owner", at the end). Read against the code at `a1af9da`.
+from [`application-report.md`](application-report.md), "What the owner decided". Taken by the owner the same day,
+each of its seven points as advised ("Decided", at the end), to be done as step 38. Read against the code at
+`a1af9da`.
 
 ## In short
 
@@ -270,3 +271,18 @@ In the guide, promises change, so it is a breaking change of the specification t
    ([`change-engine`](../../.agents/skills/change-engine/SKILL.md),
    [`change-api`](../../.agents/skills/change-api/SKILL.md)), written anew from `main` with the array branch as a
    guide, its tests among them.
+
+## Decided
+
+By the owner, on 23 November 2026, each point as advised:
+
+1. The form is taken.
+2. The keys are listed in an array, and a key listed twice is listed once.
+3. The function is `listen`, and the type of the keys is `key`.
+4. The key is among a program's types, as `command` is.
+5. `hear` and `hearNext` take a key typed `unknown`, as today.
+6. A defect carries its key whole, and the guide says that what must stay private goes in a service.
+7. It is written as step 38 of [`ROADMAP.md`](../../ROADMAP.md), before step 18, by Opus 5.5, `high`.
+
+What was weighed beside each and not taken is in [`rejected.md`](../rejected.md), "A subscription made from its key
+alone, in other forms".
