@@ -10,11 +10,11 @@ what would reopen it. How an item came to be, and what was weighed for it, goes 
 [`architecture-review.md`](docs/records/architecture-review.md), a review of the whole project that the owner asked
 for on 20 November 2026 and asked to be written here in the order it advises. Steps 1 to 4 and 8 are its parts 1 to
 4 and 6, and steps 17 to 21 its part 5, as the owner took it on 21 November 2026
-([`one-engine.md`](docs/records/one-engine.md)). Step 16 comes from the owner's question, on 21 November
-2026, of why the findings api-1, api-2 and api-4 of [`library-review.md`](docs/records/library-review.md) passed the
-inference matrix and the tests; its points 1 to 6 are done, the first as the owner decided on 23 November 2026, after
-two second opinions ([`program-checks.md`](docs/records/program-checks.md) and
-[`program-forms.md`](docs/records/program-forms.md)). Steps 22 to 31 come from
+([`one-engine.md`](docs/records/one-engine.md)). Step 16 came from the owner's question, on 21 November 2026, of why
+the findings api-1, api-2 and api-4 of [`library-review.md`](docs/records/library-review.md) passed the inference
+matrix and the tests; its points were done by 23 November 2026, the first as the owner decided after two second
+opinions ([`program-checks.md`](docs/records/program-checks.md) and
+[`program-forms.md`](docs/records/program-forms.md)), and of the two it left to the owner, step 44 is the one taken. Steps 22 to 31 come from
 [`application-report.md`](docs/records/application-report.md), a report of an application's upgrade to 0.8.0 that the
 owner asked to weigh on 22 November 2026. From the same record, "Why no check found them", come step 27, point 5 of
 step 16, point 5 of step 26, and two items of "Any time"; and from "What the owner decided", steps 28 to 30, and a step
@@ -37,8 +37,7 @@ of its spike the same day, with the conditions of a second opinion
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. the checks, steps 16 and 6: of the types, once the decisions that change them are taken, and of the bridges in a
-   real browser;
+1. the checks, steps 44 and 6: of the types, by mutations, and of the bridges in a real browser;
 2. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
 3. the engine, steps 18 to 21, which change nothing that a user writes.
 
@@ -61,102 +60,52 @@ is a lead, "valid, but taken with other types".
 
 ## Next, in order
 
-### 16. The types checked in every form a program is written
+### 44. Mutations of the types
 
-**Model and effort.** Opus 5.5, `high`: checks of the types that keep the three rules of "What belongs here", and the
-generator they run in.
+**Model and effort.** Opus 5.5, `high`: checks that the types keep the three rules of "What belongs here", in the
+runner that keeps the invariants of the engine.
 
-**Depends on** step 34 for what it reads of `src/compose.ts`: `child` and `childById` take other arguments there, and
-a parent declares its children in a call of their own, a form that the matrix writes too. It changes nothing a user
-writes, but what the leads under "Open problems" fix.
+**Depends on** nothing. It changes nothing a user writes but where a test it adds finds a check that does not hold.
 
-**Why.** api-1, api-2 and api-4 lived in one form of a program, an object not typed `Program<…>`, which `child`,
-`childById`, `start` and the testing tools take as it is. The inference matrix (`tools/inference/generate.ts`) wrote
-two forms only, a program of `make` and one typed `Program<…>`, and the tests of `child` typed their children
-`Program<…>` too, so the weaker check of `child` never met a case. And nothing compared the functions that take a
-program: `child` checked less than `start`, and no check could see it. Its fix met a fourth case that the tests did not
-hold: a child written in the call, where the check became the contextual type of its functions, and `HashMap.empty()`
-held subscriptions of `unknown` messages. Only the smoke test found it, since every test gave `child` a constant. So
-what is written matters, and how it is written too. No formal check of TypeScript's types exists: the compiler is the
-only semantics, and it changes between 5.9, 6.0 and 7.0. The nearest is the matrix: every combination of declared
-axes, checked by `tsc`, so the risk left is in the axes it does not list.
+**Why.** An `@ts-expect-error` fails the typecheck (TS2578) once the check that refuses its line goes, but nothing
+shows that each check of the types has such a test, nor that a test is held by its check and not by another error on
+its line. The owner took this on 23 November 2026, from step 16, after a second opinion (Fable) that applied 40
+mutations by hand on a copy, 14 of `src/program.ts` and 26 of `src/compose.ts`, under `tsc` 7.0: 31 were killed by the
+typecheck of the tests. Held by nothing, neither the tests nor the whole matrix: `FlagsOption` with `flags` optional
+(`run.test.ts` refuses `start(seeded)` alone, so `start(seeded, {})` would compile), `ObjectState` taken out of
+`MakeParent` (no test has a parent whose own state is `{}`), and `Inputs<State>` reading any state (the test of
+`input.test.ts` holds `Placement`, not that constraint). Held by the whole matrix alone, which runs by hand:
+`makeModel: (state: State)` in `Shape`, and the second `Extract` of `TagsTaken`. Equivalent or harmless: `ObjectState`
+on the place of `childById`, which `CheckedChild` repeats, the `any` branch of `TagsTaken` (read, not probed), and
+`update?: never` and `runCommand?: never`, which the matrix calls harmless. The matrix replaces no test: 22 of the 40
+leave its part of broken programs without a lead, and the whole matrix takes 2 minutes 15 seconds under 7.0 alone, too
+long for a killer. A mutation finds no check that is missing, as api-1, api-2 and api-4 were: the matrix does that.
+The guide tied to the matrix, weighed with it, was rejected for this step's fourth point (`docs/rejected.md`).
 
-**How.** Points 1 to 6 are done. The matrix writes a program of `make`, one typed `Program<…>`, either of them started
-from another state (`{ ...program, init }`), and an object not typed `Program<…>`, in a constant, in the call and
-spread from a typed one, with its violations, and gives every case to `Program<…>`, `start`, `drive`, `rehearse`,
-`simulate`, `child` and `childById`, each in a part of its own. The differences meant are a table in
-`tools/inference/generate.ts`: the pieces each function checks (`checks`), the events that `start` and `drive` refuse
-(`refusesEvents`), and the forms weighed before as forms that repeat another (`formsRefused`): a child written in the
-call with a parameter not annotated, the price the owner took of `child`'s check, kept for the name of `P`
-(`program-checks.md`, finding 1), and an `update` written over a spread program with its parameter not annotated,
-which step 38 weighed. It judges the forms by the rule of `AGENTS.md` ("What belongs here") that the owner took
-([`program-forms.md`](docs/records/program-forms.md), "Decided"): in a form not typed, a valid case that a function
-refuses is a note, and one that it takes with other types is a lead. Its notes are pieces written in the call with
-their parameter not annotated, whose type waits on one still to be inferred: `listen`, `external` and `output` in
-`start` and `drive`, and `listen`, `runCommand` and `external` in `rehearse`. `ProgramChecked` is written with
-`Program<…>`, and so from `Shape`, but in `src/compose.ts`, not beside `Shape` as planned: exported by `program.ts`
-and not by the package, it is a type that a consumer's declarations cannot name, which `bun run api` refuses. The row
-of `start` and `drive` names `external` and `output`, and their run needs only the services of the effects a program
-has (`Needed` in `src/run.ts`). `simulate` is given the pieces it calls alone, and
-in the call only annotated: no `init` gives it the state. A `start` of a program that needs no service, and of the
-parent that takes it as a child, is run with `Effect.runFork`, and the parent's run asks for exactly the services of
-the child. `bun run inference --run` writes instead one program for each valid case that runs differently (a program
-of `make` once for each type, one written as an object in a constant, each hand-written one, but no special case),
-alone and as a child alone and by id, each with the messages it is given written as values of its type, which `tsc`
-checks; and `tools/inference/play.ts` plays them, one process for each file, with lists of those messages drawn by
-fast-check from one seed, one message at a time with `simulate`, its model made on each state: none may die of a
-defect, nor run without end. Its first run, on 23 November 2026, played 17,664 programs in 11 seconds, after 30 seconds
-of `tsc`, and none died; it found a program of the matrix whose commands answered forever (`tell-ternary`, whose
-`Inc` was not bounded), which it now bounds as every form does. And each message a program of `make` can have, its own,
-a child's and a write, is given to the dispatch of a run and of a driver, `forwardTo`, the `send` of a driver and of a
-rehearsal, `hear`, `simulate` and `applyAll` (`takers` in `generate.ts`), as a literal, built by a constructor of
-`Data.taggedEnum` over the program's own messages or over its whole message, and as a value typed `MessageOf`, alone
-and as a child alone and by id, whose parent's messages wrap it: one program for each message it can have, since the
-readers assert in every form of a program that each function takes the message it names. Each function's parameter is
-asserted to be that message, which a wider one would take as well. Its 1,085 parts compiled on 23 November 2026 in the
-twelve configurations: no form is refused, so the guide says nothing new of them. And a program of `make` names an
-`output` of its own, which the parent it is given to reads; its own commands and subscriptions may need no service; its
-child may lack its commands, its events, its external message, its output, its keys, its services, or all of them and
-its messages (`kids.ts`, which the matrix writes beside its cases); and a parent may have a child alone beside a child
-by id of other types (`pal`). That parent is crossed with every axis, as the others are; the output and the services
-with every other axis but the names, which they meet in pairs (none, each alone, all); and a child's shape with the
-names none and all, in the canonical order alone (`crossings`): crossed in full, each would double the matrix. They
-found no lead, on 23 November 2026, and the run played the programs they add without a death. A parent of a child
-without messages names a wrapper of `never` among its own, `{ _tag: 'Kid'; message: never; instance?: number }`: a
-type empty but true, which the third rule allows. What is left of the leads is under "Open problems".
+**How.**
 
-1. **One definition of a program, and the matrix holds the rest.** Done, as said above.
-2. **The matrix writes the form it lacks.** Done, as said above.
-3. **Each case is given to every function that takes a program.** Done, as said above.
-4. **What compiles runs without a defect the types could prevent.** Done, as said above.
-5. **Each message is given to every function that takes one, in every form it is written.** Done, as said above.
-6. **The matrix lists the axes of a program it lacked.** Done, as said above.
+1. **Tests for what no test holds**: the three checks held by nothing and the two held by the matrix alone, each a
+   test of the types beside the tests of its function.
+2. **A killer of a second kind** in `tools/mutations/`: the typecheck of the copy (`tsc` of the root project, 0.85
+   seconds a run on 23 November 2026), which kills a mutation by a diagnostic in a file it names, not by a test of the
+   JUnit report. `--against` compares the JavaScript emitted, and so finds every mutation of the types "the same": they
+   need another comparison, or none.
+3. **A mutation for each check of the types** of `program.ts` and `compose.ts`, with its killers. One that is
+   equivalent is not added: the check is listed with why, in one place that `change-engine` names, since
+   `docs/invariants.md` lists no checks of the types.
+4. **Each mutation of a check that holds an item of "What does not compile"**, in "Anatomy of a program" and
+   "Composition", names it, as `guarantees` names an item of "What you can rely on", and `bun run comments` fails on an
+   item no mutation names. The other pages that say "does not compile" are not tied: the tie is a tripwire for an item
+   added to the two lists, no more.
+5. **The rules say it**: "Tests" in `AGENTS.md`, where a mutation is for "each check an invariant rests on", names the
+   checks of the types too; `change-api` names the mutations after a change of the types; `change-engine` names the
+   new killer.
 
-Then the owner weighs two more, each taken as a step here or written in `docs/rejected.md`. Mutations of the types: a
-mutation in `tools/mutations/` that takes out each check of the types of `program.ts` and `compose.ts`, killed by the
-typecheck of the tests of the types or by part of the matrix, so that each rule of the types has a check that fails
-without it; it costs a run of `tsc` for each. And the guide tied to the matrix: each item of "What does not compile",
-in "Anatomy of a program" and "Composition", names a `Violation` of the matrix, which a tool checks, as the
-`guarantees` of a mutation name the items of "What you can rely on" (`bun run comments`). That check is a tripwire for
-an item added, no more: a second opinion weighed on 21 November 2026 found that it passed on the day it was written,
-and that it says nothing of a sentence added to an item. A tie of the matrix would be weighed for the same limit.
+A kill is checked under TypeScript 7.0 alone, as the tests of the types are in the CI: it says nothing of 5.9 and 6.0,
+which the matrix checks.
 
-What the matrix costs, for the owner to weigh with these: its twelve configurations took 45 minutes on 22 November
-2026, with 67,871 cases, and no more jobs than half the processors make it faster (`--jobs`). The full product of the
-axes it has pays for most of it: the order of the pieces and the annotations alone multiply every case by four. Those
-axes crossed in pairs, not in full, as the axes of point 6 are crossed with the names, would leave time for more: since
-point 1 judges the forms not typed by its rule, theirs may be crossed in pairs. Since points 2 and 3, a case is given
-to seven functions, and since point 1, a program of `make` or typed by hand is given to six of them started from
-another state too: the three default configurations (5.9, 6.0 and 7.0) took 11 minutes on 23 November 2026, for
-216,384 parts, and found in each the 96 parts of the lead under "Open problems", and 182 notes. A program of `make` is
-given to the five functions that came with point 3, and started from another state, once for each type it has
-(canonical order, not annotated, `update` absent or contextual), since the other axes leave the type that `make`
-returns the same. Since point 6, the three default configurations took 16 minutes on 23 November 2026, for 369,342
-parts, with the same lead and notes; and `--run` played 31,464 programs in 17 seconds, after 2 minutes of `tsc`.
-
-**Done when** points 1 to 6 run (the fourth in `bun run inference --run`, the others in `bun run inference`),
-`AGENTS.md`, `change-api` and the comment at the head of `tools/inference/generate.ts` say what they check, their leads
-are fixed or listed under "Open problems", and the owner has decided the two others.
+**Done when** `bun run mutations` runs the mutations of the types and none survives, the five checks above have their
+tests, each item of the two lists of "What does not compile" is named by a mutation, and the rules say so.
 
 ### 6. The bridges in a real browser
 
@@ -445,6 +394,12 @@ otherwise.
   rule of the guide, and an example never brings the rule that allows it (`AGENTS.md`). It is weighed against the page
   as step 36 left it: with `output` (step 35), a parent reads a value that its child declares, so "a part that the
   parent reads is no child" is written again there. Opus 5.5, `high`: a page of the guide is a specification.
+- **The inference matrix crossed in pairs.** Its twelve configurations took 45 minutes on 22 November 2026, and its
+  three default ones 16 minutes on 23 November, for 369,342 parts: the full product of its axes pays for most of it,
+  and the order of the pieces and the annotations alone multiply every case by four. Since the forms not typed are
+  judged by the rule of `AGENTS.md` ("What belongs here"), their axes may be crossed in pairs, as the axes of point 6
+  of step 16 are crossed with the names (`crossings` in `tools/inference/generate.ts`), leaving time for more axes.
+  Opus 5.5, `high`: what the matrix stops crossing is what it no longer checks, so the owner is asked first.
 
 ## Low priority
 

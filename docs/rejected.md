@@ -1007,6 +1007,17 @@ comments are written by hand since, in plain English, and name the sections of t
   passed again alone before it reports a survivor. Weighed with a second opinion (Fable), the owner deciding. _Reopen
   if_ a window of absence turns out to let a mutant survive on a run alone, or what the scheduler rests on becomes a
   premise with a test of its own.
+- **The guide tied to the inference matrix**: each item of "What does not compile", in "Anatomy of a program" and
+  "Composition", naming a `Violation` of `tools/inference/generate.ts`, which a tool checks. Reasoned, 23 November 2026,
+  on step 16 of `ROADMAP.md`, with a second opinion (Fable) that ran 40 mutations of the types on a copy. It would catch
+  only an item added without a name, the limit a second opinion of 21 November had found for the `guarantees` of the
+  mutations ([`promises-and-tests.md`](records/promises-and-tests.md)). About 6 of the 13 items have no `Violation` (a
+  state without fields, a key clash, an input named as a child, an own command or subscription that answers a child,
+  the output of a child that declares none, a child's flags); the two lists are not all the refusals the guide states,
+  which four more pages say "does not compile" of; and the CI would check a name against a matrix it never runs. The
+  same tie is kept by the mutations of the types, the step that the owner took the same day: each names the item it
+  holds, and `bun run comments` checks the name, against a check that fails in the tests the CI typechecks. _Reopen
+  if_ the matrix runs in the CI, or the guide gathers every refusal in one list.
 
 ## Parked, not rejected
 
