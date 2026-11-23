@@ -7,7 +7,7 @@ description: How @fgaudo/effect-tea depends on Effect: the peer range is the pat
 
 ## The peer range
 
-`peerDependencies.effect` (`~4.1.4` today) is the version of `devDependencies.effect` with a tilde, and the lockfile
+`peerDependencies.effect` (`~4.1.5` today) is the version of `devDependencies.effect` with a tilde, and the lockfile
 holds exactly that version: the library supports no older Effect, so that it is checked, and what it rests on of
 Effect read and tested, at one version only. The CI's `check` job runs the library at it, and the `package` job the
 packed package (`bun run smoke`, with the Effect of the lockfile). The range accepts the later patches of that minor
@@ -28,7 +28,7 @@ the library that is published keeps its range: nothing takes back a pair that it
 at a version the range accepts, and what fails is a premise's test, or a test that `docs/premises.md` names under a
 premise:
 
-1. Release a patch of the library whose range leaves that version out (`>=4.1.4 <4.1.6`), with a `Changed` entry that
+1. Release a patch of the library whose range leaves that version out (`>=4.1.5 <4.1.7`), with a `Changed` entry that
    names it. Whoever installs or updates the library from then on meets the conflict in their package manager.
 2. Tell the owner which versions of the library accept the broken Effect, for `npm deprecate` with a message that
    names it: whoever has one of them in a lockfile learns of nothing otherwise. The owner runs it, as the owner

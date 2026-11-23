@@ -266,8 +266,8 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
     message is sent, past every site. A cause with a defect is no end of interruptions only, so the root leaves a death
     that the scope recorded as it is, though Effect adds the interruption the fiber received to its failure
     (`docs/premises.md`). Nothing interrupts such a fiber unmarked before the run has stopped it: the engine and
-    `rehearse` fork it with `FiberSet.run` or `FiberMap.run`, as no child of the fiber that forks it
-    (`docs/premises.md`), and the sets close only after the end has stopped their fibers; `simulate` forks a command
+    `rehearse` fork it with `FiberSet.run` or `FiberMap.run`, as no child of the fiber that forks it, as their
+    documentation says, and the sets close only after the end has stopped their fibers; `simulate` forks a command
     with `Effect.forkChild`, which interrupts a child only as its parent ends, as its documentation says, and stops it
     before. The root is the last thing the fiber runs, and is recorded as the scope is (`recorded` after
     it, in the engine and in each testing tool). The scope takes an interruption that comes while the effect runs, and
@@ -290,11 +290,12 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
     `start` or `drive` and given through `startWith` to the engine; `rehearse` has its own, keeping only the program's
     defects, and `simulate` one for each simulation, for the commands it runs): the engine's, and the run's own as it
     starts the effects, as they end, in a cleanup nothing interrupts, which an interruption that reaches the fiber
-    cannot stop halfway (the cleanup of `Effect.onExit`, `docs/premises.md`), and one with a scope of its own as it dies
-    too, before the scope releases what it holds (`scopedIn`), what a subscription's channel adds to that scope included
-    (`runSubscription`), so that a defect is in the order it happened, though its release lets another fiber die first;
-    what the release dies of is wrapped apart, told from what the fiber died of by what the fiber kept of it, never by
-    the register, where a defect another fiber recorded may be the very one a release dies with. What a function of the
+    cannot stop halfway (the cleanup of `Effect.onExit`, as its documentation says), and one with a scope of its own as
+    it dies too, before the scope releases what it holds (`scopedIn`), what a subscription's channel adds to that scope
+    included (`runSubscription`), so that a defect is in the order it happened, though its release lets another fiber
+    die first; what the release dies of is wrapped apart, told from what the fiber died of by what the fiber kept of it,
+    never by the register, where a defect another fiber recorded may be the very one a release dies with. What a
+    function of the
     program throws where no fiber of the run calls it, in the thunk of `engine.ts` and of `rehearse`, is recorded at
     once (`record` of `Deaths`), with no fiber made for it, in the same register and the same order. `'render'` is the
     site of what a renderer meets, and of nothing of a fiber: `makeModel` wherever the model is read, a listener given
@@ -436,8 +437,8 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   check whose mutation no deterministic test kills is moved until one does, or goes. Three rules keep a check where
   such a test reaches it (`docs/records/single-owner.md`):
   - **A function of the program is called where the call is decided**, never as the first step of a fiber forked for
-    it, which starts when the scheduler says, unless the fork runs it at once on its own stack (`FiberSet.run`, a
-    premise of `docs/premises.md`).
+    it, which starts when the scheduler says, unless the fork runs it at once on its own stack (`FiberSet.run`, as its
+    documentation says).
   - **One check for each call.** No earlier check of the same register stands in front of it in another thunk: it
     would answer in its place in every order a deterministic test reaches. The end's `stopped` is read once, before
     each message, in the loop of `apply`: read at the entry of `apply` too, either of the two taken out alone failed
@@ -448,12 +449,12 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
     the end's (the fiber of effects in `engine.ts`, for `stop`; `rehearse`'s scope and the loop forked in it, one region
     with its end from the scope on, as `drive` forks its run: "leaves no fiber of its own running, wherever the
     interruption reaches it", `rehearse.test.ts`, is its alarm), or `FiberSet.run` and `FiberMap.run`, which fork and
-    add in one step (`docs/premises.md`), where the end reads the set.
+    add in one step, as their documentation says, where the end reads the set.
 
   Every fiber the engine and the testing tools fork, each side of a race included, is interruptible, though it is
   forked where nothing interrupts, as a fork inside such a region is, and a run or a tool called inside one: Effect's
-  forks and races make it so (`docs/premises.md`). A fiber that took the region of whoever forked it would be one the
-  end cannot stop, and the end would wait for it.
+  forks and races make it so, as their documentation says. A fiber that took the region of whoever forked it would be
+  one the end cannot stop, and the end would wait for it.
 
   What cannot be one thunk with its check, as the first step of an effect of the program, is no act the guide
   promises about.
@@ -484,12 +485,11 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   the ledger made in the thunk of `rehearse`'s loop that checks the end and offers the job (`submit` and `offer` in
   `loop.ts`), held by the test of the transition (`ledger.test.ts`); a fiber and how it stops as one primitive or one
   region, above; what follows an effect of the program outside `restore` (a command's answer, applied in its thunk).
-  The last two are held by Effect's documentation and by the tests of the premises it does not document
-  (`premises.md`): a fiber forked where nothing interrupts is interruptible all the same, the region of the fiber of
-  effects too, `FiberSet.run` and `FiberMap.run` fork and add in one step, and the use of `Effect.acquireUseRelease`
-  can be interrupted. The checks beside them (`ended` in `loop.ts`, the register, a call that left) each have a
-  mutation with a deterministic killer, and the tests of `rehearse.test.ts` under the scheduler of the tests stay as
-  alarms of the search, killing none.
+  The last two are held by Effect's documentation: a fiber forked where nothing interrupts is interruptible all the
+  same, the region of the fiber of effects too, `FiberSet.run` and `FiberMap.run` fork and add in one step, and the use
+  of `Effect.acquireUseRelease` can be interrupted where its caller can be. The checks beside them (`ended` in
+  `loop.ts`, the register, a call that left) each have a mutation with a deterministic killer, and the tests of
+  `rehearse.test.ts` under the scheduler of the tests stay as alarms of the search, killing none.
 - **The testing tools behave like the engine** where it is deterministic, with the test as the scheduler
   ("Testing tools" in the guide says what each one runs, fails on and ignores); `rehearse` fails on a command left
   pending, since its answer would arrive, and `drive` acts only as a user can, through `run` and the run's

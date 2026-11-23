@@ -658,7 +658,7 @@ const rehearsing = Effect.fnUntraced(function*<
           const [{ ticket, command }, taken] = taking.value
           ledger = taken
           // Forked in the acquisition, where nothing interrupts, the command is interruptible all the same
-          // (`docs/premises.md`).
+          // (`FiberSet.run`).
           return answering(ticket, calling(() => runCommand(command))).pipe(
             rootedIn("command"),
             recorded,

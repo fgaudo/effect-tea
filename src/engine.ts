@@ -427,7 +427,7 @@ export const build = <State, Message, Command, R, K>({
     // could tell the defect of a key's `Equal` that throws.
     const subscriptionFibers = yield* FiberMap.make<Core.Generation, void, never>()
     // Added after the queue and the sets, so run before they close, as a scope runs its finalizers in the reverse order
-    // they were added (`docs/premises.md`): the end of the run stops the fiber of effects, interrupts its other fibers
+    // they were added (`Scope.close`): the end of the run stops the fiber of effects, interrupts its other fibers
     // itself, all at once, waits for them to release what they hold, and dies of what they have died of and nobody has
     // reported, which `diesIn` already says where.
     yield* Effect.addFinalizer(() =>
@@ -495,7 +495,7 @@ export const build = <State, Message, Command, R, K>({
     // The queue, the fork and its assignment are one step nothing interrupts: interrupted between the fork and the
     // assignment, the fiber that starts the effects would close its scope with a fiber of effects `stop` does not know
     // of. The fiber of effects is interruptible all the same, as a fiber forked where nothing interrupts is
-    // (`docs/premises.md`). A job that came after the last of those that waited is offered first.
+    // (`Effect.forkChild`). A job that came after the last of those that waited is offered first.
     yield* Effect.suspend(() => {
       jobs = queued
       offer()

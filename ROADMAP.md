@@ -110,7 +110,10 @@ silence": "A command or a subscription that the program interrupts is a defect t
 runs it, interrupt them". They tell an interruption by the run from one by the program: the mark that
 `Fiber.interruptAs` carries, what `Effect.interruptible` fails with, a fork that is no child, the order of a scope's
 finalizers, a handler that an interrupted fiber does not run, and the fiber that `Fiber.getCurrent` gives. Every stop
-of every subscription passes there. The owner kept the guarantee on 13 and 19 November 2026 (`docs/rejected.md`, "A
+of every subscription passes there. Effect 4.1.5 documents four of the six (the mark, the fork, the order and the
+handler), and the upgrade to it took them out of `docs/premises.md`: two are left, what `Effect.interruptible` fails
+with and the fiber that `Fiber.getCurrent` gives. Of the twelve of the sort, four are left. The owner weighs whether
+the step still holds before it starts. The owner kept the guarantee on 13 and 19 November 2026 (`docs/rejected.md`, "A
 flag for each fiber, in place of the mark on the run's interruptions" and "Leaving 'Only the run, and whoever runs it,
 interrupt them' to the program"). Two reasons that neither entry answers: the library is since for others to adopt,
 and the sort counts what the guarantee rests on. And the one thing that the flag gave up, a fiber that interrupts
@@ -119,9 +122,9 @@ itself as the run stops it, is described and no longer promised, since 23 Novemb
 **How.** A spike on a branch that is never merged, which counts and does not reason. Two forms: the guarantee left to
 the program ("What is left to you"), with the mark, the roots and the question to the fiber taken out; and the flag of
 13 November again, whose spike also gave false defects in `init`. For each: which premises leave `docs/premises.md`
-(six by reading, not run), which tests and mutations go, what the search finds in a thousand runs, and what a program
-then meets. The entry of 19 November names it: a run that hangs, a `hearNext` that waits for ever, `simulate`
-succeeding. The owner decides with the counts. The skills are
+(two by reading since Effect 4.1.5, not run), which tests and mutations go, what the search finds in a thousand runs,
+and what a program then meets. The entry of 19 November names it: a run that hangs, a `hearNext` that waits for ever,
+`simulate` succeeding. The owner decides with the counts. The skills are
 [`change-engine`](.agents/skills/change-engine/SKILL.md) and
 [`premise-review`](.agents/skills/premise-review/SKILL.md).
 
@@ -133,6 +136,12 @@ that write the change are here, before step 18.
 **Model and effort.** Opus 5.5, `high`: each request states a general rule of Effect, true of its source.
 
 **Depends on** step 46, which decides which premises are left.
+
+**Since the upgrade to Effect 4.1.5** (23 November 2026), its JSDoc documents seventeen of the thirty-one premises on
+Effect, which left `docs/premises.md` with their tests: what `FiberSet.run` and `FiberMap.run` promise of the fiber
+they fork, a fork's region and `startImmediately`, the cleanup of `Effect.onExit`, the order of a scope's finalizers, a
+handler that an interrupted fiber skips, the annotations of `Fiber.interruptAs`, the races, `acquireUseRelease`,
+`suspend`, `Fiber.await`, and the clock of a timeout and its default. Thirteen are left to ask, the scheduler's aside.
 
 **Why.** A behaviour that a stable API documents is no premise (`docs/premises.md`, the rule after the list): Effect
 keeps it within the major, and a change of it is Effect's to announce. It is the one way a premise leaves the list

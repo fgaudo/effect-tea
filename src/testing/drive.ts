@@ -237,7 +237,7 @@ export const drive = Effect.fnUntraced(function*<
   // dies of as it releases what it holds.
   return yield* Effect.uninterruptibleMask(Effect.fnUntraced(function*(restore) {
     // Not `restore(run)`: it would give the run the region of whoever runs `drive`, uninterruptible where that is,
-    // when a fiber forked here is interruptible all the same (`docs/premises.md`).
+    // when a fiber forked here is interruptible all the same (`Effect.forkChild`).
     const fiber = yield* Effect.forkChild(run)
     // A run that ends first, of a defect, ends `drive`, whatever the scenario was doing.
     const ended = yield* Effect.exit(restore(Effect.raceFirst(

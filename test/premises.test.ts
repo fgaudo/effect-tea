@@ -5,11 +5,8 @@
  * the bridges on their renderers lie in the bridges' tests, where the DOM is.
  */
 import { describe, expect, test } from "bun:test"
-import * as Arr from "effect/Array"
 import * as Cause from "effect/Cause"
 import * as Channel from "effect/Channel"
-import * as Clock from "effect/Clock"
-import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
@@ -21,11 +18,9 @@ import * as FiberSet from "effect/FiberSet"
 import * as Hash from "effect/Hash"
 import * as HashMap from "effect/HashMap"
 import * as Logger from "effect/Logger"
-import * as Opt from "effect/Option"
 import * as Queue from "effect/Queue"
 import * as Scope from "effect/Scope"
 import * as Stream from "effect/Stream"
-import * as TestClock from "effect/testing/TestClock"
 import * as Tracer from "effect/Tracer"
 import { collectGarbage } from "./gc.test_helper.ts"
 
@@ -137,77 +132,6 @@ test("the watch of that test sees a FiberMap call a key's Equal after the call, 
   await Effect.runPromise(Scope.close(scope, Exit.void))
 })
 
-describe("a fiber forked with FiberSet.run or FiberMap.run is no child of the fiber that forks it, which ends without waiting for it", () => {
-  const ranOn = (fork: (self: Effect.Effect<string>) => Effect.Effect<Fiber.Fiber<string>, never, Scope.Scope>) =>
-    Effect.runPromise(Effect.scoped(Effect.gen(function*() {
-      const gate = yield* Deferred.make<void>()
-      const forking = yield* Effect.forkChild(fork(Effect.as(Deferred.await(gate), "ran on")))
-      const forked = yield* Fiber.join(forking)
-      yield* Deferred.succeed(gate, undefined)
-      return yield* Fiber.await(forked)
-    })))
-
-  test("FiberSet.run", async () => {
-    expect(await ranOn((self) => Effect.flatMap(FiberSet.make<string>(), (set) => FiberSet.run(set, self))))
-      .toEqual(Exit.succeed("ran on"))
-  })
-
-  test("FiberMap.run", async () => {
-    expect(
-      await ranOn((self) => Effect.flatMap(FiberMap.make<string, string>(), (map) => FiberMap.run(map, "k", self)))
-    )
-      .toEqual(Exit.succeed("ran on"))
-  })
-})
-
-describe("FiberSet.run and FiberMap.run fork a fiber and add it in one step", () => {
-  /**
-   * Forks a fiber that forks into what `make` makes one that, as it starts, interrupts the fiber forking it, and says
-   * whether that fiber was interrupted and how many fibers were kept.
-   */
-  const kept = <C>(
-    make: Effect.Effect<C, never, Scope.Scope>,
-    fork: (kept: C, self: Effect.Effect<never>) => Effect.Effect<unknown>,
-    size: (kept: C) => Effect.Effect<number>
-  ) =>
-    Effect.runPromise(Effect.scoped(Effect.gen(function*() {
-      const container = yield* make
-      let forking: Fiber.Fiber<unknown> | undefined
-      const interruptsItsFork = Effect.andThen(Effect.sync(() => forking?.interruptUnsafe()), Effect.never)
-      forking = yield* Effect.forkChild(fork(container, interruptsItsFork))
-      const exit = yield* Fiber.await(forking)
-      return [Exit.hasInterrupts(exit), yield* size(container)] as const
-    })))
-
-  test("FiberSet.run", async () => {
-    expect(await kept(FiberSet.make<never>(), (set, self) => FiberSet.run(set, self), FiberSet.size)).toEqual([true, 1])
-  })
-
-  test("FiberMap.run", async () => {
-    expect(await kept(FiberMap.make<string, never>(), (map, self) => FiberMap.run(map, "k", self), FiberMap.size))
-      .toEqual([true, 1])
-  })
-})
-
-test("a fiber forked with startImmediately runs on the stack of the fiber that forks it until it first waits", async () => {
-  const steps = await Effect.runPromise(Effect.gen(function*() {
-    const steps: Array<string> = []
-    const gate = yield* Deferred.make<void>()
-    const fiber = yield* Effect.forkChild(
-      Effect.sync(() => steps.push("before the wait")).pipe(
-        Effect.andThen(Deferred.await(gate)),
-        Effect.andThen(Effect.sync(() => steps.push("after the wait")))
-      ),
-      { startImmediately: true }
-    )
-    steps.push("forked")
-    yield* Deferred.succeed(gate, undefined)
-    yield* Fiber.join(fiber)
-    return steps
-  }))
-  expect(steps).toEqual(["before the wait", "forked", "after the wait"])
-})
-
 // Completed first by plain code, as `drive` completes its waits, then by a fiber.
 test("a fiber that waits on a Deferred runs on the stack of whoever completes it, until it waits again", async () => {
   const steps = await Effect.runPromise(Effect.gen(function*() {
@@ -231,43 +155,6 @@ test("a fiber that waits on a Deferred runs on the stack of whoever completes it
     return steps
   }))
   expect(steps).toEqual(["completing", "resumed", "completed", "resumed again", "completed again"])
-})
-
-describe("a fiber forked with FiberSet.run or FiberMap.run runs on the stack of the fiber that runs it until it first waits", () => {
-  /**
-   * Forks, with `fork`, a call wrapped as the engine wraps `runCommand` and a subscription (a scope, a cleanup), which
-   * then waits, and says what had happened when `run` returned and once the wait is over.
-   */
-  const order = <C>(
-    make: Effect.Effect<C, never, Scope.Scope>,
-    fork: (kept: C, self: Effect.Effect<void>) => Effect.Effect<Fiber.Fiber<void>>
-  ) =>
-    Effect.runPromise(Effect.scoped(Effect.gen(function*() {
-      const container = yield* make
-      const steps: Array<string> = []
-      const gate = yield* Deferred.make<void>()
-      const call = Effect.suspend(() => Effect.sync(() => steps.push("called"))).pipe(
-        Effect.andThen(Deferred.await(gate)),
-        Effect.andThen(Effect.sync(() => steps.push("after the wait"))),
-        Effect.scoped,
-        Effect.onExit(() => Effect.void)
-      )
-      const fiber = yield* fork(container, call)
-      steps.push("returned")
-      yield* Deferred.succeed(gate, undefined)
-      yield* Fiber.join(fiber)
-      return steps
-    })))
-
-  test("FiberSet.run", async () => {
-    expect(await order(FiberSet.make<void>(), (set, self) => FiberSet.run(set, self)))
-      .toEqual(["called", "returned", "after the wait"])
-  })
-
-  test("FiberMap.run", async () => {
-    expect(await order(FiberMap.make<string, void>(), (map, self) => FiberMap.run(map, "k", self)))
-      .toEqual(["called", "returned", "after the wait"])
-  })
 })
 
 describe("code that a fiber runs on the stack of the fiber that forks it sees the forked fiber as its own", () => {
@@ -315,78 +202,6 @@ describe("code that a fiber runs on the stack of the fiber that forks it sees th
   })
 })
 
-describe("a fiber forked where nothing interrupts is interruptible all the same", () => {
-  /**
-   * Forks with `fork`, where nothing interrupts, a fiber that waits, interrupts it before its wait is over, and says
-   * whether it ran on past the wait and whether it ended interrupted.
-   */
-  const interrupted = (fork: (self: Effect.Effect<void>) => Effect.Effect<Fiber.Fiber<void>, never, Scope.Scope>) =>
-    Effect.runPromise(Effect.scoped(Effect.gen(function*() {
-      let ranOn = false
-      const running = yield* Deferred.make<void>()
-      const gate = yield* Deferred.make<void>()
-      const fiber = yield* Effect.uninterruptible(fork(
-        Deferred.succeed(running, undefined).pipe(
-          Effect.andThen(Deferred.await(gate)),
-          Effect.andThen(Effect.sync(() => {
-            ranOn = true
-          }))
-        )
-      ))
-      yield* Deferred.await(running)
-      const interrupting = yield* Effect.forkChild(Fiber.interrupt(fiber), { startImmediately: true })
-      yield* Deferred.succeed(gate, undefined)
-      yield* Fiber.join(interrupting)
-      return [ranOn, Exit.hasInterrupts(yield* Fiber.await(fiber))] as const
-    })))
-
-  test("Effect.forkChild", async () => {
-    expect(await interrupted((self) => Effect.forkChild(self))).toEqual([false, true])
-  })
-
-  test("Effect.forkIn", async () => {
-    expect(await interrupted((self) => Effect.flatMap(Effect.scope, (scope) => Effect.forkIn(self, scope))))
-      .toEqual([false, true])
-  })
-
-  test("FiberSet.run", async () => {
-    expect(await interrupted((self) => Effect.flatMap(FiberSet.make<void>(), (set) => FiberSet.run(set, self))))
-      .toEqual([false, true])
-  })
-
-  test("FiberMap.run", async () => {
-    const fork = (self: Effect.Effect<void>) =>
-      Effect.flatMap(FiberMap.make<string, void>(), (map) => FiberMap.run(map, "k", self))
-    expect(await interrupted(fork)).toEqual([false, true])
-  })
-})
-
-describe("Effect.raceFirst runs each side interruptible, where nothing interrupts too", () => {
-  /**
-   * Races, where nothing interrupts, a side that yields once against one that yields a hundred times before it notes
-   * that it ran on, and says whether it did: `raceFirst` waits for the side it interrupts, so one that runs on ends.
-   */
-  const ranOn = (race: (winning: Effect.Effect<void>, losing: Effect.Effect<void>) => Effect.Effect<void>) =>
-    Effect.runPromise(Effect.gen(function*() {
-      let ranOn = false
-      const losing = Effect.forEach(Arr.range(1, 100), () => Effect.yieldNow, { discard: true }).pipe(
-        Effect.andThen(Effect.sync(() => {
-          ranOn = true
-        }))
-      )
-      yield* Effect.uninterruptible(race(Effect.yieldNow, losing))
-      return ranOn
-    }))
-
-  test("the side that loses first", async () => {
-    expect(await ranOn((winning, losing) => Effect.raceFirst(losing, winning))).toBe(false)
-  })
-
-  test("the side that loses second", async () => {
-    expect(await ranOn((winning, losing) => Effect.raceFirst(winning, losing))).toBe(false)
-  })
-})
-
 describe("what the cleanup of Effect.onExit fails with comes after the cause of the effect", () => {
   test("of an effect that dies", async () => {
     const exit = await Effect.runPromiseExit(Effect.die("effect").pipe(Effect.onExit(() => Effect.die("cleanup"))))
@@ -402,94 +217,6 @@ describe("what the cleanup of Effect.onExit fails with comes after the cause of 
       return [yield* Effect.fiberId, yield* Fiber.await(fiber)] as const
     }))
     expect(described(exit)).toEqual([["Interrupt", id], ["Die", "cleanup"]])
-  })
-})
-
-describe("Effect.onExit runs its cleanup where nothing interrupts, however the effect ends", () => {
-  /**
-   * Forks `self` with a cleanup that waits, interrupts the fiber before the cleanup begins or once it has, and says
-   * whether the cleanup ran past its wait.
-   */
-  const cleanedUp = (self: (running: Effect.Effect<void>) => Effect.Effect<void>, interrupts: "before" | "during") =>
-    Effect.runPromise(Effect.gen(function*() {
-      const log: Array<string> = []
-      const cleaning = yield* Deferred.make<void>()
-      const gate = yield* Deferred.make<void>()
-      const cleanup = Deferred.succeed(cleaning, undefined).pipe(
-        Effect.andThen(Deferred.await(gate)),
-        Effect.andThen(Effect.sync(() => log.push("cleaned up")))
-      )
-      const fiber = yield* started((running) => Effect.onExit(self(running), () => cleanup))
-      if (interrupts === "during") yield* Deferred.await(cleaning)
-      const interrupting = yield* Effect.forkChild(Fiber.interrupt(fiber), { startImmediately: true })
-      yield* Deferred.await(cleaning)
-      yield* Deferred.succeed(gate, undefined)
-      yield* Fiber.join(interrupting)
-      return log
-    }))
-
-  // A cleanup interrupted as it begins never says that it has: the test's own timeout fails it then.
-  test("of an effect that is interrupted", async () => {
-    expect(await cleanedUp((running) => Effect.andThen(running, Effect.never), "before")).toEqual(["cleaned up"])
-  })
-
-  test("of an effect that succeeds, its fiber interrupted as the cleanup runs", async () => {
-    expect(await cleanedUp((running) => running, "during")).toEqual(["cleaned up"])
-  })
-})
-
-describe("a scope runs its finalizers in the reverse order they were added", () => {
-  const names = ["first", "second", "third"]
-
-  test("a scope made with Scope.make, closed by hand", async () => {
-    const log: Array<string> = []
-    await Effect.runPromise(Effect.gen(function*() {
-      const scope = yield* Scope.make()
-      for (const name of names) yield* Scope.addFinalizer(scope, Effect.sync(() => log.push(name)))
-      yield* Scope.close(scope, Exit.void)
-    }))
-    expect(log).toEqual(["third", "second", "first"])
-  })
-
-  test("the scope of Effect.scoped, what it holds acquired with Effect.acquireRelease", async () => {
-    const log: Array<string> = []
-    await Effect.runPromise(Effect.scoped(Effect.forEach(
-      names,
-      (name) => Effect.acquireRelease(Effect.void, () => Effect.sync(() => log.push(name))),
-      { discard: true }
-    )))
-    expect(log).toEqual(["third", "second", "first"])
-  })
-})
-
-describe("a fiber interrupted while interruptible runs no failure handler", () => {
-  test("on its interruption", async () => {
-    const handled: Array<string> = []
-    const exit = await Effect.runPromise(Effect.gen(function*() {
-      const fiber = yield* started((running) =>
-        Effect.andThen(running, Effect.never).pipe(Effect.catchCause(() => Effect.sync(() => handled.push("handled"))))
-      )
-      yield* Fiber.interrupt(fiber)
-      return yield* Fiber.await(fiber)
-    }))
-    expect(handled).toEqual([])
-    expect(Exit.hasInterrupts(exit)).toBe(true)
-  })
-
-  test("beside a defect of its release", async () => {
-    const handled: Array<string> = []
-    const exit = await Effect.runPromise(Effect.gen(function*() {
-      const fiber = yield* started((running) =>
-        Effect.andThen(running, Effect.never).pipe(
-          Effect.ensuring(Effect.die("release")),
-          Effect.catchCause(() => Effect.sync(() => handled.push("handled")))
-        )
-      )
-      yield* Fiber.interrupt(fiber)
-      return yield* Fiber.await(fiber)
-    }))
-    expect(handled).toEqual([])
-    expect(described(exit).map(([tag]) => tag)).toEqual(["Interrupt", "Die"])
   })
 })
 
@@ -527,46 +254,6 @@ describe("a fiber that fails as it is interrupted keeps its own reasons and gets
       return [by, yield* Deferred.await(entered)] as const
     }))
     expect(described(entered)).toEqual([["Interrupt", by]])
-  })
-})
-
-class Mark extends Context.Service<Mark, object>()("test/premises/Mark") {}
-
-const markOf = <A, E>(exit: Exit.Exit<A, E>) =>
-  reasonsOf(exit).filter(Cause.isInterruptReason).map((reason) =>
-    Context.getOrUndefined(Cause.reasonAnnotations(reason), Mark)
-  )
-
-describe("an interruption made with Fiber.interruptAs carries the annotations it is given on its reason", () => {
-  test("on a fiber interrupted where it waits", async () => {
-    const exit = await Effect.runPromise(Effect.gen(function*() {
-      const fiber = yield* started((running) => Effect.andThen(running, Effect.never))
-      yield* Fiber.interruptAs(fiber, yield* Effect.fiberId, Context.make(Mark, {}))
-      return yield* Fiber.await(fiber)
-    }))
-    expect(markOf(exit)).toEqual([{}])
-  })
-
-  test("and the runtime keeps them as it annotates the reason further, in a traced function", async () => {
-    const traced = Effect.fn("traced")(function*() {
-      yield* Effect.interruptible(Effect.void)
-    })
-    const exit = await Effect.runPromise(Effect.gen(function*() {
-      const gate = yield* Deferred.make<void>()
-      const fiber = yield* started((running) =>
-        Effect.uninterruptible(running.pipe(Effect.andThen(Deferred.await(gate)), Effect.andThen(traced())))
-      )
-      fiber.interruptUnsafe(yield* Effect.fiberId, Context.make(Mark, {}))
-      yield* Deferred.succeed(gate, undefined)
-      return yield* Fiber.await(fiber)
-    }))
-    // The fiber gets what it received added to what the interruptible region failed with: a copy, annotated further,
-    // with the frame of the traced function.
-    const annotated = reasonsOf(exit).filter(Cause.isInterruptReason).map((reason) => Cause.reasonAnnotations(reason))
-    expect(annotated.some((annotations) => Context.getOrUndefined(annotations, Cause.StackTrace) !== undefined))
-      .toBe(true)
-    expect(markOf(exit).length).toBeGreaterThan(0)
-    expect(markOf(exit)).not.toContain(undefined)
   })
 })
 
@@ -641,85 +328,6 @@ describe("while a release the channel wraps around itself runs as its pull fails
     }))
     expect(log).toEqual(["released", "pull died"])
   })
-})
-
-test("Effect.raceFirst waits for the effect it interrupts to end, its release included", async () => {
-  const log: Array<string> = []
-  await Effect.runPromise(Effect.gen(function*() {
-    const running = yield* Deferred.make<void>()
-    const losing = Effect.andThen(Deferred.succeed(running, undefined), Effect.never).pipe(
-      Effect.onInterrupt(() => Effect.andThen(Effect.yieldNow, Effect.sync(() => log.push("released"))))
-    )
-    yield* Effect.raceFirst(losing, Deferred.await(running))
-    log.push("race ended")
-  }))
-  expect(log).toEqual(["released", "race ended"])
-})
-
-test("the use of Effect.acquireUseRelease can be interrupted", async () => {
-  const log: Array<string> = []
-  await Effect.runPromise(Effect.gen(function*() {
-    const gate = yield* Deferred.make<void>()
-    const fiber = yield* started((running) =>
-      Effect.acquireUseRelease(
-        Effect.void,
-        () => Effect.andThen(running, Deferred.await(gate)).pipe(Effect.andThen(Effect.sync(() => log.push("used")))),
-        (_, exit) => Effect.sync(() => log.push(Exit.hasInterrupts(exit) ? "released, interrupted" : "released"))
-      )
-    )
-    const interrupting = yield* Effect.forkChild(Fiber.interrupt(fiber), { startImmediately: true })
-    yield* Deferred.succeed(gate, undefined)
-    yield* Fiber.join(interrupting)
-  }))
-  expect(log).toEqual(["released, interrupted"])
-})
-
-test("a thunk of Effect.suspend that throws makes the effect die with what it threw", async () => {
-  const thrown = new Error("the thunk")
-  const exit = await Effect.runPromiseExit(Effect.suspend(() => {
-    throw thrown
-  }))
-  expect(described(exit)).toEqual([["Die", thrown]])
-})
-
-test("interrupting Fiber.await leaves the awaited fiber running", async () => {
-  const [running, exit] = await Effect.runPromise(Effect.gen(function*() {
-    const gate = yield* Deferred.make<void>()
-    const awaited = yield* started((running) => Effect.andThen(running, Effect.as(Deferred.await(gate), "ran on")))
-    const awaiting = yield* Effect.forkChild(Fiber.await(awaited), { startImmediately: true })
-    yield* Fiber.interrupt(awaiting)
-    const running = awaited.pollUnsafe() === undefined
-    yield* Deferred.succeed(gate, undefined)
-    return [running, yield* Fiber.await(awaited)] as const
-  }))
-  expect(running).toBe(true)
-  expect(exit).toEqual(Exit.succeed("ran on"))
-})
-
-test("the default value of Clock.Clock keeps real time where a TestClock is the clock of the context", async () => {
-  // A sleep the TestClock held would never end, as nothing adjusts it: the test's own timeout fails it then.
-  const [before, now] = await Effect.runPromise(
-    Effect.gen(function*() {
-      const before = Date.now()
-      yield* Effect.sleep("1 millis")
-      return [before, yield* Clock.currentTimeMillis] as const
-    }).pipe(
-      Effect.provideService(Clock.Clock, Clock.Clock.defaultValue()),
-      Effect.provide(TestClock.layer())
-    )
-  )
-  expect(now).toBeGreaterThanOrEqual(before)
-})
-
-test("Effect.timeoutOption measures with the Clock of its context", async () => {
-  const ended = await Effect.runPromise(
-    Effect.gen(function*() {
-      const waiting = yield* Effect.forkChild(Effect.timeoutOption(Effect.never, "1 hour"))
-      yield* TestClock.adjust("1 hour")
-      return yield* Fiber.join(waiting)
-    }).pipe(Effect.provide(TestClock.layer()))
-  )
-  expect(ended).toEqual(Opt.none())
 })
 
 describe("a collection reclaims what nobody holds, and a FinalizationRegistry then calls back for each target it reclaimed", () => {
@@ -824,38 +432,6 @@ describe("Effect keeps nothing of a fiber that has ended, nor of what its scope 
     // Held to the end, open: a set nobody holds keeps nothing, whatever it does.
     expect(Effect.runSync(FiberSet.size(set))).toBe(0)
     await Effect.runPromise(Scope.close(scope, Exit.void))
-  })
-})
-
-describe("a fiber of a FiberSet or a FiberMap that dies leaves the other fibers running, and the set takes forks after it", () => {
-  // The other fiber is interrupted by the test alone once the one that died has ended: a set that interrupted it on
-  // the death would have added its own interruption (the fiber -1) first.
-  type Run = <A, E>(effect: Effect.Effect<A, E>) => Effect.Effect<Fiber.Fiber<A, E>>
-  const leaves = (make: Effect.Effect<Run, never, Scope.Scope>) =>
-    Effect.runPromise(Effect.scoped(Effect.gen(function*() {
-      const run = yield* make
-      const other = yield* run(Effect.never)
-      const dying = yield* run(Effect.die("dies"))
-      yield* Fiber.await(dying)
-      let ran = false
-      yield* run(Effect.sync(() => {
-        ran = true
-      }))
-      yield* Fiber.interruptAs(other, 42)
-      return { other: described(yield* Fiber.await(other)), ran }
-    })))
-
-  test("FiberSet.run", async () => {
-    const result = await leaves(Effect.map(FiberSet.make(), (set): Run => (effect) => FiberSet.run(set, effect)))
-    expect(result).toEqual({ other: [["Interrupt", 42]], ran: true })
-  })
-
-  test("FiberMap.run", async () => {
-    let key = 0
-    const result = await leaves(
-      Effect.map(FiberMap.make<number>(), (map): Run => (effect) => FiberMap.run(map, key++, effect))
-    )
-    expect(result).toEqual({ other: [["Interrupt", 42]], ran: true })
   })
 })
 

@@ -109,13 +109,12 @@ export const simulate = <State, Message, Command = never, Event = never, R = nev
       })
     )
   // A command runs in a fiber of its own, called where it is decided, begun at once as `FiberSet.run` begins it in the
-  // run (`startImmediately`, `docs/premises.md`), so that an interruption that reaches the simulation as it awaits
-  // finds its effect begun, and awaited, its exit then taken as the simulation's (`Fiber.await`, whose interruption
-  // leaves the fiber running, `docs/premises.md`; a `Fiber.join`'s interruption is not documented): interrupted, the
-  // simulation stops it as the run does, with its mark, and fails with what it dies of as it releases, first. Run in
-  // the fiber of whoever interrupts the simulation, it would be stopped as that fiber, which may have interrupted a
-  // fiber before. Its scope is the run's (`scopedIn`), so that what it releases is given the exit the run gives it: its
-  // defect with where.
+  // run (`startImmediately`), so that an interruption that reaches the simulation as it awaits finds its effect begun,
+  // and awaited, its exit then taken as the simulation's (`Fiber.await`, whose interruption leaves the fiber running):
+  // interrupted, the simulation stops it as the run does, with its mark, and fails with what it dies of as it releases,
+  // first. Run in the fiber of whoever interrupts the simulation, it would be stopped as that fiber, which may have
+  // interrupted a fiber before. Its scope is the run's (`scopedIn`), so that what it releases is given the exit the run
+  // gives it: its defect with where.
   const runOne = (deaths: Deaths, command: Command) =>
     Effect.uninterruptibleMask((restore) =>
       Effect.sync(() => runCommand(command)).pipe(

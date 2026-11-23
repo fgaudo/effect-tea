@@ -1,6 +1,6 @@
 name: Effect latest
 
-# The peer range (`~4.1.4`) accepts the later patches of the minor of the lockfile, and the library is developed, and
+# The peer range (`~4.1.5`) accepts the later patches of the minor of the lockfile, and the library is developed, and
 # what it rests on of Effect tested, at the version of the lockfile alone (`docs/premises.md`): what Effect does not
 # document may change in a patch too. This runs the tests at the newest Effect the range accepts, so that a premise a
 # new patch breaks is known the day after it is published, not at the next upgrade. A failure here is a lead for an

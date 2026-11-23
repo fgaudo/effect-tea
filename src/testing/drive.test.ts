@@ -526,7 +526,7 @@ describe("drive interrupted by whoever runs it", () => {
 })
 
 // A run that dies ends the scenario: `drive` interrupts it, and returns once it has released what it holds, as it
-// waits for the run (`Effect.raceFirst` waits for the effect it interrupts, `docs/premises.md`).
+// waits for the run (`Effect.raceFirst` waits for the effect it interrupts, as its JSDoc says).
 describe("drive and a scenario the death of the run interrupts", () => {
   type Still = Readonly<{ still: boolean }>
 

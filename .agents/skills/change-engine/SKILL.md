@@ -103,7 +103,7 @@ tied: the tie is a tripwire for an item added to the two lists, no more.
 checked under `test/scheduled.test_scheduler.ts` in both of its modes of resumption. A failure under `'inline'` is an
 order Effect's own scheduler gives, but for where it preempts, and so reachable when the program runs. One under
 `'queued'` alone (the default) rests on a fiber resumed by a `Deferred` or a `Fiber.join` waiting for its turn, where
-Effect 4.1.4 resumes it at once on the stack of the fiber that completes it: still a finding, since that inline
+Effect 4.1.5 resumes it at once on the stack of the fiber that completes it: still a finding, since that inline
 resumption is a premise of the tests alone (`docs/premises.md`), and no guarantee rests on it. A finding is
 listed in `ROADMAP.md` with its seed and path until a fix leaves a deterministic test of it; no mutation names it among
 its killers.

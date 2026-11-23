@@ -105,7 +105,7 @@ why, or what the diff, the docs and the changelog do not, never what they alread
 - **Nothing deprecated.** No module, type, function, method or option marked `@deprecated`, of any dependency,
   in the library, its tests or its examples: use what the deprecation names instead, and replace a use found in
   passing. `bun run lint` fails on one (Oxlint's type-aware `typescript/no-deprecated`).
-- **The peer range is the patches of the Effect the library is developed with** (`~4.1.4` today):
+- **The peer range is the patches of the Effect the library is developed with** (`~4.1.5` today):
   `peerDependencies` names the version of `devDependencies` with a tilde, and an upgrade of Effect raises both in one
   commit, so that the library is checked, and what it rests on of Effect read and tested, at one version only. What
   Effect does not document may change in a minor version, and the premises (`docs/premises.md`) rest on some of it: so

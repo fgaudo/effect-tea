@@ -83,7 +83,7 @@
     "minimatch": "^11.0.1"
   },
   "peerDependencies": {
-    "effect": "~4.1.4",
+    "effect": "~4.1.5",
     "react": "^19.3.1",
     "snabbdom": "^3.6.4"
   },
@@ -96,7 +96,7 @@
     }
   },
   "devDependencies": {
-    "@effect/platform-bun": "~4.1.4",
+    "@effect/platform-bun": "~4.1.5",
     "@effect/tsgo": "0.70.0",
     "@happy-dom/global-registrator": "^21.0.4",
     "@microsoft/api-extractor": "^7.60.1",
@@ -106,7 +106,7 @@
     "@vitest/browser-playwright": "^5.1.1",
     "acorn": "^8.19.0",
     "dprint": "^0.65.0",
-    "effect": "~4.1.4",
+    "effect": "~4.1.5",
     "expect": "^30.5.2",
     "fast-check": "^4.10.2",
     "oxlint": "^1.94.0",

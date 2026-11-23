@@ -1677,7 +1677,7 @@ describe("a fiber of the test's that sends once the tool has ended", () => {
   })
 })
 
-// The run forks a command with `FiberSet.run`, which runs it at once (`docs/premises.md`): its effect has begun once
+// The run forks a command with `FiberSet.run`, which runs it at once, as its JSDoc says: its effect has begun once
 // `runCommand` has been called, whatever interrupts the run then. A fork that only schedules it, as `simulate`'s did
 // until the review of the testing tools of November 2026, leaves it never begun when an interruption comes first.
 describe("a command whose runCommand is called as whoever runs the tool interrupts it", () => {
