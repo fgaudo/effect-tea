@@ -18,6 +18,7 @@ import * as FiberSet from "effect/FiberSet"
 import * as Hash from "effect/Hash"
 import * as HashMap from "effect/HashMap"
 import * as Logger from "effect/Logger"
+import * as Pull from "effect/Pull"
 import * as Queue from "effect/Queue"
 import * as Scope from "effect/Scope"
 import * as Stream from "effect/Stream"
@@ -502,8 +503,9 @@ describe("Scope.close dies with every defect its finalizers die of, none merged 
   })
 })
 
-describe("Stream.callback closes the scope it gives its callback once the stream ends, however it ends", () => {
-  // A source of callbacks as "Subscriptions" shows it, run as a channel: the log says when it listens and stops.
+describe("Stream.callback gives its callback the scope the stream runs in", () => {
+  // A source of callbacks as "Subscriptions" shows it, pulled in a scope as `runSubscription` pulls it: the log says
+  // when it listens, when the pull ends and when it stops.
   const source = (log: Array<string>, listened: Deferred.Deferred<() => void>) =>
     Stream.callback<number>((queue) =>
       Effect.acquireRelease(
@@ -516,24 +518,31 @@ describe("Stream.callback closes the scope it gives its callback once the stream
       )
     ).pipe(Stream.toChannel, Channel.flattenArray, Channel.mapDone(() => "ended"))
 
-  test("by the end of its queue", async () => {
-    const log: Array<string> = []
-    const done = await Effect.runPromise(Effect.gen(function*() {
-      const listened = yield* Deferred.make<() => void>()
-      const fiber = yield* Effect.forkChild(Channel.runDrain(source(log, listened)))
-      const end = yield* Deferred.await(listened)
-      end()
-      return yield* Fiber.join(fiber)
-    }))
-    expect(done).toBe("ended")
-    expect(log).toEqual(["listen", "stop"])
-  })
+  const pulled = (log: Array<string>, listened: Deferred.Deferred<() => void>) =>
+    Effect.scoped(
+      Channel.toPull(source(log, listened)).pipe(
+        Effect.flatMap((pull) => Effect.forever(pull)),
+        Pull.catchDone((done) => Effect.sync(() => log.push(`pull ${done}`)))
+      )
+    )
 
-  test("interrupted", async () => {
+  test("released as the scope of the pull closes, once the pull has ended by the end of its queue", async () => {
     const log: Array<string> = []
     await Effect.runPromise(Effect.gen(function*() {
       const listened = yield* Deferred.make<() => void>()
-      const fiber = yield* Effect.forkChild(Channel.runDrain(source(log, listened)))
+      const fiber = yield* Effect.forkChild(pulled(log, listened))
+      const end = yield* Deferred.await(listened)
+      end()
+      yield* Fiber.join(fiber)
+    }))
+    expect(log).toEqual(["listen", "pull ended", "stop"])
+  })
+
+  test("released as the scope of the pull closes, the fiber that pulls interrupted", async () => {
+    const log: Array<string> = []
+    await Effect.runPromise(Effect.gen(function*() {
+      const listened = yield* Deferred.make<() => void>()
+      const fiber = yield* Effect.forkChild(pulled(log, listened))
       yield* Deferred.await(listened)
       yield* Fiber.interrupt(fiber)
     }))

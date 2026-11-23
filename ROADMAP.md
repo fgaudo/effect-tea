@@ -154,8 +154,30 @@ library's case: when a scope runs its finalizers, not that the engine's end runs
 whether the JSDoc of the newest Effect says it already (`upgrade-effect`, step 4 of "Upgrading Effect"), and whether an
 issue asks it. A request is an issue, or a pull request of the JSDoc alone where the rule is a sentence. The owner is
 asked before each is opened, with its text: it is opened in the owner's name. That of `Stream.callback` is one of
-them: when it closes the scope it gives its callback, once the stream ends, by the end of its queue or interrupted.
-The premise of the scheduler of the tests, and that of the JavaScript engine, are not asked.
+them, as a case of the scope a stream runs in. The premise of the scheduler of the tests, and that of the JavaScript
+engine, are not asked.
+
+**Read on 23 November 2026**, from the two requests answered (Effect-TS/effect#10667 by Effect-TS/effect#10683, and
+Effect-TS/effect#10719 by Effect-TS/effect#10731), a draft of one issue, not opened and not kept in the repository.
+What the first answer chose not to promise is not asked again: a rule for callbacks that throw, `run` on a closed
+container, when a loser is interrupted, how the failures of cleanups combine, and the turn of a deferred fork. The
+second took all eight rules of its request. So the draft asks four rules, each checked on `effect@4.1.5` on every
+function it names:
+
+- the scope a stream runs in: a run function makes one of its own, closed before the run completes however the stream
+  ends, and a pull runs in the scope it is given; `callback` and `unwrap`, of `Stream` and `Channel`, give their effect
+  that scope, while `Stream.scoped`, `ensuring`, `onExit` and `Channel.acquireUseRelease` release as their part ends.
+  It holds the premises of `Stream.callback` and of `Channel.toPull`;
+- an external span records nothing (`tracerLogger`, `annotateCurrentSpan`, `currentSpan` under one);
+- a logger of `Logger.make` runs synchronously in the fiber that logs, and dies there with what it throws, asked of
+  loggers alone, as the first answer wrote one for `suspend`;
+- `HashMap`, `HashSet`, `MutableHashMap` and `MutableHashSet` call `Equal` and `Hash` only during an operation: not a
+  rule of `Equal`, since a `FiberMap` compares a key in a fiber's observer.
+
+Not asked: the three premises of how the failures of cleanups combine (`Effect.onExit`, `Effect.scoped`, `Scope.close`)
+and that of a `Deferred` resuming on the stack of whoever completes it, which fall under what the first answer
+declined; and those of what a `Queue` and the runtime keep, whose fall would be a leak that Effect fixes as a bug. What
+`Effect.interruptible` fails with and the fiber that `Fiber.getCurrent` gives wait for step 46.
 
 **Done when** each premise on Effect names, in `docs/premises.md`, the request that the owner opened for it, or says
 that none was asked and why. A premise leaves the list by an upgrade to the Effect that documents it
