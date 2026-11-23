@@ -2,10 +2,15 @@
 // that their types keep the three rules of `AGENTS.md` ("What belongs here"). Run by hand after a change of the types
 // of `program.ts` or `compose.ts`; it fails when it finds a lead.
 //
-// Each valid case asserts, with `Exactly`, the state, model, messages, commands, events, external messages, flags and
-// services read back from the program, assigns it to the `Program<…>` of the expected types, and makes it the child of
-// a parent, whose types it asserts too. Each broken case asserts nothing, and must fail to compile somewhere in its
-// range. A lead is a valid case that fails, or a broken one that compiles. A scale of parents with 1 to 64 children
+// A program is written in each form: made with `make`, typed `Program<…>` by hand, and as an object not typed
+// `Program<…>`, in a constant, in the call, or spread from a typed one. Each valid case asserts, with `Exactly`, the
+// state, model, messages, commands, events, external messages, flags, services, keys and output read back from the
+// program, and is given to every function that takes a program: `Program<…>` of the expected types, `start`, `drive`,
+// `rehearse`, `simulate`, `child` and `childById`, each in a part of its own, which must take it and give back the same
+// types, or refuse it where the table of the differences meant says (`checks`, `refusesEvents`, `formsRefused`). A
+// broken program of `make` must fail to compile where it is made; one written as an object must be refused by each
+// function that checks the piece it breaks, and taken by the others. A lead is a
+// part that fails where it should compile, or compiles where it should not. A scale of parents with 1 to 64 children
 // measures the time to check one, and the size of its declarations.
 //
 //   bun run inference [--typescript 5.9,6.0,7.0] [--exact true,false] [--unchecked true,false] [--filter <substring>]
@@ -209,7 +214,251 @@ const placeOf = (c: Case, a: (type: string) => string) => {
 // Whether the child alone may not be there, so that its model is an `Option`.
 const sometimes = (c: Case) => c.comp !== "childById" && (c.kidFlags || c.place === "there")
 
-const generate = (c: Case): string => {
+// A part of a case, checked apart by its lines: the program, or what one function makes of it. A case of one part is
+// reported by its id, and a part of a case of several by `<id>/<label>`.
+type Part = Readonly<{ label: string; valid: Verdict; lines: ReadonlyArray<string> }>
+type Member = Readonly<{ id: string; parts: ReadonlyArray<Part> }>
+
+// The types of a program, as the readers of `program.ts` give them back.
+type Types = Readonly<{
+  state: string
+  model: string
+  message: string
+  command: string
+  event: string
+  external: string
+  flags: string
+  commandServices: string
+  subscriptionServices: string
+  key: string
+  output: string
+}>
+const readers: Readonly<Record<keyof Types, string>> = {
+  state: "StateOf",
+  model: "ModelOf",
+  message: "MessageOf",
+  command: "CommandOf",
+  event: "EventOf",
+  external: "ExternalOf",
+  flags: "FlagsOf",
+  commandServices: "CommandServicesOf",
+  subscriptionServices: "SubscriptionServicesOf",
+  key: "KeyOf",
+  output: "OutputOf"
+}
+const readerLines = (name: string, types: Types, prefix = "") =>
+  Object.entries(readers).map(([key, reader]) =>
+    `  const ${prefix}${key}: Exactly<${reader}<typeof ${name}>, ${types[key as keyof Types]}> = true`
+  )
+const fieldsOf = (types: Types) => Object.entries(types).map(([key, type]) => `${key}: ${type}`).join("; ")
+
+// The functions that take a program (step 16, point 3), and `Program<…>`, the type a function that takes one names.
+// Each is given the program, and must take it or refuse it as the table below says, and give back its types.
+type Use = "typed" | "start" | "drive" | "rehearse" | "simulate" | "child" | "childById"
+const uses: ReadonlyArray<Use> = ["typed", "start", "drive", "rehearse", "simulate", "child", "childById"]
+
+// The pieces of a program a function may check, with the parent's `onEvent` for a child's events.
+type Piece =
+  | "state"
+  | "init"
+  | "update"
+  | "subscriptions"
+  | "makeModel"
+  | "runCommand"
+  | "listen"
+  | "external"
+  | "output"
+  | "onEvent"
+const pieces: ReadonlyArray<Piece> = [
+  "state",
+  "init",
+  "update",
+  "subscriptions",
+  "makeModel",
+  "runCommand",
+  "listen",
+  "external",
+  "output",
+  "onEvent"
+]
+const running: ReadonlySet<Piece> = new Set<Piece>([
+  "state",
+  "init",
+  "update",
+  "subscriptions",
+  "makeModel",
+  "runCommand",
+  "listen"
+])
+// The differences meant between the functions: the pieces each one checks. A program broken in a piece is refused by
+// those that check it, and taken by the others, which never call it: only a parent calls `external` and reads
+// `output`, and `simulate` calls `update`, `subscriptions` and `runCommand` alone, and does not read keys. And `start`
+// and `drive` refuse a program with events, which only a parent hears.
+const checks: Readonly<Record<Use, ReadonlySet<Piece>>> = {
+  typed: new Set(pieces.filter((piece) => piece !== "onEvent")),
+  start: running,
+  drive: running,
+  rehearse: running,
+  simulate: new Set<Piece>(["state", "update", "subscriptions", "runCommand"]),
+  child: new Set(pieces),
+  childById: new Set(pieces)
+}
+const refusesEvents: ReadonlySet<Use> = new Set<Use>(["start", "drive"])
+// The forms of a program written as an object that a function refuses as the owner decided, each a form that repeats
+// another: what such a function refuses there is a note when it compiles, never a lead.
+const formsRefused: ReadonlyArray<Readonly<{ form: string; uses: ReadonlyArray<Use>; why: string }>> = [
+  {
+    form: "call.contextual",
+    uses: ["child", "childById"],
+    // `docs/records/program-checks.md`, finding 1: the check is needed for the name of `P`.
+    why: "a child is checked by the types read back from it, which leaves a parameter of a child written in the call"
+      + " that is not annotated without a type"
+  },
+  {
+    form: "spread.contextual",
+    uses: uses.filter((use) => use !== "typed"),
+    // Weighed by step 38, and the rule since `Shape` infers the message from `update` alone.
+    why: "the messages of a program are inferred from its `update`, whose parameter not annotated, written again over a"
+      + " program spread, names none"
+  }
+]
+const verdictFor = (use: Use, events: boolean, broken: Piece | undefined, form?: string): Verdict =>
+  (broken !== undefined && checks[use].has(broken)) || (events && refusesEvents.has(use))
+    ? false
+    : formsRefused.some((refused) => refused.form === form && refused.uses.includes(use))
+    ? "refused"
+    : true
+
+// What a parent of the program reads back of it, as its child alone or as its children by id.
+const parentTypes = (types: Types, byId: boolean): Types => {
+  const at = byId ? " & Readonly<{ id: number }>" : ""
+  const external = types.external !== "never"
+  return {
+    state: `Kept<OuterOwn, { readonly Inner: ${
+      byId ? `HashMap.HashMap<number, Instance<${types.state}>>` : `Opt.Option<Instance<${types.state}>>`
+    } }>`,
+    model: types.model,
+    message: `${external ? "Go | " : ""}Readonly<{ _tag: 'Inner'; message: ${types.message}; instance?: number }>${at}`,
+    command: types.command === "never"
+      ? "never"
+      : `Readonly<{ _tag: 'Inner'; instance: number; command: ${types.command} }>${at}`,
+    event: "never",
+    external: external ? types.external : "never",
+    flags: "never",
+    commandServices: types.commandServices,
+    subscriptionServices: types.subscriptionServices,
+    key: types.key === "never" ? "never" : `Readonly<{ _tag: 'Inner'; instance: number; key: ${types.key} }>${at}`,
+    output: "never"
+  }
+}
+
+// The program given to a parent that uses all it has: its flags, its external message, told from the parent's `update`
+// and passed on from its `external`, and its events, unless the case leaves out `onEvent`.
+const parentLines = (byId: boolean, program: string, types: Types, assert: boolean, onEvent: boolean) => {
+  const external = types.external !== "never"
+  const flagged = types.flags !== "never"
+  const id = byId ? ", id: 1" : ""
+  const place = byId
+    ? flagged
+      ? ", { flags: (): ReadonlyArray<readonly [number, number]> => [[1, 3]] }"
+      : ", { ids: (): ReadonlyArray<number> => [1] }"
+    : flagged
+    ? ", { flags: () => Opt.some(3) }"
+    : ""
+  const lines = [
+    `  const Parent = program<{ state: OuterOwn${external ? `; message: Go; external: ${types.external}` : ""} }>()`,
+    `  const parent = Parent.withChildren({ Inner: Parent.${
+      byId ? "childById" : "child"
+    }(${program}${place}) }).make({`,
+    "    init: { state: { m: 0 } },"
+  ]
+  if (external) {
+    lines.push(`    update: () => (state) => ({ state, tell: [{ _tag: 'Inner'${id}, message: { _tag: 'Reset' } }] }),`)
+    lines.push(`    external: (message) => (state) => ({ state, tell: [{ _tag: 'Inner'${id}, message }] }),`)
+  }
+  if (types.event !== "never" && onEvent) {
+    lines.push(`    onEvent: { Inner: ${byId ? "(id, event)" : "(event)"} => (state) => ({ state }) },`)
+  }
+  const model = byId ? "children.Inner(1)" : flagged ? "Opt.getOrThrow(children.Inner())" : "children.Inner()"
+  lines.push(`    makeModel: (_, children) => ${model},`)
+  lines.push("  })")
+  return assert ? [...lines, ...readerLines("parent", parentTypes(types, byId), "parent_")] : lines
+}
+
+// What one function makes of `program`, an expression: a name, or the object written in the call. `assert` checks the
+// types it gives back, which a broken program, taken by a function that does not check what is broken, need not keep.
+const useLines = (use: Use, program: string, types: Types, assert: boolean, onEvent: boolean) => {
+  const flags = types.flags === "never" ? "" : ", { flags: 3 }"
+  const services = `${types.commandServices} | ${types.subscriptionServices}`
+  const read = (reader: string, name: string, fields: Readonly<Record<string, string>>) =>
+    assert
+      ? Object.entries(fields).map(([key, type]) =>
+        `  const read_${key}: Exactly<${reader}<typeof ${name}>['${key}'], ${type}> = true`
+      )
+      : []
+  switch (use) {
+    case "typed":
+      return [`  const typed: Program<{ ${fieldsOf(types)} }> = ${program}`]
+    case "start":
+      return [
+        `  const started = start(${program}${flags})`,
+        ...read("StartRead", "started", { model: types.model, message: types.message, services })
+      ]
+    case "drive":
+      return [
+        `  const driven = drive(${program}, (driver) => Effect.succeed(driver)${flags})`,
+        ...read("DriveRead", "driven", { model: types.model, message: types.message, services })
+      ]
+    case "rehearse":
+      return [
+        `  const rehearsed = rehearse(${program}, (rehearsal) => Effect.succeed(rehearsal)${flags})`,
+        ...read("RehearseRead", "rehearsed", {
+          state: types.state,
+          model: types.model,
+          message: types.message,
+          command: types.command,
+          event: types.event,
+          commandServices: types.commandServices,
+          subscriptionServices: types.subscriptionServices
+        })
+      ]
+    case "simulate":
+      return [
+        `  const simulated = simulate(${program})`,
+        ...read("SimulateRead", "simulated", {
+          state: types.state,
+          message: types.message,
+          command: types.command,
+          event: types.event,
+          commandServices: types.commandServices
+        })
+      ]
+    case "child":
+    case "childById":
+      return parentLines(use === "childById", program, types, assert, onEvent)
+  }
+}
+
+// The parts of the functions given `program`, each in a block of its own, with its verdict from the table above.
+const usesOf = (
+  program: string,
+  types: Types,
+  given: ReadonlyArray<Use>,
+  options: Readonly<{ broken?: Piece | undefined; onEvent?: boolean; form?: string }> = {}
+): ReadonlyArray<Part> =>
+  given.map((use) => ({
+    label: use,
+    valid: verdictFor(use, types.event !== "never", options.broken, options.form),
+    lines: [
+      "  {",
+      ...useLines(use, program, types, options.broken === undefined, options.onEvent ?? true).map((line) =>
+        `  ${line}`
+      ),
+      "  }"
+    ]
+  }))
+
+const generate = (c: Case): ReadonlyArray<Part> => {
   const v = c.violation
   const has = (name: Name) => c.named.has(name)
   const a = (type: string) => (c.annotate ? `: ${type}` : "")
@@ -437,8 +686,7 @@ const generate = (c: Case): string => {
   const flagged = has("flags") ? ", { flags: () => Opt.some(3) }" : ""
   if (!isValid(c)) {
     lines.push(`  const used = program<{ state: OuterOwn }>().child(made${flagged})`)
-    lines.push("  return made === used.program")
-    return lines.join("\n")
+    return [{ label: "program", valid: verdictOf(c), lines }]
   }
   const kidAt = c.comp === "childById" ? " & Readonly<{ id: number }>" : ""
   const message = [
@@ -447,7 +695,6 @@ const generate = (c: Case): string => {
     ...(c.comp === "input" || c.comp === "mixed" ? ["Readonly<{ _tag: 'Name'; message: Written<string> }>"] : []),
     ...(c.comp === "inputById" ? ["Readonly<{ _tag: 'Count'; id: string; message: Written<number> }>"] : [])
   ].join(" | ")
-  const hasCommands = has("command") || kidded
   const command = [
     has("command") ? "Cmd" : "never",
     ...(kidded ? [`Readonly<{ _tag: 'Kid'; instance: number; command: KidCommand }>${kidAt}`] : [])
@@ -455,11 +702,11 @@ const generate = (c: Case): string => {
   const kept = c.comp === "childById"
     ? "HashMap.HashMap<number, Instance<KidState>>"
     : "Opt.Option<Instance<KidState>>"
-  const expected: Record<string, string> = {
+  const expected: Types = {
     state: kidded ? `Kept<${state}, { readonly Kid: ${kept} }>` : state,
     model: has("model") ? M[c.comp] : inferredModel[c.comp],
     message,
-    command,
+    command: has("command") || kidded ? command : "never",
     event: has("event") ? "Ev" : "never",
     external: has("external") ? "Ext" : "never",
     flags: has("flags") ? "number" : "never",
@@ -471,57 +718,21 @@ const generate = (c: Case): string => {
     key: [
       ownKey,
       ...(kidded ? [`Readonly<{ _tag: 'Kid'; instance: number; key: 'kid' }>${kidAt}`] : [])
-    ].join(" | ")
+    ].join(" | "),
+    output: "never"
   }
-  const readers: Record<string, string> = {
-    state: "StateOf",
-    model: "ModelOf",
-    message: "MessageOf",
-    command: "CommandOf",
-    event: "EventOf",
-    external: "ExternalOf",
-    flags: "FlagsOf",
-    commandServices: "CommandServicesOf",
-    subscriptionServices: "SubscriptionServicesOf",
-    key: "KeyOf"
-  }
-  for (const [key, reader] of Object.entries(readers)) {
-    lines.push(`  const ${key}: Exactly<${reader}<typeof made>, ${expected[key]}> = true`)
-  }
-  const programFields = Object.entries(expected).map(([key, type]) => `${key}: ${type}`).join("; ")
-  lines.push(`  const typed: Program<{ ${programFields} }> = made`)
-  // The program as a child of a parent that uses all it has: its flags, its external message, told from the parent's
-  // `update` and passed on from its `external`, and its events.
-  lines.push(`  const Parent = program<{ state: OuterOwn${has("external") ? "; message: Go; external: Ext" : ""} }>()`)
-  lines.push(`  const parent = Parent.withChildren({ Inner: Parent.child(made${flagged}) }).make({`)
-  lines.push("    init: { state: { m: 0 } },")
-  if (has("external")) {
-    lines.push("    update: () => (state) => ({ state, tell: [{ _tag: 'Inner', message: { _tag: 'Reset' } }] }),")
-    lines.push("    external: (message) => (state) => ({ state, tell: [{ _tag: 'Inner', message }] }),")
-  }
-  if (has("event")) lines.push("    onEvent: { Inner: (event) => (state) => ({ state }) },")
-  lines.push(
-    `    makeModel: (_, children) => ${has("flags") ? "Opt.getOrThrow(children.Inner())" : "children.Inner()"},`
-  )
-  lines.push("  })")
-  const parentExpected: Record<string, string> = {
-    state: `Kept<OuterOwn, { readonly Inner: Opt.Option<Instance<${expected.state}>> }>`,
-    model: expected.model ?? "",
-    message: `${has("external") ? "Go | " : ""}Readonly<{ _tag: 'Inner'; message: ${message}; instance?: number }>`,
-    command: hasCommands ? `Readonly<{ _tag: 'Inner'; instance: number; command: ${command} }>` : "never",
-    event: "never",
-    external: has("external") ? "Ext" : "never",
-    flags: "never",
-    commandServices: expected.commandServices ?? "",
-    subscriptionServices: expected.subscriptionServices ?? "",
-    key: c.subs !== "none" || kidded ? `Readonly<{ _tag: 'Inner'; instance: number; key: ${expected.key} }>` : "never"
-  }
-  for (const [key, reader] of Object.entries(readers)) {
-    lines.push(`  const parent_${key}: Exactly<${reader}<typeof parent>, ${parentExpected[key]}> = true`)
-  }
-  lines.push("  return [typed, parent]")
-  return lines.join("\n")
+  lines.push(...readerLines("made", expected))
+  return [
+    { label: "program", valid: true, lines },
+    ...usesOf("made", expected, representative(c) ? uses : ["typed", "child"])
+  ]
 }
+
+// The axes that change only how `make` is written, the order of its pieces, their annotations, and the form of
+// `update`, leave the type it returns the same, as the readers assert in every case: so a program of `make` is given to
+// every function once for each type, and to `Program<…>` and `child` in every case.
+const representative = (c: Case) =>
+  c.order === "canonical" && !c.annotate && (c.update === "absent" || c.update === "contextual")
 
 // The hand-written family: a program annotated with `Program<…>`, whose pieces take their types from it.
 type HandName = "command" | "event" | "external" | "flags" | "commandServices" | "subscriptionServices"
@@ -532,7 +743,7 @@ type HandCase = Readonly<{
   subs: boolean
 }>
 
-const generateHand = (c: HandCase): string => {
+const generateHand = (c: HandCase): ReadonlyArray<Part> => {
   const has = (name: HandName) => c.named.has(name)
   const fields = ["state: SNone", "model: MNone", "message: Own"]
   if (has("command")) fields.push("command: Cmd")
@@ -580,27 +791,22 @@ const generateHand = (c: HandCase): string => {
   if (c.subs) lines.push("    listen: () => feed,")
   lines.push("    makeModel: (state) => ({ count: state.n }),")
   lines.push("  }")
-  const expected: Record<string, string> = {
-    StateOf: "SNone",
-    ModelOf: "MNone",
-    MessageOf: "Own",
-    CommandOf: has("command") ? "Cmd" : "never",
-    EventOf: has("event") ? "Ev" : "never",
-    ExternalOf: has("external") ? "Ext" : "never",
-    FlagsOf: has("flags") ? "number" : "never",
-    CommandServicesOf: has("command") && has("commandServices") ? "Db" : "never",
+  const expected: Types = {
+    state: "SNone",
+    model: "MNone",
+    message: "Own",
+    command: has("command") ? "Cmd" : "never",
+    event: has("event") ? "Ev" : "never",
+    external: has("external") ? "Ext" : "never",
+    flags: has("flags") ? "number" : "never",
+    commandServices: has("command") && has("commandServices") ? "Db" : "never",
     // As the services of the commands: those named for subscriptions that the program does not have read back as none.
-    SubscriptionServicesOf: has("subscriptionServices") && c.subs ? "Feed" : "never",
-    KeyOf: c.subs ? "'own'" : "never"
+    subscriptionServices: has("subscriptionServices") && c.subs ? "Feed" : "never",
+    key: c.subs ? "'own'" : "never",
+    output: "never"
   }
-  for (const [reader, type] of Object.entries(expected)) {
-    lines.push(`  const ${reader}_: Exactly<${reader}<typeof made>, ${type}> = true`)
-  }
-  lines.push(
-    `  const used = program<{ state: OuterOwn }>().child(made${has("flags") ? ", { flags: () => Opt.some(1) }" : ""})`
-  )
-  lines.push("  return made === used.program")
-  return lines.join("\n")
+  lines.push(...readerLines("made", expected))
+  return [{ label: "program", valid: true, lines }, ...usesOf("made", expected, uses)]
 }
 
 const subsets = <A>(items: ReadonlyArray<A>): ReadonlyArray<ReadonlySet<A>> =>
@@ -764,6 +970,224 @@ for (const named of subsets(handNames)) {
         subs
       })
     }
+  }
+}
+
+// The family of programs written as an object not typed `Program<…>`, which the functions take as it is (step 16,
+// point 2): in a constant, with every parameter annotated; written in the call, annotated or contextual; or spread
+// from a typed program with its `update` written again, annotated or contextual. Contextual, the message of `update`
+// and the flags of `init` stay annotated: nothing else names them.
+type ObjectName = "command" | "event" | "external" | "flags" | "output"
+const objectNames: ReadonlyArray<ObjectName> = ["command", "event", "external", "flags", "output"]
+type ObjectForm = "constant" | "call" | "spread"
+// The rules a program written as an object can break, each in the piece that the functions which check it read.
+type ObjectViolation =
+  | "missingRunCommand"
+  | "wrongAnswer"
+  | "externalRejects"
+  | "externalCommandsUnrun"
+  | "missingListen"
+  | "wrongListen"
+  | "primitiveState"
+  | "wrongInitState"
+  | "missingSubscriptions"
+  | "missingOnEvent"
+const brokenPiece: Readonly<Record<ObjectViolation, Piece>> = {
+  missingRunCommand: "runCommand",
+  wrongAnswer: "runCommand",
+  externalRejects: "external",
+  externalCommandsUnrun: "external",
+  missingListen: "listen",
+  wrongListen: "listen",
+  primitiveState: "state",
+  wrongInitState: "init",
+  missingSubscriptions: "subscriptions",
+  missingOnEvent: "onEvent"
+}
+type ObjectCase = Readonly<{
+  id: string
+  named: ReadonlySet<ObjectName>
+  subs: Subs
+  form: ObjectForm
+  annotate: boolean
+  violation?: ObjectViolation
+}>
+
+const keyOf = (subs: Subs) => subs === "emits" ? "'own'" : subs === "silent" ? "'lock'" : undefined
+
+// The object's pieces, each with the piece it is, broken as its violation says.
+const objectEntries = (o: ObjectCase): ReadonlyArray<readonly [Piece, string]> => {
+  const v = o.violation
+  const has = (name: ObjectName) => o.named.has(name)
+  const primitive = v === "primitiveState"
+  const S = primitive ? "number" : "SNone"
+  const a = (type: string) => (o.annotate ? `: ${type}` : "")
+  const n = primitive ? "state" : "state.n"
+  const st = (value: string) => primitive ? value : `{ n: ${value} }`
+  const commands = has("command") ? ", commands: [save]" : ""
+  const events = has("event") ? ", events: [saved]" : ""
+  const initState = v === "wrongInitState" ? "{ n: '0' }" : st(has("flags") ? "flags" : "0")
+  const key = keyOf(o.subs)
+  const entries: Array<readonly [Piece, string]> = [
+    [
+      "init",
+      has("flags")
+        ? `init: (flags: number) => ({ state: ${initState}${commands} }),`
+        : `init: { state: ${initState}${commands} },`
+    ],
+    [
+      "update",
+      [
+        `update: (message: Own) => (state${a(S)}) => {`,
+        `  if (message._tag === 'Reset') return { state: ${st("0")} }`,
+        `  if (${n} > 9) return reject`,
+        `  return { state: ${st(`${n} + 1`)}${commands}${events} }`,
+        "},"
+      ].join("\n")
+    ]
+  ]
+  if (has("external")) {
+    const step = `{ state: ${st("0")}${v === "externalCommandsUnrun" ? ", commands: [save]" : ""} }`
+    const answer = v === "externalRejects" ? `${n} > 9 ? reject : ${step}` : step
+    entries.push(["external", `external: (message${a("Ext")}) => (state${a(S)}) => (${answer}),`])
+  }
+  if (has("command") && v !== "missingRunCommand") {
+    const answer = v === "wrongAnswer" ? "other" : "inc"
+    entries.push([
+      "runCommand",
+      `runCommand: (command${a("Cmd")}) => Effect.as(Effect.service(Db), Opt.some(${answer})),`
+    ])
+  }
+  if (v !== "missingSubscriptions") {
+    entries.push([
+      "subscriptions",
+      key === undefined
+        ? "subscriptions: () => [],"
+        : `subscriptions: (state${a(S)})${o.annotate ? `: ReadonlyArray<${key}>` : ""} => ${n} > 0 ? [${key}] : [],`
+    ])
+  }
+  if (key !== undefined && v !== "missingListen") {
+    const listened = v === "wrongListen" ? "stray" : o.subs === "emits" ? "feed" : "held"
+    entries.push(["listen", `listen: (key${a(key)}) => ${listened},`])
+  }
+  entries.push(["makeModel", `makeModel: (state${a(S)}) => ({ count: ${n} }),`])
+  if (has("output")) entries.push(["output", `output: (state${a(S)}) => ${n} > 0,`])
+  return entries
+}
+
+const objectText = (entries: ReadonlyArray<readonly [Piece, string]>, indent: string) =>
+  [
+    "{",
+    ...entries.flatMap(([, entry]) => entry.split("\n").map((line) => `${indent}  ${line}`)),
+    `${indent}}`
+  ].join("\n")
+
+const generateObject = (o: ObjectCase): ReadonlyArray<Part> => {
+  const has = (name: ObjectName) => o.named.has(name)
+  const key = keyOf(o.subs)
+  const spread = o.form === "spread"
+  const types: Types = {
+    state: o.violation === "primitiveState" ? "number" : spread ? "SNone" : "{ n: number }",
+    model: spread ? "MNone" : "{ count: number }",
+    message: "Own",
+    command: has("command") ? "Cmd" : "never",
+    event: has("event") ? "Ev" : "never",
+    external: has("external") ? "Ext" : "never",
+    flags: has("flags") ? "number" : "never",
+    commandServices: has("command") ? "Db" : "never",
+    subscriptionServices: o.subs === "emits" ? "Feed" : o.subs === "silent" ? "Lock" : "never",
+    key: key ?? "never",
+    output: has("output") ? "boolean" : "never"
+  }
+  const broken = o.violation === undefined ? undefined : brokenPiece[o.violation]
+  const options = { broken, onEvent: o.violation !== "missingOnEvent", form: formId(o.form, o.annotate) }
+  switch (o.form) {
+    case "constant": {
+      const lines = [`  const made = ${objectText(objectEntries(o), "  ")}`]
+      if (broken === undefined) lines.push(...readerLines("made", types))
+      return [{ label: "program", valid: true, lines }, ...usesOf("made", types, uses, options)]
+    }
+    case "call": {
+      const entries = objectEntries(o)
+      // `simulate` takes the pieces it calls, and is written them alone, annotated: no `init` gives it the state.
+      const simulated = entries.filter(([piece]) => checks.simulate.has(piece))
+      return [
+        ...usesOf(objectText(entries, "    "), types, uses.filter((use) => use !== "simulate"), options),
+        ...(o.annotate ? usesOf(objectText(simulated, "    "), types, ["simulate"], options) : [])
+      ]
+    }
+    case "spread": {
+      // The program spread from, typed, with its pieces contextual, and the `update` written again over it.
+      const base = objectText(objectEntries({ ...o, annotate: false }), "  ")
+      const commands = has("command") ? ", commands: [save]" : ""
+      const events = has("event") ? ", events: [saved]" : ""
+      const a = (type: string) => (o.annotate ? `: ${type}` : "")
+      const update = [
+        `update: (message${a("Own")}) => (state${a("SNone")}) => {`,
+        "  if (message._tag === 'Reset') return { state: { n: 0 } }",
+        "  if (state.n > 9) return reject",
+        `  return { state: { n: state.n + 1 }${commands}${events} }`,
+        "}"
+      ].map((line, index) => index === 0 ? line : `      ${line}`).join("\n")
+      return [
+        { label: "program", valid: true, lines: [`  const base: Program<{ ${fieldsOf(types)} }> = ${base}`] },
+        ...usesOf(`{ ...base, ${update} }`, types, uses, options)
+      ]
+    }
+  }
+}
+
+const objectCases: Array<ObjectCase> = []
+const objectForms: ReadonlyArray<readonly [ObjectForm, boolean]> = [
+  ["constant", true],
+  ["call", true],
+  ["call", false],
+  ["spread", true],
+  ["spread", false]
+]
+const formId = (form: ObjectForm, annotate: boolean) => `${form}${annotate ? ".annotated" : ".contextual"}`
+for (const named of subsets(objectNames)) {
+  for (const subs of ["none", "emits", "silent"] as const) {
+    for (const [form, annotate] of objectForms) {
+      objectCases.push({
+        id: ["object", formId(form, annotate), [...named].join("+") || "state", ...(subs === "none" ? [] : [subs])]
+          .join("."),
+        named,
+        subs,
+        form,
+        annotate
+      })
+    }
+  }
+}
+// Each violation with the pieces it needs alone, so that no other difference meant hides it, in the forms that write
+// the piece it breaks: a program spread from a typed one is checked by its type, but for the `update` written again.
+const objectViolations: ReadonlyArray<
+  Readonly<{ violation: ObjectViolation; named: ReadonlyArray<ObjectName>; subs: Subs; annotatedOnly?: boolean }>
+> = [
+  { violation: "missingRunCommand", named: ["command"], subs: "none" },
+  { violation: "wrongAnswer", named: ["command"], subs: "none" },
+  { violation: "externalRejects", named: ["external"], subs: "none" },
+  { violation: "externalCommandsUnrun", named: ["external"], subs: "none" },
+  { violation: "missingListen", named: [], subs: "emits" },
+  { violation: "wrongListen", named: [], subs: "emits" },
+  { violation: "primitiveState", named: [], subs: "none" },
+  // Contextual, the state of `update` is the one `init` gives: nothing names another.
+  { violation: "wrongInitState", named: [], subs: "none", annotatedOnly: true },
+  { violation: "missingSubscriptions", named: [], subs: "none" },
+  { violation: "missingOnEvent", named: ["event"], subs: "none" }
+]
+for (const { violation, named, subs, annotatedOnly } of objectViolations) {
+  for (const [form, annotate] of objectForms) {
+    if (form === "spread" || (annotatedOnly === true && !annotate)) continue
+    objectCases.push({
+      id: `invalid.object.${violation}.${formId(form, annotate)}`,
+      named: new Set(named),
+      subs,
+      form,
+      annotate,
+      violation
+    })
   }
 }
 
@@ -1036,14 +1460,16 @@ import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import {
   andThen, type CommandOf, type CommandServicesOf, type EventOf, type ExternalOf, type FlagsOf, type Instance, type Kept, type KeyOf,
-  type MessageOf, type ModelOf, type Program, program, reject, type StateOf, type SubscriptionServicesOf,
-  type Transition, type Update,
+  type MessageOf, type ModelOf, type OutputOf, type Program, program, reject, start, type StateOf,
+  type SubscriptionServicesOf, type Transition, type Update,
 } from '../src/index.ts'
+import { drive, rehearse, simulate } from '../src/testing/index.ts'
 import {
-  type Cmd, Db, type Ev, type Exactly, type Ext, type Feed, feed, type Go, held, type Lock, kid, type KidCommand, type KidDb,
-  type KidEvent, type KidFeed, type KidMessage, type KidState, kidF, type KReset, type MChild, type MChildById,
-  type MInput, type MInputById, type MMixed, type MNone, type OuterOwn, type Own, type SChild, type SChildById,
-  type SInput, type SInputById, type SMixed, type SNone, type Written,
+  type Cmd, Db, type DriveRead, type Ev, type Exactly, type Ext, type Feed, feed, type Go, held, inc, type Lock, kid,
+  type KidCommand, type KidDb, type KidEvent, type KidFeed, type KidMessage, type KidState, kidF, type KReset,
+  type MChild, type MChildById, type MInput, type MInputById, type MMixed, type MNone, other, type OuterOwn, type Own,
+  type RehearseRead, type SChild, type SChildById, type SimulateRead, type SInput, type SInputById, type SMixed,
+  save, saved, type SNone, type StartRead, stray, type Written,
 } from '../tools/inference/prelude.ts'
 `
 
@@ -1156,6 +1582,7 @@ const command = Command.make(
       const filter = Opt.getOrUndefined(chosen)
       const selected = cases.filter((c) => filter === undefined || c.id.includes(filter))
       const selectedHand = handCases.filter((c) => filter === undefined || c.id.includes(filter))
+      const selectedObject = objectCases.filter((o) => filter === undefined || o.id.includes(filter))
       const fs = yield* FileSystem.FileSystem
       const { join } = yield* Path.Path
       const root = yield* repository
@@ -1163,34 +1590,46 @@ const command = Command.make(
       const spans: Array<Span> = []
       yield* fs.remove(directory, { recursive: true, force: true })
       yield* fs.makeDirectory(directory, { recursive: true })
-      const groups = new Map<string, Array<Readonly<{ id: string; valid: Verdict; body: string }>>>()
-      const add = (group: string, member: Readonly<{ id: string; valid: Verdict; body: string }>) =>
-        groups.set(group, [...(groups.get(group) ?? []), member])
+      const groups = new Map<string, Array<Member>>()
+      const add = (group: string, member: Member) => groups.set(group, [...(groups.get(group) ?? []), member])
       for (const c of selected) {
-        add(c.violation === undefined ? `${c.comp}.${c.update}` : `invalid.${c.comp}`, {
-          id: c.id,
-          valid: verdictOf(c),
-          body: generate(c)
-        })
+        add(c.violation === undefined ? `${c.comp}.${c.update}` : `invalid.${c.comp}`, { id: c.id, parts: generate(c) })
       }
-      for (const c of selectedHand) add("hand", { id: c.id, valid: true, body: generateHand(c) })
+      for (const c of selectedHand) add("hand", { id: c.id, parts: generateHand(c) })
+      for (const o of selectedObject) {
+        add(o.violation === undefined ? `object.${o.form}` : "invalid.object", { id: o.id, parts: generateObject(o) })
+      }
       for (const special of specials) {
-        if (filter === undefined || special.id.includes(filter)) add("special", special)
+        if (filter === undefined || special.id.includes(filter)) {
+          add("special", {
+            id: special.id,
+            parts: [{ label: "case", valid: special.valid, lines: special.body.split("\n") }]
+          })
+        }
       }
       const files: Array<string> = []
       for (const [group, all] of groups) {
         for (let first = 0; first < all.length; first += chunk) {
           const file = `${group}.${first / chunk}.ts`
-          let text = header
-          let line = header.split("\n").length
+          // The lines of the file, the first numbered 1, as `tsc` numbers them.
+          const text = header.trimEnd().split("\n")
           all.slice(first, first + chunk).forEach((member, index) => {
-            const block = `\n// ${member.id}\nexport function case${index}() {\n${member.body}\n}\n`
-            const from = line + 1
-            line += block.split("\n").length - 1
-            spans.push({ id: member.id, file, from, to: line, valid: member.valid })
-            text += block
+            text.push("", `// ${member.id}`, `export function case${index}() {`)
+            for (const part of member.parts) {
+              const from = text.length + 1
+              // A program written in the call spans lines of its own.
+              text.push(...part.lines.flatMap((line) => line.split("\n")))
+              spans.push({
+                id: member.parts.length === 1 ? member.id : `${member.id}/${part.label}`,
+                file,
+                from,
+                to: text.length,
+                valid: part.valid
+              })
+            }
+            text.push("}")
           })
-          yield* write(join(directory, file), text)
+          yield* write(join(directory, file), `${text.join("\n")}\n`)
           files.push(file)
         }
       }
@@ -1271,7 +1710,7 @@ const command = Command.make(
         for (const span of spans) {
           const errors = (byFile.get(span.file) ?? [])
             .filter((d) => d.line >= span.from && d.line <= span.to)
-            .map((d) => `${d.line - span.from - 1}: ${d.code} ${d.text}`)
+            .map((d) => `${d.line - span.from + 1}: ${d.code} ${d.text}`)
           if (span.valid === "refused") {
             if (errors.length === 0) {
               notes.push({ id: span.id, why: "refused, but compiles: no rule is broken", errors })
@@ -1287,6 +1726,15 @@ const command = Command.make(
         for (const d of outside.slice(0, 10)) {
           yield* Console.log(`  outside: ${d.file}(${d.line}): ${d.code} ${d.text}`)
         }
+        // The leads counted by what they are, the family of the case and the part: one cause often makes many.
+        const tally = new Map<string, number>()
+        for (const w of wrong) {
+          const family = w.id.startsWith("invalid.") ? w.id.split(".").slice(0, 2).join(".") : w.id.split(".")[0]
+          const part = w.id.includes("/") ? w.id.slice(w.id.lastIndexOf("/") + 1) : "case"
+          const kind = `${w.why}: ${family}/${part}`
+          tally.set(kind, (tally.get(kind) ?? 0) + 1)
+        }
+        for (const [kind, count] of tally) yield* Console.log(`  ${count} ${kind}`)
         for (const w of [...wrong, ...notes].slice(0, 10)) yield* Console.log(`  ${w.why}: ${w.id}`)
         // The scale, one file at a time: the time to check it, and the size of its declarations.
         const scaleReport: Array<

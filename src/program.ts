@@ -216,8 +216,10 @@ type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = neve
     readonly subscriptions: Subscriptions<State, Key>
     readonly makeModel: (state: State) => Model
   }
-  & Interpreter<Command, Message, RC>
-  & Listener<Key, Message, RS>
+  // Inferred from `update` alone: an answer of `runCommand` or a message of `listen` names one message, which would
+  // otherwise narrow the messages of a program inferred by the function that takes it.
+  & Interpreter<Command, NoInfer<Message>, RC>
+  & Listener<Key, NoInfer<Message>, RS>
   // A parameter: a program may be given a type that names fewer external messages than it takes, never more.
   & ExternalHandler<External, State, Command, Event>
   & ([Output] extends [never] ? object : { readonly output: (state: State) => Output })

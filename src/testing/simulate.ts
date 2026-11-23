@@ -64,10 +64,11 @@ export type Simulation<State, Message, Command = never, Event = never> = {
  * @see The guide, "Testing tools", "`simulate`, as the run dies".
  * @see The guide, "Testing tools", "Defects of the program".
  */
-export const simulate = <State, Message, Command, Event, R = never>(
+export const simulate = <State, Message, Command = never, Event = never, R = never>(
   program:
     & Readonly<{ update: Update<State, Message, Command, Event> }>
-    & Interpreter<Command, Message, R>
+    // Inferred from `update` alone, as in `Program<…>`.
+    & Interpreter<Command, NoInfer<Message>, R>
     & Readonly<{ subscriptions: Subscriptions<State, unknown> }>
     & ObjectState<State>
 ) => {

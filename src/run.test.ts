@@ -433,7 +433,7 @@ describe("defects the handle meets", () => {
   test("an update that interrupts a fiber that calls the dispatch is no defect, and the run goes on", async () => {
     const { app, run } = start({
       ...counter,
-      update: (message) => (state) => {
+      update: (message: Message) => (state) => {
         Fiber.getCurrent()?.interruptUnsafe()
         return counter.update(message)(state)
       }
@@ -655,6 +655,24 @@ describe("the run", () => {
     const pinging = { ...plain, update: () => (state: Count) => ({ state, commands: ["Ping" as const] }) }
     // @ts-expect-error: its `Ping` would go uninterpreted.
     expect(() => start(pinging)).toBeDefined()
+  })
+
+  test("a program written as a plain object takes every message its update takes, whatever its commands answer", () => {
+    type Step = "Increment" | "Decrement"
+    const plain = {
+      init: { state: { count: 0 }, commands: ["Ping" as const] },
+      update: (message: Step) => ({ count }: Count) => ({
+        state: { count: count + (message === "Increment" ? 1 : -1) }
+      }),
+      runCommand: () => Effect.succeedSome("Increment" as const),
+      subscriptions: () => ["ticks" as const],
+      listen: () => Channel.succeed("Increment" as const).pipe(Channel.concatWith(() => Channel.never)),
+      makeModel: ({ count }: Count) => count
+    }
+    const { app } = start(plain)
+    expectTypeOf<Parameters<typeof app.dispatch>[0]>().toEqualTypeOf<Step>()
+    // @ts-expect-error: an answer is a message its update takes.
+    expect(() => start({ ...plain, runCommand: () => Effect.succeedSome("Reset" as const) })).toBeDefined()
   })
 
   test("only a program without events starts: no parent would handle them", () => {

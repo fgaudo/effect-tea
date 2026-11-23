@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, expectTypeOf, test } from "bun:test"
 import * as Cause from "effect/Cause"
 import * as Channel from "effect/Channel"
 import * as Context from "effect/Context"
@@ -142,6 +142,32 @@ describe("simulate", () => {
     // @ts-expect-error: it reads the subscriptions on each new state.
     expect(simulate({ update: counting })).toBeDefined()
     expect(simulate({ update: counting, subscriptions: () => [] })).toBeDefined()
+  })
+
+  test("takes a program without commands or events, written as a plain object", async () => {
+    const counting = {
+      init: { state: { count: 0 } },
+      update: () => (state: Readonly<{ count: number }>) => ({ state: { count: state.count + 1 } }),
+      subscriptions: () => [],
+      makeModel: (state: Readonly<{ count: number }>) => state.count
+    }
+    const simulation = await Effect.runPromise(simulate(counting)([undefined], counting.init))
+    expectTypeOf(simulation.commands).toEqualTypeOf<ReadonlyArray<never>>()
+    expectTypeOf(simulation.events).toEqualTypeOf<ReadonlyArray<never>>()
+    expect(simulation.state).toEqual({ count: 1 })
+  })
+
+  test("its messages are every message its update takes, whatever its commands answer", () => {
+    const counting = {
+      update: (message: "Increment" | "Decrement") => (state: Readonly<{ count: number }>) => ({
+        state: { count: state.count + (message === "Increment" ? 1 : -1) },
+        commands: ["Ping" as const]
+      }),
+      runCommand: () => Effect.succeedSome("Increment" as const),
+      subscriptions: () => []
+    }
+    const simulating = simulate(counting)
+    expectTypeOf<Parameters<typeof simulating>[0]>().toEqualTypeOf<ReadonlyArray<"Increment" | "Decrement">>()
   })
 
   test("takes only a program that keeps its state in an object", () => {

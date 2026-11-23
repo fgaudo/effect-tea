@@ -4,6 +4,7 @@ import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Opt from "effect/Option"
 import { program, type Subscription, type Written } from "../../src/index.ts"
+import type { Driver, Rehearsal, Simulation } from "../../src/testing/index.ts"
 
 export type { Written }
 
@@ -17,6 +18,12 @@ export type Ext = Reset
 export type Cmd = Readonly<{ _tag: "Save" }>
 export type Ev = Readonly<{ _tag: "Saved" }>
 
+// A program written as an object names its commands, events and answers by these: two literals of one tag `as const`
+// are two types, whose union is not the type a program names.
+export const inc: Inc = { _tag: "Inc" }
+export const save: Cmd = { _tag: "Save" }
+export const saved: Ev = { _tag: "Saved" }
+
 export class Db extends Context.Service<Db, { readonly ok: boolean }>()("Db") {}
 export class Feed extends Context.Service<Feed, { readonly ticks: Subscription<Inc> }>()("Feed") {}
 export class KidDb extends Context.Service<KidDb, { readonly ok: boolean }>()("KidDb") {}
@@ -27,6 +34,39 @@ export const feed = Channel.unwrap(Effect.map(Effect.service(Feed), (feed) => fe
 // A subscription that answers nothing: it holds something (a sound, a wake lock) until its key goes.
 export class Lock extends Context.Service<Lock, { readonly held: Subscription<never> }>()("Lock") {}
 export const held = Channel.unwrap(Effect.map(Effect.service(Lock), (lock) => lock.held))
+
+// A message that no program of the matrix takes, and a subscription that answers it.
+export type Other = Readonly<{ _tag: "Other" }>
+export const other: Other = { _tag: "Other" }
+export class Stray extends Context.Service<Stray, { readonly ticks: Subscription<Other> }>()("Stray") {}
+export const stray = Channel.unwrap(Effect.map(Effect.service(Stray), (stray) => stray.ticks))
+
+// The types each function that takes a program gives back, read from what it returns.
+export type StartRead<S> = S extends {
+  readonly app: { readonly model: () => infer M; readonly dispatch: (message: infer Message) => unknown }
+  readonly run: Effect.Effect<never, never, infer R>
+} ? { model: M; message: Message; services: R }
+  : never
+export type DriveRead<D> = D extends Effect.Effect<Driver<infer M, infer Message>, infer _E, infer R>
+  ? { model: M; message: Message; services: R }
+  : never
+export type RehearseRead<X> = X extends
+  Effect.Effect<Rehearsal<infer S, infer M, infer Message, infer C, infer E, infer RC, infer RS>, infer _E, infer _R> ?
+  {
+    state: S
+    model: M
+    message: Message
+    command: C
+    event: E
+    commandServices: RC
+    subscriptionServices: RS
+  }
+  : never
+export type SimulateRead<F> = F extends (
+  ...args: ReadonlyArray<never>
+) => Effect.Effect<Simulation<infer S, infer Message, infer C, infer E>, infer _E, infer R>
+  ? { state: S; message: Message; command: C; event: E; commandServices: R }
+  : never
 
 export type KidState = Readonly<{ k: number }>
 export type KInc = Readonly<{ _tag: "KInc" }>

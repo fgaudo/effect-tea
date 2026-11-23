@@ -292,14 +292,14 @@ type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = neve
     readonly update: Update<State, Message, Command, Event>;
     readonly subscriptions: Subscriptions<State, Key>;
     readonly makeModel: (state: State) => Model;
-} & Interpreter<Command, Message, RC> & Listener<Key, Message, RS> & ExternalHandler<External, State, Command, Event> & ([Output] extends [never] ? object : {
+} & Interpreter<Command, NoInfer<Message>, RC> & Listener<Key, NoInfer<Message>, RS> & ExternalHandler<External, State, Command, Event> & ([Output] extends [never] ? object : {
     readonly output: (state: State) => Output;
 });
 
 // @public
-export const simulate: <State, Message, Command, Event, R = never>(program: Readonly<{
+export const simulate: <State, Message, Command = never, Event = never, R = never>(program: Readonly<{
     update: Update<State, Message, Command, Event>;
-}> & Interpreter<Command, Message, R> & Readonly<{
+}> & Interpreter<Command, NoInfer<Message>, R> & Readonly<{
     subscriptions: Subscriptions<State, unknown>;
 }> & ObjectState<State>) => (messages: readonly Message[], from: Step<State, Command>) => Effect.Effect<Simulation<State, Message, Command, Event>, never, Exclude<R, Scope.Scope>>;
 

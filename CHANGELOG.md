@@ -45,6 +45,9 @@ version, and everything else, features included, the patch version.
   new option `inert`, of the message and the state, lists it ("Testing tools", "dispatchViolations").
   Upgrade: leave such a control out of the model, reject it in `update`, or list it in `inert`; a `switch` over a
   `DispatchViolation`'s `_tag` handles `'Inert'`.
+- **Breaking**: the messages of a program written as an object are inferred from its `update` alone, by `start`,
+  `drive`, `rehearse` and `simulate`: an answer of `runCommand` or a message of `listen` no longer narrows them.
+  Upgrade: `{ ...counter, update: (message) => … }` becomes `{ ...counter, update: (message: Message) => … }`.
 
 - The guide's "Inputs the user types into" is now "Inputs": a value an element reports for the program to keep is an
   input too, and a fact with a value, as a scroll's end, is one message that the view fills ("What an element reports").
@@ -57,6 +60,11 @@ version, and everything else, features included, the patch version.
   React Native, it reports a run that dies after `Host` unmounts as React reports an error itself ("Guarantees").
 - The package's JavaScript is ES2022, as the README now says, without the class `static {}` blocks that some
   toolchains, as Metro for Hermes, need a plugin for.
+
+### Fixed
+
+- `simulate` takes a program written as an object without commands or events, whose `commands` and `events` it gives
+  as `never`.
 
 ## 0.8.0 (2026-11-21)
 

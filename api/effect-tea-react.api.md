@@ -172,7 +172,7 @@ type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = neve
     readonly update: Update<State, Message, Command, Event>;
     readonly subscriptions: Subscriptions<State, Key>;
     readonly makeModel: (state: State) => Model;
-} & Interpreter<Command, Message, RC> & Listener<Key, Message, RS> & ExternalHandler<External, State, Command, Event> & ([Output] extends [never] ? object : {
+} & Interpreter<Command, NoInfer<Message>, RC> & Listener<Key, NoInfer<Message>, RS> & ExternalHandler<External, State, Command, Event> & ([Output] extends [never] ? object : {
     readonly output: (state: State) => Output;
 });
 
