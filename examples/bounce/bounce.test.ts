@@ -202,12 +202,13 @@ describe("bounce", () => {
     }))
   })
 
-  // The keys, for any state: `update` accepts what each key the state lists sends. A step and its part are meant to
-  // repeat, and no control sends them, so only a rejection is asked of them.
+  // The keys, for any state: `update` accepts what each key the state lists sends. No control sends a step or its
+  // part, so only a rejection is asked of them: they are meant to repeat, and none is a control that does nothing.
   test("update accepts what each key it listens to sends", () => {
     fc.assert(fc.property(state, (before) => {
       const heard = Arr.flatMap(bounce.subscriptions(before), heardFrom)
-      expect(dispatchViolations(update, { state: before, held: heard, repeatable: () => true })).toEqual([])
+      expect(dispatchViolations(update, { state: before, held: heard, repeatable: () => true, inert: () => true }))
+        .toEqual([])
     }))
   })
 

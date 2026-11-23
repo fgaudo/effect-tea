@@ -60,7 +60,8 @@ where the row says less.
 
 - **Show less than `update` accepts, never more.** A test lists, as `withheld`, what the model leaves out on purpose
   (see [testing tools](./testing-tools.md)). Anything else that the model leaves out is a control missing from the
-  screen, unless that control would do nothing there.
+  screen, unless that control would do nothing there. And a control that would do nothing is not shown: a test lists,
+  as `inert`, what the model shows on purpose though it does nothing.
 - **A view draws, it never decides.** A view matches the model's tags and formats the model's values (a date, a count,
   a text).
   - It computes no condition from data (`items.length === 0`).

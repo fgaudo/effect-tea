@@ -150,15 +150,17 @@ describe("volume", () => {
     }))
   })
 
-  // The keys, for any state: `update` accepts what each key the state lists may send, wherever the pointer is. A
-  // key's messages are meant to repeat, and no control sends them, so only a rejection is asked of them.
+  // The keys, for any state: `update` accepts what each key the state lists may send, wherever the pointer is. No
+  // control sends a key's messages, so only a rejection is asked of them: each may repeat, and a move to where the
+  // slider is does nothing.
   test("update accepts what each key it listens to sends", () => {
     fc.assert(fc.property(state, fc.double({ min: -50, max: 150, noNaN: true }), (before, at) => {
       const heard = Arr.flatMap(
         volume.subscriptions(before),
         (key) => heardFrom(key, at)
       )
-      expect(dispatchViolations(update, { state: before, held: heard, repeatable: () => true })).toEqual([])
+      expect(dispatchViolations(update, { state: before, held: heard, repeatable: () => true, inert: () => true }))
+        .toEqual([])
     }))
   })
 

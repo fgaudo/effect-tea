@@ -125,7 +125,8 @@ bridge's to promise (see [view](./view.md#rules)).
   the model as it is told of the new state, to compare it with the model before. So a slow `makeModel` holds up the
   event that sent the message too. This is described, and not promised: it is how React behaves today, and React's
   documentation does not say it.
-- **The model holds what `update` accepts, all of it but what it withholds on purpose.** The run does not check it.
+- **The model holds what `update` accepts, all of it but what it withholds on purpose, and no control that does
+  nothing but what it holds on purpose.** The run does not check it.
   - `dispatchViolations` checks it, in tests, on the messages a test reads from the model (see
     [testing tools](./testing-tools.md)).
   - That the view draws what its model holds is checked with your renderer's tools.

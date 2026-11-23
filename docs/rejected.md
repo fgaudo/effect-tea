@@ -203,9 +203,9 @@ answer, and saying so in the proposal.
   [`rehearse-owned-effects.md`](records/rehearse-owned-effects.md), "Alternatives".
 - **What the tools do with a step that does nothing.** These were refused inside a proposal the owner decided in
   part on 15 November 2026 ([`inert-steps.md`](records/inert-steps.md), "What was decided"): with `onEvent` left without
-  `reject`, the first three entries and the last stand rejected. `Inert` itself was deferred, and taken by the owner
-  on 23 November 2026, always on (`inert-steps.md`, "Weighed again"): the two entries on it stand rejected with the
-  others. Each is in its "Alternatives":
+  `reject`, the first three entries and the last stand rejected. `Inert` itself was deferred, taken by the owner
+  on 23 November 2026, always on, and done (`inert-steps.md`, "Weighed again"): the two entries on it stand rejected
+  with the others. Each is in its "Alternatives":
   - `reject` in `onEvent`, the whole message rejected. Spiked (sixteen tests over seven cases): a child could no
     longer rely on its own transitions, the tool would blame the child, and one answer would have two outcomes.
   - `reject` in `onEvent` only where the child's step changed nothing of its own, a defect otherwise. Reasoned.

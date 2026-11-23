@@ -13,7 +13,7 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`rehearse-owned-effects.md`](rehearse-owned-effects.md) | done: a rehearsal that owns what the test starts         |
 | [`boundary.md`](boundary.md)                             | done, its last item rejected: where the library ends     |
 | [`registers.md`](registers.md)                           | done, its frames replaced: what the outside writes       |
-| [`inert-steps.md`](inert-steps.md)                       | done in part, `Inert` taken: a step that does nothing    |
+| [`inert-steps.md`](inert-steps.md)                       | done: a step that does nothing                           |
 | [`declared-inputs.md`](declared-inputs.md)               | rejected, a part to spike: what reaches `update` as data |
 | [`exploration.md`](exploration.md)                       | rejected: exploring a program from `init`                |
 | [`hosted-react.md`](hosted-react.md)                     | done, its store replaced: React hosts the program        |

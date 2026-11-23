@@ -17,16 +17,18 @@ export type DispatchViolation<Message> = {
   /**
    * Which check the message breaks:
    * - `Rejected`, a message the model holds that `update` rejects: a button shown in the wrong state;
+   * - `Inert`, a message the model holds whose step does nothing: a control shown that does nothing;
    * - `ActsTwice`, a message the model holds that acts again when sent twice from the same model, as a double tap
    *   would: a one-shot action would happen twice;
    * - `Missing`, a candidate `update` accepts that the model does not hold: a control missing from the screen.
    */
-  readonly _tag: "Rejected" | "ActsTwice" | "Missing"
+  readonly _tag: "Rejected" | "Inert" | "ActsTwice" | "Missing"
   /** The message that breaks it. */
   readonly message: Message
 }
 
-// The one meaning the tool gives to "changes nothing", for a message sent twice and for a candidate alike.
+// The one meaning the tool gives to "changes nothing", for a message held, sent once or twice, and for a candidate
+// alike.
 const doesNothing = <State, Command, Event>(step: Step<State, Command, Event>, state: State): boolean =>
   Equal.equals(step.state, state)
   && (step.commands?.length ?? 0) === 0
@@ -35,12 +37,13 @@ const doesNothing = <State, Command, Event>(step: Step<State, Command, Event>, s
 /**
  * Checks a model against `update` in a state, both ways, by the messages the model holds there.
  *
- * It finds three kinds of violation:
+ * It finds four kinds of violation:
  *
  * - `Rejected`: `update` rejects a message the model holds.
- * - `ActsTwice`: a message the model holds acts again when sent twice from the same model. Acting means a different
- *   state by `Equal`, or a command, or an event. Keep states data: a value without structural equality compares by
- *   reference.
+ * - `Inert`: the step of a message the model holds does nothing. Doing nothing means the same state by `Equal`, with
+ *   no commands and no events. Keep states data: a value without structural equality compares by reference. An
+ *   `inert` message is not reported.
+ * - `ActsTwice`: a message the model holds acts again when sent twice from the same model, by the same rule.
  * - `Missing`: a candidate that `update` accepts is not among the messages held, compared by `Equal`. A candidate whose
  *   step does nothing is not missing. A `withheld` candidate is not missing either.
  *
@@ -50,7 +53,8 @@ const doesNothing = <State, Command, Event>(step: Step<State, Command, Event>, s
  * @param update - The program's `update`.
  * @param options - `state`, the state to check in; `held`, the messages the model of that state holds, as the test
  * reads them from `program.makeModel(state)`; `candidates`, what a user could ask for; `repeatable`, the messages
- * meant to act again when sent twice (a "+1"); `withheld`, the messages a model may leave out on purpose in a state.
+ * meant to act again when sent twice (a "+1"); `inert`, the messages a model may hold in a state though their step
+ * does nothing there; `withheld`, the messages a model may leave out on purpose in a state.
  * @returns Every violation it finds, so that a test asserts there are none.
  *
  * @example
@@ -68,11 +72,12 @@ const doesNothing = <State, Command, Event>(step: Step<State, Command, Event>, s
  */
 export const dispatchViolations = <State, Message, Command, Event>(
   update: Update<State, Message, Command, Event>,
-  { state, held, candidates = [], repeatable = () => false, withheld = () => false }: Readonly<{
+  { state, held, candidates = [], repeatable = () => false, inert = () => false, withheld = () => false }: Readonly<{
     state: State
     held: Iterable<Message>
     candidates?: Iterable<Message>
     repeatable?: (message: Message) => boolean
+    inert?: (message: Message, state: State) => boolean
     withheld?: (message: Message, state: State) => boolean
   }>
 ): ReadonlyArray<DispatchViolation<Message>> => {
@@ -80,6 +85,8 @@ export const dispatchViolations = <State, Message, Command, Event>(
   const wrong = Arr.flatMap(shown, (message): ReadonlyArray<DispatchViolation<Message>> => {
     const first = update(message)(state)
     if (first === reject) return [{ _tag: "Rejected", message }]
+    // Sent again from the state it leaves, a step that does nothing does nothing again: `ActsTwice` has nothing to ask.
+    if (doesNothing(first, state)) return inert(message, state) ? [] : [{ _tag: "Inert", message }]
     if (repeatable(message)) return []
     const second = update(message)(first.state)
     return second !== reject && !doesNothing(second, first.state) ? [{ _tag: "ActsTwice", message }] : []

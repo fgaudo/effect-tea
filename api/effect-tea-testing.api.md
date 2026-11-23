@@ -42,7 +42,7 @@ type Dispatch<Message> = (message: Message) => void;
 
 // @public
 export type DispatchViolation<Message> = {
-    readonly _tag: "Rejected" | "ActsTwice" | "Missing";
+    readonly _tag: "Rejected" | "Inert" | "ActsTwice" | "Missing";
     readonly message: Message;
 };
 
@@ -52,6 +52,7 @@ export const dispatchViolations: <State, Message, Command, Event>(update: Update
     held: Iterable<Message>;
     candidates?: Iterable<Message>;
     repeatable?: (message: Message) => boolean;
+    inert?: (message: Message, state: State) => boolean;
     withheld?: (message: Message, state: State) => boolean;
 }>) => ReadonlyArray<DispatchViolation<Message>>;
 

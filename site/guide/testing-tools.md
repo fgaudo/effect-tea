@@ -49,29 +49,36 @@ in that later state, use `applyAll`, or `update` itself.
 
 ### dispatchViolations
 
-`dispatchViolations` tests two things: that the model holds what `update` accepts, all of it, and that a double tap
-acts once. The test `the model holds what update accepts, all of it` in
+`dispatchViolations` tests three things: that the model holds what `update` accepts, all of it, that each control it
+holds does something, and that a double tap acts once. The test `the model holds what update accepts, all of it` in
 [how a program is tested](./testing.md#how-a-program-is-tested) uses it. `dispatchViolations` checks both ways:
 
 - **Each message the model holds must be accepted** (`Rejected`).
-- **Each message must act once when sent twice** (`ActsTwice`). This means that a message sent again from the same model is
-  rejected, or changes nothing. Changing nothing means the same state by `Equal`, with no commands and no events.
+- **Each message the model holds must do something** (`Inert`). Doing nothing means the same state by `Equal`, with no
+  commands and no events. A control that does nothing is shown in the wrong state, as one that `update` rejects is.
   - Keep states data. A value without structural equality compares by reference.
+  - A message marked `repeatable` must do something too.
+  - The messages that the model holds on purpose though they do nothing are marked `inert`, by the message and the
+    state. An example is a tab that is already selected, where a tab bar shows every tab. Another is the messages of
+    a key, which no control sends: [`volume`](../../examples/volume/volume.test.ts) gives the tool those of its drag,
+    and a move to where the slider is does nothing.
+- **Each message must act once when sent twice** (`ActsTwice`). This means that a message sent again from the same model is
+  rejected, or does nothing, by the rule of `Inert`.
   - Actions meant to repeat (a "+1") are marked `repeatable`.
 - **Each candidate `update` accepts must be among those held** (`Missing`), compared by `Equal`. The `candidates` are
   what the test lists: what a user could ask for, the program's fixed messages. Two kinds of candidates are excepted:
-  - A candidate whose step does nothing, by the rule of `ActsTwice`. A control that would do nothing is not a missing
+  - A candidate whose step does nothing, by the rule of `Inert`. A control that would do nothing is not a missing
     control.
   - The candidates `withheld` on purpose. An example is the controls of a page that another page covers: those
     controls would act on the hidden state of the covered page.
 
 `dispatchViolations` takes `update` first. Then it takes one object: `state`, the state to check; `held`, the messages
-the model of that state holds; and, when the test needs them, `candidates`, `repeatable` and `withheld`.
+the model of that state holds; and, when the test needs them, `candidates`, `repeatable`, `inert` and `withheld`.
 
 Without candidates, `dispatchViolations` checks only the messages it is given.
 
 `dispatchViolations` returns a list of the violations it finds, empty when there is none. Each violation holds its kind
-(`_tag`: `Rejected`, `ActsTwice` or `Missing`) and the `message` that breaks the rule.
+(`_tag`: `Rejected`, `Inert`, `ActsTwice` or `Missing`) and the `message` that breaks the rule.
 
 ### placeViolations
 

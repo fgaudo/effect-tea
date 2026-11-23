@@ -24,17 +24,16 @@ spike, which was step 33. After the spike the owner took both of its parts, the 
 with the choices under them ([`kept-children.md`](docs/records/kept-children.md), "What the owner decides"): steps 34
 to 36 write them. From the same weighing come step 40 and an item of "Any time". Step 37 writes what
 the owner took of step 29, after its spike ([`stored-form.md`](docs/records/stored-form.md)), and step 38 what the
-owner took of step 30, after its own ([`subscription-from-key.md`](docs/records/subscription-from-key.md)). Steps 39
-and 40 are what the owner took of step 9, on 23 November 2026: it weighed again each parked entry of
+owner took of step 30, after its own ([`subscription-from-key.md`](docs/records/subscription-from-key.md)). Step 40
+is what is left of what the owner took of step 9, on 23 November 2026: it weighed again each parked entry of
 `docs/rejected.md` that breaks the API ([`inert-steps.md`](docs/records/inert-steps.md) and
 [`declared-inputs.md`](docs/records/declared-inputs.md), "Weighed again"). A step done leaves its number unused.
 
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. the other decisions that break the API: step 39, which the owner took of them, so that one release takes what they
-   break, while the library has few users; step 40, a spike that the release of 0.9.0 waits for; and step 10, which
-   waits for the owner alone;
+1. the other decisions that break the API, so that one release takes what they break, while the library has few
+   users: step 40, a spike that the release of 0.9.0 waits for, and step 10, which waits for the owner alone;
 2. the checks, steps 16 and 6: of the types, once the decisions that change them are taken, and of the bridges in a
    real browser;
 3. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
@@ -49,33 +48,6 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 None is open.
 
 ## Next, in order
-
-### 39. `Inert`, a message that a model holds and that does nothing
-
-**Model and effort.** Opus 5.5, `high`: a check of a testing tool, which breaks its API.
-
-**Depends on** nothing. It goes into 0.9.0, with the other changes that break the API.
-
-**Why.** A model that holds a message whose step does nothing shows a control that does nothing. Where `update`
-answers `{ state }` and does not reject, no tool says so. What deferred the check is answered by `output`, and a probe
-found no test of a model, in the examples, that fails with it
-([`inert-steps.md`](docs/records/inert-steps.md), "Weighed again").
-
-**How.** As point 4 of "Decision" in `inert-steps.md`, with `change-api` and `change-engine` read first.
-
-- `Inert` is a new case of `DispatchViolation`: a message among `held` whose step does nothing, judged on the first
-  send, by the predicate that `ActsTwice` and `Missing` share. It is always on.
-- An option `inert`, of the message and the state, as `withheld` is, lists what does nothing on purpose.
-- `rehearse` does not fail on a `send` whose step does nothing, as decided on 15 November 2026.
-- With it: the guide ("Testing tools", and what "Structuring a program" and "Testing" say of a control that does
-  nothing), the doc comment, the tool's own tests, a mutation of the check, and the changelog, as a breaking change.
-- The probe found two tests that fail: "update accepts what each key it listens to sends", of `volume`, which gives
-  the tool the messages of a key, and one of the tool's own, which holds a message that does nothing on purpose.
-- To decide in the step, with the owner: how a test spares the messages of a key. Advised: the option `inert` says
-  it, as `repeatable` does today, and no option is added for a key.
-
-**Done when** `dispatchViolations` reports `Inert`, the tests of the examples pass with it, and the checks of
-`change-engine` pass.
 
 ### 40. A message with one value left for the element to give: the spike
 

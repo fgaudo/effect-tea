@@ -39,8 +39,8 @@ The Elm architecture keeps the state in one place and changes it only through me
 - **Effects are data you can assert.** Elm's `Cmd` is opaque: a test cannot see what `update` decided. Here a command
   is a value of your own type. `runCommand` turns it into an Effect, and a test asserts it by value.
 - **A test checks the screen against the rules.** For any state a test generates, the testing tools check two things:
-  that the model holds only what `update` accepts, and that it leaves out only what the test says it withholds. So no
-  button does nothing, and none is missing.
+  that each control the model holds is accepted and does something, and that the model leaves out only what the test
+  says it withholds. So no button does nothing, and none is missing.
 - **A bug is loud.** A message that cannot arrive is a bug. `update` throws `defect` on it, and the run dies instead of
   hiding the bug. The app around the run decides what the user sees next: a crash screen, or the program started
   again (see [running](https://fgaudo.github.io/effect-tea/documents/Guide.Running.html)).

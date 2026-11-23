@@ -1665,6 +1665,31 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
+    name: "dispatchViolations lets a message held whose step does nothing pass",
+    file: "src/testing/dispatch-violations.ts",
+    from: "    if (doesNothing(first, state)) return inert(message, state) ? [] : [{ _tag: \"Inert\", message }]\n",
+    to: "",
+    killedBy: [
+      [
+        "src/testing/dispatch-violations.test.ts",
+        "reports a message whose step does nothing: the same state by Equal, a copy included, repeatable or not"
+      ]
+    ]
+  },
+  {
+    name: "dispatchViolations reports a message inert on purpose",
+    file: "src/testing/dispatch-violations.ts",
+    from: "return inert(message, state) ? [] : [",
+    to: "return [",
+    killedBy: [
+      [
+        "src/testing/dispatch-violations.test.ts",
+        "spares a message inert on purpose in the state, and only a step that does nothing"
+      ],
+      ["examples/volume/volume.test.ts", "update accepts what each key it listens to sends"]
+    ]
+  },
+  {
     name: "dispatchViolations takes a candidate whose step does nothing for a control missing",
     file: "src/testing/dispatch-violations.ts",
     from: " && !doesNothing(step, state) && ",

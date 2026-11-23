@@ -25,7 +25,7 @@ The tests of a program follow its shape, in four steps:
    produces only valid states, and every case of each state machine is among them.
 2. **Check, for any of them:**
    - that `update` answers every message with a step or `reject`, the same each time;
-   - that the model holds what `update` accepts (`dispatchViolations`);
+   - that the model holds what `update` accepts, and no control that does nothing (`dispatchViolations`);
    - that the model is data;
    - that the `set` of each input given as `get` and `set` changes its place, and nothing else (`placeViolations`);
    - what the program listens to (`program.subscriptions`).
@@ -103,8 +103,8 @@ rule for it, and the rule is the same for every input. A test writes into an inp
 `{ _tag: 'Name', message: { _tag: 'Written', value: 'Ada' } }`. Such writes can be checked with `dispatchViolations`
 too. The reader does not return them: the test lists them, beside the messages of the reader in one call, or in a call
 of their own. The writes into the values the model shows as editable are `held`. The writes into all the values it
-shows are `candidates`. Each write is of a value other than the one the model shows: so its step does something, and
-the same write sent again does nothing. Then `Rejected` finds an editor with no place to write into, and `Missing`
+shows are `candidates`. Each write is of a value other than the one the model shows: so its step does something, as
+`Inert` asks, and the same write sent again does nothing. Then `Rejected` finds an editor with no place to write into, and `Missing`
 finds a place that the model shows as read-only. [`stocktake`](../../examples/stocktake/stocktake.test.ts) does this.
 A write into an input that an element reports, as the offset of a scroll, is of a value other than the one the state
 holds, since the model does not show it (see [inputs](./inputs.md#a-value-that-an-element-reports)).
@@ -114,7 +114,7 @@ parent receives it: `{ _tag: 'Clock', message }`, with the `id` for children by 
 [`pages`](../../examples/pages/app.test.ts) and [`list`](../../examples/list/list.test.ts) examples do this.
 
 **The reader is complete only as far as the candidates go.** A reader that forgets a field of the model still passes
-`Rejected` and `ActsTwice`, because those two judge only what the reader returns. `Missing` finds the forgotten field
+`Rejected`, `Inert` and `ActsTwice`, because those three judge only what the reader returns. `Missing` finds the forgotten field
 when three things hold:
 
 1. `update` accepts the field's message in the state;
@@ -190,12 +190,12 @@ the run's fibers go on when the test says.
 
 Each pair sums up a rule of this page. The rule itself is above.
 
-| Do                                                                              | Don't                                                              |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| Assert a rejection with `toBe(reject)`.                                         | Assert a rejection as "the state did not change".                  |
-| Check that the model is data on two equal states built apart.                   | Check that the model is data on one state object used twice.       |
-| Check the pairs the invariants rule out apart, with `toThrow(InvariantDefect)`. | Expect a step or `reject` for a pair that the invariants rule out. |
-| List the candidates, so that `Missing` can find a field the reader forgot.      | Count on `Rejected` and `ActsTwice` to find a forgotten field.     |
+| Do                                                                              | Don't                                                                   |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Assert a rejection with `toBe(reject)`.                                         | Assert a rejection as "the state did not change".                       |
+| Check that the model is data on two equal states built apart.                   | Check that the model is data on one state object used twice.            |
+| Check the pairs the invariants rule out apart, with `toThrow(InvariantDefect)`. | Expect a step or `reject` for a pair that the invariants rule out.      |
+| List the candidates, so that `Missing` can find a field the reader forgot.      | Count on `Rejected`, `Inert` and `ActsTwice` to find a forgotten field. |
 
 ```ts
 // Don't: one state object used twice passes whatever its model holds
@@ -213,13 +213,13 @@ expect(Equal.equals(counter.makeModel(one), counter.makeModel(other))).toBe(true
 
 From `@fgaudo/effect-tea/testing`:
 
-| Tool                                                          | Use it to test                                                                          |
-| ------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| [`applyAll`](./testing-tools.md#applyall)                     | `update`'s rules: apply messages, check the state, commands and events                  |
-| [`dispatchViolations`](./testing-tools.md#dispatchviolations) | that the model holds what `update` accepts, all of it, and a double tap acts once       |
-| [`placeViolations`](./testing-tools.md#placeviolations)       | that an input's `set` changes its place, and nothing else                               |
-| [`simulate`](./testing-tools.md#simulate)                     | a flow with its commands answered at once, without running the program                  |
-| [`rehearse`](./testing-tools.md#rehearse)                     | a user's scenario without running the program, the test deciding when each command runs |
-| [`drive`](./testing-tools.md#drive)                           | a user's scenario on the running program, subscriptions included                        |
+| Tool                                                          | Use it to test                                                                                                      |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [`applyAll`](./testing-tools.md#applyall)                     | `update`'s rules: apply messages, check the state, commands and events                                              |
+| [`dispatchViolations`](./testing-tools.md#dispatchviolations) | that the model holds what `update` accepts, all of it, that each control does something, and a double tap acts once |
+| [`placeViolations`](./testing-tools.md#placeviolations)       | that an input's `set` changes its place, and nothing else                                                           |
+| [`simulate`](./testing-tools.md#simulate)                     | a flow with its commands answered at once, without running the program                                              |
+| [`rehearse`](./testing-tools.md#rehearse)                     | a user's scenario without running the program, the test deciding when each command runs                             |
+| [`drive`](./testing-tools.md#drive)                           | a user's scenario on the running program, subscriptions included                                                    |
 
 What each tool does, what fails the test and what it ignores are in [testing tools](./testing-tools.md).

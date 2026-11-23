@@ -38,6 +38,10 @@ version, and everything else, features included, the patch version.
   Upgrade: `subscriptions: () => HashMap.make(['ticks', ticks])` becomes `subscriptions: () => ['ticks']` with
   `listen: () => ticks` and `key: 'ticks'` among the types; a child's key `[<child>, instance, key]` becomes
   `{ _tag: <child>, instance, key }`, and `Subscriptions<State, Message>` becomes `Subscriptions<State, Key>`.
+- **Breaking**: `dispatchViolations` reports `Inert`, a message the model holds whose step does nothing, unless the
+  new option `inert`, of the message and the state, lists it ("Testing tools", "dispatchViolations").
+  Upgrade: leave such a control out of the model, reject it in `update`, or list it in `inert`; a `switch` over a
+  `DispatchViolation`'s `_tag` handles `'Inert'`.
 
 - The guide's "Inputs the user types into" is now "Inputs", and a value that an element reports, as the offset of a
   scroll, is an input too: its rule is promised, and nothing of the element ("What an element reports").

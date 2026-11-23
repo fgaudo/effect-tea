@@ -154,6 +154,8 @@ The run does not check these. A test does, with the tool named.
 
 - **The model holds what `update` accepts, all of it**, but what it withholds on purpose: `dispatchViolations`. The
   guide, "Testing tools", "dispatchViolations".
+- **Each control the model holds does something**, unless it is marked `inert`: `dispatchViolations`, with `Inert`.
+  The guide, "Testing tools", "Each message the model holds must do something".
 - **A message sent twice from one model acts once**, unless it is marked `repeatable`: `dispatchViolations`, with
   `ActsTwice`. The guide, "Testing tools", "Each message must act once when sent twice".
 - **A `set` changes its place, and nothing else**: `placeViolations`, given the input, in states where its place is

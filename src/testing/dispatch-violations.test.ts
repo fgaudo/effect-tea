@@ -10,7 +10,7 @@ type State = Readonly<{ count: number; isOpen: boolean }>
 
 // `Increment` repeats on purpose, `Opened` happens once, `Pinged` starts `Ping` every time, `Notified` raises
 // `Notify` every time and changes nothing else, `Forbidden` never applies, and `Closed` changes nothing when sent
-// again.
+// again, and nothing at all where the state is closed, though it returns a copy of the state.
 type Message = "Increment" | "Opened" | "Closed" | "Pinged" | "Notified" | "Forbidden"
 
 const update: Update<State, Message, "Ping", "Notify"> = (message) => (state) => {
@@ -36,8 +36,29 @@ describe("dispatchViolations", () => {
   const repeatable = (message: Message) => message === "Increment"
 
   test("accepts one-shot actions that guard themselves, repeatable ones, and messages that change nothing again", () => {
-    expect(dispatchViolations(update, { state: closed, held: ["Opened", "Increment", "Closed"], repeatable }))
+    expect(dispatchViolations(update, { state: closed, held: ["Opened", "Increment"], repeatable })).toEqual([])
+    expect(
+      dispatchViolations(update, { state: { ...closed, isOpen: true }, held: ["Closed", "Increment"], repeatable })
+    )
       .toEqual([])
+  })
+
+  test("reports a message whose step does nothing: the same state by Equal, a copy included, repeatable or not", () => {
+    expect(dispatchViolations(update, { state: closed, held: ["Closed"] })).toEqual([{
+      _tag: "Inert",
+      message: "Closed"
+    }])
+    expect(dispatchViolations(update, { state: closed, held: ["Closed"], repeatable: () => true }))
+      .toEqual([{ _tag: "Inert", message: "Closed" }])
+  })
+
+  test("spares a message inert on purpose in the state, and only a step that does nothing", () => {
+    const inert = (message: Message, state: State) => message === "Closed" && !state.isOpen
+    expect(dispatchViolations(update, { state: closed, held: ["Closed"], inert })).toEqual([])
+    expect(dispatchViolations(update, { state: { ...closed, isOpen: true }, held: ["Closed"], inert: () => false }))
+      .toEqual([])
+    expect(dispatchViolations(update, { state: closed, held: ["Increment", "Pinged"], inert: () => true }))
+      .toEqual([{ _tag: "ActsTwice", message: "Increment" }, { _tag: "ActsTwice", message: "Pinged" }])
   })
 
   test("reports a message update rejects in the state the model was made from", () => {
@@ -73,6 +94,11 @@ describe("dispatchViolations", () => {
       held: [],
       repeatable: (message) => {
         expectTypeOf(message).toEqualTypeOf<Message>()
+        return false
+      },
+      inert: (message, state) => {
+        expectTypeOf(message).toEqualTypeOf<Message>()
+        expectTypeOf(state).toEqualTypeOf<State>()
         return false
       },
       withheld: (message, state) => {
