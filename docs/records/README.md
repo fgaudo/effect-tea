@@ -32,3 +32,4 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`given-functions.md`](given-functions.md)               | done: when the library calls what a program gives it     |
 | [`stored-form.md`](stored-form.md)                       | taken, to be done: a value's form, and a place's laws    |
 | [`subscription-from-key.md`](subscription-from-key.md)   | done: a subscription from its key alone                  |
+| [`value-in-message.md`](value-in-message.md)             | proposed: a message with one value the element gives     |

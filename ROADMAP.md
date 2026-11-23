@@ -63,19 +63,11 @@ view fills the value that the element gives. A probe found that it compiles and 
 of the library has such a value, so nothing shows what either form costs
 ([`declared-inputs.md`](docs/records/declared-inputs.md), "Weighed again").
 
-**How.** An example that is not kept, on a branch never to be merged, with a fact that comes with a value: a list that
-loads more as its scroll ends, or a board clicked at a point. It is written twice, each time with its tests: as the
-guide says today, and with the message in the model without its value. The library does not change. The spike says:
-
-1. what the reader and `dispatchViolations` do with such a message: which values a test fills, and whether a value is
-   ever a reason to reject ("Structuring a program", "Input is never a reason to reject");
-2. what `messagesSentBy` gives a handler that reads other than `value` and `checked`, in both forms, and what the tool
-   would need;
-3. what a parent's view, `forwardTo` and the bridge to React do with it;
-4. what the guide would say: where an input ends and such a message begins, what "A view never builds a message of
-   the program itself" ("Model") becomes, what joins "What is left to you", and whether "a write, then a message"
-   stays;
-5. what each form costs: the steps, the models made, the place in the state.
+**Spiked**, 23 November 2026, by a session of Opus 5.5: [`value-in-message.md`](docs/records/value-in-message.md),
+with its code on `spike/value-in-message`, never to be merged. The form works with no change of the library. It
+costs one step for each fact where today's costs two, keeps no place in the state, and needs no exemption of `Inert`.
+`messagesSentBy` gives a handler that reads `scrollTop` nothing, in either form. What is left is the owner's: the four
+points of the record's "For the owner", each with its advice.
 
 **Done when** a record of `docs/records/` says what the spike found, and the owner has decided: a step writes the
 guide, or an entry of `docs/rejected.md` says why not.
