@@ -15,23 +15,24 @@ so. The examples follow them all.
 A design answers this question for each part of a program. The table is a summary: the page that each row links rules
 where the row says less.
 
-| The thing                                                                       | What it is                                                     | Where                                                                                                          |
-| ------------------------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Something happened: a click, an answer, a tick                                  | A message. `update` decides what it means                      | [update](./update.md)                                                                                          |
-| A value that an element of the view holds or reports: a text, a scroll's offset | An input. No `update` sees it                                  | [inputs](./inputs.md)                                                                                          |
-| Work whose answer must arrive, even if the state has moved on                   | A command                                                      | [commands](./commands.md)                                                                                      |
-| Listening, or work that stops when the state no longer wants it                 | A subscription, under a key                                    | [subscriptions](./subscriptions.md)                                                                            |
-| What stays open while a value it uses changes, such as a connection             | A service, from a layer provided to `run`                      | [subscriptions](./subscriptions.md)                                                                            |
-| What follows from the state                                                     | Computed in `makeModel`, not kept in the state                 | [state and messages](#state-and-messages)                                                                      |
-| What the platform keeps by itself: a hover, the focus                           | Not a state of the program                                     | [model and view](#model-and-view), [view](./view.md)                                                           |
-| A message that may arrive, and does not apply in the state                      | `reject`                                                       | [rejections and defects](./rejections-and-defects.md)                                                          |
-| A message that only a bug can bring                                             | `defect`                                                       | [rejections and defects](./rejections-and-defects.md)                                                          |
-| An expected failure of a command                                                | A message, as the success is                                   | [commands](./commands.md)                                                                                      |
-| A part whose controls the parent enables from its own state                     | Not a child: the parent's own state, or an input of the parent | [splitting a program](#splitting-a-program), [composition](./composition.md#the-parents-inputs)                |
-| A value that the user writes, and a parent reads                                | An input of the program whose rules use it                     | [splitting a program](#splitting-a-program)                                                                    |
-| What holds in a child, that its parent reads                                    | The child's output                                             | [outputs](./events-and-external-messages.md#outputs)                                                           |
-| What a child asks of its parent                                                 | An event                                                       | [events and external messages](./events-and-external-messages.md)                                              |
-| A fact that several children must see as one                                    | An external message, which the parent sends down               | [splitting a program](#splitting-a-program), [events and external messages](./events-and-external-messages.md) |
+| The thing                                                                                     | What it is                                                           | Where                                                                                                          |
+| --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Something happened: a click, an answer, a tick                                                | A message. `update` decides what it means                            | [update](./update.md)                                                                                          |
+| A value that an element of the view holds, or reports for the program to keep: a text, a size | An input. No `update` sees it                                        | [inputs](./inputs.md)                                                                                          |
+| A fact that an element reports with a value: the end of a scroll, with its offset             | A message that the model holds without the value, and the view fills | [what an element reports](./inputs.md#what-an-element-reports)                                                 |
+| Work whose answer must arrive, even if the state has moved on                                 | A command                                                            | [commands](./commands.md)                                                                                      |
+| Listening, or work that stops when the state no longer wants it                               | A subscription, under a key                                          | [subscriptions](./subscriptions.md)                                                                            |
+| What stays open while a value it uses changes, such as a connection                           | A service, from a layer provided to `run`                            | [subscriptions](./subscriptions.md)                                                                            |
+| What follows from the state                                                                   | Computed in `makeModel`, not kept in the state                       | [state and messages](#state-and-messages)                                                                      |
+| What the platform keeps by itself: a hover, the focus                                         | Not a state of the program                                           | [model and view](#model-and-view), [view](./view.md)                                                           |
+| A message that may arrive, and does not apply in the state                                    | `reject`                                                             | [rejections and defects](./rejections-and-defects.md)                                                          |
+| A message that only a bug can bring                                                           | `defect`                                                             | [rejections and defects](./rejections-and-defects.md)                                                          |
+| An expected failure of a command                                                              | A message, as the success is                                         | [commands](./commands.md)                                                                                      |
+| A part whose controls the parent enables from its own state                                   | Not a child: the parent's own state, or an input of the parent       | [splitting a program](#splitting-a-program), [composition](./composition.md#the-parents-inputs)                |
+| A value that the user writes, and a parent reads                                              | An input of the program whose rules use it                           | [splitting a program](#splitting-a-program)                                                                    |
+| What holds in a child, that its parent reads                                                  | The child's output                                                   | [outputs](./events-and-external-messages.md#outputs)                                                           |
+| What a child asks of its parent                                                               | An event                                                             | [events and external messages](./events-and-external-messages.md)                                              |
+| A fact that several children must see as one                                                  | An external message, which the parent sends down                     | [splitting a program](#splitting-a-program), [events and external messages](./events-and-external-messages.md) |
 
 ## State and messages
 
@@ -62,11 +63,18 @@ where the row says less.
   (see [testing tools](./testing-tools.md)). Anything else that the model leaves out is a control missing from the
   screen, unless that control would do nothing there. And a control that would do nothing is not shown: a test lists,
   as `inert`, what the model shows on purpose though it does nothing.
+  - A value is never a reason to reject. A model holds a message without its value wherever the view gives the
+    element its handler (see [what an element reports](./inputs.md#what-an-element-reports)). It cannot pick its case
+    by a value it does not have. If `update` rejected some values, the model would show more than `update` accepts.
+    So the state decides whether the message applies, and the value decides what it means. A value that means nothing
+    is a step that does nothing, the very state, which a test lists as `inert`.
 - **A view draws, it never decides.** A view matches the model's tags and formats the model's values (a date, a count,
   a text).
   - It computes no condition from data (`items.length === 0`).
   - It combines no fields.
   - It applies no rule and no fallback.
+  - It computes no value that it sends. A message that it fills gets what the element or its event gives, as given
+    (see [model](./model.md#rules)).
 
   What a view would decide, `makeModel` decides. `makeModel` decides it as a case named for the state that the screen
   tells apart (`Empty | Listed`, `Loading | Loaded`), never as a boolean. An `Option` is such a case only when

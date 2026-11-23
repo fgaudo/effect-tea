@@ -15,6 +15,10 @@ that the user types is the first case, and the one this page shows first.
 - The library stores the write where the input's place is there, and rejects it where it is not. No `update` of the
   program is involved.
 
+A fact that comes with a value, as the end of a scroll with its offset, is no write but one message. The model holds
+the message without the value, and the view fills the value that the element gives (see
+[what an element reports](#what-an-element-reports)).
+
 ## An example
 
 The form declares its input `Name` at the name of its draft, in the case `Editing` where the name can be typed
@@ -66,8 +70,9 @@ In general, a view writes the value that the element holds, through the input's 
   - `inputById` declares an input by id, one for each row. The view writes into it through
     `forwardTo(dispatch, 'Count', id)` (see [inputs by id](#inputs-by-id)).
 - **The view writes what the element holds**: `{ _tag: 'Written', value: text }`, through
-  `forwardTo(dispatch, 'Name')`. An element that reports a value, as a scroll reports its offset, writes it the same
-  way (see [what an element reports](#what-an-element-reports)).
+  `forwardTo(dispatch, 'Name')`. An element that reports a value that the program keeps, as a scroll reports its
+  offset, writes it the same way. A fact that comes with a value is a message instead (see
+  [what an element reports](#what-an-element-reports)).
 - **The library stores what is written, whatever it is**, in the form that the input declares, in every state where
   the input's place is there, whatever else the state says. A value whose stored form is equal, by `Equal`, to the one
   the place holds leaves the very same state.
@@ -93,23 +98,45 @@ snabbdom and with React.
 
 ### What an element reports
 
-An element reports some values that the program cannot give back to it: the offset of a scroll, a measured size. The
-place of such a value is an input too, declared and written as any other.
+An element reports some values that the program cannot give back to it: the offset of a scroll, a measured size, the
+point of a press.
 
-- **The rule of an input holds, and nothing is promised of the element.** A write is stored where its place is there,
-  and rejected where it is not. A value that the program leaves in such a place is not shown: the package's bridges
-  give an element back its `value` and its `checked` alone (see
-  [a controlled element](./writing-a-bridge.md#a-controlled-element)).
-- **What is there whatever is drawn is a subscription.** A value of an element that the view draws is a write. The size
-  of the window, or a key pressed anywhere on the page, is there whatever the view draws. It comes from a subscription
-  to a service (see [subscriptions](./subscriptions.md)).
-- **A fact that comes with a value is a write, then a message.** The end of a scroll comes with its offset. The handler
-  writes the offset, then sends the message that its model holds, and `update` reads the offset from the state. This
-  holds by what [guarantees](./guarantees.md#what-you-can-rely-on) promises already. A message is applied in the call
-  that sends it, so the write is stored before the message is sent. The message comes from a model that the write has
-  moved past, and `update` judges it in the new state, as it judges any message.
-  - This is also how a value is written once, as the scroll ends, where a write at each event costs too much (see
+- **A value that the program keeps is an input**, declared and written as any other.
+  - The rule of an input holds, and nothing is promised of the element. A write is stored where its place is there,
+    and rejected where it is not. A value that the program leaves in such a place is not shown: the package's bridges
+    give an element back its `value` and its `checked` alone (see
+    [a controlled element](./writing-a-bridge.md#a-controlled-element)).
+  - Where a write at each event costs too much, the handler writes the value once, as the scroll ends (see
     [what is left to you](./guarantees.md#what-is-left-to-you)).
+- **What is there whatever is drawn is a subscription.** A value of an element that the view draws comes from its
+  handler. The size of the window, or a key pressed anywhere on the page, is there whatever the view draws. It comes
+  from a subscription to a service (see [subscriptions](./subscriptions.md)).
+- **A fact that comes with a value is one message.** The end of a scroll comes with its offset. The model holds the
+  message without the offset, as data. The view fills the offset that the element gives, and sends the message.
+  `update` decides what the offset means:
+
+  ```ts
+  // In makeModel, in the case where the list reports the end of its scroll.
+  scrollEnded: { _tag: 'ScrollEnded' } as const,
+
+  // In the view: the handler of the list's `scrollend`.
+  scrollend: (event) => dispatch({ ...model.scrollEnded, offset: (event.currentTarget as HTMLElement).scrollTop }),
+  ```
+
+  - A message held so may leave any number of fields to the element. The view fills each field with one value that
+    the element or its event gives, copied as it is: it combines none, compares none and converts none. What follows
+    from them, `update` computes.
+  - An object of the browser, as a `DOMRect`, is not data. The view copies the numbers it needs from it.
+  - The held part needs no type of its own. With `as const`, a view that leaves out a field, or fills one with a value
+    of another type, does not compile.
+  - A value is never a reason to reject. The state decides whether the message applies, and the value decides what it
+    means (see [structuring a program](./structuring-a-program.md#model-and-view)).
+- **Only a plain tagged message can be held without a value.** A message that is a class, as a `Data.TaggedClass`, is
+  no plain object: a spread of it is not an instance of the class, nor equal to one. For such a message, the handler
+  writes the value into an input, then sends the message that its model holds, and `update` reads the value from the
+  state. This holds by what [guarantees](./guarantees.md#what-you-can-rely-on) promises already. A message is applied
+  in the call that sends it, so the write is stored before the message is sent. The message comes from a model that
+  the write has moved past, and `update` judges it in the new state, as it judges any message.
 
 What a model shows of such a value is in [a value that an element reports](#a-value-that-an-element-reports).
 
@@ -232,15 +259,16 @@ Each pair sums up a rule of this page. The rule itself is above.
 
 ### Why what the user types is no message
 
-A text field could send a message for each keystroke, with the text in it, and `update` could store the text. An input
-is there instead, for two reasons:
+A text field could send a message for each keystroke, with the text in it, and `update` could store the text. The
+model could hold that message without its text, as it holds a fact that comes with a value (see
+[what an element reports](#what-an-element-reports)). An input is there instead, because **there is nothing to
+decide**:
 
-- **There is nothing to decide.** A click says that something happened, and `update` decides what it means. A text is
-  different: the element already shows it. The one question is whether the input's place is still there. The answer
-  is the same for every input. So the library keeps the rule, and a view and a test rely on the same one.
-- **The model could not hold the message.** Every message that a view can send is in the model, as a value that the
-  program fixed (see [model](./model.md)). A text is known only when the user types it. So the model would hold a
-  function from the text to a message, and a model holds no function.
+- A click says that something happened, and `update` decides what it means. So does the end of a scroll, with its
+  offset.
+- A text is different: the element already shows it, and the program can give it back. The one question is whether
+  the input's place is still there. The answer is the same for every input. So the library keeps the rule, and a view
+  and a test rely on the same one.
 
 So no `update` runs when the user types. A program that must act on what is typed does not wait for a message:
 
@@ -255,11 +283,11 @@ What a model shows of a value that an element reports, as the offset of a scroll
 
 - **The model says where the element reports.** It does so by its case: the case in which the view gives the element
   its handler. So "a view writes only into the inputs that the model shows" holds as it is (see
-  [model](./model.md)).
-- **The model holds the value only where the view draws by it.** A model that holds an offset is a new model at each
-  event of the scroll.
-- **A test writes a value other than the one the state holds**, since the model does not show it (see
-  [testing](./testing.md#the-reader)).
+  [model](./model.md)). For a fact that comes with a value, that case holds the message without its value.
+- **The model holds the value of an input only where the view draws by it.** A model that holds an offset is a new
+  model at each event of the scroll.
+- **A test writes a value other than the one the state holds**, since the model does not show it. Into a message held
+  without its value, a test fills values that it draws (see [testing](./testing.md#the-reader)).
 
 ### A limit
 

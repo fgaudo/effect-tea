@@ -1,7 +1,7 @@
 # A message with one value left for the element to give: the spike
 
 **Status:** taken by the owner, 23 November 2026, with the conditions of a second opinion ("Decided", at the end), to
-be written as steps 41 to 43 of [`ROADMAP.md`](../../ROADMAP.md). Spiked the same day as step 40, by a session of
+be written as steps 41 to 43 of [`ROADMAP.md`](../../ROADMAP.md). Step 41, the rule in the guide, is done. Spiked the same day as step 40, by a session of
 Opus 5.5, and reviewed by a session of Fable 5.2, at the owner's request ("The second opinion"). The findings below are
 as corrected after that review. It is the part of [`declared-inputs.md`](declared-inputs.md) that "Weighed again" took
 to a spike. The spike's code is on the branch `spike/value-in-message` at `ed70b94`, never to be merged. The library
@@ -226,3 +226,25 @@ Beside them, for step 41: "Then no view can build a message" ("Model") is correc
 `CHANGELOG.md` that makes a value that an element reports an input is edited; and whether a message may leave more
 than one value to the element, and whether a view may compute a value from what the element gives, are asked of the
 owner before the step writes the rule.
+
+The owner answered both the same day, with a further second opinion of Fable 5.2 at `high`, read only, which ran
+probes of its own on the branch:
+
+- **A held message may leave any number of fields to the element**, each filled with one value that the element or
+  its event gives. One value would put the pixels of the CSS in `update`, as the feed does. Several fields keep every
+  check (run): the types refuse a field left out or added, the filled message equals the constructor's by `Equal`, and
+  a test draws one record of the three values for the model and for the view alike. A field that holds an object
+  assembled by the view passes the same checks: the guide shows flat fields, and forbids neither. An object of the
+  browser, as a `DOMRect`, is copied: in happy-dom, `Equal` on such objects was found unreliable (run; not in a
+  browser). Two numbers swapped still compile: a type that tells them apart is the application's to choose.
+- **The view computes nothing**: it combines none, compares none and converts none, and `update` computes what follows.
+  A test of the model cannot see a value that the view computed (run): a wrong sign was found only by a test of the
+  view that wrote the formula again. A boolean as "at the end" is a condition on data, which "A view draws, it never
+  decides" refuses, and between a difference and a threshold no plain limit was found (reasoned). The owner agrees, and
+  would have it a recommendation rather than a rule: the guide's wording is to be weighed again when the owner rereads
+  it at the end of the work. What would reopen it: a program drawn by two renderers whose values differ in kind, where
+  a conversion of units, as a function of the program, would be allowed.
+
+`volume`'s press is the case for step 43: under these answers its message carries `clientX` and the `left` and `width`
+of the track, so what an element gives includes a method that only reads, as `getBoundingClientRect()`, which step 42
+must let a test supply.

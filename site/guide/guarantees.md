@@ -130,8 +130,9 @@ bridge's to promise (see [view](./view.md#rules)).
   - `dispatchViolations` checks it, in tests, on the messages a test reads from the model (see
     [testing tools](./testing-tools.md)).
   - That the view draws what its model holds is checked with your renderer's tools.
-- **A view sends only what its model holds.** It writes only into the inputs its model shows, and never builds a
-  message itself. The library does not enforce this (see [model](./model.md#precisely)).
+- **A view sends only what its model holds.** It writes only into the inputs its model shows. It adds nothing to what
+  it sends but the values that an element or its event gives, as given, and never builds a message itself. The
+  library does not enforce this (see [model](./model.md#precisely)).
 - **What the screen shows beside the program's model.** The guarantees are of the program. Each bridge says what it
   draws beside the model. The bridge to snabbdom draws the model and nothing else: what it shows of a controlled
   element is the value its model gave it. With the bridge to React, the application's components may keep state of

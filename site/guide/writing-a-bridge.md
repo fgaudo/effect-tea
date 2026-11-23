@@ -265,7 +265,8 @@ fibers go on.
 Beside the snabbdom bridge, `@fgaudo/effect-tea/snabbdom/testing` ([`bridges/snabbdom-testing.ts`][messages]) has
 `messagesSentBy`. It finds what a view sends, without a DOM. Each listener gets an event whose `target` holds the
 `value` and the `checked` that the view drew. So it finds the writes of controlled elements too, each with the value
-its model holds. It is one way to check that a view draws what its model holds. The library does not ask it of any
+its model holds. A handler that reads another property of its element, as `scrollTop`, or a property of its event, as
+`clientX`, gets `undefined`. So what such a handler sends is not what its reader returns. It is one way to check that a view draws what its model holds. The library does not ask it of any
 bridge (see [testing](./testing.md)). The test of each example drawn with snabbdom uses `messagesSentBy`.
 
 [messages]: ../../bridges/snabbdom-testing.ts

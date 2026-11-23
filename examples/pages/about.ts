@@ -17,7 +17,7 @@ export type Message = Data.TaggedEnum<{
   BackClicked: object
 }>
 
-// Not exported, as the guide's "Model" says: a view sends only the messages its model holds, and builds none.
+// Not exported, so that no view calls its constructors, as the guide's "Model" says.
 const Message = Data.taggedEnum<Message>()
 
 export type Command = Data.TaggedEnum<{ PickSaying: object }>

@@ -21,19 +21,19 @@ rules where a line here says less.
 
 ## What the user sees
 
-| Word                    | What it is                                                                                                                    | Defined in                                                               |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| **Model**               | What `makeModel(state)` makes for the view: what it shows, and the messages its controls send                                 | [model](./model.md)                                                      |
-| **View**                | A function `(model, dispatch) => Node` that draws the model. It is not part of the program                                    | [view](./view.md)                                                        |
-| **Dispatch**            | What a view sends a message with: a function that applies the message before it returns, and returns nothing                  | [view](./view.md)                                                        |
-| **`App`**               | What a renderer reads: `{ model, subscribe, dispatch, die }`, the model of the current state and a notice of each new state   | [running](./running.md#rules)                                            |
-| **Renderer**            | What draws the model of an `App`. What it draws beside it is its bridge's to say                                              | [view](./view.md)                                                        |
-| **Memoized** (view)     | A view that the renderer draws again only when one of the values it is given is a new one, as with snabbdom's `thunk`         | [running](./running.md), [composition](./composition.md#childrens-views) |
-| **Handler** (of a view) | A callback of the renderer that sends a message the model holds: `() => dispatch(model.save)`                                 | [writing a bridge](./writing-a-bridge.md#handlers)                       |
-| **Input**               | A place in the state for a value that an element holds or reports. The view writes into it, and the library stores it         | [inputs](./inputs.md)                                                    |
-| **Write**               | What the view sends into an input: `{ _tag: 'Written', value }`. `value` is what the element holds or reports                 | [inputs](./inputs.md)                                                    |
-| **Controlled element**  | An element with a value of its own, as a text field, drawn with the value its model holds, whose handler writes what it holds | [writing a bridge](./writing-a-bridge.md#a-controlled-element)           |
-| **Bridge**              | What connects the library to a renderer: it draws the model, sends messages, and draws controlled elements                    | [writing a bridge](./writing-a-bridge.md)                                |
+| Word                    | What it is                                                                                                                                     | Defined in                                                               |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **Model**               | What `makeModel(state)` makes for the view: what it shows, and the messages its controls send                                                  | [model](./model.md)                                                      |
+| **View**                | A function `(model, dispatch) => Node` that draws the model. It is not part of the program                                                     | [view](./view.md)                                                        |
+| **Dispatch**            | What a view sends a message with: a function that applies the message before it returns, and returns nothing                                   | [view](./view.md)                                                        |
+| **`App`**               | What a renderer reads: `{ model, subscribe, dispatch, die }`, the model of the current state and a notice of each new state                    | [running](./running.md#rules)                                            |
+| **Renderer**            | What draws the model of an `App`. What it draws beside it is its bridge's to say                                                               | [view](./view.md)                                                        |
+| **Memoized** (view)     | A view that the renderer draws again only when one of the values it is given is a new one, as with snabbdom's `thunk`                          | [running](./running.md), [composition](./composition.md#childrens-views) |
+| **Handler** (of a view) | A callback of the renderer that sends a message the model holds: `() => dispatch(model.save)`                                                  | [writing a bridge](./writing-a-bridge.md#handlers)                       |
+| **Input**               | A place in the state for a value that an element holds, or reports for the program to keep. The view writes into it, and the library stores it | [inputs](./inputs.md)                                                    |
+| **Write**               | What the view sends into an input: `{ _tag: 'Written', value }`. `value` is what the element holds or reports                                  | [inputs](./inputs.md)                                                    |
+| **Controlled element**  | An element with a value of its own, as a text field, drawn with the value its model holds, whose handler writes what it holds                  | [writing a bridge](./writing-a-bridge.md#a-controlled-element)           |
+| **Bridge**              | What connects the library to a renderer: it draws the model, sends messages, and draws controlled elements                                     | [writing a bridge](./writing-a-bridge.md)                                |
 
 ## Effects
 

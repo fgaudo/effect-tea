@@ -41,7 +41,10 @@ What is new:
 - **Inputs.** In Elm, `onInput` makes a message of each keystroke, and `update` stores the text. Here the text is no
   message: the program declares a place in its state, and the library stores what the view writes there. So no
   `update` runs when the user types (see
-  [why what the user types is no message](./inputs.md#why-what-the-user-types-is-no-message)).
+  [why what the user types is no message](./inputs.md#why-what-the-user-types-is-no-message)). A fact that comes with
+  a value, as the end of a scroll with its offset, is a message, as in Elm. The model holds it without the value, and
+  the view copies the value from the element into it (see
+  [what an element reports](./inputs.md#what-an-element-reports)).
 
 What you lose: Elm's compiler keeps `update` pure, and TypeScript's compiler does not. Two things are left to you:
 keeping `update`, `makeModel` and `subscriptions` pure, and never mutating a state (see

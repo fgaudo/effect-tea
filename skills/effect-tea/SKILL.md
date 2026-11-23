@@ -52,6 +52,7 @@ versions. The paths below are relative to this file.
 | talk to the world                           | "Commands", "Subscriptions"                   |
 | split a program into children               | "Composition", "Events and external messages" |
 | keep a value that an element holds, reports | "Inputs"                                      |
+| send a fact that comes with a value         | "Inputs", "What an element reports"           |
 | start the program and handle its defects    | "Running"                                     |
 | test it                                     | "Testing", "Testing tools"                    |
 | connect a renderer                          | "Writing a bridge"                            |
@@ -62,23 +63,24 @@ versions. The paths below are relative to this file.
 A design answers this question for each part of a program. Each line below is a summary: the section it names rules
 where the summary says less.
 
-| The thing                                                       | What it is                                       |
-| --------------------------------------------------------------- | ------------------------------------------------ |
-| something happened: a click, an answer, a tick                  | a message; `update` decides what it means        |
-| a value that an element holds or reports: a text, an offset     | an input; no `update` sees it                    |
-| work whose answer must arrive, even if the state has moved on   | a command: data, which `runCommand` runs         |
-| listening, or work that stops when the state no longer wants it | a subscription, under a key                      |
-| what stays open while a value it uses changes, as a connection  | a service, from a layer provided to `run`        |
-| what follows from the state                                     | computed in `makeModel`, not kept in the state   |
-| what the platform keeps by itself: a hover, the focus           | not a state of the program                       |
-| a message that may arrive, and does not apply in the state      | `reject`                                         |
-| a message that only a bug can bring                             | `defect`                                         |
-| an expected failure of a command                                | a message, as the success is                     |
-| a part whose controls the parent enables from its own state     | not a child: the parent's state, or its input    |
-| a value that the user writes, and a parent reads                | an input of the program whose rules use it       |
-| what holds in a child, that its parent reads                    | the child's `output`                             |
-| what a child asks of its parent                                 | an event                                         |
-| a fact that several children must see as one                    | an external message, which the parent tells down |
+| The thing                                                         | What it is                                          |
+| ----------------------------------------------------------------- | --------------------------------------------------- |
+| something happened: a click, an answer, a tick                    | a message; `update` decides what it means           |
+| a value that an element holds, or reports for the program to keep | an input; no `update` sees it                       |
+| a fact that an element reports with a value: a scroll's end       | a message held without the value; the view fills it |
+| work whose answer must arrive, even if the state has moved on     | a command: data, which `runCommand` runs            |
+| listening, or work that stops when the state no longer wants it   | a subscription, under a key                         |
+| what stays open while a value it uses changes, as a connection    | a service, from a layer provided to `run`           |
+| what follows from the state                                       | computed in `makeModel`, not kept in the state      |
+| what the platform keeps by itself: a hover, the focus             | not a state of the program                          |
+| a message that may arrive, and does not apply in the state        | `reject`                                            |
+| a message that only a bug can bring                               | `defect`                                            |
+| an expected failure of a command                                  | a message, as the success is                        |
+| a part whose controls the parent enables from its own state       | not a child: the parent's state, or its input       |
+| a value that the user writes, and a parent reads                  | an input of the program whose rules use it          |
+| what holds in a child, that its parent reads                      | the child's `output`                                |
+| what a child asks of its parent                                   | an event                                            |
+| a fact that several children must see as one                      | an external message, which the parent tells down    |
 
 The guide, "Structuring a program", "What kind of thing is it": its rows name the page of each.
 
@@ -109,6 +111,14 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
 - **A view draws its model, and decides nothing.** A view is a function `(model, dispatch) => Node`. It matches tags
   and formats values. What it would decide, `makeModel` decides, as a case of the model. The guide, "View", "In short".
   The guide, "Structuring a program", "A view draws, it never decides".
+- **A view adds nothing to what it sends but what an element or its event gives, as given.** A fact that comes with a
+  value, as the end of a scroll with its offset, is one message. The model holds it without the value,
+  `{ _tag: 'ScrollEnded' } as const`, and the view fills each field that is left with one value that the element or
+  its event gives, copied as it is. It combines none, compares none and converts none: what follows from them,
+  `update` computes. Copy the numbers of an object of the browser, as a `DOMRect`. Only a plain tagged message can be
+  held so: for a class, write the value into an input, then send the message. A value is never a reason to reject.
+  A test of the model does not see a value that the view computed. The guide, "Inputs", "What an element reports".
+  The guide, "Model", "Messages live in the model". The guide, "Structuring a program", "Model and view".
 - **What the program draws comes from its model.** It comes from nowhere else, with one exception: what the platform
   keeps by itself, as a hover or the focus. An element with a value of its own, as a text field, shows what the user
   typed into it only for the length of its own event. A part of the page outside the bridge's `root`, as its title,
@@ -164,8 +174,11 @@ The run does not check these. A test does, with the tool named.
   where the state is read. A value stored in another form than the one written is declared with `store`, a function
   of the value alone, beside the place: `input({ at, store: (note) => note.toUpperCase() })`. The guide, "Inputs",
   "Rules". The guide, "Inputs", "What is typed, in another form". The guide, "Testing tools", "placeViolations".
-- **A view sends only the messages its model holds**: your renderer's tools, as `messagesSentBy` for snabbdom. The
-  guide, "Testing", "The view". The guide, "Model", "Precisely".
+- **A view sends only the messages its model holds**: your renderer's tools, as `messagesSentBy` for snabbdom. That
+  tool gives a handler the `value` and the `checked` of its element alone. The guide, "Testing", "The view". The
+  guide, "Model", "Precisely". The guide, "Writing a bridge", "Their tests".
+- **A message held without its value is filled by the reader too**, with values that the test draws, and the values
+  at which it means nothing are exempted with `inert`. The guide, "Testing", "The reader".
 - **A rejection is asserted as `reject` itself**, with `toBe(reject)`. The guide, "Testing", "Do and don't".
 - **A model is data, and holds no function**: `Equal.equals` on the models of two equal states built apart, never on
   one state used twice. The guide, "Model", "A model is data". The guide, "Testing", "That the model is data".

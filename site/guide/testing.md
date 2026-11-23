@@ -109,9 +109,21 @@ finds a place that the model shows as read-only. [`stocktake`](../../examples/st
 A write into an input that an element reports, as the offset of a scroll, is of a value other than the one the state
 holds, since the model does not show it (see [inputs](./inputs.md#a-value-that-an-element-reports)).
 
+**A message held without its value.** The reader takes the value as a parameter, `messagesOf(model, offset)`, and
+fills it into each message that the model holds without it, as the view does (see
+[what an element reports](./inputs.md#what-an-element-reports)).
+
+- Draw the value, with fast-check. A test that fills one value, as the one at which the message always acts, also
+  passes an `update` that rejects the other values.
+- Exempt with `inert` the values at which the message means nothing: there, its step does nothing.
+- `Missing` compares whole messages, the value too. So fill the held messages and the `candidates` with the same
+  values.
+
 **Children.** A parent's reader calls the readers of its children. The parent's reader wraps what they return as the
 parent receives it: `{ _tag: 'Clock', message }`, with the `id` for children by id. The
-[`pages`](../../examples/pages/app.test.ts) and [`list`](../../examples/list/list.test.ts) examples do this.
+[`pages`](../../examples/pages/app.test.ts) and [`list`](../../examples/list/list.test.ts) examples do this. Where a
+child's model holds a message without its value, the parent's reader takes that value as a parameter too, and gives it
+to the child's reader.
 
 **The reader is complete only as far as the candidates go.** A reader that forgets a field of the model still passes
 `Rejected`, `Inert` and `ActsTwice`, because those three judge only what the reader returns. `Missing` finds the forgotten field

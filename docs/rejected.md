@@ -557,6 +557,16 @@ answer, and saying so in the proposal.
   an entry of each input in the model was rejected (below). And it costs a third way for a view to send, with its
   name, its wrapping and its types in `make`, where the other form needs no export. _Reopen if_ the spike finds that a
   model cannot hold such a message as data, or that a view cannot fill it without building the rest of it.
+- **A write, then a message, as the advised way for a fact that comes with a value**: the handler writes the value
+  into an input, then sends a fixed message, and `update` reads the value from the state. The guide's "Inputs" advised
+  it from 22 November 2026, and no release said it: it left on 23 November 2026, when the owner took a message that the
+  model holds without its value, which the view fills ([`value-in-message.md`](records/value-in-message.md),
+  "Decided"). Spiked beside it the same day (`spike/value-in-message`, never to be merged), on a feed: two steps for
+  each fact in place of one, a place in the state for a value read once, a new model for a scroll end that means
+  nothing, and a view that forgets the write compiles, so that `update` decides on a stale value. It still holds by
+  what the guide promises, and stays the way for a message that is a class, which a spread cannot fill. _Reopen if_ a
+  held message is found that a view cannot fill with what the element gives, copied as it is, where a write into an
+  input can carry it.
 - **Undo at every write of an input, as a recipe of the guide, an example, or a message on each write.** Spiked on 17
   November 2026, in `scratch/undo-by-subscription/undo.test.ts`, outside git and not kept, on a question of the owner:
   whether a parent can undo each write into an input it reads, since no `update` sees a write. It can, today. The

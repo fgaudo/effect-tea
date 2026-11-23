@@ -47,17 +47,21 @@ rejects `SaveClicked`. Then the "Save" button does nothing. The run does not che
 **Messages live in the model.** Every message that a view can send is in the model that the view draws, as a value. A
 control sends the message that the program fixed for it.
 
-- What the user types into a text field is not a message, nor is any value that an element holds or reports. The view
-  writes the value into an input (see [inputs](./inputs.md)). The program cannot fix such a message as a value, since
-  the value is known only when the element gives it (see
+- What the user types into a text field is not a message, nor is any value that an element holds or that the
+  program keeps. The view writes the value into an input (see [inputs](./inputs.md), and
   [why what the user types is no message](./inputs.md#why-what-the-user-types-is-no-message)).
+- A fact that comes with a value, as the end of a scroll with its offset, is a message that the model holds without
+  its value: `{ _tag: 'ScrollEnded' } as const`. The view fills each field that is left with one value that the
+  element or its event gives, copied as it is (see [what an element reports](./inputs.md#what-an-element-reports)).
 - A view sends only the messages that the model holds. A view writes only into the inputs that the model shows. A view
-  never builds a message of the program itself.
+  adds nothing to what it sends but the values that an element or its event gives, as given: it never builds a
+  message of the program itself.
 - A control that chooses among fixed values, as the digits of a keypad, holds one message for each value: a list or a
   record of messages. A function `(digit) => Message` would be a function in the model (see the next rule). The clock
   of [`pages`](../../examples/pages/clock.ts) picks its format so: each case of its model holds the message that picks
   the other format.
-- Export `Message` as a type only. Then no view can build a message.
+- Export `Message` as a type only, so that no view calls its constructors. The types do not stop a view from writing
+  a message whole, as a literal: that rule is the view's to keep (see [precisely](#precisely)).
 
 **A model is data.** A model holds no function. A model compares by value with `Equal`. The models of two equal states
 are equal.
@@ -73,6 +77,7 @@ Each pair sums up a rule of this page. The rule itself is above.
 | Put every message that a view can send in the model, as a value.   | Build a message of the program in the view.                   |
 | Pick the case of the model from the state, as `update` reads it.   | Show a control in a state where `update` rejects its message. |
 | Let the view write what an element holds or reports into an input. | Make a message of what the user types into a text field.      |
+| Let the view copy into a held message what the element gives.      | Compute in the view a value that the message carries.         |
 | Keep the model data, compared by value with `Equal`.               | Put a function in the model.                                  |
 
 ```ts
@@ -89,10 +94,12 @@ const withMessage = (state: State) => ({ name: state.name, save: Message.SaveCli
 
 - It sends only the messages that the model holds.
 - It writes only into the inputs that the model shows.
-- It never builds a message of the program itself.
+- It adds nothing to what it sends but the values that an element or its event gives, as given. It never builds a
+  message of the program itself.
 
 The library does not enforce these rules. What the library says about a model rests on them. A test reads the messages
-of a program from its model (see [testing](./testing.md)). So no test has seen a message that a view built itself.
+of a program from its model, and fills a message held without its value with values that it draws (see
+[testing](./testing.md)). So no test has seen a message that a view built itself, nor a value that a view computed.
 
 **Why a model holds no function.** The testing tools compare the messages of a model by value, with `Equal`. A test
 checks this on the models of two equal states, built apart (see [testing](./testing.md)). A function made anew by each

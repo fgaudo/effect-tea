@@ -43,8 +43,8 @@ version, and everything else, features included, the patch version.
   Upgrade: leave such a control out of the model, reject it in `update`, or list it in `inert`; a `switch` over a
   `DispatchViolation`'s `_tag` handles `'Inert'`.
 
-- The guide's "Inputs the user types into" is now "Inputs", and a value that an element reports, as the offset of a
-  scroll, is an input too: its rule is promised, and nothing of the element ("What an element reports").
+- The guide's "Inputs the user types into" is now "Inputs": a value an element reports for the program to keep is an
+  input too, and a fact with a value, as a scroll's end, is one message that the view fills ("What an element reports").
 - A value that the user writes belongs to the program whose rules use it: the parent's where it changes or locks it,
   and otherwise the child's, whose `output` gives the parent what the child concludes from it ("Structuring a
   program").
