@@ -34,3 +34,4 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`subscription-from-key.md`](subscription-from-key.md)   | done: a subscription from its key alone                  |
 | [`value-in-message.md`](value-in-message.md)             | taken, to be done: a message with a value it is given    |
 | [`program-checks.md`](program-checks.md)                 | decided, to be done: how a program is checked            |
+| [`program-forms.md`](program-forms.md)                   | decided, to be done: the forms of a program promised     |
