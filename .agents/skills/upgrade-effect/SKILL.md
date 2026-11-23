@@ -55,6 +55,8 @@ is preferred, and the upgrade is the author's call.
 4. Read what the JSDoc of each API of Effect the library uses promises in the new version that it did not in the
    old: a guarantee a stable API documents is no premise (`docs/premises.md`, the rule after the list). A premise it
    now documents, in whole or in part, leaves the list with its own test, or keeps only the part still not promised.
+   What the new version's `ai-docs` and effect.website say of a premise is read too, and named in it: no promise, as
+   that rule says.
    A guard, a workaround or a check of the library's that the new guarantee makes unneeded is a lead for a
    simplification: propose it to the owner, with the guarantee quoted and the code it removes, and once taken, it
    goes with its mutation in `tools/mutations/mutations.ts` and, for a change of the engine, follows `change-engine`.

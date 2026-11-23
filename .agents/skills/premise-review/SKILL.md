@@ -72,8 +72,9 @@ HOW:
 4. A suspect is ruled out as docs/premises.md says: by the documentation of a stable
    API (for Effect, the JSDoc of the declarations in the version of the lockfile, where the peer range starts; for
    the JavaScript engine, the ECMAScript specification), or by a test that passes for what is not documented.
-   Effect's source, effect.website and its maintainers' answers rule out nothing. A property of src/interleaving.test.ts
-   rules a suspect out only under the runs it made: run it with `numRuns` of a thousand at least, and name the seeds.
+   Effect's source, effect.website, the examples of its package (`ai-docs`) and its maintainers' answers rule out
+   nothing. A property of src/interleaving.test.ts rules a suspect out only under the runs it made: run it with
+   `numRuns` of a thousand at least, and name the seeds.
 5. While you read the code that keeps a row, note each place where it does otherwise than AGENTS.md,
    docs/invariants.md or the guide says, and each test whose name promises more than its assertions check.
 

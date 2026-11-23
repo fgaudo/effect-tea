@@ -151,28 +151,36 @@ Effect").
 **How.** Each premise on Effect, in the order of the sort: those that hold a guarantee, the broad ones first; then
 the where and the order of a defect; then the testing tools'. A request asks for the general rule, never for the
 library's case: when a scope runs its finalizers, not that the engine's end runs before its sets close. Read first
-whether the JSDoc of the newest Effect says it already (`upgrade-effect`, step 4 of "Upgrading Effect"), and whether an
-issue asks it. A request is an issue, or a pull request of the JSDoc alone where the rule is a sentence. The owner is
-asked before each is opened, with its text: it is opened in the owner's name. That of `Stream.callback` is one of
-them, as a case of the scope a stream runs in. The premise of the scheduler of the tests, and that of the JavaScript
-engine, are not asked.
+whether the JSDoc of the newest Effect says it already (`upgrade-effect`, step 4 of "Upgrading Effect"), what
+effect.website and the `ai-docs` of the package say of it, and whether an issue asks it: the request cites what they
+say, as Effect-TS/effect#10719 cited the website, since a maintainer reads it with them in mind. A request is an issue,
+or a pull request of the JSDoc alone where the rule is a sentence. The owner is asked before each is opened, with its
+text: it is opened in the owner's name. That of `Stream.callback` is one of them, as a case of the scope a stream runs
+in. The premise of the scheduler of the tests, and that of the JavaScript engine, are not asked.
 
-**Read on 23 November 2026**, from the two requests answered (Effect-TS/effect#10667 by Effect-TS/effect#10683, and
-Effect-TS/effect#10719 by Effect-TS/effect#10731), a draft of one issue, not opened and not kept in the repository.
-What the first answer chose not to promise is not asked again: a rule for callbacks that throw, `run` on a closed
-container, when a loser is interrupted, how the failures of cleanups combine, and the turn of a deferred fork. The
-second took all eight rules of its request. So the draft asks four rules, each checked on `effect@4.1.5` on every
-function it names:
+**Asked on 24 November 2026**, before step 46, in Effect-TS/effect#10877, after the two requests answered
+(Effect-TS/effect#10667 by Effect-TS/effect#10683, and Effect-TS/effect#10719 by Effect-TS/effect#10731). What the
+first answer chose not to promise is not asked again: a rule for callbacks that throw, `run` on a closed container,
+when a loser is interrupted, how the failures of cleanups combine, and the turn of a deferred fork. The second took all
+eight rules of its request. So #10877 asks four rules, each checked on `effect@4.1.5` on every function it names, and
+holds five premises, which name it:
 
 - the scope a stream runs in: a run function makes one of its own, closed before the run completes however the stream
-  ends, and a pull runs in the scope it is given; `callback` and `unwrap`, of `Stream` and `Channel`, give their effect
-  that scope, while `Stream.scoped`, `ensuring`, `onExit` and `Channel.acquireUseRelease` release as their part ends.
-  It holds the premises of `Stream.callback` and of `Channel.toPull`;
+  ends, and a pull runs in the scope it is given, while `Stream.toQueue` and `Stream.toPubSub` run the stream as a run
+  function does; `callback`, `Channel.callbackArray` and `unwrap` give their effect that scope, and
+  `Channel.acquireRelease` its release; `scoped`, `ensuring`, `onExit` and `Channel.acquireUseRelease` release as their
+  part ends by itself, and a part that what follows it stops (`Stream.take`, a later operator that dies) with the scope
+  the stream runs in, so under a pull only as its scope closes, a difference it asks about. It holds the premises of
+  `Stream.callback` and of `Channel.toPull`;
 - an external span records nothing (`tracerLogger`, `annotateCurrentSpan`, `currentSpan` under one);
-- a logger of `Logger.make` runs synchronously in the fiber that logs, and dies there with what it throws, asked of
-  loggers alone, as the first answer wrote one for `suspend`;
-- `HashMap`, `HashSet`, `MutableHashMap` and `MutableHashSet` call `Equal` and `Hash` only during an operation: not a
-  rule of `Equal`, since a `FiberMap` compares a key in a fiber's observer.
+- a logger of `Logger.make`, or derived with `Logger.map` or `Logger.withConsoleLog`, runs synchronously in the fiber
+  that logs, and dies there with what it throws, asked of loggers alone, as the first answer wrote one for `suspend`;
+- `HashMap`, `HashSet`, `MutableHashMap` and `MutableHashSet` call `Equal` and `Hash` only during a call: not a rule of
+  `Equal`, since a `FiberMap` compares a key in a fiber's observer.
+
+Its draft read the JSDoc alone: the rule above on effect.website and `ai-docs` came after it, and they were read once it
+was opened. Of its four rules, only the scope of a stream has a word there, the example of `Stream.callback` in
+`ai-docs`, which its premise names; the site shows streams that release, and says nothing of which scope or when.
 
 Not asked: the three premises of how the failures of cleanups combine (`Effect.onExit`, `Effect.scoped`, `Scope.close`)
 and that of a `Deferred` resuming on the stack of whoever completes it, which fall under what the first answer

@@ -25,7 +25,7 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   What it fails with is the test after it, "the watch of that test sees a FiberMap call a key's Equal after the call, in
   a fiber's observer": `Equal` keeps the result of each pair of objects, so a late call shows only on a pair no call
   compared, there the key of a fiber replaced under an equal one, which ends once that key has left the map, and a key
-  added after it left.
+  added after it left. Asked of Effect in Effect-TS/effect#10877, of the four hash collections.
 - **A fiber that waits on a `Deferred` runs on the stack of whoever completes it, until it waits again**, a fiber or
   plain code. No guarantee of the guide rests on it, only killers of mutations: the engine offers its jobs and
   completes `died` once the outermost `apply` has returned, and `drive` wakes its waits there too (`settled` of
@@ -130,14 +130,15 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   what a command logs is a defect in the command" (`run.test.ts`) rests on it. That it runs in the fiber that
   logs is read only in the source. Its test: "Effect calls each Logger synchronously, in the fiber that logs", which
   fails with a logger that does its work in a fiber of its own (`Logger.batched`): by an error of the logger that
-  nothing handles, not at an assertion.
+  nothing handles, not at an assertion. Asked of Effect in Effect-TS/effect#10877, of loggers alone.
 - **An external span keeps no event of the logs written under it**, which is how no span lives as long as the run,
   the fibers of the run seeing the span of whoever runs it as an external one (`withExternalSpan` in `shell.ts`):
   "what runs in a run logs nothing into the span of whoever runs it, which stays the parent of their spans"
   (`run.test.ts`) rests on it. That a log is an event of the current span (`Logger.tracerLogger`), and that a span
   opened under an external one has it as its parent (`Tracer.externalSpan`), is documented; that an external span keeps
   none is not. Its test: "an external span keeps no event of the logs written under it", which fails with a span of
-  Effect's own as the parent.
+  Effect's own as the parent. Asked of Effect in Effect-TS/effect#10877, as a case of an external span recording
+  nothing.
 - **`Channel.toPull` keeps what a channel adds to the scope it is given, and releases none of it as the pull fails,
   while a release the channel wraps around itself (`Channel.onExit`, `Channel.acquireUseRelease`, and every operator
   that makes a scope of its own) runs as its pull fails, before the failure leaves it**. The first is how
@@ -156,7 +157,7 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   fails", which fails with `Channel.runForEach`, which closes a scope it makes before the defect leaves it, and "while
   a release the channel wraps around itself runs as its pull fails, before the failure leaves it", of
   `Channel.onExit`, `Channel.acquireUseRelease` and `Channel.ensuring`, which fails with a channel that adds its release
-  to the scope it is given.
+  to the scope it is given. Asked of Effect in Effect-TS/effect#10877, as a case of the scope a stream runs in.
 - **A collection reclaims what nobody holds, and a `FinalizationRegistry` then calls back for each target it
   reclaimed**, which is how the cache of `forwardTo` forgets the entries of ids nobody shows any more
   (`forgotten` in `dispatch.ts`), so that they do not pile up for as long as the run lasts (`invariants.md`, "A
@@ -190,7 +191,9 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   22 November 2026, and restated on 23 November 2026 from a test under a run function to one under a pull. Its tests:
   "Stream.callback gives its callback the scope the stream runs in", of a pull that ends by the end of its queue and of
   one whose fiber is interrupted, which fail with the release added to a scope of the test's own, and the first with a
-  release that runs as the stream ends.
+  release that runs as the stream ends. The example of `Stream.callback` in `ai-docs`
+  (`03_stream/10_creating-streams.ts`) removes its listener "when the stream is finished", which is so under a run
+  function and not under a pull. Asked of Effect in Effect-TS/effect#10877, as a case of the scope a stream runs in.
 - **snabbdom reuses an `<input>` with no key in the same place**, which is how a controlled element drawn by the
   bridge to snabbdom (`bridges/snabbdom.ts`), which needs no key, stays the same element, with its focus, caret and
   selection, while the program changes its value: the shared tests of the lid, the steps and the lock
@@ -241,7 +244,10 @@ only reasoned:
   major, and it is no premise: it is not listed here. For Effect, it is the JSDoc of its declarations in the version
   of the lockfile, where the peer range starts; for the JavaScript engine, the ECMAScript specification. That a bug
   of the dependency where it promises is caught by no test is a risk the rule accepts. Of a behaviour documented in
-  part, only the part not promised is listed, with the rest named in a line.
+  part, only the part not promised is listed, with the rest named in a line. What Effect says elsewhere, on
+  effect.website or in the examples its package ships (`node_modules/effect/ai-docs`), is no promise: neither has a
+  stability, and the comment of an example says how an API is used, not what Effect keeps. A premise they describe
+  stays listed, and names what they say of it, as a request to Effect cites it.
 - **Not documented** (read only in the source, or seen in a run): a premise, listed here, and a test that fails without
   it. For Effect, what is not promised may change in a minor version, and the peer range accepts only the patches of
   the version of the lockfile (`AGENTS.md`, "What belongs here"): an upgrade of Effect runs every such test before it
