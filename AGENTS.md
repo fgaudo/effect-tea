@@ -226,8 +226,9 @@ this summary says less. What every change keeps, an example's and a document's t
 - The pieces of a program are written once, in `Shape` (`program.ts`), and a check of a program reads them from there,
   never a copy, as `ProgramChecked` does for a child. Every function that takes a program is listed in the inference
   matrix, which gives each case to all of them and fails where they disagree beyond the differences it lists
-  (`checks`, `refusesEvents` and `formsRefused` in `tools/inference/generate.ts`). A change of the signature of one
-  runs `bun run inference` (`change-api`).
+  (`checks`, `refusesEvents` and `formsRefused` in `tools/inference/generate.ts`). So is every function that takes a
+  message (`takers` there), given each message of a program in each form it is written. A change of the signature of
+  one runs `bun run inference` (`change-api`).
 - A key or symbol of the library is named `@fgaudo/effect-tea/<Type>` after the type it belongs to (`Rejected`, the
   service `Stopped`), and `@fgaudo/effect-tea/<Type>/<part>` for a part of one. A property keyed by a string starts
   with `~`, as Effect's own type ids: `~@fgaudo/effect-tea/<Type>/<part>`.
@@ -317,9 +318,10 @@ this summary says less. What every change keeps, an example's and a document's t
   `bridges/bridge.test_suite.ts` and given each renderer's `Bridge`, with those of one renderer alone, in a DOM, and
   those of the snabbdom bridge's `messagesSentBy`, without one (`bridges/snabbdom-testing.test.ts`). The smoke test
   (`tools/smoke/`) and the benchmark (`tools/bench/`) check the package and its speed. The inference matrix
-  (`tools/inference/`, `bun run inference`) generates programs in each way they can be written, and checks with each
-  TypeScript the package supports that their types keep the three rules of "What belongs here": it runs by hand, not in
-  the CI, after a change of the types of `program.ts` or `compose.ts`, or of a function that takes a program. With
+  (`tools/inference/`, `bun run inference`) generates programs in each way they can be written, and the messages they
+  are given in each way those are written, and checks with each TypeScript the package supports that their types keep
+  the three rules of "What belongs here": it runs by hand, not in the CI, after a change of the types of `program.ts` or
+  `compose.ts`, or of a function that takes a program or a message. With
   `--run`, it plays the programs of its valid cases instead, with messages drawn by fast-check
   (`tools/inference/play.ts`), and fails on one that dies of a defect: what compiles never dies of what the types could
   prevent. None of them is a test of the library's correctness, and they are kept apart from the five.

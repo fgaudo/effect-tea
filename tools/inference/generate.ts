@@ -13,7 +13,11 @@
 // The forms are judged by the rule of `AGENTS.md`: a form may be refused, but it is never taken wrongly. So a lead is a
 // part that fails where it should compile, but a valid program in a form not typed that a function refuses is a note;
 // or a part that compiles where it should not, or that gives back other types. The run of a program that needs no
-// service compiles with `Effect.runFork`, the parent's of a child too. A scale of parents with 1 to 64 children
+// service compiles with `Effect.runFork`, the parent's of a child too. And each message a program can have, its own,
+// a child's and a write, is given to every function that takes one, the dispatch of a run and of a driver, `forwardTo`,
+// the `send` of a driver and of a rehearsal, `hear`, `simulate` and `applyAll`, in each form it is written: a literal,
+// built by a constructor of `Data.taggedEnum` over the program's own messages or over its whole message, and a value
+// typed `MessageOf`; each must take it, and name the program's message. A scale of parents with 1 to 64 children
 // measures the time to check one, and the size of its declarations.
 //
 // With `--run`, the matrix writes instead the programs of its valid cases, one for each that runs differently, alone
@@ -1539,16 +1543,299 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
   }
 ]
 
-const header = `import * as Effect from 'effect/Effect'
+// The messages given to every function that takes one (step 16, point 5), in each form a test or a view writes one: a
+// literal, with a constructor of `Data.taggedEnum` over the own messages of the program that takes it (`own`), or over
+// its whole message, which builds the wrapper of a child's or of an input's (`whole`), and as a value typed `MessageOf`
+// (`typed`). A function takes the message the program names, as the readers of each use assert in every form a program
+// is written, so that a message is taken or refused by its type alone: the messages are given to one program of `make`
+// for each message it can have, alone, and as a child alone and by id, whose parent's messages wrap its own. Each
+// function's parameter is asserted to be the message of the program, which a wider one would take as well.
+type MessageForm = "literal" | "own" | "whole" | "typed"
+const messageForms: ReadonlyArray<MessageForm> = ["literal", "own", "whole", "typed"]
+// What a dispatch takes: its type, the constructors over its own messages (`ownType`, none where it has none) and over
+// all of them, and its entries: an own message, with the fields it has but its tag, or the wrapper of a child's or an
+// input's, with the id it is addressed by and whether it carries the `instance` of an answer.
+type Entry =
+  | Readonly<{ kind: "own"; tag: string; fields: string }>
+  | Readonly<{ kind: "wrap"; tag: string; id?: string; instance: boolean; target: Target }>
+type Target = Readonly<{
+  type: string
+  ownType?: string
+  own: string
+  whole: string
+  entries: ReadonlyArray<Entry>
+}>
+
+// The messages of `target` in `form`, the typed one but as the literals its values are typed from.
+const messagesIn = (target: Target, form: Exclude<MessageForm, "typed">): ReadonlyArray<string> =>
+  target.entries.flatMap((entry) => {
+    if (entry.kind === "own") {
+      const args = entry.fields === "" ? "" : `{ ${entry.fields} }`
+      return form === "literal"
+        ? [`{ _tag: '${entry.tag}'${entry.fields === "" ? "" : `, ${entry.fields}`} }`]
+        : [`${form === "own" ? target.own : target.whole}.${entry.tag}(${args})`]
+    }
+    const id = entry.id === undefined ? "" : `id: ${entry.id}, `
+    return messagesIn(entry.target, form).flatMap((inner) =>
+      (entry.instance ? ["", ", instance: 1"] : [""]).map((instance) =>
+        form === "whole"
+          ? `${target.whole}.${entry.tag}({ ${id}message: ${inner}${instance} })`
+          : `{ _tag: '${entry.tag}', ${id}message: ${inner}${instance} }`
+      )
+    )
+  })
+
+// The messages of `target` as a part gives them: the lines that declare them, for values typed, and the expressions.
+const givenIn = (target: Target, form: MessageForm, prefix: string) => {
+  if (form !== "typed") return { lines: [], messages: messagesIn(target, form) }
+  const literals = messagesIn(target, "literal")
+  return {
+    lines: literals.map((literal, index) => `const ${prefix}${index}: ${target.type} = ${literal}`),
+    messages: literals.map((_, index) => `${prefix}${index}`)
+  }
+}
+
+// The constructors of `target` and of the dispatches it wraps, each declared once.
+const constructorsOf = (target: Target): ReadonlyArray<string> => {
+  const own = target.ownType === undefined ? [] : [`  const ${target.own} = Data.taggedEnum<${target.ownType}>()`]
+  const whole = target.whole === target.own && target.ownType !== undefined
+    ? []
+    : [`  const ${target.whole} = Data.taggedEnum<${target.type}>()`]
+  const wrapped = target.entries.flatMap((entry) => entry.kind === "wrap" ? constructorsOf(entry.target) : [])
+  return [...new Set([...own, ...whole, ...wrapped])]
+}
+
+const kidTarget: Target = {
+  type: "MessageOf<typeof kid>",
+  ownType: "KidMessage",
+  own: "KidOwn",
+  whole: "KidWhole",
+  entries: [{ kind: "own", tag: "KInc", fields: "" }]
+}
+const writeTarget = (type: string, name: string, value: string): Target => ({
+  type: `Written<${type}>`,
+  ownType: `Written<${type}>`,
+  own: name,
+  whole: name,
+  entries: [{ kind: "own", tag: "Written", fields: `value: ${value}` }]
+})
+
+// What a program of `make` takes, by its composition: its own messages, and the wrappers of its child's and its
+// input's, by the id the case writes.
+const targetOf = (c: Case): Target => ({
+  type: "MessageOf<typeof made>",
+  ...(ownOf(c) === "Own" ? { ownType: "Own" } : {}),
+  own: "MadeOwn",
+  whole: "Made",
+  entries: [
+    ...(ownOf(c) === "Own" ? ["Inc", "Reset"].map((tag) => ({ kind: "own" as const, tag, fields: "" })) : []),
+    ...(isKid(c.comp)
+      ? [{
+        kind: "wrap" as const,
+        tag: "Kid",
+        ...(c.comp === "childById" ? { id: "1" } : {}),
+        instance: true,
+        target: kidTarget
+      }]
+      : []),
+    ...(c.comp === "input" || c.comp === "mixed"
+      ? [{ kind: "wrap" as const, tag: "Name", instance: false, target: writeTarget("string", "Text", "' Ada '") }]
+      : []),
+    ...(c.comp === "inputById"
+      ? [{
+        kind: "wrap" as const,
+        tag: "Count",
+        id: "'a'",
+        instance: false,
+        target: writeTarget("number", "Count", "1.5")
+      }]
+      : [])
+  ]
+})
+
+// What the parent of `parentLines` takes: its own message where the program has an external one, and the program's,
+// wrapped.
+const parentTarget = (made: Target, byId: boolean, external: boolean): Target => ({
+  type: "MessageOf<typeof parent>",
+  ...(external ? { ownType: "Go" } : {}),
+  own: "ParentOwn",
+  whole: "ParentWhole",
+  entries: [
+    ...(external ? [{ kind: "own" as const, tag: "Go", fields: "" }] : []),
+    { kind: "wrap", tag: "Inner", ...(byId ? { id: "1" } : {}), instance: true, target: made }
+  ]
+})
+
+// The functions that take a message: the dispatch of a run, and of a driver, each child's that `forwardTo` makes of
+// them, the `send` of a driver and of a rehearsal, the `hear` of a rehearsal, and `simulate` and `applyAll`.
+type Taker = "dispatch" | "forwardTo" | "driver.dispatch" | "driver.send" | "send" | "hear" | "simulate" | "applyAll"
+const takers: ReadonlyArray<Taker> = [
+  "dispatch",
+  "forwardTo",
+  "driver.dispatch",
+  "driver.send",
+  "send",
+  "hear",
+  "simulate",
+  "applyAll"
+]
+
+// The lines that give `forwardTo` of `dispatch` the messages of each dispatch that `target` wraps, and of those they
+// wrap in turn.
+const forwardLines = (dispatch: string, target: Target, form: MessageForm, prefix: string): ReadonlyArray<string> =>
+  target.entries.flatMap((entry, index) => {
+    if (entry.kind === "own") return []
+    const name = `${prefix}${index}`
+    const given = givenIn(entry.target, form, `${name}_message`)
+    return [
+      `const ${name} = forwardTo(${dispatch}, '${entry.tag}'${entry.id === undefined ? "" : `, ${entry.id}`})`,
+      `const ${name}_takes: Exactly<Parameters<typeof ${name}>[0], ${entry.target.type}> = true`,
+      ...given.lines,
+      ...given.messages.map((message) => `${name}(${message})`),
+      ...forwardLines(name, entry.target, form, `${name}_to`)
+    ]
+  })
+
+// What one function makes of the messages of `target`, given to `program` in `form`; nothing for `forwardTo` where the
+// program wraps no dispatch.
+const takerLines = (
+  taker: Taker,
+  program: string,
+  types: Types,
+  target: Target,
+  form: MessageForm
+): ReadonlyArray<string> => {
+  const flags = types.flags === "never" ? "" : ", { flags: 3 }"
+  const given = givenIn(target, form, "message")
+  const sent = (to: string) => given.messages.map((message) => `  ${to}(() => Opt.some(${message}))`)
+  const takes = (type: string) => `const takes: Exactly<${type}, ${target.type}> = true`
+  switch (taker) {
+    case "dispatch":
+      return [
+        `const dispatch = start(${program}${flags}).app.dispatch`,
+        takes("Parameters<typeof dispatch>[0]"),
+        ...given.lines,
+        ...given.messages.map((message) => `dispatch(${message})`)
+      ]
+    case "forwardTo": {
+      const forwarded = forwardLines("dispatch", target, form, "to")
+      return forwarded.length === 0 ? [] : [`const dispatch = start(${program}${flags}).app.dispatch`, ...forwarded]
+    }
+    case "driver.dispatch":
+    case "driver.send":
+      return [
+        ...given.lines,
+        `const driven = drive(${program}, (driver) => Effect.sync(() => {`,
+        ...(taker === "driver.dispatch"
+          ? [
+            `  ${takes("Parameters<typeof driver.dispatch>[0]")}`,
+            ...given.messages.map((message) => `  driver.dispatch(${message})`)
+          ]
+          : [
+            `  const takes: Exactly<ReturnType<Parameters<typeof driver.send>[0]>, Opt.Option<${target.type}>> = true`,
+            ...sent("driver.send")
+          ]),
+        `})${flags})`
+      ]
+    case "send":
+    case "hear":
+      return [
+        ...given.lines,
+        `const rehearsed = rehearse(${program}, (rehearsal) => Effect.sync(() => {`,
+        ...(taker === "send"
+          ? [
+            `  const takes: Exactly<ReturnType<Parameters<typeof rehearsal.send>[0]>, Opt.Option<${target.type}>> = true`,
+            ...sent("rehearsal.send")
+          ]
+          : [
+            `  ${takes("Parameters<typeof rehearsal.hear>[1]")}`,
+            ...given.messages.map((message) => `  rehearsal.hear('heard', ${message})`)
+          ]),
+        `})${flags})`
+      ]
+    case "simulate":
+    case "applyAll": {
+      const made = taker === "simulate" ? `simulate(${program})` : `applyAll(${program}.update)`
+      const from = taker === "applyAll"
+        ? `savedState<StateOf<typeof ${program}>>()`
+        : types.flags === "never"
+        ? `${program}.init`
+        : `${program}.init(3)`
+      return [
+        `const taking = ${made}`,
+        takes("Parameters<typeof taking>[0][number]"),
+        ...given.lines,
+        `taking([${given.messages.join(", ")}], ${from})`
+      ]
+    }
+  }
+}
+
+// The parts of the functions given the messages of `target`, one for each function and form.
+const takersOf = (program: string, types: Types, target: Target): ReadonlyArray<Part> =>
+  takers.flatMap((taker) =>
+    messageForms.flatMap((form) => {
+      const lines = takerLines(taker, program, types, target, form)
+      return lines.length === 0
+        ? []
+        : [{ label: `${taker}.${form}`, valid: true, lines: ["  {", ...lines.map((line) => `    ${line}`), "  }"] }]
+    })
+  )
+
+// One program of `make` for each message it can have: its own or none, and its composition. It has an external
+// message, so that the parent it is given to has one of its own.
+const messageCases = comps.flatMap((comp) =>
+  (["Own", "never"] as const).flatMap((own) => {
+    if (comp === "none" && own === "never") return []
+    const layout = layoutsOf(comp)[0]
+    const found = cases.find((c) =>
+      isValid(c) && representative(c) && c.comp === comp && ownOf(c) === own && c.subs === "none"
+      && c.named.size === (own === "Own" ? 2 : 1) && c.named.has("external") && layout !== undefined
+      && c.kidFlags === layout.kidFlags && c.place === layout.place && c.inputPlace === layout.inputPlace
+      && c.inputForm === layout.inputForm && c.tell === layout.tell
+    )
+    return found === undefined ? [] : [found]
+  })
+)
+
+const messageMembers: ReadonlyArray<Member> = messageCases.flatMap((c) => {
+  const { expected, lines } = madeOf(c)
+  const made = targetOf(c)
+  const alone: Member = {
+    id: `message.${c.id}`,
+    parts: [
+      { label: "program", valid: true, lines: [...lines, ...constructorsOf(made)] },
+      ...takersOf("made", expected, made)
+    ]
+  }
+  const asChild = (byId: boolean): Member => {
+    const target = parentTarget(made, byId, expected.external !== "never")
+    return {
+      id: `message.${c.id}.${byId ? "childById" : "child"}`,
+      parts: [
+        {
+          label: "program",
+          valid: true,
+          lines: [...lines, ...parentLines(byId, "made", expected, false, true), ...constructorsOf(target)]
+        },
+        ...takersOf("parent", parentTypes(expected, byId), target)
+      ]
+    }
+  }
+  return [alone, asChild(false), asChild(true)]
+})
+
+const header = `import * as Data from 'effect/Data'
+import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import {
-  andThen, type CommandOf, type CommandServicesOf, type EventOf, type ExternalOf, type FlagsOf, type Instance, type Kept, type KeyOf,
+  andThen, type CommandOf, forwardTo, type CommandServicesOf, type EventOf, type ExternalOf, type FlagsOf, type Instance, type Kept, type KeyOf,
   type MessageOf, type ModelOf, type OutputOf, type Program, program, reject, start, type StateOf,
   type SubscriptionServicesOf, type Transition, type Update,
 } from '../src/index.ts'
-import { drive, rehearse, simulate } from '../src/testing/index.ts'
+import { applyAll, drive, rehearse, simulate } from '../src/testing/index.ts'
 import {
   type Cmd, Db, type DriveRead, type Ev, type Exactly, type Ext, type Feed, feed, type Go, held, inc, type Lock, kid,
   type KidCommand, type KidDb, type KidEvent, type KidFeed, type KidMessage, type KidState, kidF, type KReset,
@@ -1815,6 +2102,9 @@ const command = Command.make(
       for (const c of run ? [] : selectedHand) add("hand", { id: c.id, parts: generateHand(c) })
       for (const o of run ? [] : selectedObject) {
         add(o.violation === undefined ? `object.${o.form}` : "invalid.object", { id: o.id, parts: generateObject(o) })
+      }
+      for (const member of run ? [] : messageMembers) {
+        if (filter === undefined || member.id.includes(filter)) add("message", member)
       }
       for (const special of run ? [] : specials) {
         if (filter === undefined || special.id.includes(filter)) {

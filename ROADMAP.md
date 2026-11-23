@@ -12,7 +12,7 @@ for on 20 November 2026 and asked to be written here in the order it advises. St
 4 and 6, and steps 17 to 21 its part 5, as the owner took it on 21 November 2026
 ([`one-engine.md`](docs/records/one-engine.md)). Step 16 comes from the owner's question, on 21 November
 2026, of why the findings api-1, api-2 and api-4 of [`library-review.md`](docs/records/library-review.md) passed the
-inference matrix and the tests; its points 1 to 4 are done, the first as the owner decided on 23 November 2026, after
+inference matrix and the tests; its points 1 to 5 are done, the first as the owner decided on 23 November 2026, after
 two second opinions ([`program-checks.md`](docs/records/program-checks.md) and
 [`program-forms.md`](docs/records/program-forms.md)). Steps 22 to 31 come from
 [`application-report.md`](docs/records/application-report.md), a report of an application's upgrade to 0.8.0 that the
@@ -81,7 +81,7 @@ what is written matters, and how it is written too. No formal check of TypeScrip
 only semantics, and it changes between 5.9, 6.0 and 7.0. The nearest is the matrix: every combination of declared
 axes, checked by `tsc`, so the risk left is in the axes it does not list.
 
-**How.** Points 1 to 4 are done. The matrix writes a program of `make`, one typed `Program<…>`, either of them started
+**How.** Points 1 to 5 are done. The matrix writes a program of `make`, one typed `Program<…>`, either of them started
 from another state (`{ ...program, init }`), and an object not typed `Program<…>`, in a constant, in the call and
 spread from a typed one, with its violations, and gives every case to `Program<…>`, `start`, `drive`, `rehearse`,
 `simulate`, `child` and `childById`, each in a part of its own. The differences meant are a table in
@@ -107,22 +107,21 @@ checks; and `tools/inference/play.ts` plays them, one process for each file, wit
 fast-check from one seed, one message at a time with `simulate`, its model made on each state: none may die of a
 defect, nor run without end. Its first run, on 23 November 2026, played 17,664 programs in 11 seconds, after 30 seconds
 of `tsc`, and none died; it found a program of the matrix whose commands answered forever (`tell-ternary`, whose
-`Inc` was not bounded), which it now bounds as every form does. What is left of the leads is under "Open problems".
-The rest, in the order 5, 6, each with its leads listed there until fixed:
+`Inc` was not bounded), which it now bounds as every form does. And each message a program of `make` can have, its own,
+a child's and a write, is given to the dispatch of a run and of a driver, `forwardTo`, the `send` of a driver and of a
+rehearsal, `hear`, `simulate` and `applyAll` (`takers` in `generate.ts`), as a literal, built by a constructor of
+`Data.taggedEnum` over the program's own messages or over its whole message, and as a value typed `MessageOf`, alone
+and as a child alone and by id, whose parent's messages wrap it: one program for each message it can have, since the
+readers assert in every form of a program that each function takes the message it names. Each function's parameter is
+asserted to be that message, which a wider one would take as well. Its 1,085 parts compiled on 23 November 2026 in the
+twelve configurations: no form is refused, so the guide says nothing new of them. What is left of the leads is under
+"Open problems". The rest is point 6, with its leads listed there until fixed:
 
 1. **One definition of a program, and the matrix holds the rest.** Done, as said above.
 2. **The matrix writes the form it lacks.** Done, as said above.
 3. **Each case is given to every function that takes a program.** Done, as said above.
 4. **What compiles runs without a defect the types could prevent.** Done, as said above.
-5. **Each message is given to every function that takes one, in every form it is written.** The matrix writes programs,
-   and never what a test or a view gives them. And the tests of the types say what is refused (`@ts-expect-error`), not
-   in how many forms what is right is taken. The run of point 4 writes the literal form already, for one program of each
-   that runs differently (`messagesOf` and `runLines` in `generate.ts`). For each valid case, a message of its own, a
-   child's and a write are written as a literal, with a constructor of `Data.taggedEnum` over the program's own messages
-   and over its whole message, as a wrapper that such a constructor builds, and as a value typed `MessageOf`. Each is
-   given to `dispatch`, `forwardTo`, `applyAll`, `simulate`, and the `send` and the `hear` of a rehearsal. What is right
-   compiles in every form, or the guide says which form is refused, and why. `hear` refused some until step 25 took its
-   check out (`docs/rejected.md`).
+5. **Each message is given to every function that takes one, in every form it is written.** Done, as said above.
 6. **The matrix lists the axes of a program it lacks**, found on 23 November 2026 by reading its generator, and not
    run: a program of `make` never names an `output` of its own, which came with step 35, so no parent that is a child
    in turn declares one (a program written as an object does, since point 2); its child is always the prelude's `kid`
