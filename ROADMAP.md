@@ -73,28 +73,36 @@ is a lead, "valid, but taken with other types".
 
 **Model and effort.** Fable 5.2, `high`: premises and guarantees are questioned, and a rule of `AGENTS.md` with them.
 
-**Depends on** no other step. It comes before 1.0. Until 22 November 2026 it waited for steps 18 to 21, which change
-which premises there are. Counted that day in `docs/premises.md`, by the names in each premise and not by a reading of
-each: of its 37 premises, 5 are of a renderer, and of the others some 17 name `rehearse`, nearly all beside the run or
-the engine. Two or three name `rehearse` alone, as that of `Channel.toPull`. So the sort below holds for the run's
-guarantees before the engine changes, and step 19 sorts again the premises that it removes or moves. The first thing
-this step does is to check that count by reading: if steps 18 and 19 change more than it says, this step goes back
-after step 21, and the roadmap says so.
+**Depends on** no other step. It comes before 1.0, and stays before step 18: the count of the premises was checked by
+reading on 23 November 2026, and steps 18 and 19 change none of the premises that hold a guarantee. Step 19 sorts
+again the premise of `Effect.acquireUseRelease`, the one that names `rehearse` alone, and the clauses of others that
+name what `rehearse` does by itself.
 
 **Why.** [`architecture-review.md`](docs/records/architecture-review.md), "What the premises hold, and the peer range
 of Effect". The peer range of Effect accepts only patches, so an application on a later minor cannot install the
-library: the highest price of the premises, for a library meant to be adopted. Since a dispatch applies at once, no
-premise seems to hold the order of the messages: what they hold is the effects and the end of a run.
+library: the highest price of the premises, for a library meant to be adopted.
 
-**How.** Each premise of `docs/premises.md` is sorted by what falls with it: a guarantee of the guide's "What you can
-rely on", only the where or the order of a defect as a run ends, only what a testing tool does, or only the scheduler
-of the tests. The owner then weighs each guarantee that rests on a premise, kept or moved to "described, not
-promised", and then the range: a caret, with the daily job (`.github/workflows/effect-latest.yml`) as the alarm, or
-the tilde. The skills are [`premise-review`](.agents/skills/premise-review/SKILL.md) and
-[`upgrade-effect`](.agents/skills/upgrade-effect/SKILL.md).
+**Done so far**, on 23 November 2026, in [`premises-and-range.md`](docs/records/premises-and-range.md): each premise
+is sorted by what falls with it, and no premise holds the state or the order of the messages. The owner took the two
+finest guarantees as described, not promised, and the guide, `docs/invariants.md`, `docs/premises.md` and the
+changelog say so.
 
-**Done when** the owner has decided the range, and `AGENTS.md`, `docs/premises.md`, the guide's "Guarantees" and
-`package.json` say what was decided.
+**Left: the range**, which the owner decides: a caret, `^4.1.4`, or the tilde, as the record's "The range" weighs
+them. The owner asked what the caret changes, and was answered in the record's "Decided".
+
+- **The caret.** `peerDependencies.effect` and `devDependencies.effect` are `^4.1.4`, the lockfile stays at 4.1.4, and
+  `@effect/platform-bun` follows. The rule of `AGENTS.md` ("The peer range is the patches of the Effect the library is
+  developed with") says that the range starts at that Effect, and what answers a premise that falls at a version the
+  range accepts: a patch release that leaves that version out, then one that holds on it or raises the minimum. The
+  rule after the list of `docs/premises.md` ("Not documented"), [`upgrade-effect`](.agents/skills/upgrade-effect/SKILL.md),
+  the README's "Installation" and a `Changed` entry of the changelog say the same. In
+  `.github/workflows/effect-latest.yml`, the job `newest` then reaches a later minor by itself: it takes the ten runs
+  of the search and the issue of `next-minor`, once for each version, and `next-minor` goes.
+- **The tilde.** Nothing of the package changes. `docs/rejected.md` gets the caret, with the sort as its evidence, and
+  what would reopen it.
+
+**Done when** the owner has decided the range, and `AGENTS.md`, `docs/premises.md` and `package.json` say what was
+decided.
 
 ### 18. The engine's seams, with the run as their only user
 

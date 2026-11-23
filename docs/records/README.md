@@ -35,3 +35,4 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`value-in-message.md`](value-in-message.md)             | taken, to be done: a message with a value it is given    |
 | [`program-checks.md`](program-checks.md)                 | done: how a program is checked                           |
 | [`program-forms.md`](program-forms.md)                   | done: the forms of a program promised                    |
+| [`premises-and-range.md`](premises-and-range.md)         | sorted, the range to decide: what each premise holds     |

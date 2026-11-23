@@ -319,7 +319,10 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
     which keeps one of two defects equal by `Equal`. What the program wraps around its own code (two `Effect.ensuring`)
     is joined by Effect, and is the effect's own.
   - The order of the defects is the engine's to keep, and its tests', and no promise of the guide, which describes
-    it: what a user relies on is that every defect is in the cause, each with where. No promise of the library's
+    it: what a user relies on is that every defect is in the cause, each with where. The guide describes two cases of
+    that too, and promises neither, since each rests on half of a premise read only in Effect's source
+    (`docs/premises.md`): that two releases of one scope that die of defects equal by `Equal` are two defects, and that
+    a command or a subscription that interrupts itself while the run stops it is a defect. No promise of the library's
     rests on what a function of Effect makes of a cause (`Cause.squash` gives the first defect).
   - Each defect recorded is reported once, in that order: by the run as soon as one dies, and by the end of the run,
     which stops applying (`stopped`, the one check of the end, read in `apply` before each message, so that what is

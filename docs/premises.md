@@ -410,7 +410,12 @@ A guarantee of the guide says what it promises in the library's own terms, never
 Effect makes of a value: the order of the defects in a cause is no promise, since what a user would rely on is what
 `Cause.squash` returns ([`rejected.md`](rejected.md)). What keeps a guarantee may rest on a premise listed here, as
 those of the span and of a self-interruption do: the premise's test, which the daily job runs at the
-newest Effect the peer range accepts, is what tells that it fell.
+newest Effect the peer range accepts, is what tells that it fell. Two cases that half of a premise holds are described
+by the guide, and not promised ("Running", "The defects in the cause"): that a fiber which interrupts itself as the run
+stops it is a defect (the first half of "a fiber that fails as it is interrupted keeps its own reasons"), and that two
+releases of one scope that die of defects equal by `Equal` are two (the second half of "`Scope.close` dies with every
+defect its finalizers die of"). What falls with each premise is sorted in
+[`premises-and-range.md`](records/premises-and-range.md), as it stood on 23 November 2026.
 
 What the dependencies of development do (fast-check, happy-dom, the renderers of the examples) is no premise of the
 library, and the rule leaves it out, with two exceptions. The bridges, `bridges/snabbdom.ts` and

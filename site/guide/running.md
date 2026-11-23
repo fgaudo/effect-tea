@@ -190,8 +190,9 @@ A defect anywhere ends the run, which dies with a `ProgramDefect`:
 alone. `onApplied` and `onIgnored` hear the key too, in the `origin`. So what must stay private, as a token, goes in a
 service, not in a key.
 
-From the defect on, the run applies no message. Every defect is in the cause, each with where it happened. A program
-that was never run reports its defect only once `run` runs, and dies of it then (see [rules](#rules)).
+From the defect on, the run applies no message. Every defect is in the cause, each with where it happened. Two cases
+of this are described, and not promised (see [the defects in the cause](#the-defects-in-the-cause)). A program that
+was never run reports its defect only once `run` runs, and dies of it then (see [rules](#rules)).
 
 **A defect in the `init` of a program with flags is recorded as the program starts.** `start` still gives a handle.
 Its `model()` throws the defect, and its `run` dies of it. A program without flags starts from a step, which `start`
@@ -324,3 +325,7 @@ const stop = (): Promise<void> => {
 - A defect met while the run ends joins the cause. Every defect is in it, each with where it happened.
 - The cause lists the defects in the order they happened. That order is how the run is made today, and it is not a
   promise. Rely on each defect being in the cause, not on its place in the cause.
+- Two releases, in the scope that the run gives a command or a subscription, that die of defects equal by `Equal` are
+  two defects in the cause. That is how the run is made today, and it is not a promise.
+- A command or a subscription that interrupts itself while the run stops it, as in what it releases, dies of a defect
+  too. That is how the run is made today, and it is not a promise.
