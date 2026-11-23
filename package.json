@@ -66,7 +66,8 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p examples && tsc --noEmit -p bridges && tsc --noEmit -p bridges/tsconfig.react.json",
     "lint": "oxlint --deny-warnings && dprint check",
     "format": "oxlint --fix && dprint fmt",
-    "test": "bun test --path-ignore-patterns=src/interleaving.test.ts",
+    "test": "bun test --path-ignore-patterns=src/interleaving.test.ts --path-ignore-patterns=bridges/browser.test.ts",
+    "test:browsers": "vitest run --config tools/browser/vitest.config.ts",
     "test:node": "node --expose-gc --max-old-space-size=2048 --import ./test/node/register.test_hook.ts --test \"src/**/!(interleaving).test.ts\" \"test/*.test.ts\"",
     "interleavings": "bun test src/interleaving.test.ts",
     "bench": "bun tools/bench/subscriptions.ts",
@@ -102,6 +103,7 @@
     "@types/bun": "^1.4.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@vitest/browser-playwright": "^5.1.1",
     "acorn": "^8.19.0",
     "dprint": "^0.65.0",
     "effect": "~4.1.4",
@@ -109,9 +111,11 @@
     "fast-check": "^4.10.2",
     "oxlint": "^1.94.0",
     "oxlint-tsgolint": "^7.0.2007",
+    "playwright": "^1.65.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "snabbdom": "^3.6.4",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
   }
 }

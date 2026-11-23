@@ -365,12 +365,19 @@ this summary says less. What every change keeps, an example's and a document's t
 - Only the bridges' tests in a DOM, `bridges/snabbdom.test.ts` and `bridges/react.test.ts`, register
   one (happy-dom), for the tests of `bridges/bridge.test_suite.ts` they call too; every other test runs without
   one, `bridges/snabbdom-testing.test.ts` too.
+- **The bridges' tests in a DOM run in real browsers too**, Chromium, Firefox and WebKit: `bun run test:browsers` runs
+  them unchanged in Vitest's browser mode over Playwright (`tools/browser/vitest.config.ts`), where `bun:test` is
+  Vitest and happy-dom's registrator registers nothing, and the CI runs it. What only a real browser shows (the focus
+  as the screen refreshes, an IME, an event dispatched before a draw) is in `bridges/browser.test.ts`, which imports
+  Vitest and which `bun run test` leaves out. The browsers are installed once, with
+  `bunx playwright install chromium firefox webkit`.
 
 ## Checks
 
 Before finishing, from the repository root: `bun run typecheck` (`tsc` with the Effect language service, on the
 library and on the examples), `bun run lint` (Oxlint and dprint) and `bun run test`; after a change of the engine or of
-a testing tool, or of their tests, `bun run test:node` and `bun run interleavings` too. `bun run build` compiles
+a testing tool, or of their tests, `bun run test:node` and `bun run interleavings` too; after a change of a bridge,
+of its tests, or of a view an example draws with both bridges, `bun run test:browsers`. `bun run build` compiles
 `src/` into `dist/` (ignored by git) and runs before `bun pm pack`. An API change is also checked as a consumer
 would see it (`change-api`). After a change of the guide or of a doc comment, `bun run comments`, which the CI runs,
 checks the doc comments and the sections of the guide they name.

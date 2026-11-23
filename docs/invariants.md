@@ -134,7 +134,8 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   a second microtask draws the model drawn last, which patches nothing (`last`), and gives the controlled elements back
   what they already hold, so no test can tell. What no check holds,
   in either bridge: an event that the program's own code dispatches in the task of a notice, before its draw
-  (`element.click()`, `dispatchEvent`, `focus()`), runs its handler on the view of before the notice.
+  (`element.click()`, `dispatchEvent`, `focus()`), runs its handler on the view of before the notice:
+  `bridges/browser.test.ts` shows it in real browsers, and holds nothing of it.
 - **Every program keeps its state in an object**, replaced and never mutated, so that any program can be a child: a
   parent keeps a child's model by its state object (below), and a number or a string has no identity to keep it by. It
   binds whoever writes a program, and the types are what enforce it (`ObjectState` in `program.ts`, checked by

@@ -226,7 +226,9 @@ They leave out:
   event. React sends no `onChange` for it, so it is lost.
 - **An event that the program's own code dispatches before a new state is drawn**, with either bridge: a call of
   `element.click()`, `dispatchEvent` or `focus()` in the task that made the new state. Its handler runs on the view of
-  before that state, and a write from it is stored over what the program put there in that task.
+  before that state. With snabbdom, a write from it is stored over what the program put there in that task. React
+  sends no `onChange` for an input event while the element holds the value that React saw last, so the program's value
+  stays, and is drawn.
 - **Other widgets.** A widget of a component library with `value` and `onChange` props is drawn as a controlled
   element. Where connecting a widget is too complex, prefer a widget that the program draws: its press is a message,
   and its drag a subscription. The sliders of [`examples/volume`](../../examples/volume) are drawn this way.
@@ -237,7 +239,10 @@ Any other feature of a renderer is left to the bridge that needs it.
 
 Both bridges are tested in a DOM, with [happy-dom](https://github.com/capricorn86/happy-dom):
 [`bridges/snabbdom.test.ts`](../../bridges/snabbdom.test.ts) and
-[`bridges/react.test.ts`](../../bridges/react.test.ts) run them.
+[`bridges/react.test.ts`](../../bridges/react.test.ts) run them. The same tests run in Chromium, Firefox and WebKit
+too, with [`bridges/browser.test.ts`](../../bridges/browser.test.ts), which checks what only a real browser shows: an
+input that keeps the focus while a save spans several screen refreshes, a text composed by an IME (in Chromium
+alone), and an event that the program's own code dispatches before a new state is drawn.
 
 The tests they share are written once, in
 [`bridges/bridge.test_suite.ts`](../../bridges/bridge.test_suite.ts). They check:

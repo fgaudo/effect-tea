@@ -38,9 +38,10 @@ of its spike the same day, with the conditions of a second opinion
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. the checks, step 6: of the bridges in a real browser (step 44, of the types by mutations, is done);
-2. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
-3. the engine, steps 18 to 21, which change nothing that a user writes.
+1. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
+2. the engine, steps 18 to 21, which change nothing that a user writes.
+
+The checks came first: step 44, of the types by mutations, and step 6, of the bridges in a real browser, are done.
 
 The other decisions that break the API came first, so that one release takes what they break: the last of them, step
 10, a view of the library's own, was rejected by the owner on 23 November 2026 (`docs/rejected.md`).
@@ -67,40 +68,6 @@ is a lead, "valid, but taken with other types".
   `high`.
 
 ## Next, in order
-
-### 6. The bridges in a real browser
-
-**Model and effort.** Opus 5.5, `medium`.
-
-**Depends on** no other step. It is here by the owner's order, after 0.8.0 and after the decisions that break the
-API: point 7 of the "Seven points of a review of the design" below weighs taking it first. The second of its two
-cases is now: nothing typed with snabbdom is rejected for a draw that has not come, and what is left of it is an event
-that the program's own code dispatches in the task of a notice, before its draw ("The way the bridge to snabbdom
-takes", in [`write-without-was.md`](docs/records/write-without-was.md)).
-
-**Why.** The bridges' tests run on happy-dom, which no browser is. The bridges draw controlled elements, and what is
-typed into one rests on a premise seen only in happy-dom and in one browser (`docs/premises.md`, of a controlled
-input): a text typed in its middle and over a selection, with its caret, was tried in Chromium with keys sent as a
-user's, in the form with both bridges and in the stock-take
-([`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md), stage 4). Never run: an IME composition while the
-program changes a value under the user, and an event that the program's own code dispatches in the task of a
-notice, before its draw (`element.click()`, `dispatchEvent`, `focus()`), whose handler runs on the view of before.
-Nor, by the record [`promises-and-tests.md`](docs/records/promises-and-tests.md), a handler that awaits, which returns at
-its first `await`, so that what it sends after is drawn apart (its B5), and a limit that the element keeps by itself, as
-`maxlength`, which needs nothing of the program and which a browser applies only to what a user types (its I1).
-And one test passes on happy-dom only, by the review of the bridges of 21 November 2026: "a name the program empties
-once saved is emptied in the input on screen, which stays and keeps the focus" (`bridges/bridge.test_suite.ts`). The
-form disables its input while it saves, and by the HTML Standard's "focus fixup rule" a focused element that stops
-being focusable leaves the focus to the viewport, and does not take it back when enabled again.
-
-**How.** The tests of `bridges/bridge.test_suite.ts` run in a real browser too, in Chromium, Firefox and WebKit, with
-those two cases; the tool is to be chosen. With React, also not run: `startTransition` or `useDeferredValue` in the
-application, Fast Refresh (likely to restart the run, as `<Activity>` does), server rendering and hydration. Under
-`renderToString`, the bridge's `Frames` threw, since its `useSyncExternalStore` had no `getServerSnapshot`: found by
-the smoke test on 20 November 2026. Decided with step 2: the guide promises that `Host` and `Draw` draw the first model
-on a server, which its spike ran under `renderToString`, and nothing of hydration until `hydrateRoot` is run here.
-
-**Done when** the suite passes in a real browser, in the CI or by a command written down in the repository.
 
 ### 8. What the premises hold, and the peer range of Effect
 
@@ -259,7 +226,7 @@ Where a step above would answer a point below, the point stays here until the st
     The reader's check bears on it: an examiner that had not seen the library wrote 27 acceptance tests from the
     requirement, and seven of them took the world to be in step with the page; and the reader of the guide alone met
     the rule as a test that timed out. To decide: whether the skill names it.
-- **Seven points of a review of the design.** By the session of Fable 5.2 that briefed and verified the stages of
+- **Seven points of a review of the design**, of which 4 to 6 are left. By the session of Fable 5.2 that briefed and verified the stages of
   the same record, asked by the owner on 20 November 2026 what does not fit. Reasoned from the code read for those
   reviews, and not run, but where a point says so. Each is to be weighed.
   4. **The pure half of a step is written twice**, in `applyOne` (`src/engine.ts`) and in `apply`
@@ -275,10 +242,6 @@ Where a step above would answer a point below, the point stays here until the st
   alone. The guide now promises that a model is made only when it is read, and describes that React reads one for
   each state. To do before the release: measure a step with many keys and a model that costs (the benchmark of
   "Any time").
-  7. **The premise the design rests on was run in one real browser, and never with an IME** (P3 of the record). In
-  Chromium, with the form and the stock-take, the caret and a selection hold (the record, under its stage 4). To
-  weigh: Firefox, WebKit and an IME composition before the release, where "The bridges in a real browser" comes
-  after it.
 - **A listener of the `App` that sends on every notice never returns, and no page says so.** Found on 21 November
   2026, from the memory guard of the tests: two helpers of `compose.test.ts` did it under a mutation, and filled the
   memory of the machine. A message that a listener sends is applied right after the step that told it ("View"), in the
@@ -295,6 +258,14 @@ Where a step above would answer a point below, the point stays here until the st
 
 None of these waits for the items above, nor holds them up. Each is for Opus 5.5, `medium`, but where it says
 otherwise.
+
+- **What a real browser has not run of the bridges.** The bridges' tests run in Chromium, Firefox and WebKit
+  (`bun run test:browsers`, a job of the CI). Firefox runs in the CI alone: on the owner's Windows machine,
+  Playwright's Firefox does not start ("side-by-side configuration is incorrect"). An IME is driven in Chromium alone,
+  through its protocol: Playwright drives none in Firefox or WebKit, so a composition there is not run. With React, not
+  run: `startTransition` or `useDeferredValue` in the application, Fast Refresh (likely to restart the run, as
+  `<Activity>` does), and hydration: the guide promises that `Host` and `Draw` draw the first model on a server, run
+  under `renderToString`, and nothing of hydration until `hydrateRoot` is run in a browser.
 
 - **The README says what the library is and for whom, and names Foldkit**, as the owner's decision of 20 November
   2026 asks ([`adoption.md`](docs/records/adoption.md)): one reader starts a new application, the other has one

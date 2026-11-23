@@ -35,6 +35,7 @@ bridges/
 ├─ snabbdom.test.ts          the snabbdom bridge's tests, in a DOM
 ├─ snabbdom-testing.test.ts  the tests of messagesSentBy, without a DOM
 ├─ react.test.ts             the React bridge's tests, React beside snabbdom over one run among them, in a DOM
+├─ browser.test.ts           what only a real browser shows, with both bridges: bun run test:browsers alone
 └─ bridge.test_suite.ts      the tests every bridge passes
 ```
 
@@ -113,7 +114,9 @@ In `examples/` itself are [`README.md`](../../../examples/README.md), which says
   tests in a DOM register happy-dom. A check that needs a DOM (how often the bridge draws, a click on a drawn button,
   what is typed into a controlled element, its caret) goes into the bridges' tests: `bridge.test_suite.ts` when every
   bridge must pass it,
-  the test of the bridge the example uses when it is about that renderer alone. An element is compared with `toBe`,
+  the test of the bridge the example uses when it is about that renderer alone, and `browser.test.ts` when only a real
+  browser shows it (the focus as the screen refreshes, an IME). All of them run in real browsers too
+  (`bun run test:browsers`). An element is compared with `toBe`,
   never inside `toEqual`: a failing `toEqual` walks the properties React puts on an element it drew, its fibers and
   through them the program, and took 17 seconds over two buttons, and over a form grew past 6 GB and did not end.
 

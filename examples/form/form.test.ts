@@ -48,7 +48,7 @@ const typing = (text: string): Message => ({ _tag: "Name", message: { _tag: "Wri
 
 // A write over the name the model shows, of a value that differs from it: held where the model shows an editor, so
 // that an input drawn editable takes a write, and a candidate in every state, so that a write that has a place where
-// the input is drawn disabled is missing.
+// the input is drawn read-only is missing.
 const writesOf = (model: Model, editable: boolean): ReadonlyArray<Message> =>
   !editable || model.editor._tag !== "Saving" ? [typing(`${model.name}1`)] : []
 
@@ -77,7 +77,7 @@ describe("form", () => {
       expect(() => update({ _tag: "SaveFailed", name: "Ada" })(failed)).toThrow(InvariantDefect)
     })
 
-    // While saving, the name has no place to be written into: a write, as a script may send into the disabled input,
+    // While saving, the name has no place to be written into: a write, as a script may send into the read-only input,
     // is rejected, so the failure gives back the name that was saved.
     test("rejects a write while saving", () => {
       expect(update(typing(" Ada x"))({ ...empty, draft: Draft.Saving({ name: " Ada " }) })).toBe(reject)

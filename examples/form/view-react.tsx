@@ -10,11 +10,11 @@ export const view: View<Model, Message> = (model, dispatch) => {
   return (
     <main>
       {
-        /* A controlled element, as with snabbdom: disabled while saving, with no handler, since a write would find no
-          place. React asks for `readOnly` on a controlled element without `onChange`. */
+        /* A controlled element, as with snabbdom: read-only while saving, so that it keeps the focus, with no handler,
+          since a write would find no place. */
       }
       {editor._tag === "Saving"
-        ? <input value={model.name} disabled readOnly placeholder="A name" />
+        ? <input value={model.name} readOnly placeholder="A name" />
         : (
           <input
             value={model.name}

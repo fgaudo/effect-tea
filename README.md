@@ -298,6 +298,8 @@ entities on a server, whose state a database keeps. It is experimental, and not 
   fails when it differs from the declarations.
 - `bun run test:node` runs the library's tests on Node, whose engine is V8. `bun run test` runs them on
   JavaScriptCore.
+- `bun run test:browsers` runs the bridges' tests in Chromium, Firefox and WebKit, with Vitest and Playwright, after
+  `bunx playwright install chromium firefox webkit`. `bun run test` runs them on happy-dom.
 - `bun run mutations` takes out each check that the engine's invariants rest on, one at a time. It fails when a test
   that must catch the missing check passes.
 - `bun run interleavings` runs `src/interleaving.test.ts`, which `bun run test` leaves out. It searches random

@@ -55,6 +55,24 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run test:node
 
+  # The bridges' tests in real browsers, Chromium, Firefox and WebKit (`tools/browser/vitest.config.ts`): those the job
+  # above runs on happy-dom, and those of `bridges/browser.test.ts`, which no DOM of the tests can run.
+  browsers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.5
+      # Vitest runs on Node, and drives the browsers with Playwright.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium firefox webkit
+      - run: bun run test:browsers
+
   # The package as a consumer outside Bun gets it (`tools/smoke/smoke.ts`): the tarball installed with npm, run with
   # Node and typechecked under the oldest TypeScript the package supports and the current one, with the Effect of the
   # lockfile, which is the oldest its peer range accepts.

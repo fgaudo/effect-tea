@@ -3,9 +3,9 @@ name: Renderers latest
 # The renderers are optional peers of the bridges with a caret (`^19.3.1` for React, `^3.6.4` for snabbdom), wider than
 # Effect's tilde (`AGENTS.md`), and the bridges are developed, and what they rest on of their renderer tested, at the
 # version of the lockfile alone (`docs/premises.md`). This runs the bridges' tests, those of the premises on the
-# renderers among them, and the examples' at the newest versions the ranges accept, so that a minor that breaks a
-# bridge is known the day after it is published. A failure here is a lead for a fix of the bridge, or for a narrower
-# range, not a red commit.
+# renderers among them, on happy-dom and in real browsers, and the examples' at the newest versions the ranges accept,
+# so that a minor that breaks a bridge is known the day after it is published. A failure here is a lead for a fix of
+# the bridge, or for a narrower range, not a red commit.
 on:
   schedule:
     - cron: '7 4 * * *'
@@ -20,6 +20,9 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.5
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
       - run: bun install --frozen-lockfile
       # The newest versions within the ranges of `devDependencies`, which are the peer ranges.
       - run: bun update snabbdom react react-dom @types/react @types/react-dom
@@ -28,3 +31,6 @@ jobs:
       # A deprecation a new version adds shows here first.
       - run: bun run lint
       - run: bun run test
+      # And in real browsers, as the CI runs them.
+      - run: bunx playwright install --with-deps chromium firefox webkit
+      - run: bun run test:browsers
