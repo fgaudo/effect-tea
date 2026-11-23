@@ -115,7 +115,8 @@ which step 38 weighed. `simulate` is given
 the pieces it calls alone, and in the call only annotated: no `init` gives it the state. With them came the fix of the
 message narrowed by an answer, `NoInfer<Message>` in the `runCommand` and the `listen` of `Shape`, which makes the
 second form above refused in every case, and `simulate`'s `Command = never` and `Event = never`. What they found is
-under "Open problems". The rest, in the order 1, 4, 5, 6, each with its leads listed there until fixed:
+under "Open problems". The rest, in the order 1, 4, 5, 6, each with its leads listed there until fixed. Before point
+1, the owner decides which forms of a program the library promises ("Waiting for the owner"):
 
 1. **One definition of a program, and the matrix holds the rest.** One type for the six cannot keep them in step
    (`program-checks.md`): the check read back breaks a program written in the call in `start`, `drive` and
@@ -319,6 +320,20 @@ run thousands: measured before it is decided ([`one-engine.md`](docs/records/one
 Where a step above would answer a point below, the point stays here until the step is done. Step 19 would answer point
 4 of the seven. A point of the seven that is gone leaves its number unused.
 
+- **Which forms of a program the library promises**, to decide before point 1 of step 16, since it decides which of
+  the leads under "Open problems" are fixed there. The guide makes every program with `make` ("A program is a plain
+  object, made with `program`"), and names the other forms only in "Precisely", where it says what is refused. But a
+  program is any object of its pieces: `Program<…>` is exported as the type a function that takes a program names, and
+  `start`, `child` and the testing tools take an object not typed `Program<…>` as it is. Tests write one often, as
+  `{ ...counter, update: … }` to change a piece: 38 of the 44 lines that `subscriptions` made required broke were such
+  programs, in the library's tests, none in `src/` or the examples (`docs/rejected.md`). api-1, api-2 and api-4 lived
+  in that form, and so do most of the leads the matrix found: the `external` and `output` written in a call, the pieces
+  of a call not annotated, the state of `simulate`. Two are of `make` and `Program<…>`, and stay leads whatever is
+  decided: what `start` infers from a program with an `external`, and a service named and never used. The choices:
+  every form, as the matrix checks them now, a lead fixed or weighed as a form that repeats another; `make` and
+  `Program<…>` written by hand, with an object not typed taken and promised nothing, which "Guarantees", "What is left
+  to you" would say, and the matrix would check for agreement alone; or `make` alone. For Opus 5.5, `high`, once
+  decided, as point 1 is.
 - **Two points of the table of step 27** ([`given-functions.md`](docs/records/given-functions.md), "For the owner"):
   1. **An `Equal` and a `Hash` that keep Effect's laws.** The library compares keys, ids, flags and values written by
      `Equal`. No sentence says that an `Equal` a program writes must keep Effect's laws, and nothing checks one: a
