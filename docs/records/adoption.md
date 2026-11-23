@@ -71,3 +71,6 @@ whose cases of the DOM are not what the library is for, while snabbdom is small 
 renderer under the bridges, where lit-html's `render` is the one that fits beside snabbdom (drawn at once, no
 component), but its templates are no tree a test can walk. It would have a name of its own; whether `/snabbdom` stays
 beside it is open.
+
+Rejected by the owner on 23 November 2026, on the advice of the review of the architecture: the entry of
+[`rejected.md`](../rejected.md), "A view of the library's own", says why.

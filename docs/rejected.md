@@ -974,6 +974,19 @@ comments are written by hand since, in plain English, and name the sections of t
   as React schedules it. Superseded again by [`write-without-was.md`](records/write-without-was.md), on the 20th: a
   write carries its value alone, so nothing typed between a notice and its draw is rejected, and the animation frame
   of the bridge to snabbdom goes. It draws in a microtask after each notice, as one draw for a task.
+- **A view of the library's own, as data over snabbdom.** Weighed with the owner on 20 November 2026, reasoned
+  ([`adoption.md`](records/adoption.md), "A wider form"), and rejected by the owner on 23 November 2026, on the advice
+  of the review of the architecture ([`architecture-review.md`](records/architecture-review.md), "Smaller points"). A
+  node would hold its message, not a function; a child's view would be lifted by a node that wraps its messages, so
+  that a view takes no dispatch; and an input's node would name its input. Why: what it was for is done another way. A
+  dispatch applies its message at once, so no bridge settles an input
+  ([`synchronous-dispatch.md`](records/synchronous-dispatch.md), R3 and B6); a view writes the element's value alone,
+  and builds no write by hand; and `messagesSentBy` finds every message of a snabbdom view without a DOM, given what an
+  element and its event report. What is left is a view that takes no dispatch, so that `forwardTo` and its cache go:
+  for that, a second product to keep, with the DOM's own cases, which knows a renderer, beside the generic library,
+  and a second vocabulary of views for a user to learn. _Reopen if_ a view shows a message that `messagesSentBy` cannot
+  find, or a dispatch that must be the same function in every draw proves a cost to users that `forwardTo` does not
+  answer.
 
 ## The checks
 

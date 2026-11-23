@@ -35,12 +35,13 @@ of its spike the same day, with the conditions of a second opinion
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. the other decisions that break the API, so that one release takes what they break, while the library has few
-   users: step 10, which waits for the owner alone;
-2. the checks, steps 16 and 6: of the types, once the decisions that change them are taken, and of the bridges in a
+1. the checks, steps 16 and 6: of the types, once the decisions that change them are taken, and of the bridges in a
    real browser;
-3. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
-4. the engine, steps 18 to 21, which change nothing that a user writes.
+2. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
+3. the engine, steps 18 to 21, which change nothing that a user writes.
+
+The other decisions that break the API came first, so that one release takes what they break: the last of them, step
+10, a view of the library's own, was rejected by the owner on 23 November 2026 (`docs/rejected.md`).
 
 Each step names its model and effort, what it depends on, and how to tell that it is done.
 
@@ -51,28 +52,6 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 None is open.
 
 ## Next, in order
-
-### 10. A view of the library's own
-
-**Model and effort.** Opus 5.5, `medium`, to write the entry of `docs/rejected.md` if the owner follows the advice
-below. A decision to make it is planned anew, by Fable 5.2, `high`.
-
-**Depends on** the write without `was`, done: a view writes the element's value alone, `{ _tag: 'Written', value }`.
-
-**Why.** A view as data over snabbdom: a node holds its message, a child's view is lifted by a node that wraps its
-messages, an input's node names its input. A test then finds every message a view can send without a DOM, and a view
-takes no dispatch. It is the largest item. Since a dispatch applies its message at once, no bridge settles an input,
-which was a reason for it, and `messagesSentBy` finds the writes of a snabbdom view over the value its model holds (R3
-and B6 of [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md)): what is left, a handler that holds its
-message and a view that takes no dispatch, is to be weighed again.
-
-**How.** Not decided. [`adoption.md`](docs/records/adoption.md), "A wider form", says what it would be, what it costs,
-and what was weighed beside it. The review of the architecture advises to reject it
-([`architecture-review.md`](docs/records/architecture-review.md), "Smaller points"): it is a second product to keep,
-which knows a renderer, for a view that takes no dispatch. The owner decides whether to make it, under which name, and
-whether `@fgaudo/effect-tea/snabbdom` stays beside it.
-
-**Done when** the owner has decided, and the view is made, or the entry of `docs/rejected.md` says why not.
 
 ### 16. The types checked in every form a program is written
 
