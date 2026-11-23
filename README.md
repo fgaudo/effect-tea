@@ -306,7 +306,8 @@ entities on a server, whose state a database keeps. It is experimental, and not 
   name exists, once. It also checks that each item of "What you can rely on", in the guide's "Guarantees", is named
   by a mutation, and `bun run guarantees` prints each item with those mutations and the tests that kill them.
 - `bun run inference` checks the types of programs written in each way they can be, with each supported TypeScript.
-  It runs by hand, after a change of the types of `src/program.ts` or `src/compose.ts`.
+  It runs by hand, after a change of the types of `src/program.ts` or `src/compose.ts`. `bun run inference --run`
+  plays the programs that compile with random messages, and fails on one that dies of a defect.
 
 Changes are in [`CHANGELOG.md`](CHANGELOG.md). Open problems and possible improvements are in
 [`ROADMAP.md`](ROADMAP.md). The rules for contributors and coding agents are in [`AGENTS.md`](AGENTS.md). The

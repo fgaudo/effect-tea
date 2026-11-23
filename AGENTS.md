@@ -319,8 +319,10 @@ this summary says less. What every change keeps, an example's and a document's t
   (`tools/smoke/`) and the benchmark (`tools/bench/`) check the package and its speed. The inference matrix
   (`tools/inference/`, `bun run inference`) generates programs in each way they can be written, and checks with each
   TypeScript the package supports that their types keep the three rules of "What belongs here": it runs by hand, not in
-  the CI, after a change of the types of `program.ts` or `compose.ts`, or of a function that takes a program. None of
-  them is a test of the library's correctness, and they are kept apart from the five.
+  the CI, after a change of the types of `program.ts` or `compose.ts`, or of a function that takes a program. With
+  `--run`, it plays the programs of its valid cases instead, with messages drawn by fast-check
+  (`tools/inference/play.ts`), and fails on one that dies of a defect: what compiles never dies of what the types could
+  prevent. None of them is a test of the library's correctness, and they are kept apart from the five.
 - **Each check an invariant rests on has a mutation** in `tools/mutations/mutations.ts` that takes it out, with the
   tests that must fail under it: `bun run mutations` applies them one at a time to each of several copies of the
   repository (`.mutants/`), runs those tests alone, and fails when one passes under its mutation, or fails without it.

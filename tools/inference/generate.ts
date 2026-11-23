@@ -12,11 +12,18 @@
 // one written as an object must be refused by each function that checks the piece it breaks, and taken by the others.
 // The forms are judged by the rule of `AGENTS.md`: a form may be refused, but it is never taken wrongly. So a lead is a
 // part that fails where it should compile, but a valid program in a form not typed that a function refuses is a note;
-// or a part that compiles where it should not, or that gives back other types. A scale of parents with 1 to 64
-// children measures the time to check one, and the size of its declarations.
+// or a part that compiles where it should not, or that gives back other types. The run of a program that needs no
+// service compiles with `Effect.runFork`, the parent's of a child too. A scale of parents with 1 to 64 children
+// measures the time to check one, and the size of its declarations.
+//
+// With `--run`, the matrix writes instead the programs of its valid cases, one for each that runs differently, alone
+// and as a child, each with the messages it is given as values of its own type; checks them with `tsc`; and plays
+// them in `play.ts`, with lists of those messages drawn by fast-check from one seed. A program that dies of a defect,
+// or whose simulation never ends, is a lead: what compiles runs without a defect the types could prevent, the second
+// rule.
 //
 //   bun run inference [--typescript 5.9,6.0,7.0] [--exact true,false] [--unchecked true,false] [--filter <substring>]
-//     [--scale 1,2,4,8,16,32,64] [--jobs <n>]
+//     [--scale 1,2,4,8,16,32,64] [--jobs <n>] [--run [--runs <n>] [--seed <n>]]
 //   bun run inference --help     the same, as the command describes itself
 import * as Command from "effect/cli/Command"
 import * as Flag from "effect/cli/Flag"
@@ -27,6 +34,7 @@ import * as Opt from "effect/Option"
 import * as Path from "effect/Path"
 import * as ChildProcess from "effect/process/ChildProcess"
 import { exec, Failed, main, repository, step } from "../cli.ts"
+import type { Death } from "./play.ts"
 
 const out = Effect.gen(function*() {
   const path = yield* Path.Path
@@ -388,14 +396,31 @@ const parentLines = (byId: boolean, program: string, types: Types, assert: boole
   const model = byId ? "children.Inner(1)" : flagged ? "Opt.getOrThrow(children.Inner())" : "children.Inner()"
   lines.push(`    makeModel: (_, children) => ${model},`)
   lines.push("  })")
-  return assert ? [...lines, ...readerLines("parent", parentTypes(types, byId), "parent_")] : lines
+  if (!assert) return lines
+  const services = servicesOf(types)
+  return [
+    ...lines,
+    ...readerLines("parent", parentTypes(types, byId), "parent_"),
+    "  const parentStarted = start(parent)",
+    `  const parent_run: Exactly<StartRead<typeof parentStarted>['services'], ${services}> = true`,
+    ...forkLines("parentStarted", services)
+  ]
 }
+
+const servicesOf = (types: Types) => `${types.commandServices} | ${types.subscriptionServices}`
+
+// The run of a program that needs no service is run as it is, which api-4 broke for a parent of a child written as an
+// object: its run asked for `unknown` (step 16, point 4).
+const forkLines = (started: string, services: string) =>
+  services.split(" | ").every((service) => service === "never")
+    ? [`  const forked = () => Effect.runFork(${started}.run)`]
+    : []
 
 // What one function makes of `program`, an expression: a name, or the object written in the call. `assert` checks the
 // types it gives back, which a broken program, taken by a function that does not check what is broken, need not keep.
 const useLines = (use: Use, program: string, types: Types, assert: boolean, onEvent: boolean) => {
   const flags = types.flags === "never" ? "" : ", { flags: 3 }"
-  const services = `${types.commandServices} | ${types.subscriptionServices}`
+  const services = servicesOf(types)
   const read = (reader: string, name: string, fields: Readonly<Record<string, string>>) =>
     assert
       ? Object.entries(fields).map(([key, type]) =>
@@ -408,7 +433,8 @@ const useLines = (use: Use, program: string, types: Types, assert: boolean, onEv
     case "start":
       return [
         `  const started = start(${program}${flags})`,
-        ...read("StartRead", "started", { model: types.model, message: types.message, services })
+        ...read("StartRead", "started", { model: types.model, message: types.message, services }),
+        ...(assert ? forkLines("started", services) : [])
       ]
     case "drive":
       return [
@@ -464,7 +490,8 @@ const usesOf = (
     ]
   }))
 
-const generate = (c: Case): ReadonlyArray<Part> => {
+// A case's program, `made`, and the types a valid one gives back.
+const madeOf = (c: Case): Readonly<{ lines: ReadonlyArray<string>; expected: Types }> => {
   const v = c.violation
   const has = (name: Name) => c.named.has(name)
   const a = (type: string) => (c.annotate ? `: ${type}` : "")
@@ -585,7 +612,11 @@ const generate = (c: Case): ReadonlyArray<Part> => {
         "      }"
       ]
       : c.tell === "ternary"
-      ? [`      if (message._tag === 'Reset') return state.n > 9 ? reject : ${reset}`, `      return ${advance}`]
+      ? [
+        `      if (message._tag === 'Reset') return state.n > 9 ? reject : ${reset}`,
+        // Bounded, as in every form: a command's answer starts the command again.
+        `      return state.n > 9 ? reject : ${advance}`
+      ]
       : [
         `      if (message._tag === 'Reset') return ${reset}`,
         "      if (state.n > 9) return reject",
@@ -689,11 +720,6 @@ const generate = (c: Case): ReadonlyArray<Part> => {
   )
   lines.push(...(c.order === "reversed" ? [...entries].reverse() : entries))
   lines.push("  })")
-  const flagged = has("flags") ? ", { flags: () => Opt.some(3) }" : ""
-  if (!isValid(c)) {
-    lines.push(`  const used = program<{ state: OuterOwn }>().child(made${flagged})`)
-    return [{ label: "program", valid: verdictOf(c), lines }]
-  }
   const kidAt = c.comp === "childById" ? " & Readonly<{ id: number }>" : ""
   const message = [
     own,
@@ -727,9 +753,21 @@ const generate = (c: Case): ReadonlyArray<Part> => {
     ].join(" | "),
     output: "never"
   }
-  lines.push(...readerLines("made", expected))
+  return { lines, expected }
+}
+
+const generate = (c: Case): ReadonlyArray<Part> => {
+  const { expected, lines } = madeOf(c)
+  if (!isValid(c)) {
+    const flagged = c.named.has("flags") ? ", { flags: () => Opt.some(3) }" : ""
+    return [{
+      label: "program",
+      valid: verdictOf(c),
+      lines: [...lines, `  const used = program<{ state: OuterOwn }>().child(made${flagged})`]
+    }]
+  }
   return [
-    { label: "program", valid: true, lines },
+    { label: "program", valid: true, lines: [...lines, ...readerLines("made", expected)] },
     ...usesOf("made", expected, representative(c) ? uses : ["typed", "child"]),
     ...(representative(c) ? restarted("made", expected) : [])
   ]
@@ -761,7 +799,8 @@ type HandCase = Readonly<{
   subs: boolean
 }>
 
-const generateHand = (c: HandCase): ReadonlyArray<Part> => {
+// A hand-written case's program, `made`, and the types it gives back.
+const handOf = (c: HandCase): Readonly<{ lines: ReadonlyArray<string>; expected: Types }> => {
   const has = (name: HandName) => c.named.has(name)
   const fields = ["state: SNone", "model: MNone", "message: Own"]
   if (has("command")) fields.push("command: Cmd")
@@ -823,9 +862,13 @@ const generateHand = (c: HandCase): ReadonlyArray<Part> => {
     key: c.subs ? "'own'" : "never",
     output: "never"
   }
-  lines.push(...readerLines("made", expected))
+  return { lines, expected }
+}
+
+const generateHand = (c: HandCase): ReadonlyArray<Part> => {
+  const { expected, lines } = handOf(c)
   return [
-    { label: "program", valid: true, lines },
+    { label: "program", valid: true, lines: [...lines, ...readerLines("made", expected)] },
     ...usesOf("made", expected, uses),
     ...restarted("made", expected)
   ]
@@ -1113,11 +1156,13 @@ const objectText = (entries: ReadonlyArray<readonly [Piece, string]>, indent: st
     `${indent}}`
   ].join("\n")
 
-const generateObject = (o: ObjectCase): ReadonlyArray<Part> => {
+// The types a program written as an object gives back: those it is written with, and those of `SNone` and `MNone` where
+// it is spread from a typed one.
+const objectTypes = (o: ObjectCase): Types => {
   const has = (name: ObjectName) => o.named.has(name)
   const key = keyOf(o.subs)
   const spread = o.form === "spread"
-  const types: Types = {
+  return {
     state: o.violation === "primitiveState" ? "number" : spread ? "SNone" : "{ n: number }",
     model: spread ? "MNone" : "{ count: number }",
     message: "Own",
@@ -1130,6 +1175,11 @@ const generateObject = (o: ObjectCase): ReadonlyArray<Part> => {
     key: key ?? "never",
     output: has("output") ? "boolean" : "never"
   }
+}
+
+const generateObject = (o: ObjectCase): ReadonlyArray<Part> => {
+  const has = (name: ObjectName) => o.named.has(name)
+  const types = objectTypes(o)
   const broken = o.violation === undefined ? undefined : brokenPiece[o.violation]
   const options = { broken, onEvent: o.violation !== "missingOnEvent", form: formId(o.form, o.annotate) }
   switch (o.form) {
@@ -1508,7 +1558,94 @@ import {
 } from '../tools/inference/prelude.ts'
 `
 
-// `asserts` are the lines, numbered as `tsc` numbers them, that assert the types a function gave back (`Exactly`).
+// The run of the matrix (step 16, point 4): what compiles runs without a defect that the types could prevent, the
+// second rule. Each program of a valid case is played with messages drawn by fast-check, alone and as the child of the
+// parents of `parentLines`, which tell it its external messages, give it its flags and hear its events. The forms of
+// a program differ in their types alone, so one program is played for each that runs differently: a program of
+// `make` once for each type (`representative`), a program written as an object in a constant, and each hand-written
+// one. The special cases are not played: each is written for what it checks of the types.
+type Runnable = Readonly<{
+  id: string
+  lines: ReadonlyArray<string>
+  types: Types
+  messages: ReadonlyArray<string>
+}>
+
+const ownMessages = ["{ _tag: 'Inc' }", "{ _tag: 'Reset' }"]
+
+// The messages a program of `make` is given: its own, those its child's view sends, by an instance that may be past
+// and an id that may not be there, and a write of its input.
+const messagesOf = (c: Case): ReadonlyArray<string> => [
+  ...(ownOf(c) === "Own" ? ownMessages : []),
+  ...(isKid(c.comp)
+    ? (c.comp === "childById" ? ["id: 1, ", "id: 2, "] : [""]).flatMap((id) =>
+      ["", ", instance: 0", ", instance: 1"].map((instance) =>
+        `{ _tag: 'Kid', ${id}message: { _tag: 'KInc' }${instance} }`
+      )
+    )
+    : []),
+  ...(c.comp === "input" || c.comp === "mixed"
+    ? ["{ _tag: 'Name', message: { _tag: 'Written', value: ' Ada ' } }"]
+    : []),
+  ...(c.comp === "inputById" ? ["{ _tag: 'Count', id: 'a', message: { _tag: 'Written', value: 1.5 } }"] : [])
+]
+
+const runnables: ReadonlyArray<Runnable> = [
+  ...cases.filter((c) => isValid(c) && representative(c)).map((c) => {
+    const { expected, lines } = madeOf(c)
+    return { id: c.id, lines, types: expected, messages: messagesOf(c) }
+  }),
+  ...handCases.map((c) => {
+    const { expected, lines } = handOf(c)
+    return { id: c.id, lines, types: expected, messages: ownMessages }
+  }),
+  ...objectCases.filter((o) => o.violation === undefined && o.form === "constant").map((o) => ({
+    id: o.id,
+    lines: [`  const made = ${objectText(objectEntries(o), "  ")}`],
+    types: objectTypes(o),
+    messages: ownMessages
+  }))
+]
+
+// What a runnable plays: the program, from its `init`, and as a child alone and as children by id, from their parent's.
+// A parent's messages are those of the program, wrapped as its view sends them, and its own, which tells the program
+// its external message.
+const runLines = (r: Runnable) => {
+  const from = r.types.flags === "never" ? "made.init" : "made.init(3)"
+  const go = r.types.external === "never" ? [] : ["{ _tag: 'Go' }"]
+  const parent = (name: string, byId: boolean, wrapped: ReadonlyArray<string>) => [
+    `  const ${name} = (() => {`,
+    ...parentLines(byId, "made", r.types, false, true),
+    "    return parent",
+    "  })()",
+    `  const ${name}Played = played<typeof ${name}>('${r.id}/${
+      byId ? "childById" : "child"
+    }', ${name}, ${name}.init, [${[...go, ...wrapped].join(", ")}])`
+  ]
+  return [
+    ...r.lines,
+    `  const alone = played<typeof made>('${r.id}', made, ${from}, [${r.messages.join(", ")}])`,
+    ...parent(
+      "asChild",
+      false,
+      r.messages.flatMap((m) => [`{ _tag: 'Inner', message: ${m} }`, `{ _tag: 'Inner', message: ${m}, instance: 1 }`])
+    ),
+    ...parent(
+      "asChildById",
+      true,
+      r.messages.flatMap((m) => [1, 2].map((id) => `{ _tag: 'Inner', id: ${id}, message: ${m} }`))
+    ),
+    "  return [alone, asChildPlayed, asChildByIdPlayed]"
+  ]
+}
+
+// The run's files import what the cases do, but `savedState`, which exists only for `tsc`, and `played`.
+const runHeader = header.replace(" savedState,", " played,")
+
+// `asserts` are the lines, numbered as `tsc` numbers them, that assert the types a function gave back (`Exactly`), and
+// that its run needs no service (`forkLines`).
+const isAssert = (line: string) => line.includes(": Exactly<") || line.includes("Effect.runFork(")
+
 type Span = Readonly<{
   id: string
   file: string
@@ -1615,14 +1752,46 @@ const command = Command.make(
       )
     ),
     jobs: Flag.Int("jobs").pipe(
-      Flag.withDescription("How many `tsc` run at once, over the files of every configuration"),
+      Flag.withDescription(
+        "How many `tsc` run at once, over the files of every configuration, and how many files are played at once"
+      ),
       Flag.withDefault(Math.max(1, Math.floor(navigator.hardwareConcurrency / 2))),
       Flag.filter((jobs) => jobs >= 1, () => "a whole number of at least 1")
+    ),
+    run: Flag.Boolean("run").pipe(
+      Flag.withDescription(
+        "Plays the programs of the valid cases with messages drawn by fast-check, once `tsc` has checked them, in place"
+          + " of checking the cases: none may die of a defect"
+      ),
+      Flag.withDefault(false)
+    ),
+    runs: Flag.Int("runs").pipe(
+      Flag.withDescription("How many lists of messages each program is played with, under --run"),
+      Flag.withDefault(20),
+      Flag.filter((runs) => runs >= 1, () => "a whole number of at least 1")
+    ),
+    seed: Flag.Int("seed").pipe(
+      Flag.withDescription("The seed of fast-check under --run, to play again a run that found a defect"),
+      Flag.optional
     )
   },
   Effect.fnUntraced(
-    function*({ exact: exacts, filter: chosen, jobs, scale, typescript: typescripts, unchecked: uncheckeds }) {
+    function*(
+      {
+        exact: exacts,
+        filter: chosen,
+        jobs,
+        run,
+        runs,
+        scale: counts,
+        seed: given,
+        typescript: typescripts,
+        unchecked: uncheckeds
+      }
+    ) {
       const filter = Opt.getOrUndefined(chosen)
+      // The run checks its own files alone, with no scale.
+      const scale = run ? [] : counts
       const selected = cases.filter((c) => filter === undefined || c.id.includes(filter))
       const selectedHand = handCases.filter((c) => filter === undefined || c.id.includes(filter))
       const selectedObject = objectCases.filter((o) => filter === undefined || o.id.includes(filter))
@@ -1635,14 +1804,19 @@ const command = Command.make(
       yield* fs.makeDirectory(directory, { recursive: true })
       const groups = new Map<string, Array<Member>>()
       const add = (group: string, member: Member) => groups.set(group, [...(groups.get(group) ?? []), member])
-      for (const c of selected) {
+      for (const r of run ? runnables : []) {
+        if (filter === undefined || r.id.includes(filter)) {
+          add("run", { id: r.id, parts: [{ label: "run", valid: true, lines: runLines(r) }] })
+        }
+      }
+      for (const c of run ? [] : selected) {
         add(c.violation === undefined ? `${c.comp}.${c.update}` : `invalid.${c.comp}`, { id: c.id, parts: generate(c) })
       }
-      for (const c of selectedHand) add("hand", { id: c.id, parts: generateHand(c) })
-      for (const o of selectedObject) {
+      for (const c of run ? [] : selectedHand) add("hand", { id: c.id, parts: generateHand(c) })
+      for (const o of run ? [] : selectedObject) {
         add(o.violation === undefined ? `object.${o.form}` : "invalid.object", { id: o.id, parts: generateObject(o) })
       }
-      for (const special of specials) {
+      for (const special of run ? [] : specials) {
         if (filter === undefined || special.id.includes(filter)) {
           add("special", {
             id: special.id,
@@ -1655,7 +1829,7 @@ const command = Command.make(
         for (let first = 0; first < all.length; first += chunk) {
           const file = `${group}.${first / chunk}.ts`
           // The lines of the file, the first numbered 1, as `tsc` numbers them.
-          const text = header.trimEnd().split("\n")
+          const text = (run ? runHeader : header).trimEnd().split("\n")
           all.slice(first, first + chunk).forEach((member, index) => {
             text.push("", `// ${member.id}`, `export function case${index}() {`)
             for (const part of member.parts) {
@@ -1669,7 +1843,7 @@ const command = Command.make(
                 from,
                 to: text.length,
                 valid: part.valid,
-                asserts: new Set(written.flatMap((line, index) => line.includes(": Exactly<") ? [from + index] : []))
+                asserts: new Set(written.flatMap((line, index) => isAssert(line) ? [from + index] : []))
               })
             }
             text.push("}")
@@ -1817,10 +1991,52 @@ const command = Command.make(
       yield* write(join(directory, "report.json"), JSON.stringify(report, null, 2))
       yield* Console.log(`report: ${join(directory, "report.json")}`)
       const leads = Object.values(report).reduce(
-        (sum: number, run) => sum + (run as Readonly<{ wrong: ReadonlyArray<unknown> }>).wrong.length,
+        (sum: number, configuration) =>
+          sum + (configuration as Readonly<{ wrong: ReadonlyArray<unknown> }>).wrong.length,
         0
       )
       if (leads > 0) return yield* new Failed({ message: `${leads} leads` })
+      if (!run) return
+      // Each program played from one seed, printed, so that `--seed` plays a run that found a defect again.
+      const seed = Opt.getOrElse(given, () => Math.floor(Math.random() * 2 ** 31))
+      yield* Console.log(`playing, ${runs} lists of messages for each program, seed ${seed}`)
+      const begun = performance.now()
+      const played = yield* Effect.forEach(
+        files,
+        (file) =>
+          Effect.gen(function*() {
+            const { exitCode, stderr, stdout } = yield* exec(
+              ChildProcess.make("bun", [
+                join(root, "tools/inference/play.ts"),
+                join(directory, file),
+                "--runs",
+                String(runs),
+                "--seed",
+                String(seed)
+              ], { cwd: root })
+            )
+            if (exitCode !== 0) {
+              return { count: 0, deaths: [{ id: file, died: `play exited with ${exitCode}: ${stderr}` }] }
+            }
+            return JSON.parse(stdout.trim().split("\n").at(-1) ?? "") as Readonly<{
+              count: number
+              deaths: ReadonlyArray<Death>
+            }>
+          }),
+        { concurrency: jobs }
+      )
+      const count = played.reduce((sum, file) => sum + file.count, 0)
+      const deaths = played.flatMap((file) => file.deaths)
+      const seconds = ((performance.now() - begun) / 1000).toFixed(1)
+      yield* Console.log(`played ${count} programs in ${seconds}s: ${deaths.length} died`)
+      for (const death of deaths.slice(0, 10)) {
+        yield* Console.log(
+          `  ${death.id}: ${death.died}${death.messages ? ` on ${JSON.stringify(death.messages)}` : ""}`
+        )
+      }
+      yield* write(join(directory, "run.json"), JSON.stringify({ seed, deaths }, null, 2))
+      yield* Console.log(`report: ${join(directory, "run.json")}`)
+      if (deaths.length > 0) return yield* new Failed({ message: `${deaths.length} programs died, seed ${seed}` })
     }
   )
 )

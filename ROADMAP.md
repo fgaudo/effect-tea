@@ -12,7 +12,7 @@ for on 20 November 2026 and asked to be written here in the order it advises. St
 4 and 6, and steps 17 to 21 its part 5, as the owner took it on 21 November 2026
 ([`one-engine.md`](docs/records/one-engine.md)). Step 16 comes from the owner's question, on 21 November
 2026, of why the findings api-1, api-2 and api-4 of [`library-review.md`](docs/records/library-review.md) passed the
-inference matrix and the tests; its points 1 to 3 are done, the first as the owner decided on 23 November 2026, after
+inference matrix and the tests; its points 1 to 4 are done, the first as the owner decided on 23 November 2026, after
 two second opinions ([`program-checks.md`](docs/records/program-checks.md) and
 [`program-forms.md`](docs/records/program-forms.md)). Steps 22 to 31 come from
 [`application-report.md`](docs/records/application-report.md), a report of an application's upgrade to 0.8.0 that the
@@ -81,7 +81,7 @@ what is written matters, and how it is written too. No formal check of TypeScrip
 only semantics, and it changes between 5.9, 6.0 and 7.0. The nearest is the matrix: every combination of declared
 axes, checked by `tsc`, so the risk left is in the axes it does not list.
 
-**How.** Points 1 to 3 are done. The matrix writes a program of `make`, one typed `Program<…>`, either of them started
+**How.** Points 1 to 4 are done. The matrix writes a program of `make`, one typed `Program<…>`, either of them started
 from another state (`{ ...program, init }`), and an object not typed `Program<…>`, in a constant, in the call and
 spread from a typed one, with its violations, and gives every case to `Program<…>`, `start`, `drive`, `rehearse`,
 `simulate`, `child` and `childById`, each in a part of its own. The differences meant are a table in
@@ -98,24 +98,31 @@ their parameter not annotated, whose type waits on one still to be inferred: `li
 and not by the package, it is a type that a consumer's declarations cannot name, which `bun run api` refuses. The row
 of `start` and `drive` names `external` and `output`, and their run needs only the services of the effects a program
 has (`Needed` in `src/run.ts`). `simulate` is given the pieces it calls alone, and
-in the call only annotated: no `init` gives it the state. What is left of the leads is under "Open problems". The
-rest, in the order 4, 5, 6, each with its leads listed there until fixed:
+in the call only annotated: no `init` gives it the state. A `start` of a program that needs no service, and of the
+parent that takes it as a child, is run with `Effect.runFork`, and the parent's run asks for exactly the services of
+the child. `bun run inference --run` writes instead one program for each valid case that runs differently (a program
+of `make` once for each type, one written as an object in a constant, each hand-written one, but no special case),
+alone and as a child alone and by id, each with the messages it is given written as values of its type, which `tsc`
+checks; and `tools/inference/play.ts` plays them, one process for each file, with lists of those messages drawn by
+fast-check from one seed, one message at a time with `simulate`, its model made on each state: none may die of a
+defect, nor run without end. Its first run, on 23 November 2026, played 17,664 programs in 11 seconds, after 30 seconds
+of `tsc`, and none died; it found a program of the matrix whose commands answered forever (`tell-ternary`, whose
+`Inc` was not bounded), which it now bounds as every form does. What is left of the leads is under "Open problems".
+The rest, in the order 5, 6, each with its leads listed there until fixed:
 
 1. **One definition of a program, and the matrix holds the rest.** Done, as said above.
 2. **The matrix writes the form it lacks.** Done, as said above.
 3. **Each case is given to every function that takes a program.** Done, as said above.
-4. **What compiles runs without a defect the types could prevent**, the second rule, which nothing checks today: each
-   valid case of the matrix is run with messages drawn by fast-check (with `simulate`, or the run), and never dies of a
-   `CompositionDefect`; and `Effect.runFork(start(program).run)` compiles for a case that needs no service, which
-   would have found api-4. It runs apart, as `bun run inference` does.
-5. **Each message is given to every function that takes one, in every form it is written.** The matrix writes
-   programs, and never what a test or a view gives them. And the tests of the types say what is refused
-   (`@ts-expect-error`), not in how many forms what is right is taken. For each valid case, a message of its own, a child's and a write are written as a literal,
-   with a constructor of `Data.taggedEnum` over the program's own messages and over its whole message, as a wrapper
-   that such a constructor builds, and as a value typed `MessageOf`. Each is given to `dispatch`, `forwardTo`,
-   `applyAll`, `simulate`, and the `send` and the `hear` of a rehearsal. What is right compiles in every form, or the
-   guide says which form is refused, and why. `hear` refused some until step 25 took its check out
-   (`docs/rejected.md`).
+4. **What compiles runs without a defect the types could prevent.** Done, as said above.
+5. **Each message is given to every function that takes one, in every form it is written.** The matrix writes programs,
+   and never what a test or a view gives them. And the tests of the types say what is refused (`@ts-expect-error`), not
+   in how many forms what is right is taken. The run of point 4 writes the literal form already, for one program of each
+   that runs differently (`messagesOf` and `runLines` in `generate.ts`). For each valid case, a message of its own, a
+   child's and a write are written as a literal, with a constructor of `Data.taggedEnum` over the program's own messages
+   and over its whole message, as a wrapper that such a constructor builds, and as a value typed `MessageOf`. Each is
+   given to `dispatch`, `forwardTo`, `applyAll`, `simulate`, and the `send` and the `hear` of a rehearsal. What is right
+   compiles in every form, or the guide says which form is refused, and why. `hear` refused some until step 25 took its
+   check out (`docs/rejected.md`).
 6. **The matrix lists the axes of a program it lacks**, found on 23 November 2026 by reading its generator, and not
    run: a program of `make` never names an `output` of its own, which came with step 35, so no parent that is a child
    in turn declares one (a program written as an object does, since point 2); its child is always the prelude's `kid`
@@ -146,9 +153,9 @@ minutes on 23 November 2026, for 216,384 parts, and found in each the 96 parts o
 once for each type it has (canonical order, not annotated, `update` absent or contextual), since the other axes leave
 the type that `make` returns the same.
 
-**Done when** points 1 to 6 run (all but the fourth in `bun run inference`), `AGENTS.md`, `change-api` and the comment
-at the head of `tools/inference/generate.ts` say what they check, their leads are fixed or listed under "Open
-problems", and the owner has decided the two others.
+**Done when** points 1 to 6 run (the fourth in `bun run inference --run`, the others in `bun run inference`),
+`AGENTS.md`, `change-api` and the comment at the head of `tools/inference/generate.ts` say what they check, their leads
+are fixed or listed under "Open problems", and the owner has decided the two others.
 
 ### 6. The bridges in a real browser
 

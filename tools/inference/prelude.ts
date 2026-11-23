@@ -3,7 +3,7 @@ import * as Channel from "effect/Channel"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Opt from "effect/Option"
-import { program, type Subscription, type Written } from "../../src/index.ts"
+import { type MessageOf, program, type Subscription, type Written } from "../../src/index.ts"
 import type { Driver, Rehearsal, Simulation } from "../../src/testing/index.ts"
 
 export type { Written }
@@ -28,6 +28,16 @@ export const saved: Ev = { _tag: "Saved" }
 // started from elsewhere, `{ ...program, init: { state: savedState<StateOf<typeof program>>() } }`. Only checked, never
 // run.
 export declare const savedState: <S>() => S
+
+// What the run of the matrix plays (step 16, point 4): a program, the step it starts from, and the messages it is
+// given, written as values of the type it names, which `tsc` checks.
+export type Played = Readonly<{ id: string; program: unknown; from: unknown; messages: ReadonlyArray<unknown> }>
+export const played = <P>(id: string, program: P, from: unknown, messages: ReadonlyArray<MessageOf<P>>): Played => ({
+  id,
+  program,
+  from,
+  messages
+})
 
 export class Db extends Context.Service<Db, { readonly ok: boolean }>()("Db") {}
 export class Feed extends Context.Service<Feed, { readonly ticks: Subscription<Inc> }>()("Feed") {}

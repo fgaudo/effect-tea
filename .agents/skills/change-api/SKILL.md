@@ -35,8 +35,10 @@ proposing one.
   random orders of clicks, command answers and subscription messages: a new guarantee gets a property there.
 - A change of the signature of a function that takes a program (`start`, `drive`, `rehearse`, `simulate`, `child`,
   `childById`), or of the types of `program.ts` or `compose.ts`, runs `bun run inference`, which gives each form of a
-  program to all of them and fails where they disagree beyond the differences it lists (`AGENTS.md`, "Code"). A new
-  function that takes a program is added to its `uses`, and a difference meant to its table.
+  program to all of them and fails where they disagree beyond the differences it lists (`AGENTS.md`, "Code"), then
+  `bun run inference --run`, which plays the programs of its valid cases with messages drawn by fast-check and fails on
+  one that dies of a defect. A new function that takes a program is added to its `uses`, and a difference meant to its
+  table.
 - A testing tool's test shows it on a program, and an example's test uses it
   ([`add-example`](../add-example/SKILL.md)): the README's "Examples" table says which tool each example shows,
   and must stay true.
