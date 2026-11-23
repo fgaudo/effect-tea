@@ -22,20 +22,23 @@ a probe found two rules of the guide that contradict each other, which was step 
 the guide alone, asked how the relation of a parent and its children should be set right, and took a direction to
 spike, which was step 33. After the spike the owner took both of its parts, the store of the children and `output`,
 with the choices under them ([`kept-children.md`](docs/records/kept-children.md), "What the owner decides"): steps 34
-to 36 write them. From the same weighing come step 40 and an item of "Any time". Step 37 writes what
+to 36 write them. From the same weighing come the form that step 40 spiked and an item of "Any time". Step 37 writes what
 the owner took of step 29, after its spike ([`stored-form.md`](docs/records/stored-form.md)), and step 38 what the
 owner took of step 30, after its own ([`subscription-from-key.md`](docs/records/subscription-from-key.md)). Step 40
-is what is left of what the owner took of step 9, on 23 November 2026: it weighed again each parked entry of
+was what was left of what the owner took of step 9, on 23 November 2026: it weighed again each parked entry of
 `docs/rejected.md` that breaks the API ([`inert-steps.md`](docs/records/inert-steps.md) and
-[`declared-inputs.md`](docs/records/declared-inputs.md), "Weighed again"). A step done leaves its number unused.
+[`declared-inputs.md`](docs/records/declared-inputs.md), "Weighed again"). Steps 41 to 43 write what the owner took
+of its spike the same day, with the conditions of a second opinion
+([`value-in-message.md`](docs/records/value-in-message.md), "Decided"). A step done leaves its number unused.
 
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
 1. the other decisions that break the API, so that one release takes what they break, while the library has few
-   users: step 40, a spike that the release of 0.9.0 waits for, and step 10, which waits for the owner alone;
-2. the checks, steps 16 and 6: of the types, once the decisions that change them are taken, and of the bridges in a
-   real browser;
+   users: step 41, a change of the guide that the release of 0.9.0 waits for, and step 10, which waits for the
+   owner alone;
+2. the checks, steps 16, 6 and 42: of the types, once the decisions that change them are taken, of the bridges in a
+   real browser, and of what a view's handler reads; then the example of step 43;
 3. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
 4. the engine, steps 18 to 21, which change nothing that a user writes.
 
@@ -49,28 +52,85 @@ None is open.
 
 ## Next, in order
 
-### 40. A message with one value left for the element to give: the spike
+### 41. A fact that comes with a value is one message
 
-**Model and effort.** Opus 5.5, `high`, for the spike and its record. The owner decides on what it finds.
+**Model and effort.** Opus 5.5, `high`: the guide is a specification, and rules move between pages.
 
-**Depends on** nothing. The release of 0.9.0 waits for the decision: it is the first release that says "a write, then
-a message" ("Inputs", "What an element reports").
+**Depends on** nothing. The release of 0.9.0 waits for it: it would be the first release to say "a write, then a
+message" ("Inputs", "What an element reports").
 
-**Why.** A fact that comes with a value, as the end of a scroll with its offset, is two steps today, and a place in
-the state for a value that is read once. By the guide's own table ("Structuring a program"), something that happened
-is a message. The form to spike needs no export: the model holds the message without its value, as data, and the
-view fills the value that the element gives. A probe found that it compiles and that the messages compare. No example
-of the library has such a value, so nothing shows what either form costs
-([`declared-inputs.md`](docs/records/declared-inputs.md), "Weighed again").
+**Why.** The owner took the form that step 40 spiked, with the conditions of a second opinion
+([`value-in-message.md`](docs/records/value-in-message.md), "Decided"). A fact that comes with a value that the program
+cannot give back to the element is one message. The model holds it without its value, and the view fills the value.
+It costs one step in place of two, and a view that forgets the value does not compile.
 
-**Spiked**, 23 November 2026, by a session of Opus 5.5: [`value-in-message.md`](docs/records/value-in-message.md),
-with its code on `spike/value-in-message`, never to be merged. The form works with no change of the library. It
-costs one step for each fact where today's costs two, keeps no place in the state, and needs no exemption of `Inert`.
-`messagesSentBy` gives a handler that reads `scrollTop` nothing, in either form. What is left is the owner's: the four
-points of the record's "For the owner", each with its advice.
+**Ask first**, before the rule is written: whether a message may leave more than one value to the element (the
+second opinion's probe found that several fields, or one field that holds an object, both work), and whether a view
+may compute a value from what the element gives (a real list reads `scrollTop`, `scrollHeight` and `clientHeight`).
+The conditions say "as given, and computes nothing": the answer may change them.
 
-**Done when** a record of `docs/records/` says what the spike found, and the owner has decided: a step writes the
-guide, or an entry of `docs/rejected.md` says why not.
+**How.** The guide, the skill and the examples' comments, one section at a time, by `AGENTS.md`'s rules of the guide.
+The record says what each rule becomes. The places that state them, as the second opinion found them:
+
+1. `site/guide/inputs.md`: "In short", the rule on what an element reports, "What an element reports", "Why what the
+   user types is no message" (its second reason rewritten), and "A value that an element reports". The bullet on a
+   value written once, as the scroll ends, stays, and so does what links to it from `guarantees.md`.
+2. `site/guide/model.md`: "Messages live in the model", its "Do and don't", "Precisely" (a view adds nothing to what
+   it sends but the value that an element or its event gives), and "Then no view can build a message", which is false
+   today: a view writes a literal.
+3. `site/guide/structuring-a-program.md`: the table, and "a value is never a reason to reject" as a case of "Show less
+   than `update` accepts, never more".
+4. `site/guide/testing.md`, "The reader": a reader takes the value as a parameter, a test draws it and exempts with
+   `inert` the values at which the message means nothing, and a parent's reader takes its children's values.
+5. `site/guide/writing-a-bridge.md`, around the controlled element and "Their tests": what a handler that reads other
+   than `value` and `checked` gets from `messagesSentBy`, until step 42.
+6. `site/guide/guarantees.md`, "What is left to you"; `site/guide/coming-from-elm-or-react.md`; the glossary, where
+   it defines the terms.
+7. `skills/effect-tea/SKILL.md`, and the comment "builds none" in `bounce`, `form`, `list`, `pages`, `timer` and
+   `volume`, where it no longer says the rule.
+8. The doc comments that name a section changed (`bun run comments`), and the unreleased entry of `CHANGELOG.md` that
+   makes a value that an element reports an input.
+9. An entry of `docs/rejected.md`: "a write, then a message" as the advised way, and why it left before any release.
+
+The limits are stated where the rule is: a plain tagged message (a class, as a `Data.TaggedClass`, cannot be filled,
+and keeps a write and then a message), and the held part written with `as const`, with no cast.
+
+**Done when** the guide, the skill and the comments say the rule as decided, every place that stated the old one is
+reread, and `bun run comments`, `lint`, `typecheck` and `test` pass.
+
+### 42. What a view's handler reads, for `messagesSentBy`
+
+**Model and effort.** Opus 5.5, `high`: an addition to the API of `./snabbdom/testing` (`change-api`).
+
+**Depends on** step 41, which says what a handler may read. 0.9.0 does not wait for it: it is an addition.
+
+**Why.** `messagesSentBy` gives a listener an event whose target holds the `value` and the `checked` of its element
+alone. A handler that reads `scrollTop` gets `undefined`, in either form of a fact with a value, and so does a handler
+that reads the event's own properties, as `offsetX`. The spike's `targetOf(node, event)` is not enough
+([`value-in-message.md`](docs/records/value-in-message.md), "2. `messagesSentBy`").
+
+**How.** Decide the shape: what a test gives for the event and for its target, by element and by event, and how a
+`thunk` keeps working. Then the tool, its tests, its doc comment, "Writing a bridge", "Their tests", and a changelog
+entry.
+
+**Done when** a test of a view whose handler reads a property of its element and one of its event sends what its
+reader returns, and the checks of `change-api` pass.
+
+### 43. An example of a fact that comes with a value
+
+**Model and effort.** Opus 5.5, `medium`: an example over rules that steps 41 and 42 fixed (`add-example`).
+
+**Depends on** steps 41 and 42: the rule comes before the example, and the test of a snabbdom example uses
+`messagesSentBy`.
+
+**Why.** No example shows the form. The spike's feed is not one to keep: its `update` holds the pixels of its CSS.
+
+**How.** Either a list that loads more from the values its element really reports, or `volume`'s press, which is at a
+point that its message cannot say today: `examples/volume/main.ts` keeps where the pointer is pressed in variables of
+the module. Choose with the owner. The example's tests draw the value and exempt with `inert`, as step 41's "Testing"
+says.
+
+**Done when** the example and its tests pass, the README lists what it shows, and `add-example`'s checks pass.
 
 ### 10. A view of the library's own
 
