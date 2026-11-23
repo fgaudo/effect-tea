@@ -3,7 +3,7 @@ import * as Channel from "effect/Channel"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Opt from "effect/Option"
-import { type MessageOf, program, type Subscription, type Written } from "../../src/index.ts"
+import { type MessageOf, program, reject, type Subscription, type Written } from "../../src/index.ts"
 import type { Driver, Rehearsal, Simulation } from "../../src/testing/index.ts"
 
 export type { Written }
@@ -45,6 +45,11 @@ export class KidDb extends Context.Service<KidDb, { readonly ok: boolean }>()("K
 export class KidFeed extends Context.Service<KidFeed, { readonly ticks: Subscription<KInc> }>()("KidFeed") {}
 
 export const feed = Channel.unwrap(Effect.map(Effect.service(Feed), (feed) => feed.ticks))
+
+// The subscriptions of a program whose own pieces need no service: one that answers an own message, and one that
+// answers none.
+export const ticked = Channel.end(inc)
+export const idle = Channel.never
 
 // A subscription that answers nothing: it holds something (a sound, a wake lock) until its key goes.
 export class Lock extends Context.Service<Lock, { readonly held: Subscription<never> }>()("Lock") {}
@@ -127,6 +132,30 @@ export const kidF = program<{
   key: "kid"
 }>().make({ init: (k) => ({ state: { k }, commands: [{ _tag: "KSave" }] }), ...kidPieces })
 
+export type PalState = Readonly<{ text: string }>
+export type PSet = Readonly<{ _tag: "PSet"; text: string }>
+export type PalMessage = PSet
+export type PalEvent = Readonly<{ _tag: "PChanged" }>
+export type PClear = Readonly<{ _tag: "PClear" }>
+
+// A second child, beside `kid` in one parent, by id: of types that are all its own, a message with a field, and none
+// of `kid`'s commands, keys and services.
+export const pal = program<{
+  state: PalState
+  model: string
+  message: PalMessage
+  event: PalEvent
+  external: PClear
+  output: number
+}>().make({
+  init: { state: { text: "" } },
+  update: (message) => (state) =>
+    message.text === state.text ? reject : { state: { text: message.text }, events: [{ _tag: "PChanged" }] },
+  external: () => () => ({ state: { text: "" } }),
+  makeModel: (state) => state.text,
+  output: (state) => state.text.length
+})
+
 export type SNone = Readonly<{ n: number }>
 // A parent's own state: whether its child alone is there, or the ids of its children by id. The library keeps the
 // children's states beside it.
@@ -136,6 +165,8 @@ export type SInput = Readonly<{ n: number; name: string }>
 export type SInputById = Readonly<{ n: number; counts: Readonly<Record<string, number>> }>
 
 export type SMixed = Readonly<{ n: number; open: boolean; name: string }>
+// A parent of `kid` alone and of `pal` by id.
+export type SPair = Readonly<{ n: number; open: boolean; ids: ReadonlyArray<number> }>
 
 // The message a parent sends to make its child receive an external one.
 export type Go = Readonly<{ _tag: "Go" }>
@@ -144,6 +175,7 @@ export type MNone = Readonly<{ count: number }>
 export type MMixed = Readonly<{ count: number; kid: number; name: string }>
 export type MChild = Readonly<{ count: number; kid: number }>
 export type MChildById = Readonly<{ count: number; kids: ReadonlyArray<number> }>
+export type MPair = Readonly<{ count: number; kid: number; pals: ReadonlyArray<string> }>
 export type MInput = Readonly<{ count: number; name: string }>
 export type MInputById = Readonly<{ count: number }>
 

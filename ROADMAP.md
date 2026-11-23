@@ -12,7 +12,7 @@ for on 20 November 2026 and asked to be written here in the order it advises. St
 4 and 6, and steps 17 to 21 its part 5, as the owner took it on 21 November 2026
 ([`one-engine.md`](docs/records/one-engine.md)). Step 16 comes from the owner's question, on 21 November
 2026, of why the findings api-1, api-2 and api-4 of [`library-review.md`](docs/records/library-review.md) passed the
-inference matrix and the tests; its points 1 to 5 are done, the first as the owner decided on 23 November 2026, after
+inference matrix and the tests; its points 1 to 6 are done, the first as the owner decided on 23 November 2026, after
 two second opinions ([`program-checks.md`](docs/records/program-checks.md) and
 [`program-forms.md`](docs/records/program-forms.md)). Steps 22 to 31 come from
 [`application-report.md`](docs/records/application-report.md), a report of an application's upgrade to 0.8.0 that the
@@ -81,7 +81,7 @@ what is written matters, and how it is written too. No formal check of TypeScrip
 only semantics, and it changes between 5.9, 6.0 and 7.0. The nearest is the matrix: every combination of declared
 axes, checked by `tsc`, so the risk left is in the axes it does not list.
 
-**How.** Points 1 to 5 are done. The matrix writes a program of `make`, one typed `Program<…>`, either of them started
+**How.** Points 1 to 6 are done. The matrix writes a program of `make`, one typed `Program<…>`, either of them started
 from another state (`{ ...program, init }`), and an object not typed `Program<…>`, in a constant, in the call and
 spread from a typed one, with its violations, and gives every case to `Program<…>`, `start`, `drive`, `rehearse`,
 `simulate`, `child` and `childById`, each in a part of its own. The differences meant are a table in
@@ -114,22 +114,23 @@ rehearsal, `hear`, `simulate` and `applyAll` (`takers` in `generate.ts`), as a l
 and as a child alone and by id, whose parent's messages wrap it: one program for each message it can have, since the
 readers assert in every form of a program that each function takes the message it names. Each function's parameter is
 asserted to be that message, which a wider one would take as well. Its 1,085 parts compiled on 23 November 2026 in the
-twelve configurations: no form is refused, so the guide says nothing new of them. What is left of the leads is under
-"Open problems". The rest is point 6, with its leads listed there until fixed:
+twelve configurations: no form is refused, so the guide says nothing new of them. And a program of `make` names an
+`output` of its own, which the parent it is given to reads; its own commands and subscriptions may need no service; its
+child may lack its commands, its events, its external message, its output, its keys, its services, or all of them and
+its messages (`kids.ts`, which the matrix writes beside its cases); and a parent may have a child alone beside a child
+by id of other types (`pal`). That parent is crossed with every axis, as the others are; the output and the services
+with every other axis but the names, which they meet in pairs (none, each alone, all); and a child's shape with the
+names none and all, in the canonical order alone (`crossings`): crossed in full, each would double the matrix. They
+found no lead, on 23 November 2026, and the run played the programs they add without a death. A parent of a child
+without messages names a wrapper of `never` among its own, `{ _tag: 'Kid'; message: never; instance?: number }`: a
+type empty but true, which the third rule allows. What is left of the leads is under "Open problems".
 
 1. **One definition of a program, and the matrix holds the rest.** Done, as said above.
 2. **The matrix writes the form it lacks.** Done, as said above.
 3. **Each case is given to every function that takes a program.** Done, as said above.
 4. **What compiles runs without a defect the types could prevent.** Done, as said above.
 5. **Each message is given to every function that takes one, in every form it is written.** Done, as said above.
-6. **The matrix lists the axes of a program it lacks**, found on 23 November 2026 by reading its generator, and not
-   run: a program of `make` never names an `output` of its own, which came with step 35, so no parent that is a child
-   in turn declares one (a program written as an object does, since point 2); its child is always the prelude's `kid`
-   (or `kidF`), with commands, events, an external message, an output and services, so no child lacks one of them,
-   where `Lacking` in `compose.ts` takes another branch for a child without commands; a parent has one child, and
-   `mixed` one child beside one input, so no two children of different types meet in one parent but by the clashes of
-   names; and services vary only in the hand cases, typed `Program<…>`, never in a program of `make`. Some may be held
-   in part by the special cases, and the `output` of a program of `make` given to `start` and `drive` by their tests.
+6. **The matrix lists the axes of a program it lacked.** Done, as said above.
 
 Then the owner weighs two more, each taken as a step here or written in `docs/rejected.md`. Mutations of the types: a
 mutation in `tools/mutations/` that takes out each check of the types of `program.ts` and `compose.ts`, killed by the
@@ -143,14 +144,15 @@ and that it says nothing of a sentence added to an item. A tie of the matrix wou
 What the matrix costs, for the owner to weigh with these: its twelve configurations took 45 minutes on 22 November
 2026, with 67,871 cases, and no more jobs than half the processors make it faster (`--jobs`). The full product of the
 axes it has pays for most of it: the order of the pieces and the annotations alone multiply every case by four. Those
-axes crossed in pairs, not in full, would leave time for the axes of point 6: since point 1 judges the forms not typed
-by its rule, theirs may be crossed in pairs.
-Since points 2 and 3, a case is given to seven functions, and since point 1, a program of `make` or typed by hand is
-given to six of them started from another state too: the three default configurations (5.9, 6.0 and 7.0) took 11
-minutes on 23 November 2026, for 216,384 parts, and found in each the 96 parts of the lead under "Open problems", and
-182 notes. A program of `make` is given to the five functions that came with point 3, and started from another state,
-once for each type it has (canonical order, not annotated, `update` absent or contextual), since the other axes leave
-the type that `make` returns the same.
+axes crossed in pairs, not in full, as the axes of point 6 are crossed with the names, would leave time for more: since
+point 1 judges the forms not typed by its rule, theirs may be crossed in pairs. Since points 2 and 3, a case is given
+to seven functions, and since point 1, a program of `make` or typed by hand is given to six of them started from
+another state too: the three default configurations (5.9, 6.0 and 7.0) took 11 minutes on 23 November 2026, for
+216,384 parts, and found in each the 96 parts of the lead under "Open problems", and 182 notes. A program of `make` is
+given to the five functions that came with point 3, and started from another state, once for each type it has
+(canonical order, not annotated, `update` absent or contextual), since the other axes leave the type that `make`
+returns the same. Since point 6, the three default configurations took 16 minutes on 23 November 2026, for 369,342
+parts, with the same lead and notes; and `--run` played 31,464 programs in 17 seconds, after 2 minutes of `tsc`.
 
 **Done when** points 1 to 6 run (the fourth in `bun run inference --run`, the others in `bun run inference`),
 `AGENTS.md`, `change-api` and the comment at the head of `tools/inference/generate.ts` say what they check, their leads
