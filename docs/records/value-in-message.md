@@ -223,6 +223,6 @@ The owner took the four points on 23 November 2026, each with the conditions of 
    press: not the feed as it stands, whose `update` holds the pixels of its CSS.
 
 Beside them, for step 41: "Then no view can build a message" ("Model") is corrected; the unreleased entry of
-`CHANGELOG.md` that makes a value that an element reports an input is edited; and whether a message may leave more than one value to
-the element, and whether a view may compute a value from what the element gives, are asked of the owner before the
-step writes the rule.
+`CHANGELOG.md` that makes a value that an element reports an input is edited; and whether a message may leave more
+than one value to the element, and whether a view may compute a value from what the element gives, are asked of the
+owner before the step writes the rule.
