@@ -18,7 +18,8 @@
 // for an item added, and no more: a title is written by hand, and says that a check of the item has a mutation, not
 // that each sentence of the item has one. With `--guarantees`, it prints each item with the mutations that name it and
 // the tests that kill them, beside the search (`src/interleaving.test.ts`), which checks each item and is the killer of
-// no mutation (`change-engine`).
+// no mutation (`change-engine`). Likewise for the items of "What does not compile", in "Anatomy of a program" and
+// "Composition", which have no bold title: a mutation of the types names each by its page and the words it starts with.
 //
 //   bun tools/comments.ts
 //   bun tools/comments.ts --guarantees
@@ -53,6 +54,56 @@ const reliedOn = (lines: ReadonlyArray<string>) => {
 }
 
 const naming = (item: string) => mutations.filter(({ guarantees = [] }) => guarantees.includes(item))
+
+// The pages whose list "What does not compile" the mutations of the types name, as `refuses`.
+const refusing = ["Anatomy of a program", "Composition"]
+
+// The items of the list that follows the paragraph "What does not compile" of a page, each with its lines joined, and
+// the items under it held in it.
+const refusedIn = (lines: ReadonlyArray<string>) => {
+  const start = lines.findIndex((line) => /^\*\*What does not compile[.:]\*\*/.test(line))
+  const items: Array<string> = []
+  if (start === -1) return items
+  for (const line of lines.slice(start + 1)) {
+    if (line.startsWith("- ")) items.push(line.slice(2))
+    else if (line.startsWith("  ") && items.length > 0) items[items.length - 1] += ` ${line.trim()}`
+    else if (items.length > 0) break
+  }
+  return items
+}
+
+// What the mutations of the types break, by the items of "What does not compile": each names an item by the words it
+// starts with, which start that item alone, and each item is named.
+const problemsOfRefusals = (pages: ReadonlyMap<string, ReadonlyArray<string>>) => {
+  const problems: Array<string> = []
+  const named = new Set<string>()
+  for (const { name, refuses = [] } of mutations) {
+    for (const [page, start] of refuses) {
+      const items = refusing.includes(page) ? refusedIn(pages.get(page) ?? []) : []
+      const found = items.filter((item) => item.startsWith(start))
+      if (found.length === 1) named.add(`${page}\n${found[0]}`)
+      else {
+        problems.push(
+          `tools/mutations/mutations.ts: "${name}" names "${start}", which starts ${found.length} items of "What does not compile" in "${page}".`
+        )
+      }
+    }
+  }
+  for (const page of refusing) {
+    const items = refusedIn(pages.get(page) ?? [])
+    if (items.length === 0) problems.push(`The guide, "${page}": no list "What does not compile" is found.`)
+    for (const item of items) {
+      if (!named.has(`${page}\n${item}`)) {
+        problems.push(
+          `The guide, "${page}": no mutation names "${
+            item.slice(0, 60)
+          }…" of "What does not compile": name it in the mutations of the checks that hold it.`
+        )
+      }
+    }
+  }
+  return problems
+}
 
 // What the titles of the mutations break, by the items of "What you can rely on".
 const problemsOfMutations = (items: ReadonlyArray<string>) => [
@@ -173,7 +224,7 @@ const command = Command.make(
       problems.push(...problemsOfSkill(name, yield* read(name), pages))
     }
     const items = reliedOn(pages.get("Guarantees") ?? [])
-    problems.push(...problemsOfMutations(items))
+    problems.push(...problemsOfMutations(items), ...problemsOfRefusals(pages))
     if (problems.length > 0) return yield* new Failed({ message: problems.join("\n") })
     if (guarantees) yield* Console.log(index(items))
   })

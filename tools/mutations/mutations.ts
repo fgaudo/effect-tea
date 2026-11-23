@@ -1,5 +1,5 @@
-// One mutation for each check an invariant rests on (docs/invariants.md), each with the tests
-// that must fail under it. `mutate.ts` applies them one at a time.
+// One mutation for each check an invariant rests on (docs/invariants.md), and for each check of the types of a program
+// and of a parent, each with the tests that must fail under it. `mutate.ts` applies them one at a time.
 
 export type Mutation = Readonly<{
   /** The check the mutation takes out. */
@@ -10,13 +10,22 @@ export type Mutation = Readonly<{
    * the bridges. `bun run comments` fails on a title the list does not have, and on an item no mutation names.
    */
   guarantees?: ReadonlyArray<string>
+  /**
+   * The items of "What does not compile", in the guide's "Anatomy of a program" and "Composition", that a check of the
+   * types holds a part of, each by its page and the words it starts with. `bun run comments` fails on words that start
+   * no item, or more than one, and on an item no mutation names.
+   */
+  refuses?: ReadonlyArray<readonly [page: "Anatomy of a program" | "Composition", item: string]>
   /** The file it changes, from the root of the repository. */
   file: string
   /** What it replaces, which the file must hold exactly once, and with what. */
   from: string
   to: string
-  /** The tests that must fail under it, by file and by name. */
-  killedBy: ReadonlyArray<readonly [file: string, test: string]>
+  /**
+   * The tests that must fail under it, by file and by name. One named with `"typecheck"` is a test of the types: it
+   * fails when `tsc`, on the root project of the copy, reports a diagnostic in its lines.
+   */
+  killedBy: ReadonlyArray<readonly [file: string, test: string, by?: "typecheck"]>
 }>
 
 export const mutations: ReadonlyArray<Mutation> = [
@@ -3870,6 +3879,1002 @@ export const mutations: ReadonlyArray<Mutation> = [
         "bridges/snabbdom-testing.test.ts",
         "draws each thunk, and records the message of a child as the root of the program receives it"
       ]
+    ]
+  },
+  // The types of a program (`src/program.ts`) and of a parent (`src/compose.ts`): each mutation takes a check of the
+  // types out, and the tests of the types that refuse what it lets through kill it, by `tsc`. A mutation names the
+  // items of "What does not compile" its check holds a part of (`refuses`).
+  //
+  // The checks that have none, since taking one out changes nothing that compiles, or lets through only a piece that
+  // nothing calls:
+  //
+  // - `Fielded`'s branch for `any`: `keyof any` has members, so the branch after it lets `any` through too.
+  // - `TagsTaken`'s branch for `any`: a conditional type over `any` takes both its branches, and gives `any`, which is
+  //   refused as `Names` is.
+  // - The `runCommand` and `listen` that `Lacking` asks of a child: the member under a key that no program has refuses
+  //   the same children, and these two are for the error that names the missing piece.
+  // - `ObjectState` on the place of `child` and `childById`, in each form: `CheckedChild` refuses the same states,
+  //   through `ProgramChecked`. It was there before `CheckedChild` was.
+  // - `Tells` for a child without external messages: its `message` would be `never`, which no `tell` can write either.
+  // - `there` required where a child alone may not be there: the overload of a child always there takes every place
+  //   without `there`.
+  // - `FlagsChecked` for children by id without flags declared with flags: their flags would be `never`, so only a list
+  //   that is always empty can be written, which starts no child.
+  // - `update`, `external`, `output` and `runCommand` as `never` in `make` for a program that names no messages, no
+  //   external messages, no output or no commands: such a piece, given, is called by nothing, since no message,
+  //   external message, read of an output or command of the program's own can be written. `subscriptions` and `listen`
+  //   are not among them: the run would call them.
+  {
+    name: "a program with commands is typed without runCommand",
+    refuses: [["Composition", "a child with commands and no `runCommand`"]],
+    file: "src/program.ts",
+    from: "  : { readonly runCommand: RunCommand<Command, Message, R> }",
+    to: "  : { readonly runCommand?: RunCommand<Command, Message, R> }",
+    killedBy: [
+      [
+        "src/run.test.ts",
+        "a program written as a plain object needs a runCommand only for commands it has",
+        "typecheck"
+      ],
+      [
+        "src/compose.test.ts",
+        "a child's command that nothing interprets is a CompositionDefect naming the child",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a program with keys is typed without listen",
+    refuses: [["Composition", "a child with keys and no `listen`"]],
+    file: "src/program.ts",
+    from: "  : { readonly listen: Listen<Key, Message, R> }",
+    to: "  : { readonly listen?: Listen<Key, Message, R> }",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child's key that nothing listens to is a CompositionDefect naming the child",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a program with external messages is typed without external",
+    file: "src/program.ts",
+    from: "  : { readonly external: (message: External) => (state: State) => Step<State, Command, Event> }",
+    to: "  : { readonly external?: (message: External) => (state: State) => Step<State, Command, Event> }",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a program has an external exactly when it has external messages, and it never rejects",
+        "typecheck"
+      ],
+      [
+        "src/compose.test.ts",
+        "a program may be typed with fewer external messages than it takes, never with more",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a program's external may reject",
+    file: "src/program.ts",
+    from: "  : { readonly external: (message: External) => (state: State) => Step<State, Command, Event> }",
+    to: "  : { readonly external: Update<State, External, Command, Event> }",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child's external never rejects, and telling a child that is not there is a defect",
+        "typecheck"
+      ],
+      [
+        "src/compose.test.ts",
+        "a child written as an object is checked as a program is: its external answers with a step, its output reads its state, and it asks for what it returns",
+        "typecheck"
+      ],
+      [
+        "src/run.test.ts",
+        "a program a parent could hold starts too: its external and its output are checked, and never called",
+        "typecheck"
+      ],
+      [
+        "src/testing/drive.test.ts",
+        "a program a parent could hold is driven too: its external and its output are checked, and never called",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a program with flags starts without them",
+    file: "src/program.ts",
+    from: "  : { readonly flags: Flags }",
+    to: "  : { readonly flags?: Flags }",
+    killedBy: [
+      ["src/run.test.ts", "a program with flags starts from the flags it is given, its commands included", "typecheck"],
+      [
+        "src/testing/rehearse.test.ts",
+        "a editor with flags starts from the flags the test gives it, or from the step of another init",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a program without flags is given flags",
+    file: "src/program.ts",
+    from: "[Flags] extends [never] ? { readonly flags?: never }",
+    to: "[Flags] extends [never] ? { readonly flags?: unknown }",
+    killedBy: [
+      [
+        "src/testing/rehearse.test.ts",
+        "a editor with flags starts from the flags the test gives it, or from the step of another init",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a program without flags starts from a function of flags",
+    file: "src/program.ts",
+    from: "export type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, Command>\n",
+    to: "export type Init<State, Command, Flags> = [Flags] extends [never]\n"
+      + "  ? Step<State, Command> | ((flags: never) => Step<State, Command>)\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a parent with flags returns the function of them, and one without its first step",
+        "typecheck"
+      ],
+      [
+        "src/compose.test.ts",
+        "a program without children starts from its first step, or from the function of its flags",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a program with flags starts from a step",
+    file: "src/program.ts",
+    from: "  : (flags: Flags) => Step<State, Command>\n",
+    to: "  : Step<State, Command> | ((flags: Flags) => Step<State, Command>)\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a parent with flags returns the function of them, and one without its first step",
+        "typecheck"
+      ],
+      [
+        "src/compose.test.ts",
+        "a program without children starts from its first step, or from the function of its flags",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a state that is no object is let through",
+    refuses: [["Anatomy of a program", "A state that is a number or a string"]],
+    file: "src/program.ts",
+    from: "export type ObjectState<State> = [State] extends [object] ? Fielded<State>\n"
+      + "  : { readonly \"a program keeps its state in an object\": State }\n",
+    to: "export type ObjectState<State> = [State] extends [object] ? Fielded<State>\n  : unknown\n",
+    killedBy: [
+      ["src/compose.test.ts", "a program keeps its state in an object, however it is written", "typecheck"],
+      [
+        "src/compose.test.ts",
+        "a state that is a type parameter does not compile in make, and a parameter in a field of the state does",
+        "typecheck"
+      ],
+      ["src/testing/simulate.test.ts", "takes only a program that keeps its state in an object", "typecheck"]
+    ]
+  },
+  {
+    name: "a state without fields is let through",
+    refuses: [["Anatomy of a program", "A state whose type has no fields"]],
+    file: "src/program.ts",
+    from: "[Extract<Primitive, State>] extends [never] ? unknown\n"
+      + "    : { readonly \"a program keeps its state in an object\": State }\n",
+    to: "[Extract<Primitive, State>] extends [never] ? unknown\n    : unknown\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a state without fields holds a number too: refused as written, by make, and where a program is a child",
+        "typecheck"
+      ],
+      [
+        "src/compose.test.ts",
+        "a state that is a type parameter does not compile in make, and a parameter in a field of the state does",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a state typed object is refused as a state without fields",
+    refuses: [["Anatomy of a program", "A state whose type has no fields"]],
+    file: "src/program.ts",
+    from: "[Extract<Primitive, State>] extends [never] ? unknown",
+    to: "[State] extends [never] ? unknown",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a state without fields holds a number too: refused as written, by make, and where a program is a child",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a program typed Program is not checked for its state",
+    refuses: [["Anatomy of a program", "A state that is a number or a string"], [
+      "Anatomy of a program",
+      "A state whose type has no fields"
+    ]],
+    file: "src/program.ts",
+    from: "  & ObjectState<State>\n  & {\n    readonly init: Init<State, Command, Flags>\n",
+    to: "  & {\n    readonly init: Init<State, Command, Flags>\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a state without fields holds a number too: refused as written, by make, and where a program is a child",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a program's makeModel takes any state",
+    file: "src/program.ts",
+    from: "    readonly makeModel: (state: State) => Model\n",
+    to: "    readonly makeModel: (state: any) => Model\n",
+    killedBy: [
+      ["src/compose.test.ts", "a program written as an object makes its model from its own state", "typecheck"]
+    ]
+  },
+  {
+    name: "a program is typed without subscriptions",
+    refuses: [["Anatomy of a program", "A program written as an object without `subscriptions`"]],
+    file: "src/program.ts",
+    from: "    readonly subscriptions: Subscriptions<State, Key>\n",
+    to: "    readonly subscriptions?: Subscriptions<State, Key>\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a program written as an object has subscriptions, even when it listens to nothing",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a program with an output is typed without it",
+    file: "src/program.ts",
+    from: "{ readonly output: (state: State) => Output }",
+    to: "{ readonly output?: (state: State) => Output }",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a program has an output exactly when it names one, and one without children reads none",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a program's output reads any state",
+    file: "src/program.ts",
+    from: "{ readonly output: (state: State) => Output }",
+    to: "{ readonly output: (state: any) => Output }",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child written as an object is checked as a program is: its external answers with a step, its output reads its state, and it asks for what it returns",
+        "typecheck"
+      ],
+      [
+        "src/run.test.ts",
+        "a program a parent could hold starts too: its external and its output are checked, and never called",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a child is not checked for its state",
+    refuses: [["Anatomy of a program", "A state that is a number or a string"], [
+      "Anatomy of a program",
+      "A state whose type has no fields"
+    ]],
+    file: "src/compose.ts",
+    from: "  & ObjectState<StateOf<P>>\n  & Program<{\n",
+    to: "  & Program<{\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a state without fields holds a number too: refused as written, by make, and where a program is a child",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a child is not checked as a program of its types",
+    refuses: [["Composition", "a child with commands and no `runCommand`"], [
+      "Composition",
+      "a child with keys and no `listen`"
+    ]],
+    file: "src/compose.ts",
+    from: "type Lacking<P> = P extends ProgramChecked<P> ? unknown",
+    to: "type Lacking<P> = P extends unknown ? unknown",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child written as an object is checked as a program is: its external answers with a step, its output reads its state, and it asks for what it returns",
+        "typecheck"
+      ],
+      [
+        "src/compose.test.ts",
+        "a child's command that nothing interprets is a CompositionDefect naming the child",
+        "typecheck"
+      ],
+      [
+        "src/compose.test.ts",
+        "a child's key that nothing listens to is a CompositionDefect naming the child",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a child lacks only runCommand and listen",
+    file: "src/compose.ts",
+    from: "    & { readonly \"a child is a program of the types read back from it\": ProgramChecked<P> }\n",
+    to: "",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child written as an object is checked as a program is: its external answers with a step, its output reads its state, and it asks for what it returns",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a child is taken as it is",
+    refuses: [["Composition", "a child with commands and no `runCommand`"], [
+      "Composition",
+      "a child with keys and no `listen`"
+    ]],
+    file: "src/compose.ts",
+    from: "type CheckedChild<P> = unknown extends Lacking<P> ? P : P & Lacking<P>",
+    to: "type CheckedChild<P> = P",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child written as an object is checked as a program is: its external answers with a step, its output reads its state, and it asks for what it returns",
+        "typecheck"
+      ],
+      [
+        "src/compose.test.ts",
+        "a child's command that nothing interprets is a CompositionDefect naming the child",
+        "typecheck"
+      ],
+      [
+        "src/compose.test.ts",
+        "a child's key that nothing listens to is a CompositionDefect naming the child",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "an input alone of another state is taken",
+    refuses: [["Composition", "an input whose optic"]],
+    file: "src/compose.ts",
+    from: "      get: (state: State) => Opt.Option<any>\n      set: (state: State, value: never) => State\n",
+    to: "      get: (state: any) => Opt.Option<any>\n      set: (state: any, value: never) => any\n",
+    killedBy: [
+      [
+        "src/input.test.ts",
+        "an input declared for another state is no input of a program, alone or by id",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "an input by id of another state is taken",
+    refuses: [["Composition", "an input whose optic"]],
+    file: "src/compose.ts",
+    from: "      get: (state: State, id: never) => Opt.Option<any>\n"
+      + "      set: (state: State, id: never, value: never) => State\n",
+    to:
+      "      get: (state: any, id: never) => Opt.Option<any>\n      set: (state: any, id: never, value: never) => any\n",
+    killedBy: [
+      [
+        "src/input.test.ts",
+        "an input declared for another state is no input of a program, alone or by id",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "an input is declared with a place of another state",
+    refuses: [["Composition", "an input whose optic"]],
+    file: "src/compose.ts",
+    from: "  place: Placement<Field<T, \"state\">, A>\n",
+    to: "  place: Placement<any, A>\n",
+    killedBy: [
+      [
+        "src/input.test.ts",
+        "an optic into another state than the program's is no input of it, alone or by id",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "an input by id is declared with a place of another state",
+    refuses: [["Composition", "an input whose optic"]],
+    file: "src/compose.ts",
+    from: "  place: PlacementById<Field<T, \"state\">, Id, A>\n",
+    to: "  place: PlacementById<any, Id, A>\n",
+    killedBy: [
+      [
+        "src/input.test.ts",
+        "an optic into another state than the program's is no input of it, alone or by id",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "an input is placed by an optic and by get and set",
+    file: "src/compose.ts",
+    from: "    set: (state: State, value: A) => State\n    at?: never\n",
+    to: "    set: (state: State, value: A) => State\n",
+    killedBy: [
+      ["src/input.test.ts", "an input is placed by an optic, or by get and set, never by both", "typecheck"]
+    ]
+  },
+  {
+    name: "an input by id is placed by an optic and by get and set",
+    file: "src/compose.ts",
+    from: "    set: (state: State, id: Id, value: A) => State\n    at?: never\n",
+    to: "    set: (state: State, id: Id, value: A) => State\n",
+    killedBy: [
+      ["src/input.test.ts", "an input is placed by an optic, or by get and set, never by both", "typecheck"]
+    ]
+  },
+  {
+    name: "a child alone of another state is taken",
+    file: "src/compose.ts",
+    from: "      key: (state: State) => Opt.Option<unknown>\n      listening?: (state: State) => boolean\n",
+    to: "      key: (state: any) => Opt.Option<unknown>\n      listening?: (state: any) => boolean\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child declared for another state is no child of a parent, alone or by id",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "children by id of another state are taken",
+    file: "src/compose.ts",
+    from: "      listed: (state: State) => Iterable<unknown>\n      flagged: boolean\n"
+      + "      listening?: (state: State, id: never) => boolean\n",
+    to: "      listed: (state: any) => Iterable<unknown>\n      flagged: boolean\n"
+      + "      listening?: (state: any, id: never) => boolean\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child declared for another state is no child of a parent, alone or by id",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a step tells a child any message",
+    refuses: [["Composition", "a `tell` of anything but a child's external message"]],
+    file: "src/compose.ts",
+    from: "    : Readonly<{ _tag: K; message: ExternalOf<ProgramOf<C[K]>> }> & At<C[K]>\n",
+    to: "    : Readonly<{ _tag: K; message: unknown }> & At<C[K]>\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a step tells a child only its external messages, by its name, with its id for a child by id",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a step tells a child by id without its id",
+    refuses: [["Composition", "a `tell` of anything but a child's external message"]],
+    file: "src/compose.ts",
+    from: "    : Readonly<{ _tag: K; message: ExternalOf<ProgramOf<C[K]>> }> & At<C[K]>\n",
+    to: "    : Readonly<{ _tag: K; message: ExternalOf<ProgramOf<C[K]>> }>\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a step tells a child only its external messages, by its name, with its id for a child by id",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a parent reads the output of a child that declares none",
+    refuses: [["Composition", "a child's model read outside `makeModel`"]],
+    file: "src/compose.ts",
+    from: "  readonly [K in keyof C & string as [OutputOf<ProgramOf<C[K]>>] extends [never] ? never : K]: Readonly<{\n",
+    to: "  readonly [K in keyof C & string]: Readonly<{\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a parent reads only the outputs its children declare, and no model, outside makeModel",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "makeModel reads the output of a child that declares none",
+    refuses: [["Composition", "a child's model read outside `makeModel`"]],
+    file: "src/compose.ts",
+    from: "    & ([OutputOf<ProgramOf<C[K]>>] extends [never] ? unknown : Readonly<{ output: ReadOutput<C[K]> }>)\n",
+    to: "    & Readonly<{ output: ReadOutput<C[K]> }>\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a parent reads only the outputs its children declare, and no model, outside makeModel",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a parent reads its children's models outside makeModel",
+    refuses: [["Composition", "a child's model read outside `makeModel`"]],
+    file: "src/compose.ts",
+    from: "type Reading<C> = [keyof C] extends [never] ? [] : [children: Outputs<C>]",
+    to: "type Reading<C> = [keyof C] extends [never] ? [] : [children: Models<C>]",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a parent reads only the outputs its children declare, and no model, outside makeModel",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "onEvent has a handler for a child without events",
+    file: "src/compose.ts",
+    from:
+      "  readonly [K in keyof C & string as [EventOf<ProgramOf<C[K]>>] extends [never] ? never : K]: C[K] extends\n",
+    to: "  readonly [K in keyof C & string]: C[K] extends\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a step tells a child only its external messages, by its name, with its id for a child by id",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a parent of a child with events is made without onEvent",
+    file: "src/compose.ts",
+    from: "    onEvent: OnEvents<State, C, Command, Event>\n",
+    to: "    onEvent?: OnEvents<State, C, Command, Event>\n",
+    killedBy: [
+      ["src/compose.test.ts", "a child whose events are of any type needs an onEvent", "typecheck"],
+      [
+        "src/compose.test.ts",
+        "a child written as an object is checked as a program is: its external answers with a step, its output reads its state, and it asks for what it returns",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a handler of the events of a child by id may reject",
+    file: "src/compose.ts",
+    from: "(id: Id, event: EventOf<P>, ...children: Reading<C>) => (state: State) => Step<",
+    to: "(id: Id, event: EventOf<P>, ...children: Reading<C>) => (state: State) => Transition<",
+    killedBy: [
+      ["src/compose.test.ts", "a handler of onEvent answers with a step, and its type has no reject", "typecheck"]
+    ]
+  },
+  {
+    name: "a handler of the events of a child alone may reject",
+    file: "src/compose.ts",
+    from: "    ) => (state: State) => Step<State, Command, Event, Tells<C>>\n}",
+    to: "    ) => (state: State) => Transition<State, Command, Event, Tells<C>>\n}",
+    killedBy: [
+      ["src/compose.test.ts", "a handler of onEvent answers with a step, and its type has no reject", "typecheck"]
+    ]
+  },
+  {
+    name: "a program with messages of its own is made without update",
+    file: "src/compose.ts",
+    from: "    update: (message: Own, ...children: Reading<C>)",
+    to: "    update?: (message: Own, ...children: Reading<C>)",
+    killedBy: [
+      ["src/compose.test.ts", "an update is there exactly when the program names messages of its own", "typecheck"]
+    ]
+  },
+  {
+    name: "a program with external messages is made without external",
+    file: "src/compose.ts",
+    from: "    external: (message: External, ...children: Reading<C>)",
+    to: "    external?: (message: External, ...children: Reading<C>)",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a program has an external exactly when it has external messages, and it never rejects",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a program made with external messages may reject them",
+    file: "src/compose.ts",
+    from: "    external: (message: External, ...children: Reading<C>) => (state: State) => Step<",
+    to: "    external: (message: External, ...children: Reading<C>) => (state: State) => Transition<",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a program has an external exactly when it has external messages, and it never rejects",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a program with an output is made without it",
+    file: "src/compose.ts",
+    from: "    output: (state: State, ...children: Reading<C>) => Output\n",
+    to: "    output?: (state: State, ...children: Reading<C>) => Output\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a program has an output exactly when it names one, and one without children reads none",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a program with commands of its own is made without runCommand",
+    file: "src/compose.ts",
+    from: "    runCommand: (command: OwnCommand) => Ran & Execution<Message, any>\n",
+    to: "    runCommand?: (command: OwnCommand) => Ran & Execution<Message, any>\n",
+    killedBy: [
+      ["src/compose.test.ts", "commands of its own need a runCommand", "typecheck"]
+    ]
+  },
+  {
+    name: "a command of a parent answers with any message",
+    refuses: [[
+      "Composition",
+      "a subscription or a command of the parent's own that sends anything but a message of the parent's own"
+    ]],
+    file: "src/compose.ts",
+    from: "Ran & Execution<Message, any>",
+    to: "Ran & Execution<any, any>",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a parent's own command answers with the parent's own messages, never with a child's",
+        "typecheck"
+      ],
+      [
+        "src/compose.test.ts",
+        "one branch of a runCommand, or one subscription of a map, that answers with no message of the parent's",
+        "typecheck"
+      ],
+      ["src/input.test.ts", "a command's answer cannot write into an input: it is an own message", "typecheck"],
+      ["src/input.test.ts", "a command's answer cannot write into a child's input either", "typecheck"]
+    ]
+  },
+  {
+    name: "a wide tag takes no name",
+    refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
+    file: "src/compose.ts",
+    from: "Extract<Names, M[keyof M & \"_tag\"]> | Extract<M[keyof M & \"_tag\"], Names>",
+    to: "Extract<M[keyof M & \"_tag\"], Names>",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "an own message or command cannot take the name of a child, however wide its type",
+        "typecheck"
+      ],
+      [
+        "src/compose.test.ts",
+        "an own subscription key that may take the name of a child does not compile, never a silent replacement",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a wide name takes no tag",
+    refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
+    file: "src/compose.ts",
+    from: "Extract<Names, M[keyof M & \"_tag\"]> | Extract<M[keyof M & \"_tag\"], Names>",
+    to: "Extract<Names, M[keyof M & \"_tag\"]>",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "an own message or command cannot take the name of a child, however wide its type",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a message with no tag in its type takes no name",
+    refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
+    file: "src/compose.ts",
+    from: "Readonly<{ _tag: Names }> extends M ? Names : never",
+    to: "never",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "an own message or command cannot take the name of a child, however wide its type",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "an own message takes the name of a child or of an input",
+    refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
+    file: "src/compose.ts",
+    from: "    : { readonly [K in `an own message takes the name of ${Of}`]: TagsTaken<Own, keyof C & string> })\n",
+    to: "    : unknown)\n",
+    killedBy: [
+      ["src/compose.test.ts", "an own message cannot take the name of a child, which would receive it", "typecheck"],
+      ["src/input.test.ts", "an own message that takes the name of an input does not compile", "typecheck"]
+    ]
+  },
+  {
+    name: "an own command takes the name of a child or of an input",
+    refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
+    file: "src/compose.ts",
+    from:
+      "    : { readonly [K in `an own command takes the name of ${Of}`]: TagsTaken<OwnCommand, keyof C & string> })\n",
+    to: "    : unknown)\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "an own command cannot take the name of a child, whose interpreter would receive it",
+        "typecheck"
+      ],
+      ["src/compose.test.ts", "an own command cannot take the name of an input", "typecheck"]
+    ]
+  },
+  {
+    name: "an own message or command takes the name of a child",
+    refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
+    file: "src/compose.ts",
+    from: "  & NoClash<Own, OwnCommand, C, \"a child\">\n",
+    to: "",
+    killedBy: [
+      ["src/compose.test.ts", "an own message cannot take the name of a child, which would receive it", "typecheck"],
+      [
+        "src/compose.test.ts",
+        "an own command cannot take the name of a child, whose interpreter would receive it",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "an own message or command takes the name of an input",
+    refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
+    file: "src/compose.ts",
+    from: "  & NoClash<Own, OwnCommand, I, \"an input\">\n",
+    to: "",
+    killedBy: [
+      ["src/compose.test.ts", "an own command cannot take the name of an input", "typecheck"],
+      ["src/input.test.ts", "an own message that takes the name of an input does not compile", "typecheck"]
+    ]
+  },
+  {
+    name: "an own key takes the name of a child",
+    refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
+    file: "src/compose.ts",
+    from: "  : { readonly \"an own key takes the name of a child\": TagsTaken<OwnKey, keyof C & string> }\n",
+    to: "  : unknown\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "an own subscription key that may take the name of a child does not compile, never a silent replacement",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "an input takes the name of a child",
+    refuses: [["Composition", "an input that takes the name of a child"]],
+    file: "src/compose.ts",
+    from: "  : Readonly<{ \"an input takes the name of a child\": keyof C & keyof I }>\n",
+    to: "  : unknown\n",
+    killedBy: [
+      ["src/compose.test.ts", "an input cannot take the name of a child, which it would replace", "typecheck"]
+    ]
+  },
+  {
+    name: "a program with keys of its own is made without subscriptions",
+    file: "src/compose.ts",
+    from: "    subscriptions: (state: State) => ReadonlyArray<OwnKey>\n",
+    to: "    subscriptions?: (state: State) => ReadonlyArray<OwnKey>\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a program has subscriptions and listen exactly when it names keys of its own",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a program with keys of its own is made without listen",
+    file: "src/compose.ts",
+    from: "    listen: (key: OwnKey) => Heard & Subscription<Message, any>\n",
+    to: "    listen?: (key: OwnKey) => Heard & Subscription<Message, any>\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a program has subscriptions and listen exactly when it names keys of its own",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a subscription of a parent sends any message",
+    refuses: [[
+      "Composition",
+      "a subscription or a command of the parent's own that sends anything but a message of the parent's own"
+    ]],
+    file: "src/compose.ts",
+    from: "Heard & Subscription<Message, any>",
+    to: "Heard & Subscription<any, any>",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a parent's own subscription sends the parent's own messages, never a child's",
+        "typecheck"
+      ],
+      [
+        "src/compose.test.ts",
+        "one branch of a runCommand, or one subscription of a map, that answers with no message of the parent's",
+        "typecheck"
+      ],
+      [
+        "src/input.test.ts",
+        "a subscription of the program's own cannot write into an input: it sends the program's own messages",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a program without keys of its own is made with subscriptions and listen",
+    file: "src/compose.ts",
+    from: "? Readonly<{ subscriptions?: never; listen?: never }>",
+    to: "? Readonly<{ subscriptions?: unknown; listen?: unknown }>",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a program has subscriptions and listen exactly when it names keys of its own",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "make takes a state without fields",
+    refuses: [["Anatomy of a program", "A state whose type has no fields"]],
+    file: "src/compose.ts",
+    from: "    & ObjectState<Field<T, \"state\">>\n) => Program<\n  Present<{\n    state: Field<T, \"state\">\n",
+    to: ") => Program<\n  Present<{\n    state: Field<T, \"state\">\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a state without fields holds a number too: refused as written, by make, and where a program is a child",
+        "typecheck"
+      ],
+      [
+        "src/compose.test.ts",
+        "a state that is a type parameter does not compile in make, and a parameter in a field of the state does",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "the make of a parent takes a state without fields",
+    refuses: [["Anatomy of a program", "A state whose type has no fields"]],
+    file: "src/compose.ts",
+    from: "    & ObjectState<Field<T, \"state\">>\n) => Program<\n  Present<{\n    state: Kept<",
+    to: ") => Program<\n  Present<{\n    state: Kept<",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a state without fields holds a number too: refused as written, by make, and where a program is a child",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "program takes a state that is no object",
+    refuses: [["Anatomy of a program", "A state that is a number or a string"]],
+    file: "src/compose.ts",
+    from: "  /** Its own state, an object. */\n  state: object\n",
+    to: "  /** Its own state, an object. */\n  state: unknown\n",
+    killedBy: [
+      ["src/compose.test.ts", "a program keeps its state in an object, however it is written", "typecheck"]
+    ]
+  },
+  {
+    name: "a model named in program is not checked",
+    file: "src/compose.ts",
+    from: "type Named<T, K extends \"model\", Inferred> = T extends { readonly [P in K]: infer V } ? V : Inferred",
+    to: "type Named<T, K extends \"model\", Inferred> = Inferred",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a model that is named is checked, one that is not is inferred, and own messages are those named",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a child with flags is declared always there without them",
+    refuses: [["Composition", "a child with flags declared without them"]],
+    file: "src/compose.ts",
+    from: "  : [place: { readonly \"a child with flags is declared with its flags\": FlagsOf<P> }]\n",
+    to: "  : [place?: unknown]\n",
+    killedBy: [
+      ["src/compose.test.ts", "a child with flags is declared with them", "typecheck"],
+      ["src/compose.test.ts", "a child whose init is a function starts from flags, whatever their type", "typecheck"]
+    ]
+  },
+  {
+    name: "a child always there is declared with there or flags",
+    file: "src/compose.ts",
+    from: "        there?: never\n        flags?: never\n",
+    to: "",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "the functions of a child's place take the parent's state, without annotations",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a child with flags that may not be there is declared without them",
+    refuses: [["Composition", "a child with flags declared without them"]],
+    file: "src/compose.ts",
+    from: "    flags: (state: State) => Opt.Option<FlagsOf<P>>\n",
+    to: "    flags?: (state: State) => Opt.Option<FlagsOf<P>>\n",
+    killedBy: [
+      ["src/compose.test.ts", "a child with flags is declared with them", "typecheck"]
+    ]
+  },
+  {
+    name: "a child without flags that may not be there is declared with flags",
+    refuses: [["Composition", "a child with flags declared without them"]],
+    file: "src/compose.ts",
+    from: "    key?: (state: State) => unknown\n    flags?: never\n",
+    to: "    key?: (state: State) => unknown\n",
+    killedBy: [
+      ["src/compose.test.ts", "a child without flags is declared without them", "typecheck"]
+    ]
+  },
+  {
+    name: "children by id are declared without ids",
+    refuses: [["Composition", "children by id without `ids` or `flags`"]],
+    file: "src/compose.ts",
+    from: "  ids: (state: State) => Iterable<Id>\n",
+    to: "  ids?: (state: State) => Iterable<Id>\n",
+    killedBy: [
+      ["src/compose.test.ts", "children by id list their ids: ids is required", "typecheck"]
+    ]
+  },
+  {
+    name: "children by id with flags are declared without them",
+    refuses: [["Composition", "a child with flags declared without them"], [
+      "Composition",
+      "children by id without `ids` or `flags`"
+    ]],
+    file: "src/compose.ts",
+    from: "  flags: (state: State) => Iterable<readonly [Id, Flags]>\n",
+    to: "  flags?: (state: State) => Iterable<readonly [Id, Flags]>\n",
+    killedBy: [
+      ["src/compose.test.ts", "a child with flags is declared with them", "typecheck"]
+    ]
+  },
+  {
+    name: "children by id with flags are declared with ids",
+    refuses: [["Composition", "a child with flags declared without them"]],
+    file: "src/compose.ts",
+    from: "  : { readonly \"a child with flags is declared with its flags\": FlagsOf<P> }\n",
+    to: "  : unknown\n",
+    killedBy: [
+      ["src/compose.test.ts", "a child with flags is declared with them", "typecheck"]
     ]
   }
 ]

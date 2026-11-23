@@ -73,6 +73,30 @@ no more: a title is a judgement written by hand, an item with many checks may st
 and the search, which checks every item, kills no mutation. So an item reworded, or given a sentence, is weighed by
 hand: which check holds the new sentence, and which test fails without it.
 
+### Mutations of the types
+
+Each check of the types of `program.ts` and `compose.ts` has a mutation too, which makes the check let through what it
+refuses: an optional piece where one is required, `any` where a state is read, a branch that refuses made `unknown`.
+Its killers are tests of the types, named with `"typecheck"` (`["src/compose.test.ts", "<test>", "typecheck"]`): such
+a test is not run, and fails when `tsc`, run once on the root project of the copy under the mutation, reports a
+diagnostic in its lines, from its call to the line that closes it. An `@ts-expect-error` that nothing refuses any more
+is one. Without the mutation, no diagnostic may be in them. `--discover` names, for a mutation that changes no code
+that runs, the tests of the types whose lines hold a diagnostic, and the diagnostics outside any test, and runs no
+other test. `--against` tells such mutations apart by their tokens, since the JavaScript they leave is the same.
+
+A killer is a test of the check, not one that a broken type happens to fail: a required piece made optional fails
+every test that calls it, and only the test that refuses a program without it holds the check. The check is held by
+what a user writes: a place or an input that is no literal is checked where a literal would be refused as having
+fields too many. A kill is checked under TypeScript 7.0 alone, as the tests of the types are in the CI.
+
+A check whose removal changes nothing that compiles, or lets through only a piece that nothing calls, has no mutation:
+it is listed, with why, at the head of the mutations of the types in `tools/mutations/mutations.ts`, since
+`docs/invariants.md` lists no checks of the types. A mutation of a check that holds a part of an item of "What does
+not compile", in the guide's "Anatomy of a program" and "Composition", names it in its `refuses`, by its page and the
+words it starts with, as `guarantees` names an item of "What you can rely on": `bun run comments` fails on words that
+start no item or more than one, and on an item no mutation names. The other pages that say "does not compile" are not
+tied: the tie is a tripwire for an item added to the two lists, no more.
+
 ### A lead of the search
 
 `bun run interleavings` (`src/interleaving.test.ts`) is a search, from a seed drawn on each run. A lead it finds is

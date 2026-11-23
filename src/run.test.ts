@@ -638,6 +638,8 @@ describe("the run", () => {
     expect(counts).toEqual([5, 6])
     // @ts-expect-error: it has nothing to start from.
     expect(() => start(seeded)).toBeDefined()
+    // @ts-expect-error: nor from options without flags.
+    expect(() => start(seeded, {})).toBeDefined()
     // @ts-expect-error: it starts without flags.
     expect(() => start(counter, { flags: 5 })).toBeDefined()
   })

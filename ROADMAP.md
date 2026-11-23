@@ -14,7 +14,8 @@ for on 20 November 2026 and asked to be written here in the order it advises. St
 the findings api-1, api-2 and api-4 of [`library-review.md`](docs/records/library-review.md) passed the inference
 matrix and the tests; its points were done by 23 November 2026, the first as the owner decided after two second
 opinions ([`program-checks.md`](docs/records/program-checks.md) and
-[`program-forms.md`](docs/records/program-forms.md)), and of the two it left to the owner, step 44 is the one taken. Steps 22 to 31 come from
+[`program-forms.md`](docs/records/program-forms.md)), and of the two it left to the owner, the one taken was step
+44, the mutations of the types, done the same day. Steps 22 to 31 come from
 [`application-report.md`](docs/records/application-report.md), a report of an application's upgrade to 0.8.0 that the
 owner asked to weigh on 22 November 2026. From the same record, "Why no check found them", come step 27, point 5 of
 step 16, point 5 of step 26, and two items of "Any time"; and from "What the owner decided", steps 28 to 30, and a step
@@ -37,7 +38,7 @@ of its spike the same day, with the conditions of a second opinion
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. the checks, steps 44 and 6: of the types, by mutations, and of the bridges in a real browser;
+1. the checks, step 6: of the bridges in a real browser (step 44, of the types by mutations, is done);
 2. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
 3. the engine, steps 18 to 21, which change nothing that a user writes.
 
@@ -57,55 +58,15 @@ is a lead, "valid, but taken with other types".
 - **`simulate` reads the state from what `update` returns**: with no `init` to read, the state of
   `{ ...typed, update: (message: Own) => (state: SNone) => … }` is `{ n: number }`, the literal of its steps, and not
   the `SNone` the program names (`object.spread.annotated.state`). Step 21 weighs `simulate` again.
+- **A search that runs, once the run has settled, is not that of the text the field holds**: `bun run interleavings`
+  failed on 23 November 2026 in "a search runs for the text of the field while it holds one, and starts once for each
+  text it holds", at its second check (no search started twice passes), with `seed: -1335866316` and `path:
+  "21:0:1:1:1:1:1:1:4:4:4:8:6:6:6:16:6:16:16:18:19:21:20:23:18:18:18:21:20:19:19:20:20:22:23:25:24:24:29:26:24:26:26:25:26:24:24:24:24:24:25:25:46:19:19:3:0:16:0"`.
+  Given them, the property fails again alone, with nothing else running; the run that found it changed no code that
+  runs. Not yet weighed under the `'inline'` mode of resumption (`change-engine`, "A lead of the search"). Opus 5.5,
+  `high`.
 
 ## Next, in order
-
-### 44. Mutations of the types
-
-**Model and effort.** Opus 5.5, `high`: checks that the types keep the three rules of "What belongs here", in the
-runner that keeps the invariants of the engine.
-
-**Depends on** nothing. It changes nothing a user writes but where a test it adds finds a check that does not hold.
-
-**Why.** An `@ts-expect-error` fails the typecheck (TS2578) once the check that refuses its line goes, but nothing
-shows that each check of the types has such a test, nor that a test is held by its check and not by another error on
-its line. The owner took this on 23 November 2026, from step 16, after a second opinion (Fable) that applied 40
-mutations by hand on a copy, 14 of `src/program.ts` and 26 of `src/compose.ts`, under `tsc` 7.0: 31 were killed by the
-typecheck of the tests. Held by nothing, neither the tests nor the whole matrix: `FlagsOption` with `flags` optional
-(`run.test.ts` refuses `start(seeded)` alone, so `start(seeded, {})` would compile), `ObjectState` taken out of
-`MakeParent` (no test has a parent whose own state is `{}`), and `Inputs<State>` reading any state (the test of
-`input.test.ts` holds `Placement`, not that constraint). Held by the whole matrix alone, which runs by hand:
-`makeModel: (state: State)` in `Shape`, and the second `Extract` of `TagsTaken`. Equivalent or harmless: `ObjectState`
-on the place of `childById`, which `CheckedChild` repeats, the `any` branch of `TagsTaken` (read, not probed), and
-`update?: never` and `runCommand?: never`, which the matrix calls harmless. The matrix replaces no test: 22 of the 40
-leave its part of broken programs without a lead, and the whole matrix takes 2 minutes 15 seconds under 7.0 alone, too
-long for a killer. A mutation finds no check that is missing, as api-1, api-2 and api-4 were: the matrix does that.
-The guide tied to the matrix, weighed with it, was rejected for this step's fourth point (`docs/rejected.md`).
-
-**How.**
-
-1. **Tests for what no test holds**: the three checks held by nothing and the two held by the matrix alone, each a
-   test of the types beside the tests of its function.
-2. **A killer of a second kind** in `tools/mutations/`: the typecheck of the copy (`tsc` of the root project, 0.85
-   seconds a run on 23 November 2026), which kills a mutation by a diagnostic in a file it names, not by a test of the
-   JUnit report. `--against` compares the JavaScript emitted, and so finds every mutation of the types "the same": they
-   need another comparison, or none.
-3. **A mutation for each check of the types** of `program.ts` and `compose.ts`, with its killers. One that is
-   equivalent is not added: the check is listed with why, in one place that `change-engine` names, since
-   `docs/invariants.md` lists no checks of the types.
-4. **Each mutation of a check that holds an item of "What does not compile"**, in "Anatomy of a program" and
-   "Composition", names it, as `guarantees` names an item of "What you can rely on", and `bun run comments` fails on an
-   item no mutation names. The other pages that say "does not compile" are not tied: the tie is a tripwire for an item
-   added to the two lists, no more.
-5. **The rules say it**: "Tests" in `AGENTS.md`, where a mutation is for "each check an invariant rests on", names the
-   checks of the types too; `change-api` names the mutations after a change of the types; `change-engine` names the
-   new killer.
-
-A kill is checked under TypeScript 7.0 alone, as the tests of the types are in the CI: it says nothing of 5.9 and 6.0,
-which the matrix checks.
-
-**Done when** `bun run mutations` runs the mutations of the types and none survives, the five checks above have their
-tests, each item of the two lists of "What does not compile" is named by a mutation, and the rules say so.
 
 ### 6. The bridges in a real browser
 
@@ -338,6 +299,10 @@ otherwise.
 - **The README says what the library is and for whom, and names Foldkit**, as the owner's decision of 20 November
   2026 asks ([`adoption.md`](docs/records/adoption.md)): one reader starts a new application, the other has one
   already, most often in React.
+- **`ObjectState` on the places of `child` and `childById`, weighed for removal.** Its mutations, on 23 November
+  2026, changed nothing that compiles: `CheckedChild` refuses the same states through `ProgramChecked`, and the four
+  were there before it was (`tools/mutations/mutations.ts`, at the head of the mutations of the types). Before they go:
+  which error a user sees for a child whose state is a number, with them and without, and the smoke test's count.
 - **A benchmark that runs in the CI.** Many children, many messages per second, to keep what a message costs the event
   that sends it, and a model made only when it is read, from regressing. `bun run bench`
   (`tools/bench/subscriptions.ts`) measures a parent's subscriptions only, and `tools/bench/writes.ts`, run by hand,

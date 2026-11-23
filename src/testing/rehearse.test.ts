@@ -165,6 +165,10 @@ describe("rehearse", () => {
     expect(fromStep).toBe("milk")
     // @ts-expect-error: it has nothing to start from.
     expect(() => rehearse(seeded, () => Effect.void)).toBeDefined()
+    // @ts-expect-error: nor from options without flags.
+    expect(() => rehearse(seeded, () => Effect.void, {})).toBeDefined()
+    // @ts-expect-error: and an editor without flags starts without them.
+    expect(() => rehearse({ ...seeded, init: from }, () => Effect.void, { flags: "eggs" })).toBeDefined()
     // @ts-expect-error: it starts from its init, given its flags.
     expect(() => rehearse(seeded, () => Effect.void, { flags: "eggs", from })).toBeDefined()
   })

@@ -1,6 +1,8 @@
 // Applies each mutation of `mutations.ts` to a copy of the repository, one at a time in each copy, runs each test it
 // names alone, in a process of its own, and fails when one of them passes, or fails alone without it: a check whose
-// removal no test notices is held by none, and a test that fails only beside others of its file holds nothing.
+// removal no test notices is held by none, and a test that fails only beside others of its file holds nothing. A test
+// of the types is not run: `tsc` checks the root project of the copy once under the mutation, and the test fails when a
+// diagnostic is in its lines, as an `@ts-expect-error` that nothing refuses any more.
 //
 //   bun run mutations                  every mutation
 //   bun run mutations <name>…          those whose name contains one of the arguments
@@ -9,7 +11,8 @@
 //   --jobs=<n>                         how many copies run at once: half the processors by default
 //   bun run mutations --against=<rev> [<name>…]
 //                                      no test: whether each mutation makes the code that runs that it made at
-//                                      <rev>, after a change that rewrites the code and not what it does
+//                                      <rev>, after a change that rewrites the code and not what it does, and, for
+//                                      one of the types, which changes no code that runs, the same tokens
 //   bun run mutations --help           the same, as the command describes itself
 //
 // The copies are under `.mutants/` (ignored by git, and by `bun test`, which skips directories that start with a dot),
@@ -44,7 +47,45 @@ type Outcome = Readonly<{ file: string; name: string; title: string; failed: boo
 
 type Killer = Mutation["killedBy"][number]
 
+const typed = (killer: Killer) => killer[2] === "typecheck"
+
 type Verdict = "passed" | "failed" | "hung" | "ran away"
+
+// The lines of a test, numbered from 1 as `tsc` numbers them: from the line of its call to the line that closes it.
+type Span = Readonly<{ name: string; first: number; last: number }>
+
+// The tests of a file, as dprint writes them: a call alone on its line closes at its own indentation, and a long one
+// has its name alone on the next line.
+const spansIn = (text: string): ReadonlyArray<Span> => {
+  const lines = text.split(/\r?\n/)
+  const spans: Array<Span> = []
+  for (const [index, line] of lines.entries()) {
+    const call = /^(\s*)test(?:\.\w+)?\((.*)$/.exec(line)
+    if (call === null) continue
+    const [, indent = "", rest = ""] = call
+    const literal = /^\s*("(?:[^"\\]|\\.)*")/.exec(rest.trim() === "" ? lines[index + 1] ?? "" : rest)
+    if (literal === null) continue
+    const name: string = JSON.parse(literal[1] as string)
+    if (line.trimEnd().endsWith(")")) {
+      spans.push({ name, first: index + 1, last: index + 1 })
+      continue
+    }
+    const end = lines.findIndex((other, at) => at > index && other.startsWith(`${indent}}`))
+    if (end !== -1) spans.push({ name, first: index + 1, last: end + 1 })
+  }
+  return spans
+}
+
+type Diagnostic = Readonly<{ file: string; line: number; text: string }>
+
+const diagnosticsIn = (output: string): ReadonlyArray<Diagnostic> =>
+  Array.from(
+    output.matchAll(/^(.+?)\((\d+),\d+\): error (TS\d+: .*)$/gm),
+    ([, file = "", line, text = ""]) => ({ file: file.replaceAll("\\", "/"), line: Number(line), text })
+  )
+
+const within = (diagnostic: Diagnostic, file: string, span: Span) =>
+  diagnostic.file === file && diagnostic.line >= span.first && diagnostic.line <= span.last
 
 // Bun writes a control character, as a tab, by its number.
 const decode = (text: string) =>
@@ -132,6 +173,24 @@ const runTests = Effect.fnUntraced(function*(copy: string, files: ReadonlyArray<
   return run
 })
 
+// What `tsc` reports of the root project of `copy`, whose `effect` and whose `tsc` resolve through the repository's
+// `node_modules`: the language service of Effect patched in, as `bun run typecheck` runs it.
+const typecheck = Effect.fnUntraced(function*(copy: string) {
+  const ended = yield* exec(
+    ChildProcess.make("bun", ["x", "tsc", "--noEmit", "--pretty", "false", "-p", "."], {
+      cwd: copy,
+      forceKillAfter: Duration.seconds(5)
+    })
+  ).pipe(Effect.timeoutOption(patience))
+  if (Opt.isNone(ended)) return "hung" as const
+  const { exitCode, stderr, stdout } = ended.value
+  const diagnostics = diagnosticsIn(stdout)
+  if (exitCode !== 0 && diagnostics.length === 0) {
+    return yield* new Failed({ message: `tsc reported no diagnostic (exit ${exitCode}):\n${stdout}${stderr}` })
+  }
+  return diagnostics
+})
+
 // Applies `f` to each of `items`, one at a time in each of `copies`, and hands each result to `emit` in the order of
 // `items`. A failure interrupts the runs under way in the other copies, and is raised once their scopes have ended
 // their processes, so that none is left running in a copy about to be removed.
@@ -161,13 +220,14 @@ const pool = <A, B, E, R>(
     return Effect.forEach(copies.slice(0, items.length), work, { concurrency: "unbounded", discard: true })
   })
 
-const describe = ([file, name]: Killer) => `${file} › ${name}`
+const describe = ([file, name, by]: Killer) => `${file} › ${name}${by === undefined ? "" : ` (${by})`}`
 
-// The title of each killer of `chosen`, found by a run of their files whole: each must have run exactly once, so that
-// a renamed or removed test is an error of the list, and be the only test of its file with its title, so that a run
-// of it alone runs it only.
+// The title of each killer of `chosen` that runs, found by a run of their files whole: each must have run exactly once,
+// so that a renamed or removed test is an error of the list, and be the only test of its file with its title, so that
+// a run of it alone runs it only.
 const titlesOf = Effect.fnUntraced(function*(copy: string, chosen: ReadonlyArray<Mutation>) {
-  const killers = chosen.flatMap((mutation) => mutation.killedBy)
+  const killers = chosen.flatMap((mutation) => mutation.killedBy).filter((killer) => !typed(killer))
+  if (killers.length === 0) return new Map<string, string>() as ReadonlyMap<string, string>
   const run = yield* runTests(copy, [...new Set(killers.map(([file]) => file))])
   if (run === "hung" || run === "ran away") {
     return yield* new Failed({
@@ -177,7 +237,7 @@ const titlesOf = Effect.fnUntraced(function*(copy: string, chosen: ReadonlyArray
   const { ran } = run
   const titles = new Map<string, string>()
   for (const mutation of chosen) {
-    for (const killer of mutation.killedBy) {
+    for (const killer of mutation.killedBy.filter((killer) => !typed(killer))) {
       const [file, name] = killer
       const found = ran.filter((outcome) => outcome.file === file && outcome.name === name)
       if (found.length !== 1) {
@@ -193,6 +253,40 @@ const titlesOf = Effect.fnUntraced(function*(copy: string, chosen: ReadonlyArray
   }
   return titles as ReadonlyMap<string, string>
 })
+
+// The lines of each killer of `chosen` that is a test of the types, found in its file: as for a test that runs, its
+// name must be found exactly once there.
+const spansOf = Effect.fnUntraced(function*(copy: string, chosen: ReadonlyArray<Mutation>) {
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const spans = new Map<string, Span>()
+  for (const mutation of chosen) {
+    for (const killer of mutation.killedBy.filter(typed)) {
+      const [file, name] = killer
+      const found = spansIn(yield* fs.readFileString(path.join(copy, file))).filter((span) => span.name === name)
+      if (found.length !== 1) {
+        return yield* new Failed({
+          message: `"${mutation.name}" names ${describe(killer)}, which its file holds ${found.length} times`
+        })
+      }
+      spans.set(describe(killer), found[0] as Span)
+    }
+  }
+  return spans as ReadonlyMap<string, Span>
+})
+
+type Located = Readonly<{ titles: ReadonlyMap<string, string>; spans: ReadonlyMap<string, Span> }>
+
+// The verdict of a test of the types, from what `tsc` reported under the mutation.
+const typedVerdict = (
+  located: Located,
+  diagnostics: ReadonlyArray<Diagnostic> | "hung",
+  killer: Killer
+): Verdict => {
+  if (diagnostics === "hung") return "hung"
+  const span = located.spans.get(describe(killer)) as Span
+  return diagnostics.some((diagnostic) => within(diagnostic, killer[0], span)) ? "failed" : "passed"
+}
 
 // Runs `killer` alone in `copy`, in a process of its own: a test that hangs does not pass, nor one whose run fails
 // outside it, since it is the only test that ran.
@@ -233,20 +327,18 @@ const under = Effect.fnUntraced(function*<A, E, R>(copy: string, mutation: Mutat
   )
 })
 
-// Runs the killers of `mutation` alone in `copy`, one after another, under it.
-const verdictsUnder = (
-  copy: string,
-  titles: ReadonlyMap<string, string>,
-  mutation: Mutation,
-  killers: ReadonlyArray<Killer>
-) =>
+// Runs the killers of `mutation` alone in `copy`, one after another, under it: those of the types by one `tsc`.
+const verdictsUnder = (copy: string, located: Located, mutation: Mutation, killers: ReadonlyArray<Killer>) =>
   under(
     copy,
     mutation,
-    Effect.forEach(
-      killers,
-      (killer) => Effect.map(alone(copy, titles, killer), (verdict) => [killer, verdict] as const)
-    )
+    Effect.gen(function*() {
+      const diagnostics = killers.some(typed) ? yield* typecheck(copy) : []
+      return yield* Effect.forEach(killers, (killer) =>
+        typed(killer)
+          ? Effect.succeed([killer, typedVerdict(located, diagnostics, killer)] as const)
+          : Effect.map(alone(copy, located.titles, killer), (verdict) => [killer, verdict] as const))
+    })
   )
 
 // The JavaScript that Bun runs of `text`, by line: printed from the syntax tree, with no types, comments or layout, so
@@ -255,12 +347,24 @@ const verdictsUnder = (
 const emitted = (file: string, text: string) =>
   new Bun.Transpiler({ loader: file.endsWith(".tsx") ? "tsx" : "ts" }).transformSync(text).split("\n")
 
-// What `mutation` changes in the code that runs of `file`, with the lines around it that tell where: the rest of the
-// file is left out, so that a change elsewhere, as an order of the imports, does not tell two apart.
-const changeOf = Effect.fnUntraced(function*(mutation: Mutation, file: string, original: string) {
-  const context = 3
-  const then = emitted(file, original)
-  const now = emitted(file, yield* mutated(mutation, original))
+// The tokens of `text`, with no comments or layout: what tells apart two mutations of the types, which change no code
+// that runs.
+const tokens = (_file: string, text: string) =>
+  (text.match(/\/\/[^\n]*|\/\*[\s\S]*?\*\/|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`|\w+|\S/g) ?? [])
+    .filter((token) => !token.startsWith("//") && !token.startsWith("/*"))
+
+// What `mutation` changes in the code that runs of `file`, by line, or in its tokens, with the lines or the tokens
+// around it that tell where: the rest of the file is left out, so that a change elsewhere, as an order of the imports,
+// does not tell two apart.
+const changeOf = Effect.fnUntraced(function*(
+  mutation: Mutation,
+  file: string,
+  original: string,
+  split: (file: string, text: string) => ReadonlyArray<string> = emitted
+) {
+  const context = split === emitted ? 3 : 8
+  const then = split(file, original)
+  const now = split(file, yield* mutated(mutation, original))
   let start = 0
   while (start < then.length && start < now.length && then[start] === now[start]) start++
   let end = 0
@@ -272,6 +376,8 @@ const changeOf = Effect.fnUntraced(function*(mutation: Mutation, file: string, o
     ...then.slice(then.length - end, then.length - end + context).map((line) => `  ${line}`)
   ]
 })
+
+const changes = (change: ReadonlyArray<string>) => change.some((line) => line.startsWith("- ") || line.startsWith("+ "))
 
 const atRevision = Effect.fnUntraced(function*(revision: string, file: string) {
   const { exitCode, stdout, stderr } = yield* exec(
@@ -302,10 +408,18 @@ const compare = Effect.fnUntraced(function*(revision: string, chosen: ReadonlyAr
       yield* Console.log(`new       ${mutation.name}`)
       continue
     }
-    const then = yield* changeOf(old, old.file, yield* atRevision(revision, old.file))
-    const now = yield* changeOf(mutation, mutation.file, yield* fs.readFileString(path.join(root, mutation.file)))
+    const textThen = yield* atRevision(revision, old.file)
+    const textNow = yield* fs.readFileString(path.join(root, mutation.file))
+    let then = yield* changeOf(old, old.file, textThen)
+    let now = yield* changeOf(mutation, mutation.file, textNow)
+    // A mutation of the types changes no code that runs, at either revision: its tokens tell where it is.
+    const byTokens = !changes(then) && !changes(now)
+    if (byTokens) {
+      then = yield* changeOf(old, old.file, textThen, tokens)
+      now = yield* changeOf(mutation, mutation.file, textNow, tokens)
+    }
     if (then.join("\n") === now.join("\n")) {
-      yield* Console.log(`same      ${mutation.name}`)
+      yield* Console.log(`same      ${mutation.name}${byTokens ? " (by its tokens)" : ""}`)
       continue
     }
     different++
@@ -338,48 +452,102 @@ const suiteUnder = Effect.fnUntraced(function*(copy: string) {
   return { ranAway } as const
 })
 
+// What `tsc` reports under a mutation, by the test of the types whose lines hold it, or outside any test.
+const typedUnder = Effect.fnUntraced(function*(copy: string) {
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const diagnostics = yield* typecheck(copy)
+  if (diagnostics === "hung") return "hung" as const
+  const failed = new Map<string, Killer>()
+  const outside: Array<Diagnostic> = []
+  const spans = new Map<string, ReadonlyArray<Span>>()
+  for (const diagnostic of diagnostics) {
+    if (!spans.has(diagnostic.file)) {
+      spans.set(diagnostic.file, spansIn(yield* fs.readFileString(path.join(copy, diagnostic.file))))
+    }
+    const span = (spans.get(diagnostic.file) ?? []).find((span) => within(diagnostic, diagnostic.file, span))
+    if (span === undefined) outside.push(diagnostic)
+    else failed.set(`${diagnostic.file} › ${span.name}`, [diagnostic.file, span.name, "typecheck"])
+  }
+  return { failed: [...failed.values()], outside }
+})
+
+// Whether `mutation` leaves the code that runs as it is: it changes only types, and no test that runs can fail.
+const ofTypes = Effect.fnUntraced(function*(copy: string, mutation: Mutation) {
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  return !changes(yield* changeOf(mutation, mutation.file, yield* fs.readFileString(path.join(copy, mutation.file))))
+})
+
 const discoverIn = (copies: ReadonlyArray<string>, chosen: ReadonlyArray<Mutation>) =>
   pool(
     copies,
     chosen,
-    (copy, mutation) => under(copy, mutation, suiteUnder(copy)),
-    (run, index) => {
+    (copy, mutation) =>
+      Effect.flatMap(ofTypes(copy, mutation), (onlyTypes) =>
+        under(
+          copy,
+          mutation,
+          Effect.all({
+            run: onlyTypes ? Effect.succeed("same code" as const) : suiteUnder(copy),
+            types: typedUnder(copy)
+          })
+        )),
+    ({ run, types }, index) => {
       const { name } = chosen[index] as Mutation
+      console.log(`\n${name}:`)
+      if (types === "hung") console.log("  tsc hangs under it")
+      else {
+        for (const [file, test] of types.failed) console.log(`  ['${file}', ${JSON.stringify(test)}, "typecheck"],`)
+        for (const { file, line, text } of types.outside) {
+          console.log(`  and, outside a test, ${file}(${line}): ${text}`)
+        }
+      }
+      if (run === "same code") {
+        console.log("  and it changes no code that runs: no test that runs can fail")
+        return
+      }
       if (run === "hung") {
-        console.log(`\n${name}: the suite hangs under it`)
+        console.log("  the suite hangs under it")
         return
       }
       if ("ranAway" in run) {
-        console.log(`\n${name}: the suite runs away under it`)
+        console.log("  the suite runs away under it")
         for (const file of run.ranAway) console.log(`  and so does ${file}, alone`)
         return
       }
-      const failed = run.ran.filter((outcome) => outcome.failed)
-      console.log(`\n${name}: ${failed.length} failing`)
       // An error thrown between two tests fails none of them in the report: only a run of each alone tells which one
       // leaves it.
       if (run.failedOutside) console.log("  and the suite fails outside its tests")
-      for (const { file, name } of failed) console.log(`  ['${file}', ${JSON.stringify(name)}],`)
+      for (const { file, name } of run.ran.filter((outcome) => outcome.failed)) {
+        console.log(`  ['${file}', ${JSON.stringify(name)}],`)
+      }
     }
   )
 
 // How many of `chosen` survived a test that must kill them.
 const killIn = Effect.fnUntraced(function*(copies: ReadonlyArray<string>, chosen: ReadonlyArray<Mutation>) {
   const titles = yield* titlesOf(copies[0] as string, chosen)
-  // Each test must pass alone without its mutation, or its failure under it says nothing.
+  const located: Located = { titles, spans: yield* spansOf(copies[0] as string, chosen) }
+  // Each test must pass alone without its mutation, or its failure under it says nothing; a test of the types, with
+  // no diagnostic in its lines.
   const killers = new Map(chosen.flatMap((mutation) => mutation.killedBy.map((killer) => [describe(killer), killer])))
+  const unmutated = [...killers.values()].some(typed) ? yield* typecheck(copies[0] as string) : []
+  const fail = (killer: Killer, outcome: Verdict) =>
+    outcome === "passed"
+      ? Effect.void
+      : Effect.fail(new Failed({ message: `${describe(killer)} ${outcome} alone without any mutation` }))
+  for (const killer of [...killers.values()].filter(typed)) {
+    yield* fail(killer, typedVerdict(located, unmutated, killer))
+  }
   yield* pool(
     copies,
-    [...killers.values()],
-    (copy, killer) =>
-      Effect.flatMap(alone(copy, titles, killer), (outcome) =>
-        outcome === "passed"
-          ? Effect.void
-          : Effect.fail(new Failed({ message: `${describe(killer)} ${outcome} alone without any mutation` })))
+    [...killers.values()].filter((killer) => !typed(killer)),
+    (copy, killer) => Effect.flatMap(alone(copy, titles, killer), (outcome) => fail(killer, outcome))
   )
   const killedIn = (copy: string, mutation: Mutation) =>
     Effect.map(
-      Effect.timed(verdictsUnder(copy, titles, mutation, mutation.killedBy)),
+      Effect.timed(verdictsUnder(copy, located, mutation, mutation.killedBy)),
       ([duration, ran]) => ({ ran, seconds: Duration.toSeconds(duration).toFixed(1) })
     )
   const results: Array<Effect.Success<ReturnType<typeof killedIn>>> = []
@@ -388,12 +556,12 @@ const killIn = Effect.fnUntraced(function*(copies: ReadonlyArray<string>, chosen
   })
   // A killer that holds a window of absence (`docs/invariants.md`) may pass under its mutation on a machine the other
   // copies load. It is run again, alone and with no other copy running, before it is taken for a survivor: the
-  // killers of a check no test notices pass again, so this keeps every survivor.
+  // killers of a check no test notices pass again, so this keeps every survivor. A test of the types holds no window.
   const again = new Map<number, ReadonlyArray<Killer>>()
   for (const [index, { ran }] of results.entries()) {
-    const passed = ran.filter(([, outcome]) => outcome === "passed").map(([killer]) => killer)
+    const passed = ran.filter(([killer, outcome]) => outcome === "passed" && !typed(killer)).map(([killer]) => killer)
     if (passed.length === 0) continue
-    const verdicts = yield* verdictsUnder(copies[0] as string, titles, chosen[index] as Mutation, passed)
+    const verdicts = yield* verdictsUnder(copies[0] as string, located, chosen[index] as Mutation, passed)
     again.set(index, verdicts.filter(([, outcome]) => outcome !== "passed").map(([killer]) => killer))
   }
   let survived = 0

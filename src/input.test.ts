@@ -848,6 +848,46 @@ describe("the types of an input", () => {
     })
   })
 
+  test("an input declared for another state is no input of a program, alone or by id", () => {
+    type Other = Readonly<{ title: string; titles: Readonly<Record<string, string>> }>
+    const other = Optic.id<Other>()
+    const elsewhere = program<{ state: Other }>()
+    make({
+      init: { state: draftOf("") },
+      inputs: {
+        // @ts-expect-error: the input reads another state.
+        Title: elsewhere.input({ at: other.key("title") })
+      },
+      makeModel: (state) => state
+    })
+    make({
+      init: { state: draftOf("") },
+      inputs: {
+        // @ts-expect-error: and so do the inputs by id.
+        Titles: elsewhere.inputById({ at: (id: string) => other.key("titles").at(id) })
+      },
+      makeModel: (state) => state
+    })
+  })
+
+  test("an input is placed by an optic, or by get and set, never by both", () => {
+    // A place that is no literal: its fields are not checked as fields too many.
+    const both = {
+      at: here.key("title"),
+      get: (state: Draft) => Opt.some(state.title),
+      set: (state: Draft, title: string) => ({ ...state, title })
+    }
+    // @ts-expect-error: the library would read one form and leave the other.
+    expect(input(both)).toBeDefined()
+    const bothById = {
+      at: (_: string) => here.key("title"),
+      get: (state: Draft, _: string) => Opt.some(state.title),
+      set: (state: Draft, _: string, title: string) => ({ ...state, title })
+    }
+    // @ts-expect-error: by id too.
+    expect(inputById(bothById)).toBeDefined()
+  })
+
   test("an own message that takes the name of an input does not compile", () => {
     // @ts-expect-error: it would be routed to the input.
     program<{ state: Draft; message: Readonly<{ _tag: "Title" }> }>().make({

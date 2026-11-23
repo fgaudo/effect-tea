@@ -41,6 +41,10 @@ proposing one.
   then `bun run inference --run`, which plays the programs of its valid cases with messages drawn by fast-check and
   fails on one that dies of a defect. A new function that takes a program is added to its `uses`, and a difference
   meant to its table; a new function that takes a message, to its `takers`.
+- A change of the types of `program.ts` or `compose.ts` runs `bun run mutations` too, which takes each of their checks
+  out in turn and fails where no test of the types notices. A check added gets a test of the types that refuses what it
+  refuses, and a mutation of its own in `tools/mutations/mutations.ts` ([`change-engine`](../change-engine/SKILL.md),
+  "Mutations of the types"). The matrix finds a check that is missing, and a mutation a check that no test holds.
 - A testing tool's test shows it on a program, and an example's test uses it
   ([`add-example`](../add-example/SKILL.md)): the README's "Examples" table says which tool each example shows,
   and must stay true.
