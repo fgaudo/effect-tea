@@ -12,11 +12,9 @@ for on 20 November 2026 and asked to be written here in the order it advises. St
 4 and 6, and steps 17 to 21 its part 5, as the owner took it on 21 November 2026
 ([`one-engine.md`](docs/records/one-engine.md)). Step 16 comes from the owner's question, on 21 November
 2026, of why the findings api-1, api-2 and api-4 of [`library-review.md`](docs/records/library-review.md) passed the
-inference matrix and the tests; its point 1 is as the owner decided on 23 November 2026, after two second opinions
-([`program-checks.md`](docs/records/program-checks.md), whose probes found the first lead under "Open problems", and
-[`program-forms.md`](docs/records/program-forms.md), on the forms of a program promised), and points 2 and 3 of it
-are done. Steps 22 to
-31 come from
+inference matrix and the tests; its points 1 to 3 are done, the first as the owner decided on 23 November 2026, after
+two second opinions ([`program-checks.md`](docs/records/program-checks.md) and
+[`program-forms.md`](docs/records/program-forms.md)). Steps 22 to 31 come from
 [`application-report.md`](docs/records/application-report.md), a report of an application's upgrade to 0.8.0 that the
 owner asked to weigh on 22 November 2026. From the same record, "Why no check found them", come step 27, point 5 of
 step 16, point 5 of step 26, and two items of "Any time"; and from "What the owner decided", steps 28 to 30, and a step
@@ -53,24 +51,10 @@ Each step names its model and effort, what it depends on, and how to tell that i
 
 A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a deterministic
 test of it. A finding of a review goes here with its `test.failing`, until its fix removes the mark and the item. A
-lead of the types has no `test.failing`: its fix adds the test of the types that holds it. The first below was found
-by the probes of [`program-checks.md`](docs/records/program-checks.md), which says it in full, and the others by the
-inference matrix on 23 November 2026, each with a case that shows it (`bun run inference --filter <case>`); what the
-second was found to cover is in [`program-forms.md`](docs/records/program-forms.md). All but the last are for point 1
-of step 16, which fixes them.
+lead of the types has no `test.failing`: its fix adds the test of the types that holds it. The one below was found by
+the inference matrix on 23 November 2026, with a case that shows it (`bun run inference --filter <case>`), where it
+is a lead, "valid, but taken with other types".
 
-- **`child` takes an `output` over another state**: `ProgramChecked` in `src/compose.ts` writes the pieces of a program
-  by hand, without the `output` of `Shape`.
-- **`start` and `drive` refuse every program with an `external` or an `output`**, of `make` with an `update` or not,
-  typed `Program<…>`, or written in their call: their row names neither, so every type parameter falls back to its
-  constraint, or a program written in the call has a property in excess. `rehearse`, `simulate` and `child` take it,
-  and so does `start` without the piece. Older than step 16. Cases: `none.absent.external.canonical`,
-  `hand.annotated.command+external+flags+commandServices`, `object.call.annotated.external`; the `output` of a program
-  of `make` waits for point 6, which writes one. The fix the owner took: the row names `external` and `output`, as
-  `External = never` and `Output = never` after the other type parameters.
-- **`start` and `drive` ask for a service the program names and never uses**: `Program<{ …; commandServices: Db }>`
-  without commands needs `Db` there, inferred from the arguments of the alias `Program<…>`, where
-  `CommandServicesOf` and `rehearse` read none (`hand.annotated.commandServices`).
 - **`simulate` reads the state from what `update` returns**: with no `init` to read, the state of
   `{ ...typed, update: (message: Own) => (state: SNone) => … }` is `{ n: number }`, the literal of its steps, and not
   the `SNone` the program names (`object.spread.annotated.state`). Step 21 weighs `simulate` again.
@@ -84,13 +68,12 @@ generator they run in.
 
 **Depends on** step 34 for what it reads of `src/compose.ts`: `child` and `childById` take other arguments there, and
 a parent declares its children in a call of their own, a form that the matrix writes too. It changes nothing a user
-writes, but what the leads under "Open problems" fix. The rule it adds to `AGENTS.md` (point 1) is the one the owner
-took on 23 November 2026 ([`program-checks.md`](docs/records/program-checks.md), "Decided").
+writes, but what the leads under "Open problems" fix.
 
 **Why.** api-1, api-2 and api-4 lived in one form of a program, an object not typed `Program<…>`, which `child`,
-`childById`, `start` and the testing tools take as it is. The inference matrix (`tools/inference/generate.ts`) writes
+`childById`, `start` and the testing tools take as it is. The inference matrix (`tools/inference/generate.ts`) wrote
 two forms only, a program of `make` and one typed `Program<…>`, and the tests of `child` typed their children
-`Program<…>` too, so the weaker check of `child` never met a case. And nothing compares the functions that take a
+`Program<…>` too, so the weaker check of `child` never met a case. And nothing compared the functions that take a
 program: `child` checked less than `start`, and no check could see it. Its fix met a fourth case that the tests did not
 hold: a child written in the call, where the check became the contextual type of its functions, and `HashMap.empty()`
 held subscriptions of `unknown` messages. Only the smoke test found it, since every test gave `child` a constant. So
@@ -98,46 +81,27 @@ what is written matters, and how it is written too. No formal check of TypeScrip
 only semantics, and it changes between 5.9, 6.0 and 7.0. The nearest is the matrix: every combination of declared
 axes, checked by `tsc`, so the risk left is in the axes it does not list.
 
-**How.** Points 2 and 3 are done: the matrix writes a program as an object not typed `Program<…>`, in a constant, in
-the call and spread from a typed one, with its violations, and gives every case to `Program<…>`, `start`, `drive`,
-`rehearse`, `simulate`, `child` and `childById`, each in a part of its own. The differences meant are a table in
+**How.** Points 1 to 3 are done. The matrix writes a program of `make`, one typed `Program<…>`, either of them started
+from another state (`{ ...program, init }`), and an object not typed `Program<…>`, in a constant, in the call and
+spread from a typed one, with its violations, and gives every case to `Program<…>`, `start`, `drive`, `rehearse`,
+`simulate`, `child` and `childById`, each in a part of its own. The differences meant are a table in
 `tools/inference/generate.ts`: the pieces each function checks (`checks`), the events that `start` and `drive` refuse
 (`refusesEvents`), and the forms weighed before as forms that repeat another (`formsRefused`): a child written in the
 call with a parameter not annotated, the price the owner took of `child`'s check, kept for the name of `P`
 (`program-checks.md`, finding 1), and an `update` written over a spread program with its parameter not annotated,
-which step 38 weighed. `simulate` is given
-the pieces it calls alone, and in the call only annotated: no `init` gives it the state. With them came the fix of the
-message narrowed by an answer, `NoInfer<Message>` in the `runCommand` and the `listen` of `Shape`, which makes the
-second form above refused in every case, and `simulate`'s `Command = never` and `Event = never`. What they found is
-under "Open problems". The rest, in the order 1, 4, 5, 6, each with its leads listed there until fixed. Which forms of
-a program the library promises, the owner decided before point 1 ([`program-forms.md`](docs/records/program-forms.md),
-"Decided"): by a rule, not a list, which point 1 writes:
+which step 38 weighed. It judges the forms by the rule of `AGENTS.md` ("What belongs here") that the owner took
+([`program-forms.md`](docs/records/program-forms.md), "Decided"): in a form not typed, a valid case that a function
+refuses is a note, and one that it takes with other types is a lead. Its notes are pieces written in the call with
+their parameter not annotated, whose type waits on one still to be inferred: `listen`, `external` and `output` in
+`start` and `drive`, and `listen`, `runCommand` and `external` in `rehearse`. `ProgramChecked` is written with
+`Program<…>`, and so from `Shape`, but in `src/compose.ts`, not beside `Shape` as planned: exported by `program.ts`
+and not by the package, it is a type that a consumer's declarations cannot name, which `bun run api` refuses. The row
+of `start` and `drive` names `external` and `output`, and their run needs only the services of the effects a program
+has (`Needed` in `src/run.ts`). `simulate` is given the pieces it calls alone, and
+in the call only annotated: no `init` gives it the state. What is left of the leads is under "Open problems". The
+rest, in the order 4, 5, 6, each with its leads listed there until fixed:
 
-1. **One definition of a program, and the matrix holds the rest.** One type for the six cannot keep them in step
-   (`program-checks.md`): the check read back breaks a program written in the call in `start`, `drive` and
-   `rehearse`, and `child` needs it to keep its `P`. So `ProgramChecked` is written from `Shape`, in `src/program.ts`
-   beside it, and `compose.ts` imports it: the lead of `output` is closed by it. `start`, `drive` and `rehearse` keep
-   the row, `child` and `childById` the check read back, with the two forms the fix of api-1 needed (`Lacking` and
-   `CheckedChild`): never on the type parameter itself, never a member of the argument's type. `simulate` keeps its
-   check of the pieces it calls. The row of `start` and `drive` names `external` and `output`, as `External = never`
-   and `Output = never` after their other type parameters, and their `checks` in `tools/inference/generate.ts` gain
-   both: the second lead under "Open problems" is closed by it, with a changelog entry under "Fixed" (whether 0.8.0
-   has the bug is to be checked). The other leads of the matrix there are fixed here, but the last, for step 21. A
-   rule of `AGENTS.md` ("Code") says, as the owner took it: the pieces of a program are written once, in `Shape`, and
-   a check of a program reads them from there, never a copy; every function that takes a program is listed in the
-   matrix, which gives each case to all of them and fails where they disagree beyond the differences it lists; a
-   change of the signature of one runs `bun run inference`, which `change-api` says. And "What belongs here", where it
-   states the three rules of the types, says which forms they are owed to: a form may be refused, but it is never
-   taken wrongly; the first rule is owed to `make`, to a value typed `Program<…>` and to `{ ...program, init }`, the
-   second and the third to every form a function takes. Its parenthesis "hidden where it is not (a program that
-   `program` makes)" is false, since the guide documents the pieces and "Running" spreads them, and is set right. The
-   matrix judges by that rule: in the forms not typed, a valid case refused is a note, not a lead (as a piece written
-   in the call with its parameter not annotated, `listen: (key) => …` in `start`, `drive` and `rehearse`
-   (`object.call.contextual.state.emits`), and `runCommand: (command) => …` and `external: (message) => …` in
-   `rehearse` (`object.call.contextual.command`, `object.call.contextual.external`)), and a broken case taken, or a
-   case taken with other types, is a lead. It writes `{ ...program, init }` over the cases of `make` and the hand
-   cases, which it never writes today. The examples, the bridges, the tests and the matrix are run with the new row:
-   the second opinion ran only `src/` and `test/` with it.
+1. **One definition of a program, and the matrix holds the rest.** Done, as said above.
 2. **The matrix writes the form it lacks.** Done, as said above.
 3. **Each case is given to every function that takes a program.** Done, as said above.
 4. **What compiles runs without a defect the types could prevent**, the second rule, which nothing checks today: each
@@ -156,9 +120,10 @@ a program the library promises, the owner decided before point 1 ([`program-form
    run: a program of `make` never names an `output` of its own, which came with step 35, so no parent that is a child
    in turn declares one (a program written as an object does, since point 2); its child is always the prelude's `kid`
    (or `kidF`), with commands, events, an external message, an output and services, so no child lacks one of them,
-   where `Lacking` in `compose.ts` takes another branch for a child without commands; a parent has one child, and `mixed` one child beside one input, so no
-   two children of different types meet in one parent but by the clashes of names; and services vary only in the hand
-   cases, typed `Program<…>`, never in a program of `make`. Some may be held in part by the special cases.
+   where `Lacking` in `compose.ts` takes another branch for a child without commands; a parent has one child, and
+   `mixed` one child beside one input, so no two children of different types meet in one parent but by the clashes of
+   names; and services vary only in the hand cases, typed `Program<…>`, never in a program of `make`. Some may be held
+   in part by the special cases, and the `output` of a program of `make` given to `start` and `drive` by their tests.
 
 Then the owner weighs two more, each taken as a step here or written in `docs/rejected.md`. Mutations of the types: a
 mutation in `tools/mutations/` that takes out each check of the types of `program.ts` and `compose.ts`, killed by the
@@ -174,10 +139,12 @@ What the matrix costs, for the owner to weigh with these: its twelve configurati
 axes it has pays for most of it: the order of the pieces and the annotations alone multiply every case by four. Those
 axes crossed in pairs, not in full, would leave time for the axes of point 6: since point 1 judges the forms not typed
 by its rule, theirs may be crossed in pairs.
-Since points 2 and 3, a case is given to seven functions: the three default configurations (5.9, 6.0 and 7.0) took 12
-minutes on 23 November 2026, for 181,611 parts, and found the same leads, all of them under "Open problems". A
-program of `make` is given to the five functions that came with point 3 once for each type it has (canonical order,
-not annotated, `update` absent or contextual), since the other axes leave the type that `make` returns the same.
+Since points 2 and 3, a case is given to seven functions, and since point 1, a program of `make` or typed by hand is
+given to six of them started from another state too: the three default configurations (5.9, 6.0 and 7.0) took 11
+minutes on 23 November 2026, for 216,384 parts, and found in each the 96 parts of the lead under "Open problems", and
+182 notes. A program of `make` is given to the five functions that came with point 3, and started from another state,
+once for each type it has (canonical order, not annotated, `update` absent or contextual), since the other axes leave
+the type that `make` returns the same.
 
 **Done when** points 1 to 6 run (all but the fourth in `bun run inference`), `AGENTS.md`, `change-api` and the comment
 at the head of `tools/inference/generate.ts` say what they check, their leads are fixed or listed under "Open

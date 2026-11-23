@@ -65,6 +65,8 @@ version, and everything else, features included, the patch version.
 
 - `simulate` takes a program written as an object without commands or events, whose `commands` and `events` it gives
   as `never`.
+- `start` and `drive` take a program with an `external`, which they refused, and check it as `child` does; their run
+  needs no service that a program's type names for commands or subscriptions it does not have.
 
 ## 0.8.0 (2026-11-21)
 

@@ -681,6 +681,40 @@ describe("the run", () => {
     expect(() => start(telling)).toBeDefined()
   })
 
+  test("a program a parent could hold starts too: its external and its output are checked, and never called", async () => {
+    const held = program<{ state: Count; model: number; message: Message; external: "Reset"; output: number }>().make({
+      init: { state: { count: 0 } },
+      update: () => ({ count }) => ({ state: { count: count + 1 } }),
+      external: () => () => ({ state: { count: 0 } }),
+      makeModel: ({ count }) => count,
+      output: ({ count }) => count
+    })
+    const { app, run } = start(held)
+    app.dispatch("Increment")
+    expect(app.model()).toBe(1)
+    expect(wheres(await interrupted(Effect.runFork(run)))).toEqual([])
+    expect(() =>
+      // @ts-expect-error: an external message applies in every state.
+      start({ ...held, external: (_: "Reset") => (state: Count) => state.count > 0 ? { state } : reject })
+    ).toBeDefined()
+    // @ts-expect-error: its output reads its own state.
+    expect(() => start({ ...held, output: (other: Readonly<{ other: string }>) => other.other.length })).toBeDefined()
+  })
+
+  test("a run needs the services of the effects the program has, not those its type names for effects it lacks", () => {
+    type Db = Readonly<{ db: true }>
+    type Feed = Readonly<{ feed: true }>
+    const named: Program<
+      { state: Count; model: Model; message: Message; commandServices: Db; subscriptionServices: Feed }
+    > = {
+      init: { state: { count: 0 } },
+      update: () => (state) => ({ state }),
+      subscriptions: () => [],
+      makeModel: (state) => state
+    }
+    expectTypeOf(start(named).run).toEqualTypeOf<Effect.Effect<never, never, never>>()
+  })
+
   test("a command's execution cannot fail: its type has no error", () => {
     expectTypeOf<Effect.Error<Execution<Message>>>().toBeNever()
     expectTypeOf<Effect.Error<ReturnType<RunCommand<Command, Message>>>>().toBeNever()

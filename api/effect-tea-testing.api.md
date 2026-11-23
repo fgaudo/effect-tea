@@ -57,7 +57,7 @@ export const dispatchViolations: <State, Message, Command, Event>(update: Update
 }>) => ReadonlyArray<DispatchViolation<Message>>;
 
 // @public
-export const drive: <State extends object, Model, Message, Command = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never, Key = never>(program: Program<{
+export const drive: <State extends object, Model, Message, Command = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never, Key = never, External = never, Output = never>(program: Program<{
     state: State;
     model: Model;
     message: Message;
@@ -66,7 +66,9 @@ export const drive: <State extends object, Model, Message, Command = never, RC =
     subscriptionServices: RS;
     flags: Flags;
     key: Key;
-}>, scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>, ...args: [Flags] extends [never] ? [options?: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<A, E, RT | Exclude<RC, Scope.Scope> | Exclude<RS, Scope.Scope>>;
+    external: External;
+    output: Output;
+}>, scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>, ...args: [Flags] extends [never] ? [options?: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<A, E, RT | Needed<Command, RC, Key, RS>>;
 
 // @public
 export interface DriveOptions<State, Message, Command = unknown> extends RunOptions<State, Message, Command> {
@@ -171,6 +173,9 @@ type Listened<P, T> = P extends {
 type Listener<Key, Message, R> = [Key] extends [never] ? object : {
     readonly listen: Listen<Key, Message, R>;
 };
+
+// @public (undocumented)
+type Needed<Command, RC, Key, RS> = Exclude<([Command] extends [never] ? never : RC) | ([Key] extends [never] ? never : RS), Scope.Scope>;
 
 // @public
 type ObjectState<State> = [State] extends [object] ? Fielded<State> : {

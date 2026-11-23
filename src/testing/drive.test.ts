@@ -149,6 +149,31 @@ describe("drive", () => {
     expect(await Effect.runPromise(drive(plain, (driver) => driver.waitFor(Opt.some)))).toBe(0)
   })
 
+  test("a program a parent could hold is driven too: its external and its output are checked, and never called", async () => {
+    type Count = Readonly<{ count: number }>
+    const held: Program<{ state: Count; model: number; message: "Inc"; external: "Reset"; output: number }> = {
+      init: { state: { count: 0 } },
+      update: () => ({ count }) => ({ state: { count: count + 1 } }),
+      external: () => () => ({ state: { count: 0 } }),
+      subscriptions: () => [],
+      makeModel: ({ count }) => count,
+      output: ({ count }) => count
+    }
+    const counted = drive(
+      held,
+      Effect.fnUntraced(function*(driver) {
+        yield* driver.send(() => Opt.some("Inc" as const))
+        return yield* driver.waitFor((count) => count === 1 ? Opt.some(count) : Opt.none())
+      })
+    )
+    expect(await Effect.runPromise(counted)).toBe(1)
+    expect(() =>
+      // @ts-expect-error: an external message applies in every state.
+      drive({ ...held, external: (_: "Reset") => (state: Count) => state.count > 0 ? { state } : reject }, () =>
+        Effect.void)
+    ).toBeDefined()
+  })
+
   test("send waits for a model that shows the message", async () => {
     const saved = await Effect.runPromise(drive(
       noteProgram(Effect.void),

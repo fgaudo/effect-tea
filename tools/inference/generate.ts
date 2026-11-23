@@ -2,16 +2,18 @@
 // that their types keep the three rules of `AGENTS.md` ("What belongs here"). Run by hand after a change of the types
 // of `program.ts` or `compose.ts`; it fails when it finds a lead.
 //
-// A program is written in each form: made with `make`, typed `Program<…>` by hand, and as an object not typed
-// `Program<…>`, in a constant, in the call, or spread from a typed one. Each valid case asserts, with `Exactly`, the
-// state, model, messages, commands, events, external messages, flags, services, keys and output read back from the
-// program, and is given to every function that takes a program: `Program<…>` of the expected types, `start`, `drive`,
-// `rehearse`, `simulate`, `child` and `childById`, each in a part of its own, which must take it and give back the same
-// types, or refuse it where the table of the differences meant says (`checks`, `refusesEvents`, `formsRefused`). A
-// broken program of `make` must fail to compile where it is made; one written as an object must be refused by each
-// function that checks the piece it breaks, and taken by the others. A lead is a
-// part that fails where it should compile, or compiles where it should not. A scale of parents with 1 to 64 children
-// measures the time to check one, and the size of its declarations.
+// A program is written in each form: made with `make`, typed `Program<…>` by hand, either of them started from another
+// state (`{ ...program, init }`), and as an object not typed `Program<…>`, in a constant, in the call, or spread from a
+// typed one. Each valid case asserts, with `Exactly`, the state, model, messages, commands, events, external messages,
+// flags, services, keys and output read back from the program, and is given to every function that takes a program:
+// `Program<…>` of the expected types, `start`, `drive`, `rehearse`, `simulate`, `child` and `childById`, each in a part
+// of its own, which must take it and give back the same types, or refuse it where the table of the differences meant
+// says (`checks`, `refusesEvents`, `formsRefused`). A broken program of `make` must fail to compile where it is made;
+// one written as an object must be refused by each function that checks the piece it breaks, and taken by the others.
+// The forms are judged by the rule of `AGENTS.md`: a form may be refused, but it is never taken wrongly. So a lead is a
+// part that fails where it should compile, but a valid program in a form not typed that a function refuses is a note;
+// or a part that compiles where it should not, or that gives back other types. A scale of parents with 1 to 64
+// children measures the time to check one, and the size of its declarations.
 //
 //   bun run inference [--typescript 5.9,6.0,7.0] [--exact true,false] [--unchecked true,false] [--filter <substring>]
 //     [--scale 1,2,4,8,16,32,64] [--jobs <n>]
@@ -292,12 +294,13 @@ const running: ReadonlySet<Piece> = new Set<Piece>([
 ])
 // The differences meant between the functions: the pieces each one checks. A program broken in a piece is refused by
 // those that check it, and taken by the others, which never call it: only a parent calls `external` and reads
-// `output`, and `simulate` calls `update`, `subscriptions` and `runCommand` alone, and does not read keys. And `start`
-// and `drive` refuse a program with events, which only a parent hears.
+// `output`, which `start` and `drive` check all the same, as their row names them, and `rehearse` does not; and
+// `simulate` calls `update`, `subscriptions` and `runCommand` alone, and does not read keys. And `start` and `drive`
+// refuse a program with events, which only a parent hears.
 const checks: Readonly<Record<Use, ReadonlySet<Piece>>> = {
   typed: new Set(pieces.filter((piece) => piece !== "onEvent")),
-  start: running,
-  drive: running,
+  start: new Set<Piece>([...running, "external", "output"]),
+  drive: new Set<Piece>([...running, "external", "output"]),
   rehearse: running,
   simulate: new Set<Piece>(["state", "update", "subscriptions", "runCommand"]),
   child: new Set(pieces),
@@ -322,12 +325,15 @@ const formsRefused: ReadonlyArray<Readonly<{ form: string; uses: ReadonlyArray<U
       + " program spread, names none"
   }
 ]
+// `form` is given for a program written as an object not typed `Program<…>`, alone among the forms.
 const verdictFor = (use: Use, events: boolean, broken: Piece | undefined, form?: string): Verdict =>
   (broken !== undefined && checks[use].has(broken)) || (events && refusesEvents.has(use))
     ? false
     : formsRefused.some((refused) => refused.form === form && refused.uses.includes(use))
     ? "refused"
-    : true
+    : form === undefined
+    ? true
+    : "untyped"
 
 // What a parent of the program reads back of it, as its child alone or as its children by id.
 const parentTypes = (types: Types, byId: boolean): Types => {
@@ -724,9 +730,21 @@ const generate = (c: Case): ReadonlyArray<Part> => {
   lines.push(...readerLines("made", expected))
   return [
     { label: "program", valid: true, lines },
-    ...usesOf("made", expected, representative(c) ? uses : ["typed", "child"])
+    ...usesOf("made", expected, representative(c) ? uses : ["typed", "child"]),
+    ...(representative(c) ? restarted("made", expected) : [])
   ]
 }
+
+// The program started from another state, as "Running", "Starting from another state", writes it,
+// `{ ...program, init: { state } }`, with a state saved before: given to every function but `simulate`, which takes
+// no `init` and is given a state in each call, and owed the first rule as the program it spreads is. Its flags are
+// gone with its `init`, and the rest of its types are the same.
+const restarted = (name: string, types: Types): ReadonlyArray<Part> =>
+  usesOf(
+    `{ ...${name}, init: { state: savedState<StateOf<typeof ${name}>>() } }`,
+    { ...types, flags: "never" },
+    uses.filter((use) => use !== "simulate")
+  ).map((part) => ({ ...part, label: `restart.${part.label}` }))
 
 // The axes that change only how `make` is written, the order of its pieces, their annotations, and the form of
 // `update`, leave the type it returns the same, as the readers assert in every case: so a program of `make` is given to
@@ -806,7 +824,11 @@ const generateHand = (c: HandCase): ReadonlyArray<Part> => {
     output: "never"
   }
   lines.push(...readerLines("made", expected))
-  return [{ label: "program", valid: true, lines }, ...usesOf("made", expected, uses)]
+  return [
+    { label: "program", valid: true, lines },
+    ...usesOf("made", expected, uses),
+    ...restarted("made", expected)
+  ]
 }
 
 const subsets = <A>(items: ReadonlyArray<A>): ReadonlyArray<ReadonlySet<A>> =>
@@ -992,6 +1014,7 @@ type ObjectViolation =
   | "wrongInitState"
   | "missingSubscriptions"
   | "missingOnEvent"
+  | "outputOtherState"
 const brokenPiece: Readonly<Record<ObjectViolation, Piece>> = {
   missingRunCommand: "runCommand",
   wrongAnswer: "runCommand",
@@ -1002,7 +1025,8 @@ const brokenPiece: Readonly<Record<ObjectViolation, Piece>> = {
   primitiveState: "state",
   wrongInitState: "init",
   missingSubscriptions: "subscriptions",
-  missingOnEvent: "onEvent"
+  missingOnEvent: "onEvent",
+  outputOtherState: "output"
 }
 type ObjectCase = Readonly<{
   id: string
@@ -1071,7 +1095,14 @@ const objectEntries = (o: ObjectCase): ReadonlyArray<readonly [Piece, string]> =
     entries.push(["listen", `listen: (key${a(key)}) => ${listened},`])
   }
   entries.push(["makeModel", `makeModel: (state${a(S)}) => ({ count: ${n} }),`])
-  if (has("output")) entries.push(["output", `output: (state${a(S)}) => ${n} > 0,`])
+  if (has("output")) {
+    entries.push([
+      "output",
+      v === "outputOtherState"
+        ? "output: (other: Readonly<{ other: string }>) => other.other.length > 0,"
+        : `output: (state${a(S)}) => ${n} > 0,`
+    ])
+  }
   return entries
 }
 
@@ -1175,7 +1206,8 @@ const objectViolations: ReadonlyArray<
   // Contextual, the state of `update` is the one `init` gives: nothing names another.
   { violation: "wrongInitState", named: [], subs: "none", annotatedOnly: true },
   { violation: "missingSubscriptions", named: [], subs: "none" },
-  { violation: "missingOnEvent", named: ["event"], subs: "none" }
+  { violation: "missingOnEvent", named: ["event"], subs: "none" },
+  { violation: "outputOtherState", named: ["output"], subs: "none" }
 ]
 for (const { violation, named, subs, annotatedOnly } of objectViolations) {
   for (const [form, annotate] of objectForms) {
@@ -1193,8 +1225,11 @@ for (const { violation, named, subs, annotatedOnly } of objectViolations) {
 
 // By the three rules the types of a program keep (`AGENTS.md`, "What belongs here"): `true` must compile, and fails
 // only against the first or the third; `false` must not, since it breaks the second; and `refused` must not either,
-// but would break none if it compiled, so that it is reported apart, as a note.
-type Verdict = boolean | "refused"
+// but would break none if it compiled, so that it is reported apart, as a note. `untyped` is a valid program in a form
+// not typed `Program<…>`, which is owed the second and the third rule but not the first: a form may be refused, but
+// never taken wrongly. So it is a lead only where it compiles and an assertion of its types fails, and a note where it
+// is refused.
+type Verdict = boolean | "refused" | "untyped"
 
 // Cases written by hand, each with its verdict.
 const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: string }>> = [
@@ -1469,11 +1504,19 @@ import {
   type KidCommand, type KidDb, type KidEvent, type KidFeed, type KidMessage, type KidState, kidF, type KReset,
   type MChild, type MChildById, type MInput, type MInputById, type MMixed, type MNone, other, type OuterOwn, type Own,
   type RehearseRead, type SChild, type SChildById, type SimulateRead, type SInput, type SInputById, type SMixed,
-  save, saved, type SNone, type StartRead, stray, type Written,
+  save, saved, savedState, type SNone, type StartRead, stray, type Written,
 } from '../tools/inference/prelude.ts'
 `
 
-type Span = Readonly<{ id: string; file: string; from: number; to: number; valid: Verdict }>
+// `asserts` are the lines, numbered as `tsc` numbers them, that assert the types a function gave back (`Exactly`).
+type Span = Readonly<{
+  id: string
+  file: string
+  from: number
+  to: number
+  valid: Verdict
+  asserts: ReadonlySet<number>
+}>
 
 // A parent with `count` children, each with commands, events, subscriptions and services.
 const scaled = (count: number) => {
@@ -1618,13 +1661,15 @@ const command = Command.make(
             for (const part of member.parts) {
               const from = text.length + 1
               // A program written in the call spans lines of its own.
-              text.push(...part.lines.flatMap((line) => line.split("\n")))
+              const written = part.lines.flatMap((line) => line.split("\n"))
+              text.push(...written)
               spans.push({
                 id: member.parts.length === 1 ? member.id : `${member.id}/${part.label}`,
                 file,
                 from,
                 to: text.length,
-                valid: part.valid
+                valid: part.valid,
+                asserts: new Set(written.flatMap((line, index) => line.includes(": Exactly<") ? [from + index] : []))
               })
             }
             text.push("}")
@@ -1633,7 +1678,7 @@ const command = Command.make(
           files.push(file)
         }
       }
-      const valid = spans.filter((span) => span.valid === true).length
+      const valid = spans.filter((span) => span.valid === true || span.valid === "untyped").length
       yield* Console.log(`${spans.length} cases (${valid} valid) in ${files.length} files`)
       for (const count of scale) yield* write(join(directory, `scale/scale${count}.ts`), scaled(count))
       // The TypeScripts, installed apart as `smoke.ts` installs them.
@@ -1708,10 +1753,15 @@ const command = Command.make(
         const wrong: Array<Readonly<{ id: string; why: string; errors: ReadonlyArray<string> }>> = []
         const notes: Array<Readonly<{ id: string; why: string; errors: ReadonlyArray<string> }>> = []
         for (const span of spans) {
-          const errors = (byFile.get(span.file) ?? [])
-            .filter((d) => d.line >= span.from && d.line <= span.to)
-            .map((d) => `${d.line - span.from + 1}: ${d.code} ${d.text}`)
-          if (span.valid === "refused") {
+          const found = (byFile.get(span.file) ?? []).filter((d) => d.line >= span.from && d.line <= span.to)
+          const errors = found.map((d) => `${d.line - span.from + 1}: ${d.code} ${d.text}`)
+          if (span.valid === "untyped") {
+            if (found.length > 0 && found.every((d) => span.asserts.has(d.line))) {
+              wrong.push({ id: span.id, why: "valid, but taken with other types", errors })
+            } else if (found.length > 0) {
+              notes.push({ id: span.id, why: "valid in a form not typed, and refused: no rule is broken", errors })
+            }
+          } else if (span.valid === "refused") {
             if (errors.length === 0) {
               notes.push({ id: span.id, why: "refused, but compiles: no rule is broken", errors })
             }

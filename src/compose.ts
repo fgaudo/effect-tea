@@ -20,7 +20,6 @@ import {
   type CommandOf,
   type CommandServicesOf,
   type EventOf,
-  type ExternalHandler,
   type ExternalOf,
   type Field,
   type FlagsOf,
@@ -37,8 +36,8 @@ import {
   type StateOf,
   type SubscriptionServicesOf
 } from "./program.ts"
-import type { Listen, Subscription, Subscriptions } from "./subscription.ts"
-import { reject, type Rejected, type Step, type Transition, type Update } from "./update.ts"
+import type { Listen, Subscription } from "./subscription.ts"
+import { reject, type Rejected, type Step, type Transition } from "./update.ts"
 
 /**
  * Where an input lives in its program's state: an optic, `at`, or the two functions an optic is, `get` and `set`, and
@@ -115,23 +114,29 @@ type PlacementById<State, Id, A> =
     store?: (value: A) => A
   }>
 
-// A child is checked as `start` checks a program, of the types read back from it: a child written as an object, and
-// not typed `Program<…>`, is checked by nothing else. So its `external` answers with a step, never `reject`, and its
-// `runCommand` is there when its steps list commands, `external`'s included. Its pieces are written out, as `Program`
-// writes them: `Program<…>` takes only a state that is an object, and the state read back is any type.
+// A child is checked as a program of the types read back from it: a child written as an object, and not typed
+// `Program<…>`, is checked by nothing else. So its `external` answers with a step, never `reject`, its `output` reads
+// its own state, and its `runCommand` is there when its steps list commands, `external`'s included. Its pieces are
+// those of `Program<…>`, which takes only a state that is an object: the state read back is any type, which `& object`
+// lets through, and `ObjectState` refuses where it is not an object. Kept to this module, as the `Shape` of `Program`
+// is to its own: a consumer's declarations spell it out.
 type ProgramChecked<P> =
   & ObjectState<StateOf<P>>
-  & {
-    readonly init: Init<StateOf<P>, CommandOf<P>, FlagsOf<P>>
-    readonly update: Update<StateOf<P>, MessageOf<P>, CommandOf<P>, EventOf<P>>
-    readonly subscriptions: Subscriptions<StateOf<P>, KeyOf<P>>
-    readonly makeModel: (state: StateOf<P>) => ModelOf<P>
-  }
-  & Interpreter<CommandOf<P>, MessageOf<P>, CommandServicesOf<P>>
-  & Listener<KeyOf<P>, MessageOf<P>, SubscriptionServicesOf<P>>
-  & ExternalHandler<ExternalOf<P>, StateOf<P>, CommandOf<P>, EventOf<P>>
+  & Program<{
+    state: StateOf<P> & object
+    model: ModelOf<P>
+    message: MessageOf<P>
+    command: CommandOf<P>
+    commandServices: CommandServicesOf<P>
+    subscriptionServices: SubscriptionServicesOf<P>
+    event: EventOf<P>
+    external: ExternalOf<P>
+    flags: FlagsOf<P>
+    output: OutputOf<P>
+    key: KeyOf<P>
+  }>
 
-// What a child lacks for the check above, `unknown` where it lacks nothing. A child that runs commands has a
+// What a child lacks for that check, `unknown` where it lacks nothing. A child that runs commands has a
 // `runCommand`, a member, for the error that names it; `Interpreter` is `object` for one that runs none, and `unknown`
 // is needed instead: see `CheckedChild`. The rest of the check is held under a key no program has, as `ObjectState`
 // does: as members, its types, read from a `P` not inferred yet, would type the functions of a child written in the

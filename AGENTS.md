@@ -53,7 +53,8 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   (`Subscription` is a `Channel`, `Execution` an `Effect`): it is built and transformed with Effect's own
   combinators, and the library defines no function over it. One of the library's own has a shape the library
   defines and documents, public where it is meant to be written by hand (an `update` writes a `Step`,
-  `{ state, commands?, events?, tell? }`, as data) and hidden where it is not (a program that `program` makes); the
+  `{ state, commands?, events?, tell? }`, as data, and a program is its pieces, which a test calls and
+  `{ ...program, init }` spreads) and hidden where it is not (`Rejected`, the symbol that `reject` is); the
   library gives the functions over it (`andThen` over `Step`). An alias with a few helpers over it
   has the costs of both and keeps neither promise: users still write the representation everywhere else, so it
   cannot change. A type moves to the library's side only when the library must do with it what Effect alone
@@ -65,7 +66,10 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   combination can: pieces that cannot work together, as an `update` without an `init`, and what compiles and then dies
   by the engine's rules where the types could have prevented it, as a child that rejects an external message; a cast
   takes that risk on itself. And what a program names is what its types give back,
-  however it is written: no type widened, or narrowed to a `never` that is false. The rest is not a gap: a misspelled
+  however it is written: no type widened, or narrowed to a `never` that is false. They are owed by form: a form may be
+  refused, but it is never taken wrongly. The first rule is owed to a program of `make`, to a value typed
+  `Program<…>` and to `{ ...program, init }`; the second and the third to every form a function takes, an object not
+  typed `Program<…>` among them. The rest is not a gap: a misspelled
   name is a name not given, a form that repeats another is allowed, and a type that is empty but true, as
   `update: (message: never) => …`, says that something does not happen. A check that only moves an error that exists
   elsewhere is not worth its complexity. What was weighed by these rules is in `docs/rejected.md`.
@@ -219,6 +223,11 @@ this summary says less. What every change keeps, an example's and a document's t
   from a program without keys, is read through `listenOf`. All three are internal. A program always has
   `subscriptions`: `make` is the one place where a config without them means listening to nothing, and a test reads
   `program.subscriptions(state)` as it reads `program.makeModel(state)`.
+- The pieces of a program are written once, in `Shape` (`program.ts`), and a check of a program reads them from there,
+  never a copy, as `ProgramChecked` does for a child. Every function that takes a program is listed in the inference
+  matrix, which gives each case to all of them and fails where they disagree beyond the differences it lists
+  (`checks`, `refusesEvents` and `formsRefused` in `tools/inference/generate.ts`). A change of the signature of one
+  runs `bun run inference` (`change-api`).
 - A key or symbol of the library is named `@fgaudo/effect-tea/<Type>` after the type it belongs to (`Rejected`, the
   service `Stopped`), and `@fgaudo/effect-tea/<Type>/<part>` for a part of one. A property keyed by a string starts
   with `~`, as Effect's own type ids: `~@fgaudo/effect-tea/<Type>/<part>`.
@@ -310,8 +319,8 @@ this summary says less. What every change keeps, an example's and a document's t
   (`tools/smoke/`) and the benchmark (`tools/bench/`) check the package and its speed. The inference matrix
   (`tools/inference/`, `bun run inference`) generates programs in each way they can be written, and checks with each
   TypeScript the package supports that their types keep the three rules of "What belongs here": it runs by hand, not in
-  the CI, after a change of the types of `program.ts` or `compose.ts`. None of them is a test of the library's
-  correctness, and they are kept apart from the five.
+  the CI, after a change of the types of `program.ts` or `compose.ts`, or of a function that takes a program. None of
+  them is a test of the library's correctness, and they are kept apart from the five.
 - **Each check an invariant rests on has a mutation** in `tools/mutations/mutations.ts` that takes it out, with the
   tests that must fail under it: `bun run mutations` applies them one at a time to each of several copies of the
   repository (`.mutants/`), runs those tests alone, and fails when one passes under its mutation, or fails without it.

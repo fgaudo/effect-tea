@@ -1,10 +1,10 @@
 # Which forms of a program the library promises
 
 **Status:** decided by the owner, 23 November 2026, after a second opinion of a session of Fable 5.2 that the owner
-asked for, free to propose a change of the invariants, the guarantees and the premises: point 1 of step 16 of
-[`ROADMAP.md`](../../ROADMAP.md), with its leads under "Open problems" there. Nothing was built: the probes were
-throwaway files outside the repository, run with TypeScript 5.9, 6.0 and 7.0, and the one the decision rests on was
-run again by the session that asked for them. Read against the code at `20653b7`.
+asked for, free to propose a change of the invariants, the guarantees and the premises, and done the same day: point 1
+of step 16 of [`ROADMAP.md`](../../ROADMAP.md), with its leads under "Open problems" there. Nothing was built for the
+second opinion: the probes were throwaway files outside the repository, run with TypeScript 5.9, 6.0 and 7.0, and the
+one the decision rests on was run again by the session that asked for them. Read against the code at `20653b7`.
 
 ## What was asked
 

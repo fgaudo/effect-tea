@@ -218,7 +218,7 @@ export const startWith = <State extends object, Model, Message, Command, RC, RS,
   deaths: Shell.Deaths,
   began: () => void = () => undefined,
   settled: () => void = () => undefined
-): Started<Model, Message, Exclude<RC | RS, Scope.Scope>> => {
+): Started<Model, Message, Needed<Command, RC, Key, RS>> => {
   const { app, engine, end } = partsOf(program, options, deaths, settled)
   // The effects of the states, until a defect: the scope's end stops the engine, interrupts its fibers and dies of
   // what they died of. With no engine, `init` threw, and the run dies of that at once.
@@ -248,7 +248,9 @@ export const startWith = <State extends object, Model, Message, Command, RC, RS,
       }))
     )
   })
-  return { app, run }
+  // What `Needed` leaves out is never asked: a program without commands calls no `runCommand`, one without keys no
+  // `listen`.
+  return { app, run: run as Effect.Effect<never, never, Needed<Command, RC, Key, RS>> }
 }
 
 /**
@@ -300,7 +302,9 @@ export const start = <
   RC = never,
   RS = never,
   Flags = never,
-  Key = never
+  Key = never,
+  External = never,
+  Output = never
 >(
   program: Program<{
     state: State
@@ -311,8 +315,19 @@ export const start = <
     subscriptionServices: RS
     flags: Flags
     key: Key
+    external: External
+    output: Output
   }>,
   ...[options = {}]: [Flags] extends [never]
     ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>]
     : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
-): Started<Model, Message, Exclude<RC | RS, Scope.Scope>> => startWith(program, options, Shell.makeDeaths(() => true))
+): Started<Model, Message, Needed<Command, RC, Key, RS>> => startWith(program, options, Shell.makeDeaths(() => true))
+
+// What a run needs of the services a program names: none of a program without commands, nor without keys, which runs
+// no `runCommand`, or no `listen`. A program typed `Program<{ …; commandServices: Db }>` without commands gives `RC` from
+// the arguments of the alias, where `CommandServicesOf` reads none. Kept to this module, so that a consumer's
+// declarations spell it out, and written again in `testing/drive.ts`.
+type Needed<Command, RC, Key, RS> = Exclude<
+  ([Command] extends [never] ? never : RC) | ([Key] extends [never] ? never : RS),
+  Scope.Scope
+>

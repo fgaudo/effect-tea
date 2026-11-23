@@ -527,6 +527,9 @@ type Named<T, K extends "model", Inferred> = T extends {
 } ? V : Inferred;
 
 // @public (undocumented)
+type Needed<Command, RC, Key, RS> = Exclude<([Command] extends [never] ? never : RC) | ([Key] extends [never] ? never : RS), Scope.Scope>;
+
+// @public (undocumented)
 type Needs<Own, Children> = unknown extends Children ? unknown : unknown extends Own ? unknown : Own | Children;
 
 // @public
@@ -645,12 +648,19 @@ export type Program<T extends ProgramTypes> = Shape<Field<T, "state">, Field<T, 
 export const program: <T extends DeclaredTypes>() => ProgramMaker<T>;
 
 // @public (undocumented)
-type ProgramChecked<P> = ObjectState<StateOf<P>> & {
-    readonly init: Init<StateOf<P>, CommandOf<P>, FlagsOf<P>>;
-    readonly update: Update<StateOf<P>, MessageOf<P>, CommandOf<P>, EventOf<P>>;
-    readonly subscriptions: Subscriptions<StateOf<P>, KeyOf<P>>;
-    readonly makeModel: (state: StateOf<P>) => ModelOf<P>;
-} & Interpreter<CommandOf<P>, MessageOf<P>, CommandServicesOf<P>> & Listener<KeyOf<P>, MessageOf<P>, SubscriptionServicesOf<P>> & ExternalHandler<ExternalOf<P>, StateOf<P>, CommandOf<P>, EventOf<P>>;
+type ProgramChecked<P> = ObjectState<StateOf<P>> & Program<{
+    state: StateOf<P> & object;
+    model: ModelOf<P>;
+    message: MessageOf<P>;
+    command: CommandOf<P>;
+    commandServices: CommandServicesOf<P>;
+    subscriptionServices: SubscriptionServicesOf<P>;
+    event: EventOf<P>;
+    external: ExternalOf<P>;
+    flags: FlagsOf<P>;
+    output: OutputOf<P>;
+    key: KeyOf<P>;
+}>;
 
 // @public
 export class ProgramDefect extends ProgramDefect_base<Fields & Readonly<{
@@ -755,7 +765,7 @@ type SometimesPlace<State, P> = [FlagsOf<P>] extends [never] ? Readonly<{
 }>;
 
 // @public
-export const start: <State extends object, Model, Message, Command = never, RC = never, RS = never, Flags = never, Key = never>(program: Program<{
+export const start: <State extends object, Model, Message, Command = never, RC = never, RS = never, Flags = never, Key = never, External = never, Output = never>(program: Program<{
     state: State;
     model: Model;
     message: Message;
@@ -764,7 +774,9 @@ export const start: <State extends object, Model, Message, Command = never, RC =
     subscriptionServices: RS;
     flags: Flags;
     key: Key;
-}>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Started<Model, Message, Exclude<RC | RS, Scope.Scope>>;
+    external: External;
+    output: Output;
+}>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Started<Model, Message, Needed<Command, RC, Key, RS>>;
 
 // @public
 export interface Started<Model, Message, R = never> {

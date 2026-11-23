@@ -104,6 +104,12 @@ const driven = <Model, Message, R>(
   return { deaths, began: Deferred.await(running), now, run, unsubscribe }
 }
 
+// The services that the run `startWith` gives needs, as `run.ts` says where it writes them.
+type Needed<Command, RC, Key, RS> = Exclude<
+  ([Command] extends [never] ? never : RC) | ([Key] extends [never] ? never : RS),
+  Scope.Scope
+>
+
 /**
  * Runs a program and plays a scenario on its models, as a user would.
  *
@@ -155,7 +161,9 @@ export const drive = Effect.fnUntraced(function*<
   E = never,
   RT = never,
   Flags = never,
-  Key = never
+  Key = never,
+  External = never,
+  Output = never
 >(
   program: Program<{
     state: State
@@ -166,13 +174,15 @@ export const drive = Effect.fnUntraced(function*<
     subscriptionServices: RS
     flags: Flags
     key: Key
+    external: External
+    output: Output
   }>,
   scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>,
   ...[{ patience = "2 seconds", ...options } = {}]: [Flags] extends [never]
     ? [options?: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>]
     : [options: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
-): Effect.fn.Return<A, E, Exclude<RC | RS, Scope.Scope> | RT> {
-  const { deaths, began, now, run, unsubscribe } = driven<Model, Message, Exclude<RC | RS, Scope.Scope>>((
+): Effect.fn.Return<A, E, Needed<Command, RC, Key, RS> | RT> {
+  const { deaths, began, now, run, unsubscribe } = driven<Model, Message, Needed<Command, RC, Key, RS>>((
     deaths,
     began,
     settled

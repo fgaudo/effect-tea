@@ -1421,7 +1421,7 @@ describe("what a parent can do with a child", () => {
     expect(rejecting.update).toBe(page.update)
   })
 
-  test("a child written as an object is checked as a program is: its external answers with a step, and asks for what it returns", () => {
+  test("a child written as an object is checked as a program is: its external answers with a step, its output reads its state, and it asks for what it returns", () => {
     const base = {
       init: { state: noTicks },
       update: (_: Tick) => (state: Ticks) => ({ state }),
@@ -1445,6 +1445,11 @@ describe("what a parent can do with a child", () => {
     const unheard = withChildren({ Leaving: child(leaving) }).make({ init: { state: noTicks }, makeModel: () => null })
     // @ts-expect-error: an object that is no program is no child.
     expect(child({ ...base, subscriptions: "none", makeModel: 42 })).toBeDefined()
+    // @ts-expect-error: its output reads its own state, as `Program<…>` asks.
+    expect(child({ ...base, output: (other: Readonly<{ other: string }>) => other.other.length })).toBeDefined()
+    // @ts-expect-error: for children by id too.
+    expect(childById({ ...base, output: (other: Readonly<{ other: string }>) => other.other.length }, ids))
+      .toBeDefined()
     const read: [CommandOf<typeof saving>, EventOf<typeof leaving>] = ["Save", "Left"]
     const heard = withChildren({
       Saving: child({ ...saving, runCommand: () => Effect.succeedNone }),

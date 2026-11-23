@@ -430,6 +430,17 @@ const refusing = { ...resetting, external: (_: Reset) => (state: CounterState) =
 child(saving)
 // @ts-expect-error
 child(refusing)
+// `start` checks them too, and starts a program a parent could hold: its `external` and its `output` are never called.
+const steady = {
+  init: { state: { count: 0 } },
+  update: (_: "Pressed") => (state: CounterState) => ({ state }),
+  subscriptions: () => [],
+  makeModel: () => null
+}
+// @ts-expect-error
+start({ ...steady, external: (_: Reset) => (state: CounterState) => state.count > 0 ? { state } : reject })
+export const steadyStarted = start({ ...steady, external: (_: Reset) => () => ({ state: { count: 0 } }) })
+export const lampStarted = start(lamp)
 
 // An input and no children: the title is the program's own state, which the outside writes over.
 type Draft = Readonly<{ title: string }>

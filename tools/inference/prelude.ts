@@ -24,6 +24,11 @@ export const inc: Inc = { _tag: "Inc" }
 export const save: Cmd = { _tag: "Save" }
 export const saved: Ev = { _tag: "Saved" }
 
+// A state saved before, as `onApplied` gives it or a reload keeps it, of the type the program names: what a program is
+// started from elsewhere, `{ ...program, init: { state: savedState<StateOf<typeof program>>() } }`. Only checked, never
+// run.
+export declare const savedState: <S>() => S
+
 export class Db extends Context.Service<Db, { readonly ok: boolean }>()("Db") {}
 export class Feed extends Context.Service<Feed, { readonly ticks: Subscription<Inc> }>()("Feed") {}
 export class KidDb extends Context.Service<KidDb, { readonly ok: boolean }>()("KidDb") {}

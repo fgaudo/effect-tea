@@ -1,10 +1,10 @@
 # How the functions that take a program check it
 
 **Status:** decided by the owner, 23 November 2026, after a second opinion of a session of Fable 5.2 that the owner
-asked for: point 1 of step 16 of [`ROADMAP.md`](../../ROADMAP.md), rewritten as below, with its leads under "Open
-problems" there. Nothing was built: the probes were throwaway files outside the repository, run with the repository's
-`tsc` 7.0.2 and the options of `tsconfig.json`, and checked again by the session that asked for them. Read against the
-code at `dda7a65`.
+asked for, and done the same day: point 1 of step 16 of [`ROADMAP.md`](../../ROADMAP.md), rewritten as below, with its
+leads under "Open problems" there. Nothing was built for the second opinion: the probes were throwaway files outside the
+repository, run with the repository's `tsc` 7.0.2 and the options of `tsconfig.json`, and checked again by the session
+that asked for them. Read against the code at `dda7a65`.
 
 ## What was proposed
 
