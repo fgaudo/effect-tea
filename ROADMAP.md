@@ -22,11 +22,11 @@ a probe found two rules of the guide that contradict each other, which was step 
 the guide alone, asked how the relation of a parent and its children should be set right, and took a direction to
 spike, which was step 33. After the spike the owner took both of its parts, the store of the children and `output`,
 with the choices under them ([`kept-children.md`](docs/records/kept-children.md), "What the owner decides"): steps 34
-to 36 write them. From the same weighing come the form that step 40 spiked and an item of "Any time". Step 37 writes what
-the owner took of step 29, after its spike ([`stored-form.md`](docs/records/stored-form.md)), and step 38 what the
-owner took of step 30, after its own ([`subscription-from-key.md`](docs/records/subscription-from-key.md)). Step 40
-was what was left of what the owner took of step 9, on 23 November 2026: it weighed again each parked entry of
-`docs/rejected.md` that breaks the API ([`inert-steps.md`](docs/records/inert-steps.md) and
+to 36 write them. From the same weighing come the form that step 40 spiked and an item of "Any time". Step 37
+writes what the owner took of step 29, after its spike ([`stored-form.md`](docs/records/stored-form.md)), and step
+38 what the owner took of step 30, after its own ([`subscription-from-key.md`](docs/records/subscription-from-key.md)).
+Step 40 was what was left of what the owner took of step 9, on 23 November 2026: it weighed again each parked entry
+of `docs/rejected.md` that breaks the API ([`inert-steps.md`](docs/records/inert-steps.md) and
 [`declared-inputs.md`](docs/records/declared-inputs.md), "Weighed again"). Steps 41 to 43 write what the owner took
 of its spike the same day, with the conditions of a second opinion
 ([`value-in-message.md`](docs/records/value-in-message.md), "Decided"). A step done leaves its number unused.
