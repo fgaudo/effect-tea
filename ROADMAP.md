@@ -118,7 +118,8 @@ What the spike left to this step:
 
 **Depends on** step 38, which writes the decision of step 30
 ([`subscription-from-key.md`](docs/records/subscription-from-key.md)), as step 37 wrote those of step 29
-([`stored-form.md`](docs/records/stored-form.md)): each parked entry is taken or kept against what they change. Steps 2 to 4, which took the changes that the review of the architecture found, are done.
+([`stored-form.md`](docs/records/stored-form.md)): each parked entry is taken or kept against what they change.
+Steps 2 to 4, which took the changes that the review of the architecture found, are done.
 
 **Why.** A user who adopts the library asks that its API stays, and a change that breaks it costs less the fewer users
 it has. The API looks close to stable, but what `docs/rejected.md` parks would change it.
@@ -172,7 +173,8 @@ generator they run in.
 
 **Depends on** step 34 for what it reads of `src/compose.ts`: `child` and `childById` take other arguments there, and
 a parent declares its children in a call of their own, a form that the matrix writes too. And on step 38, which
-changes what the matrix writes of a subscription. It changes nothing a user writes. It adds a rule to `AGENTS.md` (the first point below), so the owner is asked first.
+changes what the matrix writes of a subscription. It changes nothing a user writes. It adds a rule to `AGENTS.md`
+(the first point below), so the owner is asked first.
 
 **Why.** api-1, api-2 and api-4 lived in one form of a program, an object not typed `Program<…>`, which `child`,
 `childById`, `start` and the testing tools take as it is. The inference matrix (`tools/inference/generate.ts`) writes
