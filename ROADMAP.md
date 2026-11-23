@@ -22,16 +22,19 @@ a probe found two rules of the guide that contradict each other, which was step 
 the guide alone, asked how the relation of a parent and its children should be set right, and took a direction to
 spike, which was step 33. After the spike the owner took both of its parts, the store of the children and `output`,
 with the choices under them ([`kept-children.md`](docs/records/kept-children.md), "What the owner decides"): steps 34
-to 36 write them. From the same weighing come a paragraph of step 9 and an item of "Any time". Step 37 writes what
+to 36 write them. From the same weighing come step 40 and an item of "Any time". Step 37 writes what
 the owner took of step 29, after its spike ([`stored-form.md`](docs/records/stored-form.md)), and step 38 what the
-owner took of step 30, after its own ([`subscription-from-key.md`](docs/records/subscription-from-key.md)). A step
-done leaves its number unused.
+owner took of step 30, after its own ([`subscription-from-key.md`](docs/records/subscription-from-key.md)). Steps 39
+and 40 are what the owner took of step 9, on 23 November 2026: it weighed again each parked entry of
+`docs/rejected.md` that breaks the API ([`inert-steps.md`](docs/records/inert-steps.md) and
+[`declared-inputs.md`](docs/records/declared-inputs.md), "Weighed again"). A step done leaves its number unused.
 
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. the other decisions that break the API, step 9, so that one release takes what they break, while the library has
-   few users, and step 10 with them, which waits for the owner alone;
+1. the other decisions that break the API: step 39, which the owner took of them, so that one release takes what they
+   break, while the library has few users; step 40, a spike that the release of 0.9.0 waits for; and step 10, which
+   waits for the owner alone;
 2. the checks, steps 16 and 6: of the types, once the decisions that change them are taken, and of the bridges in a
    real browser;
 3. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
@@ -47,37 +50,63 @@ None is open.
 
 ## Next, in order
 
-### 9. The changes that break the API
+### 39. `Inert`, a message that a model holds and that does nothing
 
-**Model and effort.** Fable 5.2, `high`: each entry is a design weighed again.
+**Model and effort.** Opus 5.5, `high`: a check of a testing tool, which breaks its API.
 
-**Depends on** step 38, which writes the decision of step 30
-([`subscription-from-key.md`](docs/records/subscription-from-key.md)), as step 37 wrote those of step 29
-([`stored-form.md`](docs/records/stored-form.md)): each parked entry is taken or kept against what they change.
-Steps 2 to 4, which took the changes that the review of the architecture found, are done.
+**Depends on** nothing. It goes into 0.9.0, with the other changes that break the API.
 
-**Why.** A user who adopts the library asks that its API stays, and a change that breaks it costs less the fewer users
-it has. The API looks close to stable, but what `docs/rejected.md` parks would change it.
+**Why.** A model that holds a message whose step does nothing shows a control that does nothing. Where `update`
+answers `{ state }` and does not reject, no tool says so. What deferred the check is answered by `output`, and a probe
+found no test of a model, in the examples, that fails with it
+([`inert-steps.md`](docs/records/inert-steps.md), "Weighed again").
 
-**How.** Each entry of "Parked, not rejected" in `docs/rejected.md` that touches the API and that no step above took
-is weighed again with the owner: taken now, in a 0.x release, or kept parked. With them, a smaller point of
-[`architecture-review.md`](docs/records/architecture-review.md): `init` means two things in the config of `make`.
+**How.** As point 4 of "Decision" in `inert-steps.md`, with `change-api` and `change-engine` read first.
 
-For "What reaches `update`, declared as data", a narrower form to weigh, from the second opinion of 22 November 2026
-([`kept-children.md`](docs/records/kept-children.md)): a message of the model with one value left for the element to
-give, for what an element reports and the program decides by, as the end of a scroll with its offset. Inputs stay as
-they are, for a value that the element holds and the program gives back. The guide's answer today is a write, then a
-message ("Inputs", "What an element reports"), decided the same day
-([`application-report.md`](docs/records/application-report.md), point 1): two steps for one fact, and a place in the
-state for a value that is read once. By the guide's own table ("Structuring a program"), something that happened is a
-message, and `update` decides what it means. The first spike of
-[`declared-inputs.md`](docs/records/declared-inputs.md) ran an offer with a value to fill, for an input and for a key,
-and five entries of `docs/rejected.md` name the parked entry as what reopens them. As the second opinion reported, and
-not read here: in one application, every input of a page held a value that is reported, and three of six `set`s were
-written to decide on a write. What one application uses decides nothing (`AGENTS.md`): it is evidence for this step,
-and reopens nothing before it.
+- `Inert` is a new case of `DispatchViolation`: a message among `held` whose step does nothing, judged on the first
+  send, by the predicate that `ActsTwice` and `Missing` share. It is always on.
+- An option `inert`, of the message and the state, as `withheld` is, lists what does nothing on purpose.
+- `rehearse` does not fail on a `send` whose step does nothing, as decided on 15 November 2026.
+- With it: the guide ("Testing tools", and what "Structuring a program" and "Testing" say of a control that does
+  nothing), the doc comment, the tool's own tests, a mutation of the check, and the changelog, as a breaking change.
+- The probe found two tests that fail: "update accepts what each key it listens to sends", of `volume`, which gives
+  the tool the messages of a key, and one of the tool's own, which holds a message that does nothing on purpose.
+- To decide in the step, with the owner: how a test spares the messages of a key. Advised: the option `inert` says
+  it, as `repeatable` does today, and no option is added for a key.
 
-**Done when** each such entry is taken or kept parked by the owner's decision.
+**Done when** `dispatchViolations` reports `Inert`, the tests of the examples pass with it, and the checks of
+`change-engine` pass.
+
+### 40. A message with one value left for the element to give: the spike
+
+**Model and effort.** Opus 5.5, `high`, for the spike and its record. The owner decides on what it finds.
+
+**Depends on** nothing. The release of 0.9.0 waits for the decision: it is the first release that says "a write, then
+a message" ("Inputs", "What an element reports").
+
+**Why.** A fact that comes with a value, as the end of a scroll with its offset, is two steps today, and a place in
+the state for a value that is read once. By the guide's own table ("Structuring a program"), something that happened
+is a message. The form to spike needs no export: the model holds the message without its value, as data, and the
+view fills the value that the element gives. A probe found that it compiles and that the messages compare. No example
+of the library has such a value, so nothing shows what either form costs
+([`declared-inputs.md`](docs/records/declared-inputs.md), "Weighed again").
+
+**How.** An example that is not kept, on a branch never to be merged, with a fact that comes with a value: a list that
+loads more as its scroll ends, or a board clicked at a point. It is written twice, each time with its tests: as the
+guide says today, and with the message in the model without its value. The library does not change. The spike says:
+
+1. what the reader and `dispatchViolations` do with such a message: which values a test fills, and whether a value is
+   ever a reason to reject ("Structuring a program", "Input is never a reason to reject");
+2. what `messagesSentBy` gives a handler that reads other than `value` and `checked`, in both forms, and what the tool
+   would need;
+3. what a parent's view, `forwardTo` and the bridge to React do with it;
+4. what the guide would say: where an input ends and such a message begins, what "A view never builds a message of
+   the program itself" ("Model") becomes, what joins "What is left to you", and whether "a write, then a message"
+   stays;
+5. what each form costs: the steps, the models made, the place in the state.
+
+**Done when** a record of `docs/records/` says what the spike found, and the owner has decided: a step writes the
+guide, or an entry of `docs/rejected.md` says why not.
 
 ### 10. A view of the library's own
 

@@ -203,8 +203,9 @@ answer, and saying so in the proposal.
   [`rehearse-owned-effects.md`](records/rehearse-owned-effects.md), "Alternatives".
 - **What the tools do with a step that does nothing.** These were refused inside a proposal the owner decided in
   part on 15 November 2026 ([`inert-steps.md`](records/inert-steps.md), "What was decided"): with `onEvent` left without
-  `reject`, the first three entries and the last stand rejected. `Inert` itself is deferred, not rejected, and the
-  two entries on it are to be weighed again with it. Each is in its "Alternatives":
+  `reject`, the first three entries and the last stand rejected. `Inert` itself was deferred, and taken by the owner
+  on 23 November 2026, always on (`inert-steps.md`, "Weighed again"): the two entries on it stand rejected with the
+  others. Each is in its "Alternatives":
   - `reject` in `onEvent`, the whole message rejected. Spiked (sixteen tests over seven cases): a child could no
     longer rely on its own transitions, the tool would blame the child, and one answer would have two outcomes.
   - `reject` in `onEvent` only where the child's step changed nothing of its own, a defect otherwise. Reasoned.
@@ -212,8 +213,8 @@ answer, and saying so in the proposal.
     own commands too.
   - `Inert` by identity, not by `Equal`. Spiked: two programs that behave alike would be judged by how they build
     their state.
-  - `Inert` as an option to turn on. Reasoned. `Missing`'s change alone, refused beside it, was taken since, with
-    `Inert` waiting for an application to measure it.
+  - `Inert` as an option to turn on. Reasoned: a check that is off finds nothing. `Missing`'s change alone, refused
+    beside it, was taken on 15 November 2026, while `Inert` was deferred.
   - A constant `unchanged`, frames with a version, a child that removes its own duplicates, events with an answer
     from the parent. Reasoned, 26 October 2026, in a discussion in an application that uses the library, not in
     this repository; the reasons are the document's, and that discussion was not read again for this index.
@@ -474,7 +475,7 @@ answer, and saying so in the proposal.
   never rejected at runtime) for a bug that leaves the state unchanged and that the property tests already find.
   The run then ignored every rejection, and the testing tools held the view (since item 1 of `boundary.md`, the
   model) to what `update` accepts. Shipped and used, then reasoned out. A related form, offers as data with no
-  check at run time, is in a suspended proposal (below), not here.
+  check at run time, is "What reaches `update`, declared as data", below.
 - **An offer that asks `update`, and is an `Option`**: `make` gives `makeModel` a function `offer`, and
   `offer(message)` is `Some(message)` where `update` accepts the message in that state and its step does something,
   `None` otherwise, so that a condition is written in `update` alone. Reasoned, 22 November 2026, not spiked: proposed
@@ -492,7 +493,8 @@ answer, and saying so in the proposal.
     neither `Rejected` nor `Missing` reports it, since both ask `update`. With the model read from the state,
     `Rejected` does.
   - **It costs a call of `update` for each message of each model made**, and a comparison of two states by `Equal`
-    where it leaves out a message whose step does nothing, as the parked `Inert` would report one in a test.
+    where it leaves out a message whose step does nothing, as `Inert` would report one in a test
+    ([`inert-steps.md`](records/inert-steps.md)).
   - **It can die.** The types do not tell a view's message from a subscription's or a command's, and one of those,
     asked in a state that rules it out, is a defect in `makeModel`.
   - **It is three lines** over the program's own `update` and `reject`: no function of the library's ("A function
@@ -501,8 +503,7 @@ answer, and saying so in the proposal.
   What it wanted is answered in the program. A condition that is a phase is a case of the state, which `update` and
   `makeModel` both match. One on a value is one function of the state, which both call (`isBlank` in
   `examples/form`). Source: the session that weighed it. _Reopen if_ a control is shown in a state where `update`
-  rejects its message, in an example or an application, and no test with `dispatchViolations` finds it; or with the
-  parked "What reaches `update`, declared as data".
+  rejects its message, in an example or an application, and no test with `dispatchViolations` finds it.
 - **`describeKey`, an option for how a subscription's key appears in the logs and in a `ProgramDefect`.** Reasoned,
   13 and 14 November 2026. Proposed by a review of the invariants, since a key, a string message and a child's id
   reach a crash report as they are. Deferred on the 13th, then rejected on the 14th after a second opinion: a key is
@@ -519,6 +520,43 @@ answer, and saying so in the proposal.
   before the proposal of declared inputs: typed-then-Save would rest on scheduling, a typed message would be checked
   by nothing, a key that goes away drops what it sent, and the renderer would feed the run by a service.
   [`declared-inputs.md`](records/declared-inputs.md), "What was proposed".
+- **What reaches `update`, declared as data** ([`declared-inputs.md`](records/declared-inputs.md)): in every state,
+  each message that can reach `update` declared as data, an offer with the schema of what the outside supplies, for a
+  view, a key and a command alike. Spiked three times on 14 November 2026 (`spike/declared-inputs`,
+  `spike/dispatch-offers` and `spike/offer-check`, never to be merged), suspended by the owner the same day, and parked
+  below until 23 November 2026. The owner rejected it then, when each parked entry that breaks the API was weighed
+  while the library has few users (`declared-inputs.md`, "Weighed again"). Its first aim, a model with no function for
+  what the user types, was reached by the plain input. A view builds no message by the guide's rule, with `Message`
+  exported as a type only. The keys of a program are data since `listen` makes a subscription from its key. And a tool
+  that explores from `init` was rejected ("A tool that explores a program from `init`", above). What was left would
+  rewrite every program, with an offer of two shapes, a path, schemas in a model and declared entries, for the
+  messages of a key and the answers of a command, which a test lists or stands in for today. Two parts of it were
+  weighed apart the same day: what a key sends (the next entry), and a message with one value left for the element to
+  give, which the owner took to a spike (`declared-inputs.md`, "Weighed again"). _Reopen if_ a message of a key or an
+  answer of a command that `update` rejects is found in an application, and no test that the tools allow finds it.
+- **A subscription that declares what it sends**, so that a tool judges a key's message as it judges a model's
+  (`declared-inputs.md`, "What still makes sense", point 3). Parked on 15 November 2026 with the suspension above, and
+  rejected by the owner on 23 November 2026. A subscription that declares its messages is a type of the library's
+  own, where `AGENTS.md` keeps `Subscription` Effect's: it is already inspected by its key. Weighed on 15 November as
+  a second `makeModel`, whose messages `subscriptions` would be given (reasoned): a subscription starts once for a
+  key, where a view is drawn again from each model, so the messages could depend on the key alone; most carry a value
+  from the world, so that model would hold functions again; and only a `Subscription` of the library's own could hold
+  a channel to what it is given. What stands in its place, and was run: a test lists what each key sends, as its
+  reader lists what the model holds, and gives it to `dispatchViolations` with every message `repeatable`
+  ([`volume`](../examples/volume/volume.test.ts)). Since a subscription is made from its key alone, that list is a
+  function of the type of the keys: a `switch` on it does not compile until it says what a new key sends
+  ([`bounce`](../examples/bounce/bounce.test.ts)). Nothing checks that the list holds what the channel sends. No
+  control drawn goes through a key in the examples, so it concerns only sources that exist whatever is drawn
+  ([`registers.md`](records/registers.md)). _Reopen if_ a key's message that `update` rejects, or that does nothing,
+  is found in an application, and such a test does not find it.
+- **A value that an element reports, declared in `make` with the message made of it**: beside `inputs`, a function of
+  the program from the value to a message, which a view writes into by its name as it writes into an input, and whose
+  message `update` judges. Reasoned, 23 November 2026, beside a message that the model holds with one value left for
+  the element to give, which the owner took to a spike (`declared-inputs.md`, "Weighed again"). It holds nothing by
+  construction that the other form does not: `dispatch` takes any message that a view writes by hand, as it did when
+  an entry of each input in the model was rejected (below). And it costs a third way for a view to send, with its
+  name, its wrapping and its types in `make`, where the other form needs no export. _Reopen if_ the spike finds that a
+  model cannot hold such a message as data, or that a view cannot fill it without building the rest of it.
 - **Undo at every write of an input, as a recipe of the guide, an example, or a message on each write.** Spiked on 17
   November 2026, in `scratch/undo-by-subscription/undo.test.ts`, outside git and not kept, on a question of the owner:
   whether a parent can undo each write into an input it reads, since no `update` sees a write. It can, today. The
@@ -540,8 +578,8 @@ answer, and saying so in the proposal.
   answer not to need (`registers.md`, "What the owner asks of an answer"), and describe a granularity that rests on
   scheduling. Not kept as an example, which users copy, for the same reasons. Nothing in the library: the one support
   that removes both traps is a message on each write, which an input with behaviour of its own would be (the `Field`
-  entry below) and the parked "What reaches `update`, declared as data" would reach. _Reopen if_ an application needs
-  an undo at every write of a value its parent reads, and an undo by step is not enough.
+  entry below) and "What reaches `update`, declared as data" (above) would have reached. _Reopen if_ an application
+  needs an undo at every write of a value its parent reads, and an undo by step is not enough.
 - **An input as a `Field`, `{ value, revision }`, with `field`, `renewed` and a revision derived by value.**
   Implemented on 14 November 2026 and replaced, unreleased, on 15 November by the plain input of the ninth review
   ([`registers.md`](records/registers.md), "A plain input, and a frame that says what it has seen"). The rule of a
@@ -657,8 +695,7 @@ answer, and saying so in the proposal.
   without naming its route. It would make three rules of "What is left to you" hold by construction, at the cost of a
   type of the library's in every model, of `forwardTo` and of both bridges, as the offers and `Field` before it
   ("Offers as tokens, checked against `update`" above). That value was spiked later the same day, and rejected: the
-  entry below. _Reopen if_ a program cannot name the `get` of its own place, or with the parked "What reaches
-  `update`, declared as data".
+  entry below. _Reopen if_ a program cannot name the `get` of its own place.
 - **An entry of each input in the model, which a view writes through**: `make` gives `makeModel` a third parameter,
   `inputs`, whose `inputs.Name(state)` is an `Option` of an `Entry`, the value shown and, hidden, the input's name and
   id, and a view writes `dispatch(write(model.name, text))` where it builds a `Written` by hand. Spiked on 20 November
@@ -682,8 +719,7 @@ answer, and saying so in the proposal.
   So a view writes `{ _tag: 'Written', value }` by hand (with `was` too until 20 November 2026,
   [`write-without-was.md`](records/write-without-was.md)), over the value its model holds.
   [`input-in-the-model.md`](records/input-in-the-model.md). _Reopen if_ a view is shown to write over a value its
-  model does not hold, or into another input, where the tests of its program pass; or with the parked "What reaches
-  `update`, declared as data".
+  model does not hold, or into another input, where the tests of its program pass.
 - **A write that `update` sees and may reject**, so that what applies in a state is said in one place. Reasoned, 18
   November 2026: the element already shows what was written, so a write that `update` refused would leave the element
   unlike the state until a frame takes back what the user typed, which "Input is never a reason to reject"
@@ -694,8 +730,9 @@ answer, and saying so in the proposal.
   November 2026: the library would have to know which value of a model is an input's, a mark in the model, with the
   limits of identity that the third spike of [`declared-inputs.md`](records/declared-inputs.md) found (a copy is not
   recognised), and the run would check at run time what a view sends, as it checked the offers against `update`
-  before they were removed ("Offers as tokens, checked against `update`" above). _Reopen if_ the parked "What reaches
-  `update`, declared as data" is taken up, whose declarations would say it.
+  before they were removed ("Offers as tokens, checked against `update`" above). What would have said it without a
+  mark, the declarations of "What reaches `update`, declared as data", was rejected since (above). _Reopen if_ the
+  library comes to know which value of a model is an input's by another way than a mark.
 - **A `set` free to change the state, promised as the code calls it**: the guide would say that the `set` of an input
   is called exactly on a write of another value that has a place, and may change any field. Reasoned, 22 November
   2026, on a report of an application's upgrade ([`application-report.md`](records/application-report.md), point 2),
@@ -704,8 +741,9 @@ answer, and saying so in the proposal.
   test of the model sees it. A write equal to the value held skips it, so what it does follows some writes and not
   others. And each such input would have a rule of its own, where the rule is the same for every input. It is the
   neighbour of "A write that `update` sees and may reject" above. The rule taken is of every place, a child's too: a
-  `set` changes its place and nothing else. _Reopen if_ the parked "What reaches `update`, declared as data" is taken
-  up.
+  `set` changes its place and nothing else. _Reopen if_ a program must decide on a write, and neither a message sent
+  after the write nor a message that carries the value ([`declared-inputs.md`](records/declared-inputs.md), "Weighed
+  again") can say it.
 - **A place as an optic alone**, with the `get` and the `set` written by hand removed from `input` and `inputById`
   (and from `child` and `childById`, which have no place since the store, step 34 of `ROADMAP.md`), so that no `set`
   can change more than its place. Reasoned, 22 November 2026, on the owner's
@@ -850,8 +888,12 @@ comments are written by hand since, in plain English, and name the sections of t
   throws where `{ ...program, init: { state } }` spreads it, and a grandparent's handles need accessors too. Such an
   `init` has no input, so it throws on every import or never: no bug of it outlives the first test. The guide says
   instead that `make` calls it ("Composition", "Precisely"), and the promise of "Running" is of an `init` that takes
-  flags. _Reopen if_ a parent's `init` takes an input that `start` gives, or step 9 of `ROADMAP.md` makes the
-  config's `init` one form that leaves `make` a step without calling it.
+  flags. Since the library keeps a parent's children (22 November 2026,
+  [`kept-children.md`](records/kept-children.md)), the config's `init` is one form, a step or a function of the flags,
+  with children or without, and `make` calls no `init` of the parent's. What `make` calls is the `init` of each child
+  that the step lists, since the made program's `init` is a step that holds their states: so the entry stands for the
+  children's starts, by the same three forms (reasoned, 23 November 2026, and not run again). The guide says that
+  `make` starts them ("Composition", "Precisely"). _Reopen if_ a parent's `init` takes an input that `start` gives.
 - **A subscription made from its key alone, in other forms.** Weighed on 23 November 2026 beside the form the owner
   took, the owner deciding ([`subscription-from-key.md`](records/subscription-from-key.md), "For the owner").
   - **The keys listed in a `HashSet`.** Spiked, on `spike/subscription-from-key` at `40d9400`, with every test of the
@@ -954,27 +996,6 @@ there; one decided against becomes an entry above.
   the mutation of it survive, which such a selection does not run; and the files of the engine hold most of the list.
   _Reopen if_ the parallel run grows slow again; the whole run stays before a release.
 
-- **What reaches `update`, declared as data** ([`declared-inputs.md`](records/declared-inputs.md)): suspended by the
-  owner on 14 November 2026, not revoked. The decisions taken in it stand only if it is taken up again, and what its
-  spikes refuted is there; its first aim, a model with no function for what the user types, was reached by the plain
-  input. _Reopen if_ the owner takes it up again; the one case the owner named, exploring made awkward on today's API
-  because a model's functions do not compare, the exploration did not find (`exploration.md`).
-- **`Inert`, a message a model holds that does nothing** ([`inert-steps.md`](records/inert-steps.md), "What was
-  decided"): deferred by the owner on 15 November 2026, not rejected; the rest of the proposal is done. It would flag
-  the guard `{ state }` against a double tap and a parent's broadcast, and found one real case in the examples, fixed
-  without it. _Reopen if_ an application has a message that does nothing where it should act, which a test with `Inert`
-  would have found, or a key's messages are given to the tools (below).
-- **What a key sends is not data** (`declared-inputs.md`, "What still makes sense", point 3): no tool judges a
-  subscription's message, and whether a test lists a key's messages, a program exports them or a subscription
-  declares them is open. Deferred with the suspension above, 15 November 2026; no control drawn goes through a key
-  in the examples, so it concerns only sources that exist whatever is drawn ([`registers.md`](records/registers.md)).
-  Weighed again the same day as a second `makeModel`, whose messages `subscriptions` would be given, and left parked
-  (reasoned): a subscription starts once for a key, where a view is drawn again from each model, so the messages
-  could depend on the key alone; most carry a value from the world, so that model would hold functions again; and
-  only a `Subscription` of the library's own could hold a channel to what it is given. Tried instead, and run: a
-  test lists what each key sends, as its reader lists what the model holds, and gives it to `dispatchViolations`
-  with every message `repeatable` ([`volume`](../examples/volume/volume.test.ts)). _Reopen if_ a key's message that
-  `update` rejects, or that does nothing, is found in an application, and such a test does not find it.
 - **Frames a bridge skips by the equality of models** (`registers.md`, "To explore"): with no function in a model,
   the models of two equal states are `Equal`, and a bridge could skip the drawing, as `thunk` and `memo` do by
   reference. Parked unmeasured on 15 November 2026, and measured on 16 and 17 November 2026 by

@@ -1,8 +1,10 @@
 # What reaches `update`, declared as data
 
-**Status:** suspended by the owner, 14 November 2026, the day it was proposed: suspended, not revoked, and parked in
-[`rejected.md`](../rejected.md) with what would reopen it. Nothing of it is done, and nothing of it is to be done now. This
-is a short record, rewritten the same day after the contract of the library became the model's with `update`
+**Status:** rejected by the owner, 23 November 2026 ("Weighed again", at the end), with one part of it taken to a
+spike: a message with one value left for the element to give. It was suspended by the owner on 14 November 2026, the
+day it was proposed, not revoked, and parked in [`rejected.md`](../rejected.md) until then. Nothing of it is done. But
+for "Weighed again", the record is as it was while the proposal was suspended, and its words say so. This is a short
+record, rewritten the same day after the contract of the library became the model's with `update`
 ([`boundary.md`](boundary.md), item 1). The record in full, with every finding of its three spikes, is
 `docs/declared-inputs.md` on the branch `claude/declared-inputs-spike-8af3b8`. The spikes' code is on
 `spike/declared-inputs`, `spike/dispatch-offers` and `spike/offer-check`, each cut from the one before, never to be
@@ -147,3 +149,71 @@ end of a subscription, a schema in a bridge, a key that changes its message) are
 - **Whether it is taken up again.** What is left of its context is the key and the command, since what the user
   types is no message now, and a model holds no function for it. The owner named one case: if exploring on today's
   API were awkward because a model's functions do not compare. The spike found them no obstacle (`exploration.md`).
+
+## Weighed again, 23 November 2026
+
+As step 9 of `ROADMAP.md`, by a session of Fable 5.2: each parked entry of [`rejected.md`](../rejected.md) that breaks
+the API was weighed again with the owner, since a change that breaks the API costs less the fewer users the library
+has. It was read against the code at `04eb7b4`, after a subscription was made from its key alone
+([`subscription-from-key.md`](subscription-from-key.md)) and an input got the form it stores a value in
+([`stored-form.md`](stored-form.md)). The owner decided each point as advised.
+
+- **The proposal is rejected.** Of its six points, the second was reached by the plain input, the first lost its
+  motive with it, and the sixth was rejected ([`exploration.md`](exploration.md)). What was left is the messages of a
+  key and the answers of a command. To declare them rewrites every program, and a test lists the first and stands in
+  for the second today. While it was parked, a rewrite of every program stayed open, and five entries of `rejected.md`
+  named it as what reopens them: each has a condition of its own now.
+- **A subscription that declares what it sends is rejected.** It makes `Subscription` a type of the library's own,
+  where `AGENTS.md` keeps it Effect's. Since a subscription is made from its key alone, a test's list of what each
+  key sends is a function of the type of the keys, which does not compile until it says what a new key sends.
+  Nothing checks that the list holds what the channel sends: that stands, with what would reopen it.
+- **A message with one value left for the element to give is taken to a spike**, as step 40 of `ROADMAP.md`. It is
+  the narrower form that the second opinion of 22 November 2026 proposed
+  ([`kept-children.md`](kept-children.md), "What was not taken from the second opinion").
+
+### A message with one value left for the element to give
+
+It is for a fact that comes with a value: the end of a scroll with its offset, a click on a board with its point. The
+guide's answer is a write, then a message ("Inputs", "What an element reports"), decided on 22 November 2026
+([`application-report.md`](application-report.md), point 1). That answer holds by what the guide promises already. It
+costs two steps for one fact, and a place in the state for a value that is read once. By the guide's own table
+("Structuring a program"), something that happened is a message, and `update` decides what it means. Of the two
+reasons of "Why what the user types is no message", the first does not hold for such a fact: there is something to
+decide. The second holds only for a whole message: a model cannot hold it as a value, but it can hold all of it but
+the value.
+
+**The form.** The model holds the message without its value, as data. The view fills the value that the element
+gives, and sends the message. An input stays as it is, for a value that the element holds and the program gives back,
+or that the program reads when something else happens.
+
+```ts
+type Model = { readonly scrollEnded: Omit<Extract<Message, { _tag: "ScrollEnded" }>, "offset"> }
+
+const makeModel = (): Model => ({ scrollEnded: { _tag: "ScrollEnded" } })
+
+dispatch({ ...model.scrollEnded, offset })
+```
+
+**A probe, run and not kept**, on Effect 4.1.4, TypeScript 7.0.2 and Bun 1.4.5, with `Message` a `Data.TaggedEnum`:
+
+- It compiles with no export of the library. A dispatch of the message without its value does not compile, nor does
+  one with a value of another type.
+- The message that a view fills is equal, by `Equal`, to the one that the constructor makes, and the models of two
+  states built apart are equal.
+- No type refuses a view that writes the whole message by hand, as none does today.
+
+**Against it.** "A view never builds a message of the program itself" ("Model") takes an exception: a view fills one
+value. And no example of the library has a value that an element reports, so nothing on the library's own terms shows
+what either form costs. As the second opinion reported, and not read here: in one application, three of six `set`s
+were written to decide on a write. That decides nothing (`AGENTS.md`).
+
+**When.** It breaks nothing, so it does not wait for the release that takes the breaking changes. But 0.9.0 is the
+first release that says "a write, then a message": the owner decides on the spike before it is released.
+
+**Found beside it**, by reading `bridges/snabbdom-testing.ts`: `messagesSentBy` gives a listener an event whose target
+holds the `value` and the `checked` of its element alone. So a handler that reads another property, as `scrollTop`,
+gets `undefined`, with an input today as with this form. The spike says what the tool would need.
+
+**Weighed beside it, and refused**: the value declared in `make`, with a function of the program from the value to
+the message, which a view writes into by its name as it writes into an input (`rejected.md`, "A value that an element
+reports, declared in `make` with the message made of it").

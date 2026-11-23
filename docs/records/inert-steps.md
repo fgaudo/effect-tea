@@ -1,9 +1,9 @@
 # A step that does nothing, and what the tests say of it
 
 **Status:** decided in part by the owner, 15 November 2026, after a review by Fable 5.2: points 1, 2, 3 and 5 of
-"Decision" are done, and point 4, `Inert`, is **deferred**, not rejected ("What was decided"), and parked in
-[`rejected.md`](../rejected.md). The rest of this record is the proposal as it was, 14 November 2026, with what it rests
-on: a review of the invariants by three models (Fable 5.2 twice, Opus 5.5 once), an earlier discussion in an application
+"Decision" are done. Point 4, `Inert`, was deferred then ("What was decided") and parked in
+[`rejected.md`](../rejected.md), and was **taken** by the owner on 23 November 2026, to be done ("Weighed again", at the
+end). The rest of this record is the proposal as it was, 14 November 2026, with what it rests on: a review of the invariants by three models (Fable 5.2 twice, Opus 5.5 once), an earlier discussion in an application
 that uses the library (26 October 2026), and two spikes, each on a worktree of its own, on Effect 4.1.4 and Bun 1.4.4,
 which are not kept. Its words were aligned with the contract of the model ([`boundary.md`](boundary.md), item 1), and
 read again after the port of the plain input ([`registers.md`](registers.md)): "Since the port" says what that changed.
@@ -241,3 +241,36 @@ or by the port, and are kept as they were asked, with how each was closed.
 - **An application.** What `Inert` finds in a program larger than the examples, and how many exemptions it asks for,
   is not measured. It decides nothing of the rule, which is judged on the library's own terms, but says what it is
   worth.
+
+## Weighed again, 23 November 2026
+
+As step 9 of `ROADMAP.md`, by a session of Fable 5.2, with each parked entry of [`rejected.md`](../rejected.md) that
+breaks the API. The owner took `Inert`, always on, as point 4 of "Decision" has it: it is step 39 of `ROADMAP.md`.
+
+**What deferred it is answered.** `Inert` flagged what a parent could not avoid without reading its children: "Stop
+all" while every stopwatch is stopped, 386 of the 819 states of `list` that it flagged. Since a child declares an
+`output` ([`kept-children.md`](kept-children.md)), `list` reads from each stopwatch whether it runs, and its model
+holds "Stop all" only while one does.
+
+**A probe, run and not kept**, at `04eb7b4`, on Effect 4.1.4 and Bun 1.4.5: `dispatchViolations` was given one line,
+which reports a message it holds whose first step does nothing, with no option to spare one. Then the tests of
+`examples/` and of the tool were run as they are, with the states that their properties draw.
+
+- **Of the 108 tests of the examples, one fails**: "update accepts what each key it listens to sends", of `volume`.
+  It gives the tool the messages of a key, not of a control: a move of a drag to where the slider is does nothing.
+- **Of the tool's own tests, one fails**: "accepts one-shot actions that guard themselves, repeatable ones, and
+  messages that change nothing again", which holds a message that does nothing in its first state, on purpose.
+- **No test of a model fails.** The writes that `stocktake` gives the tool are of a value other than the one the
+  model shows, as "Testing" asks, so each does something.
+
+**Why now.** It adds a case to `DispatchViolation`, and fails a consumer's test where a control does nothing: a
+breaking change, which costs less the fewer users the library has. And it closes what `Rejected` leaves open: an
+`update` that answers `{ state }` where it should reject shows a control that does nothing, and no tool says so.
+
+**Left to the step**: how a test spares the messages of a key that it gives the tool. By the owner's decision of 14
+November 2026, `ActsTwice` never judges a key's message, which `volume` says with `repeatable: () => true`
+([`declared-inputs.md`](declared-inputs.md), "What the owner decided"). `Inert` is of a control alike. Advised: the
+option `inert` says it, as `repeatable` does, and no option is added for a key.
+
+Of "Open questions", the application is still not measured, and the key whose message does nothing stands as it was
+(`rejected.md`, "A subscription that declares what it sends").
