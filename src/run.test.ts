@@ -23,7 +23,7 @@ import type * as Scope from "effect/Scope"
 import * as TestClock from "effect/testing/TestClock"
 import type * as Tracer from "effect/Tracer"
 import { gate } from "../test/gate.test_helper.ts"
-import { collectGarbage } from "../test/gc.test_helper.ts"
+import { collectGarbage, objectHeap } from "../test/gc.test_helper.ts"
 import type { Execution, RunCommand } from "./command.ts"
 import { program } from "./compose.ts"
 import { CompositionDefect, defect, type DefectSite, InvariantDefect, ProgramDefect } from "./defect.ts"
@@ -2826,32 +2826,45 @@ describe("what a run that goes on keeps", () => {
     expect(wheres(await interrupted(fiber))).toEqual([])
   })
 
-  test("past two thousand rounds, four thousand more grow the heap of a run that goes on by less than 150 kB", async () => {
-    const { fiber, playRound } = playing(() => undefined)
-    let round = 0
-    const playTo = async (last: number) => {
-      for (; round < last; round++) await Effect.runPromise(playRound(round))
-    }
-    // The least of a few reads, each after a macrotask and a collection: what a read finds that is gone at the next is
-    // no part of what the run keeps.
-    const heap = async () => {
-      let least = Infinity
-      for (let read = 0; read < 5; read++) {
-        await new Promise((resolve) => setTimeout(resolve, 0))
-        collectGarbage()
-        least = Math.min(least, process.memoryUsage().heapUsed)
+  test(
+    "past two thousand rounds, four thousand more grow the objects of a run that goes on by less than 100 kB",
+    async () => {
+      const { fiber, playRound } = playing(() => undefined)
+      let round = 0
+      // A collection every fifty rounds. The table of a `WeakMap` (Effect's cache of hashes, the instances of a
+      // parent's children) grows to hold what it held at most between two collections, the dead entries with the live
+      // ones, and no collection shrinks it. When V8 collects depends on how fast the machine runs: left to itself, on a
+      // machine slowed down, it let a table double past round two thousand, by 131 kB.
+      const playTo = async (last: number) => {
+        for (; round < last; round++) {
+          await Effect.runPromise(playRound(round))
+          if (round % 50 === 0) collectGarbage()
+        }
       }
-      return least
-    }
-    await playTo(2_000)
-    const before = await heap()
-    await playTo(6_000)
-    // Measured on 21 November 2026, in a hundred runs on each: the heap grew by 19 to 43 kB on Bun, and by 68 to 97 kB
-    // on Node. With one entry of a `Map` from a number to a number kept by the engine for each command, it grew by 520
-    // kB on Bun and by 235 to 260 kB on Node: a `Map` grows by doubling its table, and from 2,000 entries to 6,000 it
-    // doubles at least once.
-    expect(await heap() - before).toBeLessThan(150_000)
-    expect(fiber.pollUnsafe()).toBeUndefined()
-    expect(wheres(await interrupted(fiber))).toEqual([])
-  })
+      // The least of a few reads, each after a macrotask and a collection: what a read finds that is gone at the next
+      // is no part of what the run keeps.
+      const heap = async () => {
+        let least = Infinity
+        for (let read = 0; read < 5; read++) {
+          await new Promise((resolve) => setTimeout(resolve, 0))
+          collectGarbage()
+          least = Math.min(least, objectHeap())
+        }
+        return least
+      }
+      await playTo(2_000)
+      const before = await heap()
+      await playTo(6_000)
+      // Measured on 23 November 2026: the objects grew by 43 to 46 kB on Bun, and by 10 to 27 kB on Node, with V8's
+      // compilation delayed or not (`--concurrent-recompilation-delay=50`, as a loaded machine delays it). With one
+      // entry of a `Map` from a number to a number kept by the engine for each command, they grew by 529 to 538 kB on
+      // Bun and by 198 kB on Node: a `Map` grows by doubling its table, and from 2,000 entries to 6,000 it doubles at
+      // least once.
+      expect(await heap() - before).toBeLessThan(100_000)
+      expect(fiber.pollUnsafe()).toBeUndefined()
+      expect(wheres(await interrupted(fiber))).toEqual([])
+    },
+    // A hundred and twenty collections, which a slow machine does in more than the five seconds of a test.
+    20_000
+  )
 })
