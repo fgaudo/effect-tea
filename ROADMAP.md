@@ -48,38 +48,25 @@ None is open.
 
 ### 30. A subscription made from its key alone
 
-**Model and effort.** Fable 5.2, `high`: a design with a spike, of a change that breaks the API and reaches what runs
-a subscription ([`change-api`](.agents/skills/change-api/SKILL.md),
-[`change-engine`](.agents/skills/change-engine/SKILL.md)).
+**Model and effort.** Fable 5.2, `high`, to weigh the decision with the owner. What the owner takes is written by
+Opus 5.5, `high`.
 
-**Depends on** step 34, which changes how a parent lifts a child's subscriptions, whose keys carry the number of
-their instance, and makes a child from its flags alone, as this step makes a subscription from its key. What the owner
-takes is written as a step of its own, and placed against steps 18 and 19, which write anew what starts and stops a
-subscription.
+**Depends on** nothing: its spike is done, on 23 November 2026, and its record is
+[`subscription-from-key.md`](docs/records/subscription-from-key.md).
 
 **Why.** "Whatever a subscription depends on is in its key" is left to the user ("Guarantees", "What is left to
-you"): `subscriptions` gives each key with a subscription already made from the state, so a subscription may use what
-its key lacks. `examples/bounce` makes its subscription from `state.dt` under the key `"steps"`, and a comment says
-why `dt` cannot change. The owner prefers a misuse refused by construction
-([`given-functions.md`](docs/records/given-functions.md)), and took this lead for a spike on 22 November 2026.
+you"). The owner prefers a misuse refused by construction ([`given-functions.md`](docs/records/given-functions.md)),
+and took this lead for a spike on 22 November 2026.
 
-**How.** First `docs/rejected.md` and the records are read for whether it was weighed: the session that found the
-lead searched the titles of `docs/rejected.md` alone, and found nothing. Then a spike, on a branch that is never
-merged. `subscriptions` gives the keys alone, as data, and a function of the program makes a subscription from its
-key, as `runCommand` makes an execution from a command: a subscription can then use nothing of the state that its key
-lacks. To find:
+**How.** The spike ran, on two branches that are never merged: `subscriptions` gives the keys alone, as data, and a
+function of the program, `listen`, makes a subscription from its key, as `runCommand` makes an execution from a
+command. It works on no new premise, and the whole suite passes in that form. The record advises to take it, with the
+keys listed in an array. What is left is the owner's decision, of the seven points of the record's "For the owner":
+whether to take it, the list, the names, the key among a program's types, the key that `hear` takes, what a defect
+carries of a key, and where the step goes.
 
-- what a key is then: it carries what its subscription needs, as a command does, and is still compared by `Equal`;
-- the name of the function, and what a program without subscriptions leaves out;
-- what a parent lifts of a child, whose keys would be wrapped under its place as its commands are;
-- what the testing tools read and run: `program.subscriptions(state)`, `hearNext`, and what `rehearse` starts;
-- the services a subscription asks for (`SubscriptionServicesOf`), and what the types infer (`bun run inference`);
-- whether the parked "What a key sends is not data" comes nearer, since a key would be data that a test can list;
-- `bounce`, `volume` and the timer written in the new form, and what each gains or loses;
-- whether it rests on any premise that `docs/premises.md` does not hold.
-
-**Done when** a record has what the spike ran, and the owner has decided: a step here, or an entry of
-`docs/rejected.md`.
+**Done when** the owner has decided: a step here, before step 18, which writes anew what starts and stops a
+subscription, or an entry of `docs/rejected.md`.
 
 ### 9. The changes that break the API
 

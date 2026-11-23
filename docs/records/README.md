@@ -31,3 +31,4 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`kept-children.md`](kept-children.md)                   | taken, to be done: children that the library keeps       |
 | [`given-functions.md`](given-functions.md)               | done: when the library calls what a program gives it     |
 | [`stored-form.md`](stored-form.md)                       | taken, to be done: a value's form, and a place's laws    |
+| [`subscription-from-key.md`](subscription-from-key.md)   | spiked, to be decided: a subscription from its key alone |
