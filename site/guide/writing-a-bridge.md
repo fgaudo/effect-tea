@@ -263,10 +263,28 @@ says when a screen refresh comes, for a bridge that draws in one (neither of the
 fibers go on.
 
 Beside the snabbdom bridge, `@fgaudo/effect-tea/snabbdom/testing` ([`bridges/snabbdom-testing.ts`][messages]) has
-`messagesSentBy`. It finds what a view sends, without a DOM. Each listener gets an event whose `target` holds the
-`value` and the `checked` that the view drew. So it finds the writes of controlled elements too, each with the value
-its model holds. A handler that reads another property of its element, as `scrollTop`, or a property of its event, as
-`clientX`, gets `undefined`. So what such a handler sends is not what its reader returns. It is one way to check that a view draws what its model holds. The library does not ask it of any
-bridge (see [testing](./testing.md)). The test of each example drawn with snabbdom uses `messagesSentBy`.
+`messagesSentBy`. It finds what a view sends, without a DOM. Each listener gets an event whose `target` and
+`currentTarget` are its element. The element holds the `value` and the `checked` that the view drew. So it finds the
+writes of controlled elements too, each with the value its model holds.
+
+What else a handler reads, the test gives in a third argument, `reports`. It is a function of the listener's node and
+of the name of its event, and returns the fields of the element and of the event:
+
+```ts
+const reports = (node: VNode, type: string) =>
+  node.sel === "div.track" && type === "pointerdown"
+    ? { element: { getBoundingClientRect: () => ({ left, width }) }, event: { clientX } }
+    : {}
+```
+
+- The fields of `element` are laid over what the view drew. A field may be a method that only reads, as
+  `getBoundingClientRect`.
+- The fields of `event` are the event's own, as `clientX`.
+- A handler that reads a field that neither the view nor `reports` gives gets `undefined`.
+
+The test draws one record of the values, and gives it to its reader and to `reports` alike (see
+[the reader](./testing.md#the-reader)). `messagesSentBy` is one way to check that a view draws what its model holds.
+The library does not ask it of any bridge (see [testing](./testing.md)). The test of each example drawn with snabbdom
+uses `messagesSentBy`.
 
 [messages]: ../../bridges/snabbdom-testing.ts

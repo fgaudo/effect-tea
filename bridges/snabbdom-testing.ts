@@ -14,16 +14,30 @@ type Listener = Extract<NonNullable<On[string]>, (...args: never) => unknown>
  *
  * - It draws the view with a dispatch that records, draws each `thunk` as the renderer would, and calls every listener
  *   in the tree, in the order the tree holds them.
- * - Each listener gets an event whose `target` holds the `value` and the `checked` of its element's `props`, as the
- *   view drew them. So a controlled element's handler writes the model's own value: each write recorded holds the
- *   value its model holds.
+ * - Each listener gets an event whose `target` and `currentTarget` are one object, its element. The element holds the
+ *   `value` and the `checked` of its `props`, as the view drew them. So a controlled element's handler writes the
+ *   model's own value: each write recorded holds the value its model holds.
+ * - `reports` gives what the element and its event report beyond that, as the offset of a scroll or the point of a
+ *   press. Without it, a handler that reads another field gets `undefined`.
  * - It returns the messages recorded, as the root of the program receives them.
  *
  * A model holds what `update` accepts, which a test reads from the model itself. This checks that the view sends it.
+ * Where the model holds a message without its values, the test draws one record of them, and gives it to its reader
+ * and to `reports` alike.
+ *
+ * @param view The view, as the bridge draws it.
+ * @param model The model the view draws.
+ * @param reports Called for each listener, with the listener's node and the name of its event. The fields of its
+ *   `element` are laid over what the view drew, and the fields of its `event` are the event's own. A field may be a
+ *   method that only reads, as `getBoundingClientRect`.
+ * @returns The messages the view sent, in the order of its listeners.
  *
  * @example
  * ```ts
  * expect(messagesSentBy(view, model)).toEqual(messagesOf(model))
+ *
+ * // A list whose handler reads the offset of its scroll.
+ * expect(messagesSentBy(view, model, () => ({ element: { scrollTop: offset } }))).toEqual(messagesOf(model, offset))
  * ```
  *
  * @see The guide, "Testing", "The view".
@@ -31,22 +45,31 @@ type Listener = Extract<NonNullable<On[string]>, (...args: never) => unknown>
  */
 export const messagesSentBy = <Model, Message>(
   view: View<Model, Message>,
-  model: Model
+  model: Model,
+  reports: (node: VNode, type: string) => {
+    readonly element?: object
+    readonly event?: object
+  } = () => ({})
 ): ReadonlyArray<Message> => {
   const sent: Array<Message> = []
-  // An event of no element: its target holds only what the vnode's props say of a controlled element.
-  const eventOf = (node: VNode): Event => {
+  // An event of no element: its target holds what the vnode's props say of a controlled element, and what the test
+  // says the element and the event report.
+  const eventOf = (node: VNode, type: string): Event => {
     const props = node.data?.props ?? {}
+    const { element, event } = reports(node, type)
     const target = {
       ...("value" in props ? { value: props["value"] } : {}),
-      ...("checked" in props ? { checked: props["checked"] } : {})
+      ...("checked" in props ? { checked: props["checked"] } : {}),
+      ...element
     }
-    return { target } as unknown as Event
+    return { ...event, target, currentTarget: target } as unknown as Event
   }
   // Called as snabbdom calls a listener, with the node as `this` and as its second argument, and a list of them in
   // order: a listener or a list of them, as snabbdom's types say, and nothing they do not.
-  const listen = (node: VNode, listeners: Listener | ReadonlyArray<Listener>): void => {
-    for (const listener of Array.isArray(listeners) ? listeners : [listeners]) listener.call(node, eventOf(node), node)
+  const listen = (node: VNode, type: string, listeners: Listener | ReadonlyArray<Listener>): void => {
+    for (const listener of Array.isArray(listeners) ? listeners : [listeners]) {
+      listener.call(node, eventOf(node, type), node)
+    }
   }
   const visit = (node: VNode | string): void => {
     if (typeof node === "string") return
@@ -55,7 +78,7 @@ export const messagesSentBy = <Model, Message>(
       visit(fn(...args))
       return
     }
-    for (const listeners of Object.values(node.data?.on ?? {})) listen(node, listeners)
+    for (const [type, listeners] of Object.entries(node.data?.on ?? {})) listen(node, type, listeners)
     for (const child of node.children ?? []) visit(child)
   }
   visit(view(model, (message) => void sent.push(message)))

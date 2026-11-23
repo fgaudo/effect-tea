@@ -29,16 +29,16 @@ Step 40 was what was left of what the owner took of step 9, on 23 November 2026:
 of `docs/rejected.md` that breaks the API ([`inert-steps.md`](docs/records/inert-steps.md) and
 [`declared-inputs.md`](docs/records/declared-inputs.md), "Weighed again"). Steps 41 to 43 write what the owner took
 of its spike the same day, with the conditions of a second opinion
-([`value-in-message.md`](docs/records/value-in-message.md), "Decided"): step 41, the rule in the guide, is done. A
-step done leaves its number unused.
+([`value-in-message.md`](docs/records/value-in-message.md), "Decided"): step 41, the rule in the guide, and step 42,
+what `messagesSentBy` gives a handler, are done. A step done leaves its number unused.
 
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
 1. the other decisions that break the API, so that one release takes what they break, while the library has few
    users: step 10, which waits for the owner alone;
-2. the checks, steps 16, 6 and 42: of the types, once the decisions that change them are taken, of the bridges in a
-   real browser, and of what a view's handler reads; then the example of step 43;
+2. the checks, steps 16 and 6: of the types, once the decisions that change them are taken, and of the bridges in a
+   real browser; then the example of step 43;
 3. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
 4. the engine, steps 18 to 21, which change nothing that a user writes.
 
@@ -52,33 +52,14 @@ None is open.
 
 ## Next, in order
 
-### 42. What a view's handler reads, for `messagesSentBy`
-
-**Model and effort.** Opus 5.5, `high`: an addition to the API of `./snabbdom/testing` (`change-api`).
-
-**Depends on** nothing: step 41, done, says what a handler may read ("Inputs", "What an element reports"). 0.9.0 does
-not wait for it: it is an addition.
-
-**Why.** `messagesSentBy` gives a listener an event whose target holds the `value` and the `checked` of its element
-alone. A handler that reads `scrollTop` gets `undefined`, in either form of a fact with a value, and so does a handler
-that reads the event's own properties, as `offsetX`. The spike's `targetOf(node, event)` is not enough
-([`value-in-message.md`](docs/records/value-in-message.md), "2. `messagesSentBy`").
-
-**How.** Decide the shape: what a test gives for the event and for its target, by element and by event, and how a
-`thunk` keeps working. A view copies any number of values from its element and its event, each as given, and may call
-a method that only reads, as `getBoundingClientRect()`, whose numbers it copies: `volume`'s press (step 43) needs
-`clientX`, and the `left` and the `width` of its track. A test draws one record of the values for its reader and for
-the view alike, so the shape should take such a record. Then the tool, its tests, its doc comment, "Writing a bridge",
-"Their tests" (which says today that such a handler gets `undefined`), and a changelog entry.
-
-**Done when** a test of a view whose handler reads a property of its element and one of its event sends what its
-reader returns, and the checks of `change-api` pass.
-
 ### 43. An example of a fact that comes with a value
 
 **Model and effort.** Opus 5.5, `medium`: an example over rules that steps 41 and 42 fixed (`add-example`).
 
-**Depends on** step 42: the test of a snabbdom example uses `messagesSentBy`.
+**Depends on** step 42, done: the test of a snabbdom example uses `messagesSentBy`, whose third argument, `reports`,
+gives a handler what its element and its event report ("Writing a bridge", "Their tests"). For `volume`'s press, the
+test gives the track `element: { getBoundingClientRect: () => ({ left, width }) }` and the event `{ clientX }`, from
+the record it draws for the reader too.
 
 **Why.** No example shows the form. The spike's feed is not one to keep: its `update` holds the pixels of its CSS.
 

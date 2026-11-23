@@ -1,11 +1,12 @@
 # A message with one value left for the element to give: the spike
 
 **Status:** taken by the owner, 23 November 2026, with the conditions of a second opinion ("Decided", at the end), to
-be written as steps 41 to 43 of [`ROADMAP.md`](../../ROADMAP.md). Step 41, the rule in the guide, is done. Spiked the same day as step 40, by a session of
-Opus 5.5, and reviewed by a session of Fable 5.2, at the owner's request ("The second opinion"). The findings below are
-as corrected after that review. It is the part of [`declared-inputs.md`](declared-inputs.md) that "Weighed again" took
-to a spike. The spike's code is on the branch `spike/value-in-message` at `ed70b94`, never to be merged. The library
-did not change. Read against the code at `c21e637`.
+be written as steps 41 to 43 of [`ROADMAP.md`](../../ROADMAP.md). Steps 41 and 42, the rule in the guide and what
+`messagesSentBy` gives a handler, are done. Spiked the same day as step 40, by a session of Opus 5.5, and reviewed by a
+session of Fable 5.2, at the owner's request ("The second opinion"). The findings below are as corrected after that
+review. It is the part of [`declared-inputs.md`](declared-inputs.md) that "Weighed again" took to a spike. The spike's
+code is on the branch `spike/value-in-message` at `ed70b94`, never to be merged. The library did not change. Read
+against the code at `c21e637`.
 
 ## In short
 

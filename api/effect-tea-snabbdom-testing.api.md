@@ -10,7 +10,10 @@ import { VNode } from 'snabbdom';
 type Dispatch<Message> = (message: Message) => void;
 
 // @public
-export const messagesSentBy: <Model, Message>(view: View<Model, Message>, model: Model) => ReadonlyArray<Message>;
+export const messagesSentBy: <Model, Message>(view: View<Model, Message>, model: Model, reports?: (node: VNode, type: string) => {
+    readonly element?: object;
+    readonly event?: object;
+}) => ReadonlyArray<Message>;
 
 // @public
 type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => VNode;

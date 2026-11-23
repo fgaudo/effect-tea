@@ -2,6 +2,7 @@
 import { type Dispatch, forwardTo, type MessageOf, type ModelOf, program, type Written } from "@fgaudo/effect-tea"
 import { describe, expect, test } from "bun:test"
 import * as Optic from "effect/Optic"
+import * as fc from "fast-check"
 import { h, thunk, type VNode } from "snabbdom"
 import { messagesSentBy } from "./snabbdom-testing.ts"
 import type { View } from "./snabbdom.ts"
@@ -74,5 +75,66 @@ describe("messagesSentBy", () => {
       { _tag: "Name", message: { _tag: "Written", value: "Ada" } },
       { _tag: "Agreed", message: { _tag: "Written", value: true } }
     ])
+  })
+
+  test("sends what its reader returns, for handlers that read their element and their event, with the values drawn", () => {
+    type Values = Readonly<{ offset: number; clientX: number; left: number; width: number }>
+    type Sent =
+      | Readonly<{ _tag: "ScrollEnded"; offset: number }>
+      | Readonly<{ _tag: "Pressed"; clientX: number; left: number; width: number }>
+    type Held = Readonly<{ scrollEnded: Readonly<{ _tag: "ScrollEnded" }>; pressed: Readonly<{ _tag: "Pressed" }> }>
+    const held: Held = { scrollEnded: { _tag: "ScrollEnded" }, pressed: { _tag: "Pressed" } }
+    const messagesOf = (model: Held, { clientX, left, offset, width }: Values): ReadonlyArray<Sent> => [
+      { ...model.scrollEnded, offset },
+      { ...model.pressed, clientX, left, width }
+    ]
+    const press = (model: Held, dispatch: Dispatch<Sent>) =>
+      h("div.track", {
+        on: {
+          pointerdown: (event) => {
+            const { left, width } = (event.currentTarget as HTMLElement).getBoundingClientRect()
+            dispatch({ ...model.pressed, clientX: event.clientX, left, width })
+          }
+        }
+      })
+    const view: View<Held, Sent> = (model, dispatch) =>
+      h("ul.list", {
+        on: {
+          scrollend: (event) =>
+            dispatch({ ...model.scrollEnded, offset: (event.currentTarget as HTMLElement).scrollTop })
+        }
+      }, [thunk("div.track", press, [model, dispatch])])
+    const values = fc.record({ offset: fc.nat(), clientX: fc.integer(), left: fc.integer(), width: fc.nat() })
+    fc.assert(fc.property(values, (drawn) => {
+      const reports = (node: VNode) =>
+        node.sel === "ul.list"
+          ? { element: { scrollTop: drawn.offset } }
+          : {
+            element: { getBoundingClientRect: () => ({ left: drawn.left, width: drawn.width }) },
+            event: { clientX: drawn.clientX }
+          }
+      expect(messagesSentBy(view, held, reports)).toEqual(messagesOf(held, drawn))
+    }))
+  })
+
+  test("asks what is reported for each listener, with its node and its event, and lays it over what the view drew", () => {
+    const asked: Array<string> = []
+    const field: View<null, string> = (_, dispatch) =>
+      h("input#name", {
+        props: { value: "drawn" },
+        on: {
+          input: (event) => {
+            const { currentTarget, target } = event as unknown as Readonly<{ target: unknown; currentTarget: unknown }>
+            dispatch(`${(event.target as HTMLInputElement).value} ${currentTarget === target}`)
+          },
+          blur: [() => dispatch("left"), () => dispatch("left again")]
+        }
+      })
+    const sent = messagesSentBy(field, null, (node, type) => {
+      asked.push(`${node.sel} ${type}`)
+      return type === "input" ? { element: { value: "typed" } } : {}
+    })
+    expect(sent).toEqual(["typed true", "left", "left again"])
+    expect(asked).toEqual(["input#name input", "input#name blur", "input#name blur"])
   })
 })

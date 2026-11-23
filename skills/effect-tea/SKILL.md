@@ -175,8 +175,9 @@ The run does not check these. A test does, with the tool named.
   of the value alone, beside the place: `input({ at, store: (note) => note.toUpperCase() })`. The guide, "Inputs",
   "Rules". The guide, "Inputs", "What is typed, in another form". The guide, "Testing tools", "placeViolations".
 - **A view sends only the messages its model holds**: your renderer's tools, as `messagesSentBy` for snabbdom. That
-  tool gives a handler the `value` and the `checked` of its element alone. The guide, "Testing", "The view". The
-  guide, "Model", "Precisely". The guide, "Writing a bridge", "Their tests".
+  tool gives a handler the `value` and the `checked` of its element, and what its third argument, `reports`, says the
+  element and the event report. The guide, "Testing", "The view". The guide, "Model", "Precisely". The guide,
+  "Writing a bridge", "Their tests".
 - **A message held without its value is filled by the reader too**, with values that the test draws, and the values
   at which it means nothing are exempted with `inert`. The guide, "Testing", "The reader".
 - **A rejection is asserted as `reject` itself**, with `toBe(reject)`. The guide, "Testing", "Do and don't".

@@ -115,6 +115,8 @@ fills it into each message that the model holds without it, as the view does (se
 
 - Draw the value, with fast-check. A test that fills one value, as the one at which the message always acts, also
   passes an `update` that rejects the other values.
+- Give the same values to the test of the view, which fills them as the element would report them (see
+  [the view](#the-view)).
 - Exempt with `inert` the values at which the message means nothing: there, its step does nothing.
 - `Missing` compares whole messages, the value too. So fill the held messages and the `candidates` with the same
   values.
@@ -167,8 +169,10 @@ What `placeViolations` checks is in [testing tools](./testing-tools.md#placeviol
 through the right dispatch. You check it with your renderer's tools. For snabbdom, the package has one,
 `messagesSentBy`, in `@fgaudo/effect-tea/snabbdom/testing` ([`bridges/snabbdom-testing.ts`][messages]). It finds what a
 view sends, without a DOM. A test compares that with what its reader returns. The examples' tests do this, each with a
-reader that lists the messages in the order its view draws them. `messagesSentBy` is an example, and a bridge does not
-have to have one.
+reader that lists the messages in the order its view draws them. Where a handler reads what its element or its event
+reports, the test gives `messagesSentBy` the values that it gives its reader (see
+[their tests](./writing-a-bridge.md#their-tests)). `messagesSentBy` is an example, and a bridge does not have to have
+one.
 
 **A program run under its renderer, in a DOM,** is run as the app runs it. First, the test file prepares the DOM:
 

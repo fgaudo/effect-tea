@@ -3794,12 +3794,68 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "messagesSentBy gives a listener no checked",
     file: "bridges/snabbdom-testing.ts",
-    from: "      ...(\"checked\" in props ? { checked: props[\"checked\"] } : {})\n",
+    from: "      ...(\"checked\" in props ? { checked: props[\"checked\"] } : {}),\n",
     to: "",
     killedBy: [
       [
         "bridges/snabbdom-testing.test.ts",
         "finds the writes of controlled elements, each with the value its model holds"
+      ]
+    ]
+  },
+  {
+    name: "messagesSentBy gives a listener nothing its element reports",
+    file: "bridges/snabbdom-testing.ts",
+    from: "      ...element\n",
+    to: "",
+    killedBy: [
+      [
+        "bridges/snabbdom-testing.test.ts",
+        "sends what its reader returns, for handlers that read their element and their event, with the values drawn"
+      ],
+      [
+        "bridges/snabbdom-testing.test.ts",
+        "asks what is reported for each listener, with its node and its event, and lays it over what the view drew"
+      ]
+    ]
+  },
+  {
+    name: "messagesSentBy gives a listener nothing its event reports",
+    file: "bridges/snabbdom-testing.ts",
+    from: "    return { ...event, target, currentTarget: target } as unknown as Event\n",
+    to: "    return { target, currentTarget: target } as unknown as Event\n",
+    killedBy: [
+      [
+        "bridges/snabbdom-testing.test.ts",
+        "sends what its reader returns, for handlers that read their element and their event, with the values drawn"
+      ]
+    ]
+  },
+  {
+    name: "messagesSentBy gives a listener no currentTarget",
+    file: "bridges/snabbdom-testing.ts",
+    from: "    return { ...event, target, currentTarget: target } as unknown as Event\n",
+    to: "    return { ...event, target } as unknown as Event\n",
+    killedBy: [
+      [
+        "bridges/snabbdom-testing.test.ts",
+        "sends what its reader returns, for handlers that read their element and their event, with the values drawn"
+      ],
+      [
+        "bridges/snabbdom-testing.test.ts",
+        "asks what is reported for each listener, with its node and its event, and lays it over what the view drew"
+      ]
+    ]
+  },
+  {
+    name: "messagesSentBy asks what is reported without the name of the event",
+    file: "bridges/snabbdom-testing.ts",
+    from: "      listener.call(node, eventOf(node, type), node)\n",
+    to: "      listener.call(node, eventOf(node, \"\"), node)\n",
+    killedBy: [
+      [
+        "bridges/snabbdom-testing.test.ts",
+        "asks what is reported for each listener, with its node and its event, and lays it over what the view drew"
       ]
     ]
   },

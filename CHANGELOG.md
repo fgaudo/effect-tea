@@ -15,6 +15,9 @@ version, and everything else, features included, the patch version.
   ("Inputs", "What is typed, in another form").
 - `placeViolations(input, { states, ids, values })`, in `@fgaudo/effect-tea/testing`, checks in a test that an input's
   `set` changes its place and nothing else, and returns each `PlaceViolation` it finds ("Testing tools").
+- `messagesSentBy(view, model, reports)`, in `@fgaudo/effect-tea/snabbdom/testing`: `reports` gives what a handler
+  reads of its element and its event, as `scrollTop` or `clientX`, and each event's `currentTarget` is its element too
+  ("Writing a bridge", "Their tests").
 
 ### Changed
 
