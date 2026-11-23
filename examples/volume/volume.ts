@@ -10,7 +10,6 @@ import * as Channel from "effect/Channel"
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
-import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 import * as Stream from "effect/Stream"
 
@@ -148,14 +147,11 @@ const press = (state: State, slider: Slider): Opt.Option<Message> =>
     ? Opt.some(Message.DragStarted({ slider }))
     : Opt.none()
 
-export const volume = program<{ state: State; model: Model; message: Message }>().make({
+export const volume = program<{ state: State; model: Model; message: Message; key: Slider }>().make({
   init: { state: { media: 50, sound: Sound.Audible(), ringer: 80, limit: Limit.Full(), drag: Drag.Idle() } },
   update,
-  subscriptions: (state) =>
-    Opt.match(dragged(state), {
-      onNone: () => HashMap.empty(),
-      onSome: (slider) => HashMap.make([slider, dragging])
-    }),
+  subscriptions: (state) => Opt.toArray(dragged(state)),
+  listen: () => dragging,
   makeModel: (state) => ({
     // Muted, the media's slider shows 0, and cannot be dragged.
     media: { level: state.sound._tag === "Muted" ? 0 : state.media, max: 100, press: press(state, "Media") },

@@ -96,8 +96,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "as many keys are taken for the same keys",
     guarantees: ["Subscriptions follow their keys"],
     file: "src/core.ts",
-    from: "fresh.length === 0 && HashMap.size(listed) === HashMap.size(active.keys)",
-    to: "HashMap.size(listed) === HashMap.size(active.keys)",
+    from: "appeared.length === 0 && kept.size === HashMap.size(active.keys)",
+    to: "kept.size === HashMap.size(active.keys)",
     killedBy: [
       ["src/core.test.ts", "a kept key keeps its start, and a gone key stops with its start"],
       [
@@ -110,10 +110,30 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "keys all active are taken for the same keys, though one went away",
     guarantees: ["Subscriptions follow their keys"],
     file: "src/core.ts",
-    from: "fresh.length === 0 && HashMap.size(listed) === HashMap.size(active.keys)",
-    to: "fresh.length === 0",
+    from: "appeared.length === 0 && kept.size === HashMap.size(active.keys)",
+    to: "appeared.length === 0",
     killedBy: [
       ["src/core.test.ts", "a key that comes back gets a new start"]
+    ]
+  },
+  {
+    name: "a key listed twice hides a key that went away",
+    guarantees: ["Subscriptions follow their keys"],
+    file: "src/core.ts",
+    from: "appeared.length === 0 && kept.size === HashMap.size(active.keys)",
+    to: "appeared.length === 0 && listed.length === HashMap.size(active.keys)",
+    killedBy: [
+      ["src/core.test.ts", "a key listed twice is listed once, and hides no key that went away"]
+    ]
+  },
+  {
+    name: "a key listed twice starts twice",
+    guarantees: ["Subscriptions follow their keys"],
+    file: "src/core.ts",
+    from: "      if (HashMap.has(keys, key)) continue\n",
+    to: "",
+    killedBy: [
+      ["src/core.test.ts", "a key listed twice is listed once, and hides no key that went away"]
     ]
   },
   {
@@ -646,7 +666,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "a child's lifted subscriptions are made again for the instance they were made for",
+    name: "a child's lifted keys are made again for the instance they were made for",
     guarantees: ["Subscriptions follow their keys"],
     file: "src/compose.ts",
     from: "    if (found !== undefined) return found\n",
@@ -654,7 +674,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/compose.test.ts",
-        "a child's subscriptions are kept while its instance is the same object, and made again for a new state"
+        "a child's keys are kept while its instance is the same object, and made again for a new state"
       ]
     ]
   },
@@ -670,19 +690,6 @@ export const mutations: ReadonlyArray<Mutation> = [
         "a child whose state is not an object is a defect that names it and its id, in its model"
       ],
       ["src/compose.test.ts", "a child alone whose state is not an object is a defect that names it, in its model"]
-    ]
-  },
-  {
-    name: "an own key equal to a lifted one is no defect",
-    guarantees: ["Nothing ends in silence"],
-    file: "src/compose.ts",
-    from: "            if (HashMap.has(own, key)) {\n",
-    to: "            if (false) {\n",
-    killedBy: [
-      [
-        "src/compose.test.ts",
-        "an own subscription key that is the lifted key of a child's is a defect, never a silent replacement"
-      ]
     ]
   },
   {
@@ -972,8 +979,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a child listens where listening does not hold",
     guarantees: ["Subscriptions follow their keys"],
     file: "src/compose.ts",
-    from: "            listening !== undefined && !(",
-    to: "            false && !(",
+    from: "        if (listening !== undefined && !(",
+    to: "        if (false && !(",
     killedBy: [
       ["src/compose.test.ts", "without listening every child listens, and with it those where it holds"],
       ["src/compose.test.ts", "a row where listening does not hold runs no subscription, and still takes its messages"]
@@ -987,6 +994,16 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "      if (false) {\n",
     killedBy: [
       ["src/compose.test.ts", "a child without external takes no external message from its parent"]
+    ]
+  },
+  {
+    name: "a child's key with no listen dies of a TypeError",
+    guarantees: ["Nothing ends in silence"],
+    file: "src/compose.ts",
+    from: "        if (listen === undefined) {\n",
+    to: "        if (false) {\n",
+    killedBy: [
+      ["src/compose.test.ts", "a child's key that nothing listens to is a CompositionDefect naming the child"]
     ]
   },
   {
@@ -1490,8 +1507,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a kept key starts again",
     guarantees: ["Subscriptions follow their keys"],
     file: "src/core.ts",
-    from: "if (HashMap.has(active.keys, key)) continue",
-    to: "if (false) continue",
+    from: "    if (Opt.isSome(found)) kept.add(found.value)\n    else appeared.push(key)\n",
+    to: "    appeared.push(key)\n",
     // The rest of the suite hangs under it.
     killedBy: [
       ["src/core.test.ts", "a kept key keeps its start, and a gone key stops with its start"],
@@ -1537,7 +1554,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a gone key keeps running",
     guarantees: ["Subscriptions follow their keys"],
     file: "src/core.ts",
-    from: "([key]) => !HashMap.has(listed, key))",
+    from: "([, generation]) => !kept.has(generation))",
     to: "() => false)",
     killedBy: [
       ["src/core.test.ts", "a kept key keeps its start, and a gone key stops with its start"],
@@ -1567,7 +1584,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "return arrived.changed ? Effect.as(listen(listening), Opt.some(applied))",
     to: "return false ? Effect.as(listen(listening), Opt.some(applied))",
     killedBy: [
-      ["src/testing/contract.test.ts", "simulate fails, as the run dies, on a state whose subscriptions are a defect"],
       [
         "src/testing/contract.test.ts",
         "simulate fails, as the run dies, on a key whose Equal throws against the key of the state before"
@@ -2246,8 +2262,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "the queue of the jobs is bounded",
     guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
-    from: "Queue.unbounded<Job<Message, Command, R, K>>()",
-    to: "Queue.bounded<Job<Message, Command, R, K>>(1)",
+    from: "Queue.unbounded<Job<Command, K>>()",
+    to: "Queue.bounded<Job<Command, K>>(1)",
     killedBy: [
       [
         "src/engine.test.ts",
@@ -2259,8 +2275,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a job starts its commands before it stops its gone keys",
     guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
-    from: "  const perform = Effect.fnUntraced(function*({ gone, fresh, commands }: Job<Message, Command, R, K>) {\n",
-    to: "  const perform = Effect.fnUntraced(function*({ gone, fresh, commands }: Job<Message, Command, R, K>) {\n"
+    from: "  const perform = Effect.fnUntraced(function*({ gone, fresh, commands }: Job<Command, K>) {\n",
+    to: "  const perform = Effect.fnUntraced(function*({ gone, fresh, commands }: Job<Command, K>) {\n"
       + "    yield* Effect.forEach(commands, runCommand, { discard: true })\n",
     killedBy: [
       [
@@ -2316,6 +2332,16 @@ export const mutations: ReadonlyArray<Mutation> = [
         "src/engine.test.ts",
         "a defect of a command dies in the command, and one of a subscription in the subscription, with its key"
       ]
+    ]
+  },
+  {
+    name: "a listen that throws in the engine is no defect of its subscription",
+    guarantees: ["Nothing ends in silence"],
+    file: "src/engine.ts",
+    from: "yield* Effect.suspend(() => runSubscription(listen(key), send)).pipe(",
+    to: "yield* runSubscription(listen(key), send).pipe(",
+    killedBy: [
+      ["src/testing/contract.test.ts", "the run dies in the subscription, with its key, of what listen throws"]
     ]
   },
   {
@@ -2779,6 +2805,19 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/testing/contract.test.ts",
         "rehearse fails, as the run dies, in a command on a runCommand that throws before its effect"
+      ]
+    ]
+  },
+  {
+    name: "a listen that throws in rehearse is no defect of its subscription",
+    file: "src/testing/rehearse.ts",
+    from: "          Effect.suspend(() =>\n            runSubscription(\n              listenTo(key as Key),",
+    to:
+      "          ((make: () => unknown) => make())(() =>\n            runSubscription(\n              listenTo(key as Key),",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "rehearse fails in the subscription, with its key, as the run dies, of what listen throws"
       ]
     ]
   },

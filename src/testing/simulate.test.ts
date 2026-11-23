@@ -6,7 +6,6 @@ import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
-import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 import type * as Scope from "effect/Scope"
 import type { RunCommand } from "../command.ts"
@@ -38,7 +37,7 @@ describe("simulate", () => {
       (total) => Opt.some<Flow>({ _tag: "Saved", total })
     )
 
-  const saving = { update: flow, runCommand: store, subscriptions: () => HashMap.empty() }
+  const saving = { update: flow, runCommand: store, subscriptions: () => [] }
 
   const idle: Saving = { isSaving: false, saved: 0 }
 
@@ -71,7 +70,7 @@ describe("simulate", () => {
     const answered = {
       update: flow,
       runCommand: () => Effect.succeedSome<Flow>({ _tag: "Saved", total: 3 }),
-      subscriptions: () => HashMap.empty()
+      subscriptions: () => []
     }
     const simulation = await Effect.runPromise(simulate(answered)([{ _tag: "Save" }], { state: idle }))
     expect(simulation.state).toEqual({ isSaving: false, saved: 3 })
@@ -104,7 +103,7 @@ describe("simulate", () => {
     const runCommand: RunCommand<"A" | "B", Step, Scope.Scope> = (command) =>
       resource(command).pipe(Effect.as(Opt.some<Step>(command === "A" ? "First" : "Second")))
     const simulation = await Effect.runPromise(
-      simulate({ update: chained, runCommand, subscriptions: () => HashMap.empty() })(["Start"], { state: {} })
+      simulate({ update: chained, runCommand, subscriptions: () => [] })(["Start"], { state: {} })
     )
     expect(simulation.messages).toEqual(["Start", "First", "Second"])
     expect(log).toEqual(["acquire A", "release A", "acquire B", "release B"])
@@ -121,13 +120,14 @@ describe("simulate", () => {
         commandServices: Storage
         subscriptionServices: Feed
         event: "Done"
+        key: "feed"
       }
     > = {
       init: { state: idle },
       update: flow,
       runCommand: store,
-      subscriptions: () =>
-        HashMap.make(["feed", Channel.unwrap(Effect.map(Effect.service(Feed), (feed) => feed.flows))]),
+      subscriptions: () => ["feed" as const],
+      listen: () => Channel.unwrap(Effect.map(Effect.service(Feed), (feed) => feed.flows)),
       makeModel: (state) => state
     }
     // Unlike two `extends`, it tells `any` and `unknown` from the services named.
@@ -141,13 +141,13 @@ describe("simulate", () => {
     const counting: Update<Saving, "Increment"> = () => (state) => ({ state })
     // @ts-expect-error: it reads the subscriptions on each new state.
     expect(simulate({ update: counting })).toBeDefined()
-    expect(simulate({ update: counting, subscriptions: () => HashMap.empty() })).toBeDefined()
+    expect(simulate({ update: counting, subscriptions: () => [] })).toBeDefined()
   })
 
   test("takes only a program that keeps its state in an object", () => {
     const counting: Update<number, "Increment"> = () => (count) => ({ state: count + 1 })
     // @ts-expect-error: a number is no object.
-    expect(simulate({ update: counting, subscriptions: () => HashMap.empty() })).toBeDefined()
+    expect(simulate({ update: counting, subscriptions: () => [] })).toBeDefined()
   })
 
   test("a rejection of one of the messages fails, naming it", async () => {
@@ -168,7 +168,7 @@ describe("simulate", () => {
         init: { state: { n: 0 } },
         update: () => (state) => ({ state, commands: ["Wait"] }),
         runCommand: () => Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)),
-        subscriptions: () => HashMap.empty(),
+        subscriptions: () => [],
         makeModel: ({ n }) => n
       }
       const simulating = yield* Effect.forkChild(simulate(waiting)(["Go"], { state: { n: 0 } }))

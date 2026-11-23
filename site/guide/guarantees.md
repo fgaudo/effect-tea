@@ -40,6 +40,8 @@ bridge's to promise (see [view](./view.md#rules)).
     subscriptions again (see [what the library derives](./composition.md#what-the-library-derives)).
 - **Subscriptions follow their keys.** A subscription starts when a new state brings its key. It is interrupted when a
   new state takes its key away.
+  - A subscription is made from its key alone, by `listen`, which does not see the state.
+  - A key listed twice is listed once.
   - Both happen once that state is current, and before any start of a later state. A later message may be applied
     first.
   - A subscription that ends stays ended while its key stays, until the key goes away and comes back.
@@ -168,15 +170,15 @@ bridge's to promise (see [view](./view.md#rules)).
   A function made anew in `flags` or `key` is other flags each time, since `Equal` compares a function by reference.
   Nothing says so: the child starts again, and loses its state (see
   [composition](./composition.md#children-by-id)).
-- **Whatever a subscription depends on is in its key.** A new value left out of the key is not used while the key is
-  kept (see [subscriptions](./subscriptions.md)).
+- **What must stay private is in a service, not in a key.** A key is shown whole: in a defect of its subscription, and
+  in the `origin` that `onApplied` and `onIgnored` hear (see [running](./running.md#when-a-defect-happens)).
 - **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and states are never mutated.** So are
   an `init` that takes flags, the handlers of `onEvent`, the `get`, the `set` and the `store` of an input and an `at`
   that is a function of the id, and the functions that say which children are there and when they listen: `there`,
   `key`, `flags`, `ids` and `listening`. The library calls them when it chooses. A child's `external`, its `init` when
   a step of its parent starts it, its parent's handlers of `onEvent`, and the `get`, the `set` and the `store` of a
-  write run in the parent's `update`. The library reuses a child's model, and its subscriptions, while the child's state is the same
-  object.
+  write run in the parent's `update`. The library reuses a child's model, and the keys of its subscriptions, while the child's state is
+  the same object.
 - **A function of the program never interrupts the fiber it runs in.** An `init` that takes flags, and `subscriptions`
   on the first state, run in the call of `start`: in the fiber of whoever starts the program, or in no fiber at all. The
   children of a parent without flags are started in the call of `make`, their `init` with them (see

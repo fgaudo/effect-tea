@@ -219,8 +219,7 @@ describe("what a fiber with a scope of its own ends with", () => {
   })
 })
 
-const listing = <K>(...keys: ReadonlyArray<K>) =>
-  HashMap.fromIterable(keys.map((key) => [key, `of ${String(key)}`] as const))
+const listing = <K>(...keys: ReadonlyArray<K>) => Array.from(keys)
 
 const startsOf = <K>(active: Active<K>): Readonly<Record<string, number>> =>
   Object.fromEntries(Array.from(active.keys, ([key, start]) => [String(key), start]))
@@ -228,10 +227,10 @@ const startsOf = <K>(active: Active<K>): Readonly<Record<string, number>> =>
 describe("the keys of a new state, against those before", () => {
   test("a new key starts, with a start of its own, in the order the listing gives them", () => {
     const listed = listing("a", "b")
-    const [first, second] = Array.from(HashMap.keys(listed)) as [string, string]
+    const [first, second] = Array.from(listed) as [string, string]
     const { gone, fresh, active } = reconcile(noneActive, listed)
     expect(gone).toEqual([])
-    expect(fresh).toEqual([[first, `of ${first}`, 1], [second, `of ${second}`, 2]])
+    expect(fresh).toEqual([[first, 1], [second, 2]])
     expect(startsOf(active)).toEqual({ [String(first)]: 1, [String(second)]: 2 })
     expect(active.starts).toEqual(new Set([1, 2]))
   })
@@ -240,7 +239,7 @@ describe("the keys of a new state, against those before", () => {
     const first = reconcile(noneActive, listing("a", "b")).active
     const { gone, fresh, active } = reconcile(first, listing("a", "c"))
     expect(gone).toEqual([["b", 2]])
-    expect(fresh).toEqual([["c", "of c", 3]])
+    expect(fresh).toEqual([["c", 3]])
     expect(startsOf(active)).toEqual({ a: 1, c: 3 })
     expect(active.starts).toEqual(new Set([1, 3]))
   })
@@ -249,7 +248,7 @@ describe("the keys of a new state, against those before", () => {
     const first = reconcile(noneActive, listing("a")).active
     const without = reconcile(first, listing()).active
     const { fresh, active } = reconcile(without, listing("a"))
-    expect(fresh).toEqual([["a", "of a", 2]])
+    expect(fresh).toEqual([["a", 2]])
     expect(active.starts).toEqual(new Set([2]))
   })
 
@@ -269,8 +268,19 @@ describe("the keys of a new state, against those before", () => {
     expect(active).toBe(first)
   })
 
+  // A listing is an array, so a key may be listed twice.
+  test("a key listed twice is listed once, and hides no key that went away", () => {
+    const first = reconcile(noneActive, listing("a", "a", "b"))
+    expect(first.fresh).toEqual([["a", 1], ["b", 2]])
+    // As many keys listed as active, each of them active: `b` went away all the same.
+    const second = reconcile(first.active, listing("a", "a"))
+    expect(second.gone).toEqual([["b", 2]])
+    expect(second.fresh).toEqual([])
+    expect(reconcile(second.active, listing("a", "a", "a")).active).toBe(second.active)
+  })
+
   test("under any history of listings, starts follow the keys", () => {
-    const keys = fc.uniqueArray(fc.constantFrom<string>("a", "b", "c", "d", "e"), { maxLength: 5 })
+    const keys = fc.array(fc.constantFrom<string>("a", "b", "c", "d", "e"), { maxLength: 7 })
     fc.assert(fc.property(fc.array(keys, { maxLength: 20 }), (history) => {
       let active: Active<string> = noneActive
       const used = new Set<number>()
@@ -280,13 +290,14 @@ describe("the keys of a new state, against those before", () => {
         const { gone, fresh, active: after } = reconcile(before, map)
         const previous = startsOf(before)
         const now = startsOf(after)
-        expect(Object.keys(now).sort()).toEqual([...listed].sort())
+        const distinct = Array.from(new Set(listed))
+        expect(Object.keys(now).sort()).toEqual([...distinct].sort())
         expect(gone).toEqual(Object.entries(previous).filter(([key]) => !listed.includes(key)))
         for (const key of listed) {
           if (key in previous) expect(now[key]).toBe(previous[key])
         }
-        expect(fresh.map(([key]) => key)).toEqual(Array.from(HashMap.keys(map)).filter((key) => !(key in previous)))
-        for (const [key, , start] of fresh) {
+        expect(fresh.map(([key]) => key)).toEqual(distinct.filter((key) => !(key in previous)))
+        for (const [key, start] of fresh) {
           expect(used.has(start)).toBe(false)
           expect(now[key]).toBe(start)
           used.add(start)
@@ -399,7 +410,7 @@ describe("a message against the state", () => {
           died = true
         } else if (happened._tag === "List") {
           const { fresh, active: after } = reconcile(active, listing(...happened.keys))
-          for (const [key, , start] of fresh) starts.push([key, start])
+          for (const [key, start] of fresh) starts.push([key, start])
           active = after
         } else {
           const start = starts[happened.from]

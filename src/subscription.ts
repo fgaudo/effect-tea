@@ -1,8 +1,8 @@
 import type * as Channel from "effect/Channel"
-import type * as HashMap from "effect/HashMap"
 
 /**
- * Listens to the world while its key is among a program's subscriptions: an Effect `Channel` of messages.
+ * Listens to the world while its key is among a program's subscriptions: an Effect `Channel` of messages, which the
+ * program's `listen` makes from the key.
  *
  * It takes no input and cannot fail. Its end value is a message, or `never` for one that never ends. `R` is the
  * services it needs: one that needs none leaves `R` as `never`.
@@ -29,20 +29,40 @@ import type * as HashMap from "effect/HashMap"
 export type Subscription<Message, R = never> = Channel.Channel<Message, never, Message, unknown, unknown, unknown, R>
 
 /**
- * What a program listens to in a state, by key.
+ * What a program listens to in a state: the keys of its subscriptions, as data, in an array.
  *
  * Keys are compared by value after every change of state. A new key starts its subscription, a kept key leaves it
- * running, and a missing key stops it.
+ * running, and a missing key stops it. A key listed twice is listed once.
  *
  * @example
  * ```ts
- * const subscriptions: Subscriptions<State, Message> = (state) =>
- *   state.phase._tag === 'Running' ? HashMap.make(['ticks', ticks]) : HashMap.empty()
+ * const subscriptions: Subscriptions<State, 'ticks'> = (state) => state.phase._tag === 'Running' ? ['ticks'] : []
  * ```
  *
  * @see The guide, "Subscriptions", "Keys are compared by value, after every change of state:".
  * @see The guide, "Guarantees", "Subscriptions follow their keys".
  */
-export type Subscriptions<State, Message, R = never, K = unknown> = (
-  state: State
-) => HashMap.HashMap<K, Subscription<Message, R>>
+export type Subscriptions<State, Key = unknown> = (state: State) => ReadonlyArray<Key>
+
+/**
+ * Makes the subscription of a key, from the key alone.
+ *
+ * `listen` does not see the state, so a key carries everything that its subscription needs, as a command carries
+ * everything that `runCommand` needs. `R` is the services the subscriptions need.
+ *
+ * - Today it is called as the subscription starts, in the subscription's fiber, and what it throws is a defect of
+ *   the subscription, with its key. This is described, not promised.
+ * - A key is shown whole, in a defect and to `onApplied` and `onIgnored`: what must stay private goes in a service.
+ *
+ * @example
+ * ```ts
+ * type Key = Data.TaggedEnum<{ Steps: { dt: number } }>
+ *
+ * const listen: Listen<Key, Message, Screen> = ({ dt }) => steps(dt)
+ * ```
+ *
+ * @see The guide, "Subscriptions", "A subscription is made from its key alone".
+ * @see The guide, "Subscriptions", "Where `listen` runs".
+ * @see The guide, "Running", "A key is shown whole".
+ */
+export type Listen<Key, Message, R = never> = (key: Key) => Subscription<Message, R>

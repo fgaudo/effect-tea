@@ -22,7 +22,6 @@ import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
-import * as HashMap from "effect/HashMap"
 import * as Layer from "effect/Layer"
 import * as ManagedRuntime from "effect/ManagedRuntime"
 import * as Opt from "effect/Option"
@@ -348,9 +347,18 @@ const withStorage = (storage: Storage["Service"]): Fork<Storage> => (effect) =>
   heldFork(effect.pipe(Effect.provideService(Storage, storage)))
 
 // `createElement` does not infer the types of a generic component, as JSX does: a function of its props does.
-const host = <State extends object, Model, Message, Command = never, RC = never, RS = never, Flags = never>(
-  props: HostProps<State, Model, Message, Command, RC, RS, Flags> & Attributes
-) => createElement(bridge.Host<State, Model, Message, Command, RC, RS, Flags>, props)
+const host = <
+  State extends object,
+  Model,
+  Message,
+  Command = never,
+  RC = never,
+  RS = never,
+  Flags = never,
+  Key = never
+>(
+  props: HostProps<State, Model, Message, Command, RC, RS, Flags, Key> & Attributes
+) => createElement(bridge.Host<State, Model, Message, Command, RC, RS, Flags, Key>, props)
 
 const hostInto = async (node: ReactNode, into = page()) => {
   const root = rootIn(into)
@@ -808,13 +816,11 @@ describe("Host", () => {
       const gate = Deferred.makeUnsafe<void>()
       const shaky = {
         ...counter,
-        subscriptions: () =>
-          HashMap.make([
-            "held",
-            Channel.unwrap(
-              Effect.acquireRelease(Effect.void, () => Deferred.await(gate)).pipe(Effect.as(Channel.never))
-            )
-          ]),
+        subscriptions: () => ["held" as const],
+        listen: () =>
+          Channel.unwrap(
+            Effect.acquireRelease(Effect.void, () => Deferred.await(gate)).pipe(Effect.as(Channel.never))
+          ),
         makeModel: (state: Parameters<typeof counter.makeModel>[0]) => {
           if (state.count > 0) throw thrown
           return counter.makeModel(state)

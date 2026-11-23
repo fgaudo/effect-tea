@@ -1,6 +1,8 @@
 # A subscription made from its key alone: the spike
 
-**Status:** spiked, 23 November 2026, by a session of Fable 5.2, with the library's tests converted by five sessions
+**Status:** done, 23 November 2026, as step 38 of [`ROADMAP.md`](../../ROADMAP.md), by a session of Opus 5.5, written
+anew from `main` with the array branch as a guide: what it did otherwise is under "What was written", at the end.
+Spiked the same day by a session of Fable 5.2, with the library's tests converted by five sessions
 of Opus 5.5, each with its files. On two branches, never to be merged: `spike/subscription-from-key` at `40d9400`,
 where the keys are listed in a `HashSet`, and `spike/subscription-from-key-array` at `2544407`, where they are listed
 in an array, the form this record advises. It is step 30 of [`ROADMAP.md`](../../ROADMAP.md), which the owner took
@@ -286,3 +288,24 @@ By the owner, on 23 November 2026, each point as advised:
 
 What was weighed beside each and not taken is in [`rejected.md`](../rejected.md), "A subscription made from its key
 alone, in other forms".
+
+## What was written
+
+As step 38, each point as decided, and otherwise as the array branch has it, but for these:
+
+- **The timer's key is a string**, `'ticks'`, as "What a key is" allows for a subscription that needs nothing: the
+  first subscription of the tutorial costs a line, not five.
+- **The search's row keeps the session in its key.** A key of a row that came back the same would need its ticks to
+  name their start, which only a count kept outside the program could, and a start interrupted before it runs would
+  put that count out of step. The case moved to the list's search instead, whose key comes back whenever the field
+  holds the same text again: the search now sends three messages that name its start, and a property checks that one
+  of an earlier start of a key that came back never reaches `update`. It fails, on 2000 scenarios, with the drop of a
+  message by its key in place of its start.
+- **A child with keys and no `listen`**, which only a cast lets in, is a `CompositionDefect` as its subscription
+  starts, with a test and a mutation, as a child with commands and no `runCommand` is.
+- **Where `listen` runs is described, not promised**, as where `runCommand` runs is ("Running", "When a defect
+  happens"). That a key is shown whole is promised, and a secret kept out of a key is listed in "What is left to you".
+- **The premise that `Channel.map` and `Channel.mapDone` make a channel that runs afresh each time** is dropped, with
+  its test: a parent no longer caches a child's lifted subscription, but makes one for each start.
+- **The inference lost** in `start({ ...typed, update: (message) => … })` was weighed as a form that repeats another,
+  and the guide says nothing of it; step 16 of the roadmap checks it in the matrix.

@@ -1,8 +1,7 @@
 // A program: its pieces, its types named rather than in a row, and the types read back from one.
 import { absurd } from "effect/Function"
-import type * as HashMap from "effect/HashMap"
 import type { RunCommand } from "./command.ts"
-import type { Subscription, Subscriptions } from "./subscription.ts"
+import type { Listen, Subscriptions } from "./subscription.ts"
 import type { Step, Update } from "./update.ts"
 
 /**
@@ -25,6 +24,23 @@ export const runCommandOf = <Command, Message, R>(
   (program as Partial<Readonly<{ runCommand: RunCommand<Command, Message, R> }>>).runCommand
     ?? (absurd as RunCommand<Command, Message, R>)
 
+/**
+ * A program's `listen`, required exactly when `Key` has values, so that no key goes without its subscription.
+ *
+ * @example
+ * ```ts
+ * type Ticking = Listener<'ticks', Message, never> // { readonly listen: Listen<'ticks', Message> }
+ * ```
+ *
+ * @see The guide, "Anatomy of a program", "`runCommand` is required exactly when the program has commands".
+ */
+export type Listener<Key, Message, R> = [Key] extends [never] ? object
+  : { readonly listen: Listen<Key, Message, R> }
+
+// `listen` is missing only when `Key` is `never`, so that `absurd` is never called.
+export const listenOf = <Key, Message, R>(program: Listener<Key, Message, R>): Listen<Key, Message, R> =>
+  (program as Partial<Readonly<{ listen: Listen<Key, Message, R> }>>).listen ?? (absurd as Listen<Key, Message, R>)
+
 /** The types of a program, by name: `state`, `model` and `message` always, the others only when it has them. */
 type ProgramTypes = Readonly<{
   /** Its state, an object. */
@@ -37,6 +53,8 @@ type ProgramTypes = Readonly<{
   command?: unknown
   /** What its commands need. */
   commandServices?: unknown
+  /** What it listens to, as data: the keys of its subscriptions, which `listen` takes. */
+  key?: unknown
   /** What its subscriptions need. */
   subscriptionServices?: unknown
   /** What it tells its parent. */
@@ -63,22 +81,22 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * A program, of the types `T` names.
  *
  * `init` says where the program starts. `update` says how each message changes the state. `makeModel` says what the
- * view draws. `subscriptions` says what it listens to in each state. `runCommand` is there when the program has
- * commands, `external` when its parent may send it messages, and `output` when its parent may read a value of it. A
+ * view draws. `subscriptions` says what it listens to in each state, as keys, and `listen` makes the
+ * subscription of a key. `runCommand` is there when the program has commands, `external` when its parent may send it messages, and `output` when its parent may read a value of it. A
  * program is made with `program`. `make` returns this type, and a function that takes a program names this type.
  *
  * - The view is not part of it: `start` gives the renderer an `App`, `{ model, subscribe, dispatch, die }`.
  * - Its state is an object. A program written as an object and typed `Program<…>` does not compile otherwise: with a
  *   state that is a number or a string, or with a state type without fields, such as `{}`. `make` refuses the state
  *   without fields too.
- * - `runCommand` is required exactly when the program has commands, and `external` exactly when it has external
- *   messages.
+ * - `runCommand` is required exactly when the program has commands, `listen` exactly when it has keys, and `external`
+ *   exactly when it has external messages.
  * - The run makes the model of a state with `makeModel(state)`. A test can call `makeModel` the same way, on any state.
  * - Every program has `subscriptions`. One that `make` makes without them listens to nothing. A test calls
- *   `subscriptions(state)` as the run does, on any state.
+ *   `subscriptions(state)` as the run does, on any state, and `listen(key)` for the subscription of a key.
  * - `update`, `external`, `makeModel`, `subscriptions` and `output` are pure, and so is an `init` that takes flags.
- *   States are never mutated. The library reuses a child's model and subscriptions while the child's state is the
- *   same object.
+ *   States are never mutated. The library reuses a child's model and the keys of its subscriptions while the
+ *   child's state is the same object.
  *
  * @example
  * ```ts
@@ -110,7 +128,8 @@ export type Program<T extends ProgramTypes> = Shape<
   Field<T, "event">,
   Field<T, "external">,
   Field<T, "flags">,
-  Field<T, "output">
+  Field<T, "output">,
+  Field<T, "key">
 >
 
 /**
@@ -189,15 +208,16 @@ type Primitive = string | number | bigint | boolean | symbol
 
 // A program's pieces, of the types given in a row. Kept to this module: the API and the rest of the library name a
 // program by `Program<{ … }>`, which gives these types by name.
-type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never, Output = never> =
+type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never, Output = never, Key = never> =
   & ObjectState<State>
   & {
     readonly init: Init<State, Command, Flags>
     readonly update: Update<State, Message, Command, Event>
-    readonly subscriptions: Subscriptions<State, Message, RS, unknown>
+    readonly subscriptions: Subscriptions<State, Key>
     readonly makeModel: (state: State) => Model
   }
   & Interpreter<Command, Message, RC>
+  & Listener<Key, Message, RS>
   // A parameter: a program may be given a type that names fewer external messages than it takes, never more.
   & ExternalHandler<External, State, Command, Event>
   & ([Output] extends [never] ? object : { readonly output: (state: State) => Output })
@@ -362,7 +382,7 @@ export type EventOf<P> = Returned<P, "events">
  */
 export type CommandServicesOf<P> = P extends { readonly runCommand: RunCommand<any, any, infer R> } ? R : never
 /**
- * The services a program's subscriptions need.
+ * The services a program's subscriptions need: those its `listen` requires.
  *
  * It is `never` when they need none.
  *
@@ -374,11 +394,19 @@ export type CommandServicesOf<P> = P extends { readonly runCommand: RunCommand<a
  * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
  * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
  */
-export type SubscriptionServicesOf<P> = P extends { readonly subscriptions: (state: never) => infer Heard }
-  ? MapServices<Heard>
-  : never
-// Apart, so that each distributes: over the maps `subscriptions` may return, and over what a map holds. An empty map
-// holds `never`, which needs nothing. What a map of type `any` holds reads back as `unknown`, and needs anything: as
-// `never`, it would run without its services.
-type MapServices<Heard> = Heard extends HashMap.HashMap<any, infer Listened> ? Needed<Listened> : never
-type Needed<Listened> = unknown extends Listened ? unknown : Listened extends Subscription<any, infer R> ? R : never
+export type SubscriptionServicesOf<P> = P extends { readonly listen: Listen<any, any, infer R> } ? R : never
+/**
+ * The keys a program lists: what its `subscriptions` returns, and its `listen` takes.
+ *
+ * It is `never` for a program that listens to nothing. A parent's keys are its own, and its children's, each as
+ * `{ _tag: <child>, instance, key }`, with its `id` for a child by id.
+ *
+ * @example
+ * ```ts
+ * type Key = KeyOf<typeof app>
+ * ```
+ *
+ * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
+ * @see The guide, "Anatomy of a program", "What a program listens to".
+ */
+export type KeyOf<P> = P extends { readonly subscriptions: (state: never) => ReadonlyArray<infer K> } ? K : never

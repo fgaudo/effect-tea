@@ -9,7 +9,7 @@ title: Anatomy of a program
 This page shows the pieces of a program and how they connect. The other pages of the guide describe each piece in
 detail, so start here.
 
-A program is a plain object, made with `program`. It has up to seven pieces:
+A program is a plain object, made with `program`. It has up to eight pieces:
 
 - `init` says where the program starts.
 - `update` says how each message changes the state.
@@ -17,7 +17,8 @@ A program is a plain object, made with `program`. It has up to seven pieces:
 - `runCommand` is there when the program has commands.
 - `external` is there when the program's parent may send it messages.
 - `output` is there when the program's parent may read a value of it.
-- `subscriptions` says what the program listens to in each state.
+- `subscriptions` says what the program listens to in each state, as keys.
+- `listen` makes the subscription of a key, when the program has keys.
 
 The view is not part of the program.
 
@@ -37,8 +38,9 @@ flowchart LR
   view -->|message| update
   view -->|Written| input[an input]
   input -->|stored if its place is there| state
-  state --> subscriptions[subscriptions, by key]
-  subscriptions -->|messages| update
+  state --> subscriptions
+  subscriptions -->|keys| listen
+  listen -->|messages| update
 ```
 
 ## An example
@@ -62,7 +64,8 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
 | `runCommand`    | how each command happens, as an Effect                                                     | when it has commands          |
 | `external`      | `(message) => (state) =>` the next state, commands and events, never `reject`              | when it has external messages |
 | `output`        | `(state) =>` the value that its parent reads of it                                         | when it has an output         |
-| `subscriptions` | what it listens to in each state                                                           | when it listens               |
+| `subscriptions` | `(state) =>` the keys of what it listens to, in an array                                   | when it listens               |
+| `listen`        | `(key) =>` the subscription of a key, as an Effect `Channel`                               | when it listens               |
 
 - **Its types are named first, then it is made**: `program<{ state: State; message: Message }>().make({ … })`. Besides
   `state`, the types may name these:
@@ -75,22 +78,24 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
   | `external` | the messages that a parent may send it |
   | `flags`    | the program's flags                    |
   | `output`   | what a parent reads of it              |
+  | `key`      | the keys of its subscriptions          |
   | `model`    | the program's model                    |
 
   A type that the program does not name is a type that the program does not have. So:
 
-  - A program that names no messages has no `update`, one that names no `external` messages has no `external`, and
-    one that names no `output` has no `output`.
+  - A program that names no messages has no `update`, one that names no `external` messages has no `external`, one
+    that names no `output` has no `output`, and one that names no `key` has no `subscriptions` and no `listen` in
+    `make`.
   - A program that raises an event it did not name does not compile.
 
   A model that is named is checked. A model that is not named is inferred from `makeModel`. The services are never
-  named. They are inferred from `runCommand` and `subscriptions`. A command's effect or a subscription written apart
+  named. They are inferred from `runCommand` and `listen`. A command's effect or a subscription written apart
   names the services it needs in its own type, as `Execution<Message, R>` or `Subscription<Message, R>`. The program
   that returns it then needs them: `CommandServicesOf` and `SubscriptionServicesOf` give what a program needs.
 
 - **Its type lists the types it is made of.** A program's type is `Program<{ state; model; message }>`. It also lists
-  `command`, `commandServices`, `subscriptionServices`, `event`, `external`, `flags` and `output` when the program
-  has them. `OutputOf<typeof program>` names its output.
+  `command`, `commandServices`, `key`, `subscriptionServices`, `event`, `external`, `flags` and `output` when the
+  program has them. `OutputOf<typeof program>` names its output, and `KeyOf<typeof program>` its keys.
   `make` returns this type, and a function that takes a program names this type.
 - **Its state is always an object**: `{ count }` rather than `count`. So any program can become a child as it is (see
   [composition](./composition.md)).
@@ -114,24 +119,27 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
     state, such as `A` in `{ items: ReadonlyArray<A> }`, compiles.
 - A program written as an object without `subscriptions`. It is refused when it is typed `Program<…>`, and when
   `child`, `childById`, `start`, `rehearse` or `drive` takes it. `simulate` refuses the pieces of a program without
-  `subscriptions` too. `make` accepts a program without them, and the program it returns has them.
+  `subscriptions` too. `make` takes no `subscriptions` for a program that names no `key`, and the program it returns
+  has them.
 
 **The types need `strict`.** The library's types are checked under the compiler option `strict` alone. Without
 `strictFunctionTypes`, which `strict` turns on, the compiler accepts programs that it should refuse. For example, it
 accepts a program typed with more `external` messages than the program takes.
 
 **`runCommand` is required exactly when the program has commands.** So every command has a `runCommand` that
-interprets it. In the same way, `external` is required exactly when the program has external messages (see
+interprets it. `listen` is required exactly when the program has keys, so that every key has a `listen` that makes its
+subscription. In the same way, `external` is required exactly when the program has external messages (see
 [events and external messages](./events-and-external-messages.md#precisely)).
 
 **A test makes a model as the run does.** The run makes the model of a state with `program.makeModel(state)`. A test can
 call `program.makeModel` the same way, on any state. It reads a program's output the same way, as
 `program.output(state)`: no tool reads the output of a program that has no parent.
 
-**What a program listens to.** `program.subscriptions(state)` is what the program listens to in `state`, by key.
-It is what the run reconciles. For a program made without `subscriptions`, it is empty. A parent lists the subscriptions
-of each child under `[<child>, instance, key]`. For children by id, the parent lists them under
-`[<child>, id, instance, key]` (see [what the library derives](./composition.md#what-the-library-derives)).
+**What a program listens to.** `program.subscriptions(state)` is the keys of what the program listens to in `state`.
+It is what the run reconciles. For a program made without `subscriptions`, it is empty. `program.listen(key)` is the
+subscription of a key, which a test can take without a state that lists it. A parent lists the keys of each child as
+`{ _tag: <child>, instance, key }`. For children by id, the parent lists them as `{ _tag: <child>, id, instance, key }`
+(see [what the library derives](./composition.md#what-the-library-derives)).
 
 **A program with flags.** Its `init` is a function of the flags: `init: ({ id }) => ({ state, commands })`. It is
 pure, as `update` is: a child's `init` runs in its parent's `update` when a step starts the child (see

@@ -14,19 +14,19 @@ library. It is a summary, and promises nothing of its own: each line links the p
 The loop is the one you know, and most names carry over. One name does not: Elm's `Model` is the **state** here. The
 **model** is something else: what the view reads.
 
-| In Elm                                                 | Here                                                                                                        | See                                                               |
-| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `Model`                                                | The state                                                                                                   | [anatomy of a program](./anatomy-of-a-program.md)                 |
-| `Msg`                                                  | A message                                                                                                   | [update](./update.md)                                             |
-| `update : Msg -> Model -> ( Model, Cmd Msg )`          | `update(message)(state)` returns a step, `{ state, commands?, events? }`, or `reject`                       | [update](./update.md)                                             |
-| `Cmd Msg`, which a test cannot look into               | A command: a value of your own type, which `runCommand` turns into an Effect, and a test compares by value  | [commands](./commands.md)                                         |
-| A `Task`, a port                                       | An Effect in `runCommand`, with the services provided around `run`                                          | [commands](./commands.md)                                         |
-| `subscriptions : Model -> Sub Msg`                     | `subscriptions(state)` returns them by key: a new key starts one, a missing key stops it                    | [subscriptions](./subscriptions.md)                               |
-| `view : Model -> Html Msg`                             | Two steps: `makeModel(state)` makes a model that holds the messages, and a view draws it with your renderer | [model](./model.md), [view](./view.md)                            |
-| `init : flags -> ( Model, Cmd Msg )`                   | `init`: a step, or a function of the flags                                                                  | [anatomy of a program](./anatomy-of-a-program.md)                 |
-| `Html.map`, `Cmd.map` and `Sub.map`, by hand           | `program`: a parent says which children are there, and the library keeps them and does the routing          | [composition](./composition.md)                                   |
-| A child's `update` that returns a value for its parent | An event the child raises, which the parent handles in `onEvent`                                            | [events and external messages](./events-and-external-messages.md) |
-| `onInput`, a message for each keystroke                | An input: the view writes into a place of the state, and no `update` of the program's sees it               | [inputs](./inputs.md)                                             |
+| In Elm                                                 | Here                                                                                                                | See                                                               |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `Model`                                                | The state                                                                                                           | [anatomy of a program](./anatomy-of-a-program.md)                 |
+| `Msg`                                                  | A message                                                                                                           | [update](./update.md)                                             |
+| `update : Msg -> Model -> ( Model, Cmd Msg )`          | `update(message)(state)` returns a step, `{ state, commands?, events? }`, or `reject`                               | [update](./update.md)                                             |
+| `Cmd Msg`, which a test cannot look into               | A command: a value of your own type, which `runCommand` turns into an Effect, and a test compares by value          | [commands](./commands.md)                                         |
+| A `Task`, a port                                       | An Effect in `runCommand`, with the services provided around `run`                                                  | [commands](./commands.md)                                         |
+| `subscriptions : Model -> Sub Msg`                     | `subscriptions(state)` lists their keys, and `listen(key)` makes each: a new key starts one, a missing key stops it | [subscriptions](./subscriptions.md)                               |
+| `view : Model -> Html Msg`                             | Two steps: `makeModel(state)` makes a model that holds the messages, and a view draws it with your renderer         | [model](./model.md), [view](./view.md)                            |
+| `init : flags -> ( Model, Cmd Msg )`                   | `init`: a step, or a function of the flags                                                                          | [anatomy of a program](./anatomy-of-a-program.md)                 |
+| `Html.map`, `Cmd.map` and `Sub.map`, by hand           | `program`: a parent says which children are there, and the library keeps them and does the routing                  | [composition](./composition.md)                                   |
+| A child's `update` that returns a value for its parent | An event the child raises, which the parent handles in `onEvent`                                                    | [events and external messages](./events-and-external-messages.md) |
+| `onInput`, a message for each keystroke                | An input: the view writes into a place of the state, and no `update` of the program's sees it                       | [inputs](./inputs.md)                                             |
 
 What is new:
 

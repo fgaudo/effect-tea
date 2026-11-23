@@ -154,7 +154,8 @@ export const drive = Effect.fnUntraced(function*<
   A = unknown,
   E = never,
   RT = never,
-  Flags = never
+  Flags = never,
+  Key = never
 >(
   program: Program<{
     state: State
@@ -164,6 +165,7 @@ export const drive = Effect.fnUntraced(function*<
     commandServices: RC
     subscriptionServices: RS
     flags: Flags
+    key: Key
   }>,
   scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>,
   ...[{ patience = "2 seconds", ...options } = {}]: [Flags] extends [never]

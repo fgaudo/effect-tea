@@ -56,7 +56,7 @@ export const dispatchViolations: <State, Message, Command, Event>(update: Update
 }>) => ReadonlyArray<DispatchViolation<Message>>;
 
 // @public
-export const drive: <State extends object, Model, Message, Command = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never>(program: Program<{
+export const drive: <State extends object, Model, Message, Command = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never, Key = never>(program: Program<{
     state: State;
     model: Model;
     message: Message;
@@ -64,6 +64,7 @@ export const drive: <State extends object, Model, Message, Command = never, RC =
     commandServices: RC;
     subscriptionServices: RS;
     flags: Flags;
+    key: Key;
 }>, scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>, ...args: [Flags] extends [never] ? [options?: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Effect.Effect<A, E, RT | Exclude<RC, Scope.Scope> | Exclude<RS, Scope.Scope>>;
 
 // @public
@@ -158,6 +159,19 @@ type Kept<Own, Children> = {
 };
 
 // @public
+type Listen<Key, Message, R = never> = (key: Key) => Subscription<Message, R>;
+
+// @public (undocumented)
+type Listened<P, T> = P extends {
+    readonly listen: unknown;
+} ? T : never;
+
+// @public
+type Listener<Key, Message, R> = [Key] extends [never] ? object : {
+    readonly listen: Listen<Key, Message, R>;
+};
+
+// @public
 type ObjectState<State> = [State] extends [object] ? Fielded<State> : {
     readonly "a program keeps its state in an object": State;
 };
@@ -212,7 +226,7 @@ export const placeViolations: {
 type Primitive = string | number | bigint | boolean | symbol;
 
 // @public
-type Program<T extends ProgramTypes> = Shape<Field<T, "state">, Field<T, "model">, Field<T, "message">, Field<T, "command">, Field<T, "commandServices">, Field<T, "subscriptionServices">, Field<T, "event">, Field<T, "external">, Field<T, "flags">, Field<T, "output">>;
+type Program<T extends ProgramTypes> = Shape<Field<T, "state">, Field<T, "model">, Field<T, "message">, Field<T, "command">, Field<T, "commandServices">, Field<T, "subscriptionServices">, Field<T, "event">, Field<T, "external">, Field<T, "flags">, Field<T, "output">, Field<T, "key">>;
 
 // @public
 type ProgramTypes = Readonly<{
@@ -221,6 +235,7 @@ type ProgramTypes = Readonly<{
     message: unknown;
     command?: unknown;
     commandServices?: unknown;
+    key?: unknown;
     subscriptionServices?: unknown;
     event?: unknown;
     external?: unknown;
@@ -243,16 +258,17 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
 };
 
 // @public
-export const rehearse: <P extends AnyProgram, State extends object, Model, Message, Command = never, Event = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never>(program: P & Program<{
+export const rehearse: <P extends AnyProgram, State extends object, Model, Message, Command = never, Event = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never, Key = never>(program: P & Program<{
     state: State;
     model: Model;
     message: Message;
     command: Commanded<P, Command>;
     commandServices: Commanded<P, RC>;
-    subscriptionServices: RS;
+    subscriptionServices: Listened<P, RS>;
     event: Event;
     flags: Flags;
-}>, scenario: (rehearsal: Rehearsal<State, Model, Message, Commanded<P, Command>, Event, Commanded<P, RC>, RS>) => Effect.Effect<A, E, RT>, ...options: [Flags] extends [never] ? [options?: FlagsOption<never>] : [options: FlagsOption<NoInfer<Flags>>]) => Effect.Effect<A, E, RT>;
+    key: Listened<P, Key>;
+}>, scenario: (rehearsal: Rehearsal<State, Model, Message, Commanded<P, Command>, Event, Commanded<P, RC>, Listened<P, RS>>) => Effect.Effect<A, E, RT>, ...options: [Flags] extends [never] ? [options?: FlagsOption<never>] : [options: FlagsOption<NoInfer<Flags>>]) => Effect.Effect<A, E, RT>;
 
 // @public
 const reject: unique symbol;
@@ -270,12 +286,12 @@ interface RunOptions<State, Message, Command = unknown> {
 }
 
 // @public (undocumented)
-type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never, Output = never> = ObjectState<State> & {
+type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never, Output = never, Key = never> = ObjectState<State> & {
     readonly init: Init<State, Command, Flags>;
     readonly update: Update<State, Message, Command, Event>;
-    readonly subscriptions: Subscriptions<State, Message, RS, unknown>;
+    readonly subscriptions: Subscriptions<State, Key>;
     readonly makeModel: (state: State) => Model;
-} & Interpreter<Command, Message, RC> & ExternalHandler<External, State, Command, Event> & ([Output] extends [never] ? object : {
+} & Interpreter<Command, Message, RC> & Listener<Key, Message, RS> & ExternalHandler<External, State, Command, Event> & ([Output] extends [never] ? object : {
     readonly output: (state: State) => Output;
 });
 
@@ -283,7 +299,7 @@ type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = neve
 export const simulate: <State, Message, Command, Event, R = never>(program: Readonly<{
     update: Update<State, Message, Command, Event>;
 }> & Interpreter<Command, Message, R> & Readonly<{
-    subscriptions: Subscriptions<State, Message, unknown, unknown>;
+    subscriptions: Subscriptions<State, unknown>;
 }> & ObjectState<State>) => (messages: readonly Message[], from: Step<State, Command>) => Effect.Effect<Simulation<State, Message, Command, Event>, never, Exclude<R, Scope.Scope>>;
 
 // @public
@@ -317,7 +333,7 @@ type Step<State, Command = never, Event = never, Tell = never> = {
 type Subscription<Message, R = never> = Channel.Channel<Message, never, Message, unknown, unknown, unknown, R>;
 
 // @public
-type Subscriptions<State, Message, R = never, K = unknown> = (state: State) => HashMap.HashMap<K, Subscription<Message, R>>;
+type Subscriptions<State, Key = unknown> = (state: State) => ReadonlyArray<Key>;
 
 // @public
 type Transition<State, Command = never, Event = never, Tell = never> = Step<State, Command, Event, Tell> | Rejected;

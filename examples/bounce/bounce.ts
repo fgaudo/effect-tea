@@ -9,7 +9,6 @@ import * as Channel from "effect/Channel"
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
-import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 import * as Stream from "effect/Stream"
 
@@ -144,6 +143,11 @@ const steps = (dt: number): Subscription<Message, Screen> =>
       ))
   )
 
+/** What the program listens to: the steps of a flight, with the length of a step, which its subscription needs. */
+export type Key = Data.TaggedEnum<{ Steps: { dt: number } }>
+
+export const Key = Data.taggedEnum<Key>()
+
 /** Whether the ball moves: the program listens to the screen exactly then. */
 export const flying = (state: State): boolean => state.ball._tag === "Flying"
 
@@ -153,12 +157,11 @@ export const flying = (state: State): boolean => state.ball._tag === "Flying"
  */
 export type Model = Readonly<{ throw: Message; height: number }>
 
-export const bounce = program<{ state: State; model: Model; message: Message; flags: Flags }>().make({
+export const bounce = program<{ state: State; model: Model; message: Message; flags: Flags; key: Key }>().make({
   init: ({ dt }) => ({ state: { dt, height: 100, ball: Ball.Flying({ velocity: 0, previous: 100, alpha: 0 }) } }),
   update,
-  // The key stays while the ball flies, so the subscription made from the state where it appeared keeps running: `dt`
-  // never changes, so any state's would do.
-  subscriptions: (state) => flying(state) ? HashMap.make(["steps", steps(state.dt)]) : HashMap.empty(),
+  subscriptions: (state) => flying(state) ? [Key.Steps({ dt: state.dt })] : [],
+  listen: ({ dt }) => steps(dt),
   makeModel: (state) => ({
     throw: Message.ThrowClicked(),
     height: state.ball._tag === "Flying"

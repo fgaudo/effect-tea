@@ -56,8 +56,8 @@ Look at the last tick: it moves the timer to `Finished` and returns the command 
 
 ## Subscriptions
 
-A **subscription** is what the program listens to. `subscriptions(state)` returns them in a `HashMap`, by key. After
-every change of state the run compares the keys:
+A **subscription** is what the program listens to. `subscriptions(state)` lists the keys of its subscriptions, as data,
+in an array, and `listen(key)` makes the subscription of a key. After every change of state the run compares the keys:
 
 - a new key starts its subscription;
 - a kept key leaves it running;
@@ -67,7 +67,8 @@ every change of state the run compares the keys:
 The timer has the key `'ticks'` only while it runs. Pausing removes the key, so the clock stops. Resuming brings the
 key back, and a new clock starts. Nobody starts or stops a clock by hand: the state says when one is wanted.
 
-The clock is an Effect `Channel` that sends `Ticked` every second and never ends:
+The clock is an Effect `Channel` that sends `Ticked` every second and never ends. It needs nothing, so its key is the
+string `'ticks'`, and `listen` returns the clock for it:
 
 {@includeCode ../../examples/timer/timer.ts#subscriptions}
 
@@ -77,8 +78,9 @@ The model has a case for each phase the screen tells apart, each with the messag
 
 {@includeCode ../../examples/timer/timer.ts#model}
 
-The program now names its commands, and has `runCommand` and `subscriptions`. You never name the program's services:
-the library reads them from `runCommand` and `subscriptions`. Here the only service is the bell.
+The program now names its commands and its keys, `key: 'ticks'`, and has `runCommand`, `subscriptions` and `listen`.
+You never name the program's services: the library reads them from `runCommand` and `listen`. Here the only service
+is the bell.
 
 {@includeCode ../../examples/timer/timer.ts#program}
 

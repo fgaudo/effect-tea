@@ -185,9 +185,9 @@ export const noneActive: Active<never> = { keys: HashMap.empty(), starts: new Se
  * listed again keeps its start, so its subscription keeps running, ended or not: one that has ended does not start
  * again until its key goes away and comes back.
  */
-export type Reconciled<K, S> = Readonly<{
+export type Reconciled<K> = Readonly<{
   gone: ReadonlyArray<readonly [K, Generation]>
-  fresh: ReadonlyArray<readonly [K, S, Generation]>
+  fresh: ReadonlyArray<readonly [K, Generation]>
   active: Active<K>
 }>
 
@@ -196,21 +196,29 @@ export type Reconciled<K, S> = Readonly<{
  * it calls it where a defect of theirs dies in `subscriptions`, the only place where the keys are compared. The same
  * keys leave `active` the very same, and a key that stays is kept as the listing that started it gave it.
  */
-export const reconcile = <K, S>(active: Active<K>, listed: HashMap.HashMap<K, S>): Reconciled<K, S> => {
-  const fresh: Array<readonly [K, S, Generation]> = []
-  let started = active.started
-  for (const [key, subscription] of listed) {
-    if (HashMap.has(active.keys, key)) continue
-    started += 1
-    fresh.push([key, subscription, started])
+export const reconcile = <K>(active: Active<K>, listed: ReadonlyArray<K>): Reconciled<K> => {
+  // The starts of the active keys that are listed, and the listed keys that are not active, which may hold a key twice.
+  // A key listed twice is listed once: where every active key is listed and no other is, nothing changed, however often
+  // each is listed, and nothing is made.
+  const kept = new Set<Generation>()
+  const appeared: Array<K> = []
+  for (const key of listed) {
+    const found = HashMap.get(active.keys, key)
+    if (Opt.isSome(found)) kept.add(found.value)
+    else appeared.push(key)
   }
-  // Most states change no key, and a long list of children lists a key for each on every one of them: where no key
-  // appeared, among as many keys as were active, none went away either, and nothing is made.
-  if (fresh.length === 0 && HashMap.size(listed) === HashMap.size(active.keys)) return { gone: [], fresh, active }
-  const gone = Arr.filter(Arr.fromIterable(active.keys), ([key]) => !HashMap.has(listed, key))
+  if (appeared.length === 0 && kept.size === HashMap.size(active.keys)) return { gone: [], fresh: [], active }
+  const gone = Arr.filter(Arr.fromIterable(active.keys), ([, generation]) => !kept.has(generation))
+  const fresh: Array<readonly [K, Generation]> = []
+  let started = active.started
   const keys = HashMap.mutate(active.keys, (keys) => {
     for (const [key] of gone) HashMap.remove(keys, key)
-    for (const [key, , generation] of fresh) HashMap.set(keys, key, generation)
+    for (const key of appeared) {
+      if (HashMap.has(keys, key)) continue
+      started += 1
+      HashMap.set(keys, key, started)
+      fresh.push([key, started])
+    }
   })
   return { gone, fresh, active: { keys, starts: new Set(HashMap.values(keys)), started } }
 }

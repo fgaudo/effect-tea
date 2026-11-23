@@ -150,7 +150,7 @@ describe("a step of the program", () => {
         state: { pressed: state.pressed + 1 },
         events: ["Reset"]
       }),
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: (state: Button) => state
     }
     type Form = Readonly<{ name: string }>
@@ -275,27 +275,29 @@ describe("under a renderer that draws after the next event", () => {
 
 describe("an input among the subscriptions", () => {
   type Ticks = Readonly<{ ticks: number }>
-  const ticking: Program<{ state: Ticks; model: number; message: "Tick" }> = {
+  const ticking: Program<{ state: Ticks; model: number; message: "Tick"; key: "ticks" }> = {
     init: { state: { ticks: 0 } },
     update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
-    subscriptions: () => HashMap.make(["ticks", idle<"Tick">()]),
+    subscriptions: () => ["ticks" as const],
+    listen: () => idle<"Tick">(),
     makeModel: ({ ticks }) => ticks
   }
   type Page = Readonly<{ name: string }>
-  const pages = program<{ state: Page }>()
+  const pages = program<{ state: Page; key: "own" }>()
   const page = pages.withChildren({ Ticking: pages.child(ticking) }).make({
     init: { state: { name: "" } },
     inputs: { Name: pages.input({ at: Optic.id<Page>().key("name") }) },
-    subscriptions: () => HashMap.make(["own", idle<never>()]),
+    subscriptions: () => ["own" as const],
+    listen: () => idle<never>(),
     makeModel: (state) => state.name
   })
   type PageState = typeof page.init.state
 
   test("lifts no key: the program keeps its own and its children's, and none is under the input's name", () => {
     const keys = page.subscriptions(stateOf(page, { name: "Ada" }))
-    expect(HashMap.size(keys)).toBe(2)
-    expect(HashMap.has(keys, "own")).toBe(true)
-    expect(HashMap.has(keys, ["Ticking", 1, "ticks"])).toBe(true)
+    expect(keys.length).toBe(2)
+    expect(keys).toContainEqual("own")
+    expect(keys).toContainEqual({ _tag: "Ticking", instance: 1, key: "ticks" })
   })
 
   test("a write into it keeps every subscription the same object, the children's lifted ones included", () => {
@@ -304,7 +306,9 @@ describe("an input among the subscriptions", () => {
       page.update({ _tag: "Name", message: { _tag: "Written", value: "Ada" } })(before)
     )
     expect(written.state.children.Ticking).toBe(before.children.Ticking)
-    const lifted = (state: PageState) => Opt.getOrThrow(HashMap.get(page.subscriptions(state), ["Ticking", 1, "ticks"]))
+    // Only keys are listed now: the lifted key, the object that names the child's subscription, is kept.
+    const lifted = (state: PageState) =>
+      Opt.getOrThrow(Arr.findFirst(page.subscriptions(state), (key) => typeof key === "object"))
     expect(lifted(written.state)).toBe(lifted(before))
   })
 })
@@ -855,12 +859,13 @@ describe("the types of an input", () => {
   })
 
   test("a subscription of the program's own cannot write into an input: it sends the program's own messages", () => {
-    program<{ state: Draft; message: "Dictated" }>().make({
+    program<{ state: Draft; message: "Dictated"; key: "dictation" }>().make({
       init: { state: draftOf("") },
       inputs: { Title: input({ at: here.key("title") }) },
       update: () => (state) => ({ state }),
+      subscriptions: () => ["dictation" as const],
       // @ts-expect-error: what is written into an input is no own message
-      subscriptions: () => HashMap.make(["dictation", idle<Extract<Message, { _tag: "Title" }>>()]),
+      listen: () => idle<Extract<Message, { _tag: "Title" }>>(),
       makeModel: () => null
     })
   })

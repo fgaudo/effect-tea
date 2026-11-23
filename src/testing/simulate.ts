@@ -68,7 +68,7 @@ export const simulate = <State, Message, Command, Event, R = never>(
   program:
     & Readonly<{ update: Update<State, Message, Command, Event> }>
     & Interpreter<Command, Message, R>
-    & Readonly<{ subscriptions: Subscriptions<State, Message, unknown, unknown> }>
+    & Readonly<{ subscriptions: Subscriptions<State, unknown> }>
     & ObjectState<State>
 ) => {
   // What a simulation has made so far, but for its state, which `Listening` holds.

@@ -30,8 +30,8 @@ done leaves its number unused.
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. the other decisions that break the API, steps 38 and 9, so that one release takes what they break, while the
-   library has few users, and step 10 with them, which waits for the owner alone;
+1. the other decisions that break the API, step 9, so that one release takes what they break, while the library has
+   few users, and step 10 with them, which waits for the owner alone;
 2. the checks, steps 16 and 6: of the types, once the decisions that change them are taken, and of the bridges in a
    real browser;
 3. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
@@ -46,71 +46,6 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 None is open.
 
 ## Next, in order
-
-### 38. A subscription made from its key alone, written
-
-**Model and effort.** Opus 5.5, `high`: it changes the engine, a testing tool and the API
-([`change-engine`](.agents/skills/change-engine/SKILL.md), [`change-api`](.agents/skills/change-api/SKILL.md)).
-
-**Depends on** no other step. It comes before step 18, which writes anew what starts and stops a subscription, and
-before step 16, whose matrix it changes.
-
-**Why.** "Whatever a subscription depends on is in its key" is left to the user ("Guarantees", "What is left to
-you"). The owner took, on 23 November 2026, the form that
-[`subscription-from-key.md`](docs/records/subscription-from-key.md) spiked, each point as the record advises
-("Decided", there): a program lists its keys alone, as data, and a function of the program makes a subscription from
-its key, which then can use nothing of the state that its key lacks.
-
-**How.** Written anew from `main`. The branch `spike/subscription-from-key-array`, at `2544407`, is a guide and is
-never merged: it has the sources, the six examples that listen, every test of the library and the inference matrix in
-this form, and its suite passes. What is decided:
-
-- `subscriptions(state)` returns the keys in an array, `ReadonlyArray<Key>`. A key listed twice is listed once
-  (`reconcile`, in `src/core.ts`, which builds no set where nothing changed).
-- `listen(key)` makes the subscription of a key, and does not see the state. It is called in the subscription's
-  fiber, as the interpreter of the commands is in a command's: what it throws is a defect in `'subscription'`, with
-  its key.
-- `key` is among a program's types, as `command` is. `subscriptions` and `listen` are required in `make` exactly when
-  the program names a key, and refused otherwise. A program written as an object keeps `subscriptions`, and has
-  `listen` exactly when it has keys (`Listener`, `listenOf`, as `Interpreter` and `runCommandOf`). `Listen`, `Listener`
-  and `KeyOf` are exported.
-- A parent lists a child's key as `{ _tag: <child>, instance, key }`, with its `id` for a child by id, and lifts the
-  child's subscription in its own `listen`, once for each start. The types refuse an own key that could take a child's
-  name, and the `CompositionDefect` of an own key that is a child's goes.
-- `hear` and `hearNext` take a key typed `unknown`, as today. A defect carries its key whole.
-- `HostProps` and `Host`, of the bridge to React, take the type of the keys.
-
-What the spike left to this step:
-
-- **The search.** The row of `src/interleaving.test.ts` made its subscription from its id and its session, under one
-  key for every session, and told a message of an earlier session by what it carried. With those in the key, each
-  session has a key of its own, and the search meets a message of an earlier start of the same key only through a
-  subscription that sends nothing. The row is written anew, so that it does.
-- **The tests the spike marked.** Five tests of `src/testing/contract.test.ts` are `test.skip` there, with a comment
-  `// SPIKE:`. One has a program that the form rules out, and goes with its `describe`. Four are of the defect that
-  the types now refuse: the test of the types that the spike wrote replaces them. No `test.skip` is left: the shim of
-  `bun:test` for Node has none. `src/spike-listen.test.ts`, of a `listen` that throws, becomes a case of the contract.
-- **The mutations.** The list is rewritten where the code it mutates changed, with a mutation of the check of a key
-  listed twice, and `bun run mutations` runs.
-- **The documents that rule.** `docs/invariants.md` and `docs/premises.md`, where they name what changed, and the
-  lines of `AGENTS.md` on `subscriptions`, on a child's lifted subscriptions and on what is read through `runCommandOf`.
-- **The guide**, as a specification, one section at a time. "Subscriptions": `listen`, a key that carries what its
-  subscription needs, and the two rules that go, of a value left out of the key and of a new subscription under a kept
-  key. "Guarantees": the item on a subscription's key leaves "What is left to you", and a key listed twice is listed
-  once. "Composition": the shape of a child's key, and one defect less. "Running": where a defect of `listen` dies, and
-  that what must stay private goes in a service, not in a key. Then the tutorial, the skill, the README and the doc
-  comments that name those sections (`bun run comments`).
-- **The inference that is lost.** `start({ ...typed, update: (message) => … })`, with a parameter not annotated,
-  compiles on `main` and not in this form (the record, "Services, and what the types infer"). It is weighed here by the
-  three rules of `AGENTS.md`: a form that repeats another, or a lead for step 16. The owner is asked before a page of
-  the guide says which.
-- **What was not run**: `bun run smoke`, with `tools/smoke/consumer.ts` in the new form, `bun run api`, `bun run
-  lint`, and `bun run inference` in its twelve configurations.
-- **The changelog**: a `**Breaking**:` entry, with how a program that listens is upgraded, and the version it needs
-  ([`release`](.agents/skills/release/SKILL.md)).
-
-**Done when** the checks of `change-engine` and of `change-api` pass, `bun run mutations`, `bun run inference` and
-`bun run smoke` among them, and the guide, the skill, the doc comments and the changelog say the new form.
 
 ### 9. The changes that break the API
 
@@ -172,8 +107,8 @@ whether `@fgaudo/effect-tea/snabbdom` stays beside it.
 generator they run in.
 
 **Depends on** step 34 for what it reads of `src/compose.ts`: `child` and `childById` take other arguments there, and
-a parent declares its children in a call of their own, a form that the matrix writes too. And on step 38, which
-changes what the matrix writes of a subscription. It changes nothing a user writes. It adds a rule to `AGENTS.md`
+a parent declares its children in a call of their own, a form that the matrix writes too. It changes nothing a user
+writes. It adds a rule to `AGENTS.md`
 (the first point below), so the owner is asked first.
 
 **Why.** api-1, api-2 and api-4 lived in one form of a program, an object not typed `Program<…>`, which `child`,
@@ -199,7 +134,11 @@ axes, checked by `tsc`, so the risk left is in the axes it does not list.
    (`externalRejects`, `missingRunCommand`, `missingOnEvent`, …) in that form too. Known lead, older than the fix of
    api-1: a child written in the call with a parameter not annotated, `makeModel: (state) => state.count`, does not
    compile: its error reads `P` as `AnyProgram`, whose `CommandOf` asks for a `runCommand`. Annotated, it
-   compiles. The matrix decides whether it breaks the first rule, or is a form that repeats another.
+   compiles. The matrix decides whether it breaks the first rule, or is a form that repeats another. A second, since
+   step 38: `start({ ...typed, update: (message) => … })`, spread from a typed program with a parameter not annotated,
+   gives `message` the type `unknown`, where `subscriptions` named the message before. Step 38 weighed it a form
+   that repeats another (the parameter annotated, or the program made with `make`), and the guide says nothing of
+   it; the matrix confirms that, or lists it as a lead.
 3. **Each case is given to every function that takes a program**, and they must agree: the same verdict, and the same
    types read back (`StateOf`, `CommandOf`, `EventOf`, `ExternalOf`, `FlagsOf` and the services). It needs no answer
    known in advance: api-1 was `Program<…>` refusing what `child` took.
@@ -306,8 +245,9 @@ the tilde. The skills are [`premise-review`](.agents/skills/premise-review/SKILL
 
 **Model and effort.** Opus 5.5, `high`: code that keeps the invariants.
 
-**Depends on** step 38, which changes what a job holds of a subscription and where its subscription is made. It
-changes nothing a user writes.
+**Depends on** no other step. Since step 38, a job holds the keys alone, and the fiber of a subscription calls
+`listen`, as the fiber of a command calls `runCommand`: what the engine gives that fiber is the key. It changes nothing
+a user writes.
 
 **Why.** `rehearse` is a second engine, kept in step with the first by hand and by the contract's tests
 ([`architecture-review.md`](docs/records/architecture-review.md), part 5). The owner took, on 21 November 2026, the
@@ -357,7 +297,12 @@ kept to `program.ts` since the spike: the spike's `Shape<…>` in `rehearse.ts` 
 **How.** As [`premise-review`](.agents/skills/premise-review/SKILL.md) says, over the changes of the engine and of
 the testing tools since `v0.8.0`. The review of 21 November 2026, before that tag, has its reports in the bodies of
 `1317333` on `claude/premise-review-engine-080`, `8ffc7a4` on `claude/premise-review-testing-bc87b9` and `6e90b46` on
-`claude/premise-review-bridges-f28572`, which stay unmerged.
+`claude/premise-review-bridges-f28572`, which stay unmerged. Step 38 dropped the premise that a channel made by
+`Channel.map` and `Channel.mapDone` runs afresh each time, which held a child's lifted subscription, cached by its
+state: a parent now makes one for each start. What it did not weigh: a `listen` that returns the same channel for
+every start, as `listen: () => ticks` in the examples and the guide, runs one value again at each start, and in two
+runs at once, which the JSDoc of `Channel` does not state. It was so before step 38 too, with no premise listed. The
+review weighs whether it is a premise of the library's, and asks the owner before one is added.
 
 **Done when** each finding is fixed, or listed under "Open problems" with its `test.failing`.
 

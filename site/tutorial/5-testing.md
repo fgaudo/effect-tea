@@ -34,7 +34,7 @@ test when `update` rejects one of them. Three things to notice in these tests:
 
 The second test runs a whole minute, sixty ticks, without waiting: a tick is only a message.
 
-`timer.subscriptions(state)` says what the program listens to in a state. So "the clock runs exactly while the
+`timer.subscriptions(state)` lists the keys of what the program listens to in a state. So "the clock runs exactly while the
 timer does" is one line, checked for any state:
 
 {@includeCode ../../examples/timer/timer.test.ts#subscriptions}
@@ -100,7 +100,7 @@ same tools.
 
 What changes is the wrapping. Its messages for a child are `{ _tag: 'Timer', id, message }`. Its commands and the keys
 of its children's subscriptions also name the instance of the timer, the number of its start:
-`{ _tag: 'Timer', id, instance, command }` and `['Timer', id, instance, 'ticks']` (see
+`{ _tag: 'Timer', id, instance, command }` and `{ _tag: 'Timer', id, instance, key: 'ticks' }` (see
 [the number of an instance](../guide/testing.md#the-model-of-any-state)). That is what `timers.subscriptions`, `rehearsal.run` and `rehearsal.hear`
 see. The tests of
 [`examples/timer/timers.test.ts`](../../examples/timer/timers.test.ts)

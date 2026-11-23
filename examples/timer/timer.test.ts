@@ -3,7 +3,6 @@ import { InvariantDefect, reject } from "@fgaudo/effect-tea"
 import { applyAll, dispatchViolations, rehearse } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
 import * as Effect from "effect/Effect"
-import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 import * as fc from "fast-check"
 import { timerMessages } from "./timer.test_reader.ts"
@@ -79,7 +78,7 @@ describe("timer", () => {
   // #region subscriptions
   test("ticks exactly while running", () => {
     fc.assert(fc.property(state, (before) => {
-      expect(HashMap.has(timer.subscriptions(before), "ticks")).toBe(before.phase._tag === "Running")
+      expect(timer.subscriptions(before)).toEqual(before.phase._tag === "Running" ? ["ticks"] : [])
     }))
   })
   // #endregion subscriptions

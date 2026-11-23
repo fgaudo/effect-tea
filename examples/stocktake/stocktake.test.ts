@@ -4,7 +4,6 @@ import { applyAll, dispatchViolations, drive, placeViolations, rehearse, simulat
 import { describe, expect, test } from "bun:test"
 import * as Effect from "effect/Effect"
 import * as Equal from "effect/Equal"
-import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 import * as Stream from "effect/Stream"
 import * as fc from "fast-check"
@@ -130,13 +129,13 @@ describe("update", () => {
   })
 
   test("the scanner is listened to while open, and its end shows Reconnect, which listens again", () => {
-    expect(HashMap.has(stocktake.subscriptions(start.state), "scanner")).toBe(false)
-    expect(HashMap.has(stocktake.subscriptions(loaded), "scanner")).toBe(true)
+    expect(stocktake.subscriptions(start.state)).toEqual([])
+    expect(stocktake.subscriptions(loaded)).toEqual(["scanner"])
     const ended = applyAll(update)([{ _tag: "ScannerDisconnected" }], loaded).state
-    expect(HashMap.has(stocktake.subscriptions(ended), "scanner")).toBe(false)
+    expect(stocktake.subscriptions(ended)).toEqual([])
     expect(counting(stocktake.makeModel(ended)).scanner._tag).toBe("Disconnected")
     const again = applyAll(update)([{ _tag: "ReconnectClicked" }], ended).state
-    expect(HashMap.has(stocktake.subscriptions(again), "scanner")).toBe(true)
+    expect(stocktake.subscriptions(again)).toEqual(["scanner"])
     expect(update({ _tag: "ReconnectClicked" })(again)).toBe(reject)
   })
 
@@ -170,7 +169,7 @@ describe("update", () => {
     const { state } = applyAll(update)([{ _tag: "SubmitClicked" }, { _tag: "SubmitSucceeded" }], ready)
     const model = stocktake.makeModel(state)
     expect(model).toMatchObject({ _tag: "Closed", total: 15, differing: 1 })
-    expect(HashMap.isEmpty(stocktake.subscriptions(state))).toBe(true)
+    expect(stocktake.subscriptions(state)).toEqual([])
     expect(update(write(ready, "i1", "11"))(state)).toBe(reject)
   })
 

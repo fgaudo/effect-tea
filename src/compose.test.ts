@@ -60,8 +60,8 @@ const thrown = (act: () => unknown): unknown => {
 /** The state of a child alone that must be there. */
 const stateAt = <S>(kept: Opt.Option<Instance<S>>): S => Opt.getOrThrow(kept).state
 
-const keysOf = <K, V>(subscriptions: HashMap.HashMap<K, V>): ReadonlyArray<K> =>
-  Arr.fromIterable(HashMap.keys(subscriptions))
+/** A key as text, to sort the keys of a set: a child's key is an object. */
+const keyText = (key: unknown): string => JSON.stringify(key)
 
 // A counter that cannot go below zero, that saves on request, and that accepts typed numbers only.
 type CounterMessage = Data.TaggedEnum<{
@@ -118,7 +118,7 @@ const counter: Program<{
   },
   external: () => (state) => ({ state: { ...state, count: 0 } }),
   runCommand: () => Effect.succeedSome(CounterMessage.Saved()),
-  subscriptions: () => HashMap.empty(),
+  subscriptions: () => [],
   makeModel: (state) => ({
     count: state.count,
     increment: CounterMessage.Increment(),
@@ -138,10 +138,11 @@ type Ticks = Readonly<{ ticks: number }>
 
 const noTicks: Ticks = { ticks: 0 }
 
-const ticker: Program<{ state: Ticks; model: number; message: Tick }> = {
+const ticker: Program<{ state: Ticks; model: number; message: Tick; key: "ticks" }> = {
   init: { state: noTicks },
   update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
-  subscriptions: () => HashMap.make(["ticks", ticks]),
+  subscriptions: () => ["ticks" as const],
+  listen: () => ticks,
   makeModel: ({ ticks }) => ticks
 }
 
@@ -327,7 +328,7 @@ describe("compose", () => {
       init: { state: { pings: 0 } },
       update: () => (state) => ({ state, commands: ["Pong"], events: ["Pinged"] }),
       runCommand: () => Effect.succeedNone,
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: (state) => state.pings
     }
     type Pinged = Readonly<{ heard: number }>
@@ -389,7 +390,7 @@ describe("compose", () => {
     expect(Object.keys(tested.init.state.children)).toEqual(["Ticker"])
     expect(tested.init.state.starts).toBe(1)
     expect(models).toEqual(["Ticker"])
-    expect(keysOf(tested.subscriptions(tested.init.state))).toEqual([["Ticker", 1, "ticks"]])
+    expect(tested.subscriptions(tested.init.state)).toEqual([{ _tag: "Ticker", instance: 1, key: "ticks" }])
   })
 
   test("the model of a child always there that a state written by hand does not hold is a defect", () => {
@@ -423,14 +424,14 @@ describe("compose", () => {
       update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
       makeModel: ({ ticks }) => ticks
     })
-    expect(HashMap.isEmpty(silent.subscriptions(noTicks))).toBe(true)
-    expect(HashMap.isEmpty(silent.subscriptions({ ticks: 3 }))).toBe(true)
+    expect((silent.subscriptions(noTicks)).length === 0).toBe(true)
+    expect((silent.subscriptions({ ticks: 3 })).length === 0).toBe(true)
   })
 
   test("a child listens under its name and its instance, and only where listening holds", () => {
-    expect(HashMap.size(app.subscriptions(app.init.state))).toBe(0)
+    expect((app.subscriptions(app.init.state)).length).toBe(0)
     // Left is the first start, Right the second, Ticker the third: in the order of the children's names.
-    expect(keysOf(app.subscriptions(withRight))).toEqual([["Ticker", 3, "ticks"]])
+    expect(app.subscriptions(withRight)).toEqual([{ _tag: "Ticker", instance: 3, key: "ticks" }])
   })
 
   test("a child without listening listens whenever it is there", () => {
@@ -439,8 +440,12 @@ describe("compose", () => {
       init: { state: { ticking: false } },
       makeModel: () => null
     })
-    expect(HashMap.isEmpty(maybe.subscriptions(maybe.init.state))).toBe(true)
-    expect(keysOf(maybe.subscriptions(stateOf(maybe, { ticking: true })))).toEqual([["Ticker", 1, "ticks"]])
+    expect((maybe.subscriptions(maybe.init.state)).length === 0).toBe(true)
+    expect(maybe.subscriptions(stateOf(maybe, { ticking: true }))).toEqual([{
+      _tag: "Ticker",
+      instance: 1,
+      key: "ticks"
+    }])
   })
 
   test("a child's model is kept while its state is the same object", () => {
@@ -592,10 +597,10 @@ describe("children by id", () => {
       Clock: Tickers.child(ticker),
       Tickers: Tickers.childById(ticker, { ids: (state) => state.ids })
     }).make({ init: { state: { ids: [7, 8] } }, makeModel: () => null })
-    expect(keysOf(tickerList.subscriptions(tickerList.init.state)).map(String).sort()).toEqual([
-      "Clock,1,ticks",
-      "Tickers,7,2,ticks",
-      "Tickers,8,3,ticks"
+    expect(tickerList.subscriptions(tickerList.init.state).map(keyText).sort()).toEqual([
+      keyText({ _tag: "Clock", instance: 1, key: "ticks" }),
+      keyText({ _tag: "Tickers", id: 7, instance: 2, key: "ticks" }),
+      keyText({ _tag: "Tickers", id: 8, instance: 3, key: "ticks" })
     ])
   })
 
@@ -608,7 +613,7 @@ describe("children by id", () => {
         listening: (state, id) => state.listening.includes(id)
       })
     }).make({ init: { state: { ids: [7, 8], listening: [7] } }, makeModel: () => null })
-    expect(keysOf(some.subscriptions(some.init.state))).toEqual([["Tickers", 7, 1, "ticks"]])
+    expect(some.subscriptions(some.init.state)).toEqual([{ _tag: "Tickers", id: 7, instance: 1, key: "ticks" }])
     expect(some.update({ _tag: "Tickers", id: 8, message: { _tag: "Tick" } })(some.init.state)).not.toBe(reject)
   })
 
@@ -652,34 +657,35 @@ describe("children by id", () => {
         ...ticker,
         subscriptions: () => {
           counted.calls++
-          return HashMap.make(["ticks", ticks])
+          return ["ticks" as const]
         }
       }, { ids: (state) => state.ids })
     }).make({ init: { state: { ids: [] } }, makeModel: () => null })
     return { counted, tickers }
   }
 
-  test("a child's subscriptions are kept while its instance is the same object, and made again for a new state", () => {
+  test("a child's keys are kept while its instance is the same object, and made again for a new state", () => {
     const { counted, tickers } = countedTickers()
     const state = stateOf(tickers, { ids: [1, 2] })
     const first = tickers.subscriptions(state)
     const kept = tickers.subscriptions({ ...state })
     expect(counted.calls).toBe(2)
-    const lifted = (all: typeof first, id: number) => Opt.getOrThrow(HashMap.get(all, ["Tickers", id, id, "ticks"]))
+    // Only keys are listed: the lifted key is the object kept with the instance.
+    const lifted = (all: typeof first, id: number) => Opt.getOrThrow(Arr.findFirst(all, (key) => key.id === id))
     expect(lifted(kept, 1)).toBe(lifted(first, 1))
     const ticked = accepted(tickers.update({ _tag: "Tickers", id: 2, message: { _tag: "Tick" } })(state)).state
     const changed = tickers.subscriptions(ticked)
     expect(counted.calls).toBe(3)
     expect(lifted(changed, 1)).toBe(lifted(first, 1))
     expect(lifted(changed, 2)).not.toBe(lifted(first, 2))
-    expect(HashMap.size(changed)).toBe(2)
+    expect(changed.length).toBe(2)
   })
 
   test("children that share one state object each listen with their own id and instance", () => {
     const { tickers } = countedTickers()
     const all = tickers.subscriptions(stateOf(tickers, { ids: [1, 2] }))
     const first = (id: number) =>
-      Effect.runSync(Channel.runHead(Opt.getOrThrow(HashMap.get(all, ["Tickers", id, id, "ticks"]))))
+      Effect.runSync(Channel.runHead(tickers.listen(Opt.getOrThrow(Arr.findFirst(all, (key) => key.id === id)))))
     expect([first(1), first(2)]).toEqual([
       Opt.some({ _tag: "Tickers", id: 1, instance: 1, message: { _tag: "Tick" } }),
       Opt.some({ _tag: "Tickers", id: 2, instance: 2, message: { _tag: "Tick" } })
@@ -706,6 +712,7 @@ const labelled = program<{
   event: RowEvent
   external: RowExternal
   flags: string
+  key: "bumps"
 }>().make({
   init: (label) => ({ state: { label, count: 0 }, commands: [{ _tag: "Load", label }] }),
   update: (message) => (state) =>
@@ -717,7 +724,8 @@ const labelled = program<{
       ? { state: { ...state, count: state.count + 10 } }
       : { state, commands: [{ _tag: "Load", label: state.label }], events: [{ _tag: "Left" }] },
   runCommand: () => Effect.succeedSome<RowMessage>({ _tag: "Loaded", value: 7 }),
-  subscriptions: () => HashMap.make(["bumps", bumps]),
+  subscriptions: () => ["bumps" as const],
+  listen: () => bumps,
   makeModel: (state) => state
 })
 
@@ -729,6 +737,7 @@ const loader: Program<{
   command: RowCommand
   event: RowEvent
   external: RowExternal
+  key: "bumps"
 }> = { ...labelled, init: { state: { label: "one", count: 0 }, commands: [{ _tag: "Load", label: "one" }] } }
 
 // Rows by id, each started from its label. What the parent does when a row asks to be left is in its own state.
@@ -905,7 +914,9 @@ describe("the instance of a child", () => {
 
   test("a subscription's message carries its instance, and is rejected once that instance is gone", () => {
     const first = after(added(1)).state
-    const lifted = Opt.getOrThrow(HashMap.get(rowList.subscriptions(first), ["Row", 1, 1, "bumps"]))
+    const key = Opt.getOrThrow(Arr.head(rowList.subscriptions(first)))
+    expect(key).toEqual({ _tag: "Row", id: 1, instance: 1, key: "bumps" })
+    const lifted = rowList.listen(key)
     const message = Opt.getOrThrow(Effect.runSync(Channel.runHead(lifted)))
     expect(message).toEqual({ _tag: "Row", id: 1, instance: 1, message: { _tag: "Bumped" } })
     expect(rowList.update(message)(first)).not.toBe(reject)
@@ -960,8 +971,8 @@ describe("the children that the library keeps", () => {
     expect(instanceAt(state, 1)).toEqual(Opt.some(2))
     expect(countAt(state, 1)).toEqual(Opt.some(0))
     expect(commands).toEqual([{ _tag: "Row", id: 1, instance: 2, command: { _tag: "Load", label: "b" } }])
-    expect(keysOf(rowList.subscriptions(before))).toEqual([["Row", 1, 1, "bumps"]])
-    expect(keysOf(rowList.subscriptions(state))).toEqual([["Row", 1, 2, "bumps"]])
+    expect(rowList.subscriptions(before)).toEqual([{ _tag: "Row", id: 1, instance: 1, key: "bumps" }])
+    expect(rowList.subscriptions(state)).toEqual([{ _tag: "Row", id: 1, instance: 2, key: "bumps" }])
   })
 
   test("equal flags keep the child, and leave the very same children", () => {
@@ -1134,8 +1145,11 @@ describe("what a parent tells its children", () => {
 
   test("without listening every child listens, and with it those where it holds", () => {
     const listening = after(added(1), added(2)).state
-    expect(keysOf(rowList.subscriptions(listening)).map(String).sort()).toEqual(["Row,1,1,bumps", "Row,2,2,bumps"])
-    expect(keysOf(rowList.subscriptions(applyAll(rowList.update)([{ _tag: "Quieted" }], listening).state)))
+    expect(rowList.subscriptions(listening).map(keyText).sort()).toEqual([
+      keyText({ _tag: "Row", id: 1, instance: 1, key: "bumps" }),
+      keyText({ _tag: "Row", id: 2, instance: 2, key: "bumps" })
+    ])
+    expect(rowList.subscriptions(applyAll(rowList.update)([{ _tag: "Quieted" }], listening).state))
       .toEqual([])
   })
 })
@@ -1276,7 +1290,7 @@ describe("what a parent reads of its children", () => {
     const unread: Program<{ state: Lamp; model: null; message: never; output: boolean }> = {
       init: { state: { on: false } },
       update: () => () => reject,
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: () => null
     }
     program<{ state: Lamp; message: "Pressed" }>().make({
@@ -1362,7 +1376,7 @@ describe("what a parent can do with a child", () => {
     init: { state: { menu: true } },
     update: back,
     external: back,
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: () => null
   }
   type Pages = Readonly<{ page: boolean }>
@@ -1411,7 +1425,7 @@ describe("what a parent can do with a child", () => {
     const base = {
       init: { state: noTicks },
       update: (_: Tick) => (state: Ticks) => ({ state }),
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: ({ ticks }: Ticks) => ticks
     }
     const rejecting = { ...base, external: (_: BackPressed) => (state: Ticks) => state.ticks > 0 ? { state } : reject }
@@ -1441,15 +1455,15 @@ describe("what a parent can do with a child", () => {
       makeModel: () => null
     })
     const lifted: CommandOf<typeof heard> = { _tag: "Saving", instance: 1, command: "Save" }
-    // A child written in the call is checked alike, and its empty map holds subscriptions of its own messages.
+    // A child written in the call is checked alike, and its empty set lists no key.
     const inline = [
-      child({ ...base, init: { state: noTicks }, subscriptions: () => HashMap.empty() }),
-      childById({ ...base, init: { state: noTicks }, subscriptions: () => HashMap.empty() }, ids),
+      child({ ...base, init: { state: noTicks }, subscriptions: () => [] }),
+      childById({ ...base, init: { state: noTicks }, subscriptions: () => [] }, ids),
       child({
         init: { state: noTicks, commands: ["Save" as const] },
         update: (_: Tick) => (state: Ticks) => ({ state }),
         runCommand: () => Effect.succeedNone,
-        subscriptions: () => HashMap.empty(),
+        subscriptions: () => [],
         makeModel: () => null
       })
     ]
@@ -1473,7 +1487,7 @@ describe("what a parent can do with a child", () => {
     const raising = {
       init: { state: noTicks },
       update: (_: Tick) => (state: Ticks) => ({ state, events: [{ _tag: "Beeped" }] }),
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: ({ ticks }: Ticks) => ticks
     }
     const Unheard = program<{ state: Ticks }>()
@@ -1490,7 +1504,7 @@ describe("what a parent can do with a child", () => {
     const saving = {
       init: { state: noTicks, commands: [{ _tag: "Save" as const }] },
       update: (_: Tick) => (state: Ticks) => ({ state }),
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: ({ ticks }: Ticks) => ticks
     }
     const One = program<{ state: Ticks }>()
@@ -1510,19 +1524,76 @@ describe("what a parent can do with a child", () => {
       .toMatchObject({ _tag: "CompositionDefect", child: "Rows", id: 0, on: "Save" })
   })
 
-  test("an own subscription key that is the lifted key of a child's is a defect, never a silent replacement", () => {
-    const { child, withChildren } = program<{ state: Ticks; message: Tick }>()
+  test("a child's key that nothing listens to is a CompositionDefect naming the child", () => {
+    const deaf = {
+      init: { state: noTicks },
+      update: (_: Tick) => (state: Ticks) => ({ state }),
+      subscriptions: () => ["ticks" as const],
+      makeModel: ({ ticks }: Ticks) => ticks
+    }
+    const One = program<{ state: Ticks }>()
+    const one = One.withChildren({
+      // @ts-expect-error: a child with keys and no `listen` does not compile; this one runs without.
+      Ticker: One.child(deaf)
+    }).make({ init: { state: noTicks }, makeModel: () => null })
+    const keys = one.subscriptions(one.init.state)
+    expect(keys).toEqual([{ _tag: "Ticker", instance: 1, key: "ticks" }])
+    expect(thrown(() => one.listen(Opt.getOrThrow(Arr.head(keys))))).toMatchObject({
+      _tag: "CompositionDefect",
+      child: "Ticker"
+    })
+    const List = program<{ state: ListState }>()
+    const list = List.withChildren({
+      // @ts-expect-error: likewise for children by id.
+      Rows: List.childById(deaf, { ids: (state) => state.ids })
+    }).make({ init: { state: { ids: [0] } }, makeModel: () => null })
+    // The ids of a child that does not compile read back as `never`.
+    const rows: ReadonlyArray<unknown> = list.subscriptions(list.init.state)
+    expect(rows).toEqual([{ _tag: "Rows", id: 0, instance: 1, key: "ticks" }])
+    expect(thrown(() => list.listen(Opt.getOrThrow(Arr.head(rows)) as never))).toMatchObject({
+      _tag: "CompositionDefect",
+      child: "Rows",
+      id: 0
+    })
+  })
+
+  // A child's key is listed under its name, as its command is: an own key that could take that name is refused.
+  test("an own subscription key that may take the name of a child does not compile, never a silent replacement", () => {
+    type Clash = Readonly<{ _tag: "Ticker"; instance: number; key: "ticks" }>
+    const { child, withChildren } = program<{ state: Ticks; message: Tick; key: Clash }>()
+    // @ts-expect-error: an own key takes the name of a child.
     const clashing = withChildren({ Ticker: child(ticker) }).make({
       init: { state: noTicks },
       update: () => (state) => ({ state }),
-      subscriptions: () => HashMap.make([["Ticker", 1, "ticks"] as const, ticks]),
+      subscriptions: () => Array.from<Clash>([{ _tag: "Ticker", instance: 1, key: "ticks" }]),
+      listen: () => ticks,
       makeModel: () => null
     })
-    expect(() => clashing.subscriptions(clashing.init.state))
-      .toThrow(compositionDefect({
-        message: "An own subscription key is the key of a subscription of \"Ticker\"",
-        child: "Ticker"
-      }))
+    // A key as wide as a string may be a child's name too.
+    const wide = program<{ state: Ticks; message: Tick; key: Readonly<{ _tag: string }> }>()
+    // @ts-expect-error: an own key whose tag is any string may take the name of a child.
+    wide.withChildren({ Ticker: wide.child(ticker) }).make({
+      init: { state: noTicks },
+      update: () => (state) => ({ state }),
+      subscriptions: () => [{ _tag: "Clock" }],
+      listen: () => ticks,
+      makeModel: () => null
+    })
+    // An own key of another name, or a plain string, is the parent's own.
+    const own = program<{ state: Ticks; message: Tick; key: "ticks" | Readonly<{ _tag: "Clock" }> }>()
+    const apart = own.withChildren({ Ticker: own.child(ticker) }).make({
+      init: { state: noTicks },
+      update: () => (state) => ({ state }),
+      subscriptions: () => Array.from<"ticks" | Readonly<{ _tag: "Clock" }>>(["ticks", { _tag: "Clock" }]),
+      listen: () => ticks,
+      makeModel: () => null
+    })
+    expect(clashing).toBeDefined()
+    expect(apart.subscriptions(apart.init.state).map(keyText).sort()).toEqual([
+      keyText("ticks"),
+      keyText({ _tag: "Clock" }),
+      keyText({ _tag: "Ticker", instance: 1, key: "ticks" })
+    ])
   })
 })
 
@@ -1625,7 +1696,7 @@ describe("steps that add up", () => {
     update: leave,
     external: leave,
     runCommand: () => Effect.succeedNone,
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: () => null
   }
   const Home = program<{ state: object; event: Left; external: Leave }>()
@@ -1910,7 +1981,7 @@ describe("what the types reject", () => {
   const plain = {
     init: { state: noTicks },
     update: (message: Tick) => ({ ticks }: Ticks) => message._tag === "Tick" ? { state: { ticks: ticks + 1 } } : reject,
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: ({ ticks }: Ticks) => ticks
   }
 
@@ -1964,7 +2035,7 @@ describe("what the types reject", () => {
     const counting = {
       init: { state: 0 },
       update: () => (count: number) => ({ state: count + 1 }),
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: (count: number) => count
     }
     // @ts-expect-error: a number is no object.
@@ -2008,7 +2079,7 @@ describe("what the types reject", () => {
     // @ts-expect-error: nor `childById`.
     expect(childById(silent, ids)).toBeDefined()
     // With the piece, each takes it: nothing else refuses it above.
-    const listening = { ...silent, subscriptions: () => HashMap.empty() }
+    const listening = { ...silent, subscriptions: () => [] }
     expect([child(listening), childById(listening, ids)]).toHaveLength(2)
     expect([typed, silent]).toHaveLength(2)
   })
@@ -2018,7 +2089,7 @@ describe("what the types reject", () => {
     const empty = {
       init: { state: {} },
       update: () => (state: Empty) => ({ state }),
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: () => null
     }
     // @ts-expect-error: a type without fields holds a number too.
@@ -2086,7 +2157,7 @@ describe("what the types reject", () => {
       init: { state: noTicks },
       update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
       external: () => () => ({ state: noTicks }),
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: ({ ticks }) => ticks
     }
     const { child, withChildren } = program<{ state: Ticks; command: "Load"; message: "Loaded" }>()
@@ -2121,33 +2192,36 @@ describe("what the types reject", () => {
       init: { state: noTicks },
       update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
       external: () => () => ({ state: noTicks }),
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: ({ ticks }) => ticks
     }
     const idle = <M>(): Subscription<M, never> => Channel.never
-    const { child, withChildren } = program<{ state: Ticks; message: "Loaded" }>()
+    const { child, withChildren } = program<{ state: Ticks; message: "Loaded"; key: "load" }>()
     const children = { Counter: child(resettable) }
     withChildren(children).make({
       init: { state: noTicks },
       update: () => (state) => ({ state }),
+      subscriptions: () => ["load" as const],
       // @ts-expect-error: `Tick` is the child's own business.
-      subscriptions: () => HashMap.make(["load", idle<Readonly<{ _tag: "Counter"; message: Tick }>>()]),
+      listen: () => idle<Readonly<{ _tag: "Counter"; message: Tick }>>(),
       makeModel: () => null
     })
     withChildren(children).make({
       init: { state: noTicks },
       update: () => (state) => ({ state }),
+      subscriptions: () => ["load" as const],
       // @ts-expect-error: `Reset` is no message of the child: the parent tells it in a step.
-      subscriptions: () => HashMap.make(["load", idle<Readonly<{ _tag: "Counter"; message: Reset }>>()]),
+      listen: () => idle<Readonly<{ _tag: "Counter"; message: Reset }>>(),
       makeModel: () => null
     })
     const tested = withChildren(children).make({
       init: { state: noTicks },
       update: () => (state) => ({ state, tell: [{ _tag: "Counter", message: { _tag: "Reset" } }] }),
-      subscriptions: () => HashMap.make(["load", idle<"Loaded">()]),
+      subscriptions: () => ["load" as const],
+      listen: () => idle<"Loaded">(),
       makeModel: () => null
     })
-    expect(keysOf(tested.subscriptions(tested.init.state))).toEqual(["load"])
+    expect(tested.subscriptions(tested.init.state)).toEqual(["load"])
   })
 
   test("an own message cannot take the name of a child, which would receive it", () => {
@@ -2255,7 +2329,7 @@ describe("what the types reject", () => {
 
   test("a program has an external exactly when it has external messages, and it never rejects", () => {
     const update = () => ({ ticks }: Ticks) => ({ state: { ticks: ticks + 1 } })
-    const pieces = { init: { state: noTicks }, update, subscriptions: () => HashMap.empty(), makeModel: () => 0 }
+    const pieces = { init: { state: noTicks }, update, subscriptions: () => [], makeModel: () => 0 }
     // @ts-expect-error: its parent may send it a `Reset`, which nothing answers.
     const deaf: Program<{ state: Ticks; model: number; message: Tick; external: Reset }> = pieces
     // @ts-expect-error: likewise for a program that `make` makes.
@@ -2305,7 +2379,7 @@ describe("what the types reject", () => {
       init: { state: noTicks },
       update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
       external: () => () => ({ state: noTicks }),
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: ({ ticks }) => ticks
     }
     const Middle = program<{ state: object; external: Reset }>()
@@ -2329,7 +2403,12 @@ describe("what the types reject", () => {
   })
 
   test("a function over programs passes its type parameter on to them", () => {
-    const counting = program<{ state: Ticks; model: number; message: Tick }>().make(plain)
+    // `make` refuses the `subscriptions` of a program that declares no key: the pieces are taken without it.
+    const counting = program<{ state: Ticks; model: number; message: Tick }>().make({
+      init: plain.init,
+      update: plain.update,
+      makeModel: plain.makeModel
+    })
     const same = <T extends { state: object; model: unknown; message: unknown }>(p: Program<T>) => p
     const maker = <T extends { state: object }>() => program<T>()
     expect(same(counting)).toBe(counting)
@@ -2343,7 +2422,7 @@ describe("what the types reject", () => {
     const unknowing: Program<{ state: Ticks; model: number; message: Tick; flags: unknown }> = {
       init: () => ({ state: noTicks }),
       update: () => (state) => ({ state }),
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: ({ ticks }) => ticks
     }
     const thunk = { ...plain, init: () => ({ state: noTicks }) }
@@ -2364,7 +2443,7 @@ describe("what the types reject", () => {
     const telling: Program<{ state: Ticks; model: number; message: Tick; event: unknown }> = {
       init: { state: noTicks },
       update: () => (state) => ({ state, events: [state.ticks] }),
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: ({ ticks }) => ticks
     }
     const { child, withChildren } = program<{ state: Ticks }>()
@@ -2412,7 +2491,7 @@ describe("what the types reject", () => {
       update: (_: Tick) => (state: Ticks) =>
         state.ticks > 0 ? { state, commands: ["Save" as const] } : { state: { ticks: 1 } },
       runCommand: () => Effect.succeedNone,
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: ({ ticks }: Ticks) => ticks
     }
     const { child, withChildren } = program<{ state: Ticks }>()
@@ -2440,7 +2519,7 @@ describe("what the types reject", () => {
     const gone = {
       init: { state: noTicks },
       update: (_: Tick) => (state: Ticks) => ({ state, events: [{ _tag: "Gone" } as Gone] }),
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: ({ ticks }: Ticks) => ticks
     }
     const Silent = program<{ state: Ticks; event: Readonly<{ _tag: "Other" }> }>()
@@ -2486,51 +2565,72 @@ describe("what the types reject", () => {
     const fromWire = Channel.unwrap(Effect.map(Effect.service(Wire), (wire) => wire.ticks))
     const fromTape = Channel.unwrap(Effect.map(Effect.service(Tape), (tape) => tape.ticks))
     const ringing: Program<
-      { state: Ticks; model: null; message: Tick; command: "Ring"; commandServices: Gong; subscriptionServices: Bell }
+      {
+        state: Ticks
+        model: null
+        message: Tick
+        command: "Ring"
+        commandServices: Gong
+        subscriptionServices: Bell
+        key: "bell"
+      }
     > = {
       init: { state: noTicks },
       update: () => (state) => ({ state }),
       runCommand: () => Effect.map(Effect.service(Gong), tick),
-      subscriptions: () =>
-        HashMap.make(["bell", Channel.unwrap(Effect.map(Effect.service(Bell), (bell) => bell.ticks))]),
+      subscriptions: () => ["bell" as const],
+      listen: () => Channel.unwrap(Effect.map(Effect.service(Bell), (bell) => bell.ticks)),
       makeModel: () => null
     }
-    const { child, make, withChildren } = program<{ state: Ticks; command: "Read" | "Load"; message: Tick }>()
-    // One service for each place they are read from: the two branches of `runCommand`, two subscriptions of one map,
-    // a second map, and a child's command and subscription.
-    const app = withChildren({ Ringing: child(ringing) }).make({
+    const { make } = program<{ state: Ticks; command: "Read" | "Load"; message: Tick }>()
+    const Listening = program<
+      { state: Ticks; command: "Read" | "Load"; message: Tick; key: "feed" | "wire" | "tape" }
+    >()
+    // One service for each place they are read from: the two branches of `runCommand`, the three branches of `listen`,
+    // and a child's command and subscription.
+    const app = Listening.withChildren({ Ringing: Listening.child(ringing) }).make({
       init: { state: noTicks },
       update: (_: Tick) => (state) => ({ state }),
       runCommand: (command) => command === "Read" ? fromClock : fromDisk,
-      subscriptions: ({ ticks }) =>
-        ticks > 0 ? HashMap.make(["feed", fromFeed], ["wire", fromWire]) : HashMap.make(["tape", fromTape]),
+      subscriptions: ({ ticks }) => ticks > 0 ? ["feed" as const, "wire" as const] : ["tape" as const],
+      listen: (key) => {
+        switch (key) {
+          case "feed":
+            return fromFeed
+          case "wire":
+            return fromWire
+          case "tape":
+            return fromTape
+        }
+      },
       makeModel: () => null
     })
     const commands: Exactly<CommandServicesOf<typeof app>, Clock | Disk | Gong> = true
     expect(commands).toBe(true)
     const subscriptions: Exactly<SubscriptionServicesOf<typeof app>, Feed | Wire | Tape | Bell> = true
     expect(subscriptions).toBe(true)
-    // An empty map needs nothing, wherever it is returned from.
-    const quiet = make({
+    // An empty set needs nothing, wherever it is returned from: services are read from `listen` alone.
+    const quiet = program<{ state: Ticks; command: "Read" | "Load"; message: Tick; key: "feed" }>().make({
       init: { state: noTicks },
       update: (_: Tick) => (state) => ({ state }),
       runCommand: () => Effect.succeedNone,
       subscriptions: ({ ticks }) =>
         Opt.match(Opt.liftPredicate(ticks, (ticks) => ticks > 0), {
-          onNone: () => HashMap.empty(),
-          onSome: (ticks) => ticks > 1 ? HashMap.make(["feed", fromFeed]) : HashMap.empty()
+          onNone: () => [],
+          onSome: (ticks) => ticks > 1 ? ["feed" as const] : []
         }),
+      listen: () => fromFeed,
       makeModel: () => null
     })
     const quietCommands: Exactly<CommandServicesOf<typeof quiet>, never> = true
     expect(quietCommands).toBe(true)
     const one: Exactly<SubscriptionServicesOf<typeof quiet>, Feed> = true
     expect(one).toBe(true)
+    // `make` takes no `subscriptions` from a program that declares no key: it listens to nothing.
     const silent = make({
       init: { state: noTicks },
       update: (_: Tick) => (state) => ({ state }),
       runCommand: () => Effect.succeedNone,
-      subscriptions: () => HashMap.empty(),
       makeModel: () => null
     })
     const none: Exactly<SubscriptionServicesOf<typeof silent>, never> = true
@@ -2539,7 +2639,7 @@ describe("what the types reject", () => {
     const written = {
       init: { state: noTicks },
       update: (_: Tick) => (state: Ticks) => ({ state }),
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: () => null
     }
     const Holder = program<{ state: Ticks }>()
@@ -2569,10 +2669,17 @@ describe("what the types reject", () => {
     const base = { init: { state: noTicks }, update: (_: Tick) => (state: Ticks) => ({ state }), makeModel: () => null }
     const untyped = Leaf.make({ ...base, runCommand: () => loose })
     const unknowing = Leaf.make({ ...base, runCommand: () => Effect.succeedNone as Execution<Tick, unknown> })
-    const unheard = program<{ state: Ticks; message: Tick }>().make({ ...base, subscriptions: () => loose })
-    const declared: Program<{ state: Ticks; model: null; message: Tick; subscriptionServices: unknown }> = {
+    const unheard = program<{ state: Ticks; message: Tick; key: "loose" }>().make({
       ...base,
-      subscriptions: () => HashMap.empty()
+      subscriptions: () => ["loose" as const],
+      listen: () => loose
+    })
+    // Services are read from `listen`, which a program has only with keys: without one, the services it names are
+    // never read back.
+    const declared: Program<{ state: Ticks; model: null; message: Tick; subscriptionServices: unknown; key: "a" }> = {
+      ...base,
+      subscriptions: () => [],
+      listen: () => Channel.never
     }
     const commands: Exactly<CommandServicesOf<typeof untyped>, unknown> = true
     const unknownCommands: Exactly<CommandServicesOf<typeof unknowing>, unknown> = true
@@ -2603,16 +2710,14 @@ describe("what the types reject", () => {
       runCommand: (command) => command === "Read" ? fromClock : tock,
       makeModel: () => null
     })
-    make({
+    program<{ state: Ticks; command: "Read" | "Load"; message: Tick; key: "ticks" | "tocks" }>().make({
       init: { state: noTicks },
       update: (_: Tick) => (state) => ({ state }),
       runCommand: () => fromClock,
-      // @ts-expect-error: `Tock` is no message of this parent's.
-      subscriptions: () =>
-        HashMap.make(
-          ["ticks", Channel.never as Subscription<Tick, Clock>],
-          ["tocks", Channel.never as Subscription<Tock, never>]
-        ),
+      subscriptions: () => ["ticks" as const, "tocks" as const],
+      listen: (key) =>
+        // @ts-expect-error: `Tock` is no message of this parent's.
+        key === "ticks" ? Channel.never as Subscription<Tick, Clock> : Channel.never as Subscription<Tock, never>,
       makeModel: () => null
     })
   })
@@ -2748,22 +2853,21 @@ describe("what the types reject", () => {
 })
 
 describe("a child's subscriptions in a run", () => {
-  // Its lifted keys are new arrays for each new state of the child: only their values, compared with `Equal`, keep
+  // Its lifted keys are new objects for each new state of the child: only their values, compared with `Equal`, keep
   // its subscription running. The command of the third bump, started once its job has stopped and started what it
   // had to, is the witness that the jobs are done.
   test("a child whose state changes, under the same key, keeps its subscription running", async () => {
     let starts = 0
     const noted = Deferred.makeUnsafe<void>()
     type Bumps = Readonly<{ bumps: number }>
-    const bumping: Program<{ state: Bumps; model: number; message: "Bump"; command: "Noted" }> = {
+    const bumping: Program<
+      { state: Bumps; model: number; message: "Bump"; command: "Noted"; key: Readonly<{ name: string }> }
+    > = {
       init: { state: { bumps: 0 } },
       update: () => ({ bumps }) => ({ state: { bumps: bumps + 1 }, commands: bumps + 1 === 3 ? ["Noted"] : [] }),
       runCommand: () => Effect.as(Deferred.succeed(noted, undefined), Opt.none()),
-      subscriptions: () =>
-        HashMap.make([
-          { name: "ticks" },
-          Channel.fromEffectDone(Effect.sync(() => void (starts += 1)).pipe(Effect.andThen(Effect.never)))
-        ]),
+      subscriptions: () => [{ name: "ticks" }],
+      listen: () => Channel.fromEffectDone(Effect.sync(() => void (starts += 1)).pipe(Effect.andThen(Effect.never))),
       makeModel: ({ bumps }) => bumps
     }
     const { child, withChildren } = program<{ state: object }>()
@@ -2791,22 +2895,20 @@ describe("a child's subscriptions in a run", () => {
     const listening = Deferred.makeUnsafe<void>()
     const done = Deferred.makeUnsafe<void>()
     type Bumps = Readonly<{ bumps: number }>
-    const bumping: Program<{ state: Bumps; model: number; message: "Bump"; command: "Noted" }> = {
+    const bumping: Program<{ state: Bumps; model: number; message: "Bump"; command: "Noted"; key: "ticks" }> = {
       init: { state: { bumps: 0 } },
       update: () => ({ bumps }) => ({ state: { bumps: bumps + 1 }, commands: bumps + 1 === 2 ? ["Noted"] : [] }),
       runCommand: () =>
         Effect.suspend(() => ++noted === 2 ? Deferred.succeed(done, undefined) : Effect.void).pipe(
           Effect.as(Opt.none())
         ),
-      subscriptions: () =>
-        HashMap.make([
-          "ticks",
-          Channel.fromEffectDone(
-            Effect.suspend(() => ++starts === 2 ? Deferred.succeed(listening, undefined) : Effect.void).pipe(
-              Effect.andThen(Effect.never)
-            )
+      subscriptions: () => ["ticks" as const],
+      listen: () =>
+        Channel.fromEffectDone(
+          Effect.suspend(() => ++starts === 2 ? Deferred.succeed(listening, undefined) : Effect.void).pipe(
+            Effect.andThen(Effect.never)
           )
-        ]),
+        ),
       makeModel: ({ bumps }) => bumps
     }
     type Pair = readonly [string, number]

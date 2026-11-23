@@ -255,14 +255,6 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   a release the channel wraps around itself runs as its pull fails, before the failure leaves it", of
   `Channel.onExit`, `Channel.acquireUseRelease` and `Channel.ensuring`, which fails with a channel that adds its release
   to the scope it is given.
-- **A channel that `Channel.map` and `Channel.mapDone` make runs afresh each time it is run**, one run after another
-  or several at once, which is how a child's lifted subscription, kept by the child's state object for every run of
-  its parent (`liftedAt` in `compose.ts`; `invariants.md`, "A child's model, and its lifted subscriptions, are kept by
-  its state object"), starts anew when its key comes back under the same state, and in each of two runs that share
-  the state. The JSDoc of `Channel` and of both says what a channel reads, writes and ends with, not whether one value
-  can run more than once; that each run calls the transform again is read in the source (`fromTransform`). Its test:
-  "a channel that Channel.map and Channel.mapDone make runs afresh each time it is run, one run after another or at
-  once", which fails with a channel whose iterator is made once for all its runs.
 - **`Effect.raceFirst` waits for the effect it interrupts to end, its release included**, which is how `drive`
   returns, once the run has died, only after the scenario it interrupts has released what it holds, which "returns once
   the scenario has released what it holds" (`drive.test.ts`) rests on. That it ends with the first of its effects to

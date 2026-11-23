@@ -82,7 +82,7 @@ export type Fork<R> = (effect: Effect.Effect<void, never, R>) => Fiber.Fiber<voi
  *
  * @see The guide, "Running", "Options".
  */
-export type HostProps<State extends object, Model, Message, Command, RC, RS, Flags> =
+export type HostProps<State extends object, Model, Message, Command, RC, RS, Flags, Key = never> =
   & {
     /** The program to start and run. */
     readonly program: Program<{
@@ -93,6 +93,7 @@ export type HostProps<State extends object, Model, Message, Command, RC, RS, Fla
       commandServices: RC
       subscriptionServices: RS
       flags: Flags
+      key: Key
     }>
     /** Draws its model. */
     readonly children: View<Model, Message>
@@ -186,9 +187,10 @@ export const Host = <
   Command = never,
   RC = never,
   RS = never,
-  Flags = never
+  Flags = never,
+  Key = never
 >(
-  props: HostProps<State, Model, Message, Command, RC, RS, Flags>
+  props: HostProps<State, Model, Message, Command, RC, RS, Flags, Key>
 ): ReactNode => {
   const first = useRef(props)
   // The program is started as `Host` first renders, by plain code that runs no effect: its first model is drawn in the

@@ -41,9 +41,10 @@ const readJson = Effect.fnUntraced(function*(file: string) {
 type Name = "model" | "message" | "command" | "event" | "external" | "flags"
 // `message` is named exactly when the program has an `update`: it follows from the form of `update`.
 const names: ReadonlyArray<Name> = ["model", "command", "event", "external", "flags"]
-// What `subscriptions` returns: nothing, a subscription that answers an own message, one that answers none (it only
-// runs until its key goes), or an empty map.
-type Subs = "none" | "emits" | "silent" | "empty"
+// What the program listens to: nothing, a key whose subscription answers an own message, or one that answers none (it
+// only runs until its key goes). Spike of step 30: a program that names no key has no `subscriptions`, so the empty
+// map of before is the special case that is refused.
+type Subs = "none" | "emits" | "silent"
 type Comp = "none" | "child" | "childById" | "input" | "inputById" | "mixed"
 // `outside`: a constant given to `make` by name, typed `Update<…>`, or, for a parent, returning a `Transition<…>`
 // that names what it tells.
@@ -228,6 +229,8 @@ const generate = (c: Case): string => {
   if (has("event")) typeFields.push("event: Ev")
   if (has("external")) typeFields.push("external: Ext")
   if (has("flags")) typeFields.push("flags: number")
+  const ownKey = c.subs === "emits" ? "'own'" : c.subs === "silent" ? "'lock'" : "never"
+  if (c.subs !== "none") typeFields.push(`key: ${ownKey}`)
   const T = `{ ${typeFields.join("; ")} }`
   const functions = kidded ? ["withChildren"] : ["make"]
   if (c.comp === "mixed") functions.push("child", "input")
@@ -380,16 +383,9 @@ const generate = (c: Case): string => {
     const answer = own === "Own" ? "Opt.some({ _tag: 'Inc' } as const)" : "Opt.none()"
     entries.push(`    runCommand: (command${a("Cmd")}) => Effect.as(Effect.service(Db), ${answer}),`)
   }
-  if (c.subs === "emits") {
-    entries.push(
-      `    subscriptions: (state${a(state)}) => state.n > 0 ? HashMap.make(['own', feed]) : HashMap.empty(),`
-    )
-  } else if (c.subs === "silent") {
-    entries.push(
-      `    subscriptions: (state${a(state)}) => state.n > 0 ? HashMap.make(['lock', held]) : HashMap.empty(),`
-    )
-  } else if (c.subs === "empty") {
-    entries.push(`    subscriptions: (state${a(state)}) => HashMap.empty(),`)
+  if (c.subs !== "none") {
+    entries.push(`    subscriptions: (state${a(state)}) => state.n > 0 ? [${ownKey}] : [],`)
+    entries.push(`    listen: (key${a(ownKey)}) => ${c.subs === "emits" ? "feed" : "held"},`)
   }
   if (kidded && v !== "missingOnEvent") {
     const handler = c.comp === "childById"
@@ -471,6 +467,10 @@ const generate = (c: Case): string => {
     subscriptionServices: [
       c.subs === "emits" ? "Feed" : c.subs === "silent" ? "Lock" : "never",
       kidded ? "KidFeed" : "never"
+    ].join(" | "),
+    key: [
+      ownKey,
+      ...(kidded ? [`Readonly<{ _tag: 'Kid'; instance: number; key: 'kid' }>${kidAt}`] : [])
     ].join(" | ")
   }
   const readers: Record<string, string> = {
@@ -482,7 +482,8 @@ const generate = (c: Case): string => {
     external: "ExternalOf",
     flags: "FlagsOf",
     commandServices: "CommandServicesOf",
-    subscriptionServices: "SubscriptionServicesOf"
+    subscriptionServices: "SubscriptionServicesOf",
+    key: "KeyOf"
   }
   for (const [key, reader] of Object.entries(readers)) {
     lines.push(`  const ${key}: Exactly<${reader}<typeof made>, ${expected[key]}> = true`)
@@ -512,7 +513,8 @@ const generate = (c: Case): string => {
     external: has("external") ? "Ext" : "never",
     flags: "never",
     commandServices: expected.commandServices ?? "",
-    subscriptionServices: expected.subscriptionServices ?? ""
+    subscriptionServices: expected.subscriptionServices ?? "",
+    key: c.subs !== "none" || kidded ? `Readonly<{ _tag: 'Inner'; instance: number; key: ${expected.key} }>` : "never"
   }
   for (const [key, reader] of Object.entries(readers)) {
     lines.push(`  const parent_${key}: Exactly<${reader}<typeof parent>, ${parentExpected[key]}> = true`)
@@ -539,6 +541,7 @@ const generateHand = (c: HandCase): string => {
   if (has("flags")) fields.push("flags: number")
   if (has("commandServices")) fields.push("commandServices: Db")
   if (has("subscriptionServices")) fields.push("subscriptionServices: Feed")
+  if (c.subs) fields.push("key: 'own'")
   const T = `{ ${fields.join("; ")} }`
   const commands = has("command") ? ", commands: [{ _tag: 'Save' }]" : ""
   const events = has("event") ? ", events: [{ _tag: 'Saved' }]" : ""
@@ -571,9 +574,10 @@ const generateHand = (c: HandCase): string => {
   }
   lines.push(
     c.subs
-      ? "    subscriptions: (state) => state.n > 0 ? HashMap.make(['own', feed]) : HashMap.empty(),"
-      : "    subscriptions: () => HashMap.empty(),"
+      ? "    subscriptions: (state) => state.n > 0 ? ['own'] : [],"
+      : "    subscriptions: () => [],"
   )
+  if (c.subs) lines.push("    listen: () => feed,")
   lines.push("    makeModel: (state) => ({ count: state.n }),")
   lines.push("  }")
   const expected: Record<string, string> = {
@@ -585,7 +589,9 @@ const generateHand = (c: HandCase): string => {
     ExternalOf: has("external") ? "Ext" : "never",
     FlagsOf: has("flags") ? "number" : "never",
     CommandServicesOf: has("command") && has("commandServices") ? "Db" : "never",
-    SubscriptionServicesOf: has("subscriptionServices") ? "Feed" : "never"
+    // As the services of the commands: those named for subscriptions that the program does not have read back as none.
+    SubscriptionServicesOf: has("subscriptionServices") && c.subs ? "Feed" : "never",
+    KeyOf: c.subs ? "'own'" : "never"
   }
   for (const [reader, type] of Object.entries(expected)) {
     lines.push(`  const ${reader}_: Exactly<${reader}<typeof made>, ${type}> = true`)
@@ -658,7 +664,7 @@ for (const comp of comps) {
     for (const subset of subsets(names)) {
       const named = new Set(subset)
       if (update !== "absent") named.add("message")
-      for (const subs of ["none", "emits", "silent", "empty"] as const) {
+      for (const subs of ["none", "emits", "silent"] as const) {
         for (const layout of layoutsOf(comp)) {
           for (const order of ["canonical", "reversed"] as const) {
             for (const annotate of [false, true]) {
@@ -771,9 +777,10 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
   {
     id: "special.silent-subscription-without-message",
     valid: true,
-    body: `  const made = program<{ state: SNone }>().make({
+    body: `  const made = program<{ state: SNone; key: 'lock' }>().make({
     init: { state: { n: 0 } },
-    subscriptions: (state) => state.n > 0 ? HashMap.make(['lock', held]) : HashMap.empty(),
+    subscriptions: (state) => state.n > 0 ? ['lock'] : [],
+    listen: () => held,
     makeModel: () => null,
   })
   const message: Exactly<MessageOf<typeof made>, never> = true
@@ -782,10 +789,10 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
   },
   {
     id: "special.empty-subscriptions-without-message",
-    valid: true,
+    valid: "refused",
     body: `  const made = program<{ state: SNone }>().make({
     init: { state: { n: 0 } },
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: () => null,
   })
   const message: Exactly<MessageOf<typeof made>, never> = true
@@ -795,10 +802,11 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
   {
     id: "special.silent-subscription-beside-messages",
     valid: true,
-    body: `  const made = program<{ state: SNone; message: Own }>().make({
+    body: `  const made = program<{ state: SNone; message: Own; key: 'lock' | 'own' }>().make({
     init: { state: { n: 0 } },
     update: () => (state) => ({ state }),
-    subscriptions: () => HashMap.make(['lock', held], ['own', feed]),
+    subscriptions: () => ['lock', 'own'],
+    listen: (key) => key === 'lock' ? held : feed,
     makeModel: () => null,
   })
   const services: Exactly<SubscriptionServicesOf<typeof made>, Lock | Feed> = true
@@ -855,7 +863,7 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
     body: `  const made: Program<{ state: SNone; model: MNone; message: Own; evnt: Ev }> = {
     init: { state: { n: 0 } },
     update: () => (state) => ({ state }),
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: (state) => ({ count: state.n }),
   }
   const event: Exactly<EventOf<typeof made>, never> = true
@@ -1027,7 +1035,7 @@ import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import * as Optic from 'effect/Optic'
 import {
-  andThen, type CommandOf, type CommandServicesOf, type EventOf, type ExternalOf, type FlagsOf, type Instance, type Kept,
+  andThen, type CommandOf, type CommandServicesOf, type EventOf, type ExternalOf, type FlagsOf, type Instance, type Kept, type KeyOf,
   type MessageOf, type ModelOf, type Program, program, reject, type StateOf, type SubscriptionServicesOf,
   type Transition, type Update,
 } from '../src/index.ts'

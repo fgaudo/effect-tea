@@ -26,6 +26,8 @@ import {
   type FlagsOf,
   type Init,
   type Interpreter,
+  type KeyOf,
+  type Listener,
   type MessageOf,
   type ModelOf,
   type ObjectState,
@@ -35,7 +37,7 @@ import {
   type StateOf,
   type SubscriptionServicesOf
 } from "./program.ts"
-import type { Subscription, Subscriptions } from "./subscription.ts"
+import type { Listen, Subscription, Subscriptions } from "./subscription.ts"
 import { reject, type Rejected, type Step, type Transition, type Update } from "./update.ts"
 
 /**
@@ -122,20 +124,22 @@ type ProgramChecked<P> =
   & {
     readonly init: Init<StateOf<P>, CommandOf<P>, FlagsOf<P>>
     readonly update: Update<StateOf<P>, MessageOf<P>, CommandOf<P>, EventOf<P>>
-    readonly subscriptions: Subscriptions<StateOf<P>, MessageOf<P>, SubscriptionServicesOf<P>, unknown>
+    readonly subscriptions: Subscriptions<StateOf<P>, KeyOf<P>>
     readonly makeModel: (state: StateOf<P>) => ModelOf<P>
   }
   & Interpreter<CommandOf<P>, MessageOf<P>, CommandServicesOf<P>>
+  & Listener<KeyOf<P>, MessageOf<P>, SubscriptionServicesOf<P>>
   & ExternalHandler<ExternalOf<P>, StateOf<P>, CommandOf<P>, EventOf<P>>
 
 // What a child lacks for the check above, `unknown` where it lacks nothing. A child that runs commands has a
 // `runCommand`, a member, for the error that names it; `Interpreter` is `object` for one that runs none, and `unknown`
 // is needed instead: see `CheckedChild`. The rest of the check is held under a key no program has, as `ObjectState`
 // does: as members, its types, read from a `P` not inferred yet, would type the functions of a child written in the
-// call, and its `HashMap.empty()` would hold subscriptions of `unknown` messages.
+// call, and its `listen` would make subscriptions of `unknown` messages.
 type Lacking<P> = P extends ProgramChecked<P> ? unknown
   :
     & ([CommandOf<P>] extends [never] ? unknown : Interpreter<CommandOf<P>, unknown, unknown>)
+    & ([KeyOf<P>] extends [never] ? unknown : Listener<KeyOf<P>, unknown, unknown>)
     & { readonly "a child is a program of the types read back from it": ProgramChecked<P> }
 
 // The child's program, with what it lacks for the check above. Inferred from `P & …`, `P` would be the program less
@@ -377,6 +381,12 @@ type ChildCommands<C> = {
     : Readonly<{ _tag: K; instance: number; command: CommandOf<ProgramOf<C[K]>> }> & At<C[K]>
 }[keyof C & string]
 
+/** A child's key, as its parent lists it: it names the instance that listens, as a child's command does. */
+type ChildKeys<C> = {
+  [K in keyof C & string]: [KeyOf<ProgramOf<C[K]>>] extends [never] ? never
+    : Readonly<{ _tag: K; instance: number; key: KeyOf<ProgramOf<C[K]>> }> & At<C[K]>
+}[keyof C & string]
+
 /** What a parent may tell its children: an external message of one, by name, and by id for children by id. */
 type Tells<C> = {
   [K in keyof C & string]: [ExternalOf<ProgramOf<C[K]>>] extends [never] ? never
@@ -387,8 +397,7 @@ type Tells<C> = {
 // one parameter for the services, inferred from the branches of a `runCommand` or from the subscriptions of a map,
 // would be one of the candidates and not their union.
 type RanServices<Ran> = Ran extends Execution<any, infer R> ? R : never
-// What a map holds is read as a program's subscriptions are: see `SubscriptionServicesOf`.
-type HeardServices<Heard> = SubscriptionServicesOf<{ readonly subscriptions: (state: never) => Heard }>
+type HeardServices<Heard> = Heard extends Subscription<any, infer R> ? R : never
 
 // A child's commands and subscriptions are lifted into its parent's, with what they need.
 type ChildCommandServices<C> = { [K in keyof C]: CommandServicesOf<ProgramOf<C[K]>> }[keyof C]
@@ -575,12 +584,28 @@ type NoClash<Own, OwnCommand, C, Of extends string> =
   & ([TagsTaken<OwnCommand, keyof C & string>] extends [never] ? unknown
     : { readonly [K in `an own command takes the name of ${Of}`]: TagsTaken<OwnCommand, keyof C & string> })
 
+/** An own key that can take the name of a child would be listened to as the child's: it does not compile. */
+type NoKeyClash<OwnKey, C> = [TagsTaken<OwnKey, keyof C & string>] extends [never] ? unknown
+  : { readonly "an own key takes the name of a child": TagsTaken<OwnKey, keyof C & string> }
+
+/** `subscriptions` and `listen` are required exactly when the program names keys of its own. */
+type ListenOf<State, OwnKey, Message, Heard> = [OwnKey] extends [never]
+  ? Readonly<{ subscriptions?: never; listen?: never }>
+  : Readonly<{
+    /** The keys the program listens to in a state, as data, from its own state. */
+    subscriptions: (state: State) => ReadonlyArray<OwnKey>
+    /** Makes the subscription of one of the program's own keys, from the key alone. */
+    listen: (key: OwnKey) => Heard & Subscription<Message, any>
+  }>
+
 /** An input that takes a child's name would replace the child, whose messages would then be the input's. */
 type NoShared<C, I> = [keyof C & keyof I] extends [never] ? unknown
   : Readonly<{ "an input takes the name of a child": keyof C & keyof I }>
 
-type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, External, Flags, Output> =
+type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, External, Flags, Output> =
   & OnEventOf<State, C, OwnCommand, Event>
+  & ListenOf<State, OwnKey, Own, Heard>
+  & NoKeyClash<OwnKey, C>
   // A command's answer is an own message, as a subscription's is: a parent tells a child only in a step's `tell`. So
   // no answer writes into an input either.
   & RunCommandOf<OwnCommand, Own, Ran>
@@ -622,8 +647,6 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, K, External,
      * @see The guide, "Inputs", "Only what is drawn writes into an input".
      */
     inputs?: I
-    /** The program's own subscriptions, from its own state. */
-    subscriptions?: (state: State) => Heard & HashMap.HashMap<K, Subscription<Own, any>>
     /** What the program draws, from its own state and its children's models. */
     makeModel: (state: State, children: Models<C>) => Model
   }>
@@ -680,8 +703,8 @@ type Entry = Instance<unknown>
 type Slot = Opt.Option<Entry> | HashMap.HashMap<unknown, Entry>
 type Slots = Readonly<Record<string, Slot>>
 
-/** A child's subscriptions under its parent's keys, `[<child>, instance, key]` or `[<child>, id, instance, key]`. */
-type Lifted = ReadonlyArray<readonly [unknown, Subscription<unknown, unknown>]>
+/** A child's keys as its parent lists them, `{ _tag: <child>, instance, key }`, with its `id` for a child by id. */
+type Lifted = ReadonlyArray<unknown>
 
 // What one call of `update`, `external` or `init` gathers: the parts of the state as they are replaced, and the
 // commands and the events of every step taken in it. It never leaves the call.
@@ -719,7 +742,8 @@ type UntypedConfig = Readonly<{
   external?: (message: unknown, children?: unknown) => (state: unknown) => UntypedStep
   onEvent?: Readonly<Record<string, (...args: ReadonlyArray<unknown>) => (state: unknown) => UntypedStep>>
   runCommand?: (command: unknown) => Execution<unknown, unknown>
-  subscriptions?: (state: unknown) => HashMap.HashMap<unknown, Subscription<unknown, unknown>>
+  subscriptions?: (state: unknown) => ReadonlyArray<unknown>
+  listen?: Listen<unknown, unknown, unknown>
   makeModel: (state: unknown, children: unknown) => unknown
   output?: (state: unknown, children?: unknown) => unknown
 }>
@@ -732,6 +756,9 @@ export type Placer = (own: unknown, states: Readonly<Record<string, unknown>>) =
 
 // The key of a child that is there with no flags and no key.
 const present = Opt.some(undefined)
+
+// What a program without subscriptions of its own listens to.
+const none: ReadonlyArray<unknown> = []
 
 // One `make` for a program and for a parent: `children` is `undefined` for a program, whose state is its own alone.
 const make = (children: Readonly<Record<string, UntypedChild>> | undefined, config: UntypedConfig): unknown => {
@@ -753,6 +780,12 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
     ...at(place),
     instance,
     message
+  })
+  const wrapKey = (place: Place, instance: number) => (key: unknown) => ({
+    _tag: place.name,
+    ...at(place),
+    instance,
+    key
   })
   const wrapCommand = (place: Place, instance: number) => (command: unknown) => ({
     _tag: place.name,
@@ -970,28 +1003,18 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
       commands: gathered.commands
     }
   }
-  // A child's subscriptions, lifted under its instance: kept by the object that the library keeps the instance in,
-  // which is at one place, and is replaced with the child's state.
+  // A child's keys, lifted under its instance: kept by the object that the library keeps the instance in, which is at
+  // one place, and is replaced with the child's state. Only keys: a child's subscription is lifted where it starts.
   const lifted = new WeakMap<Entry, Lifted>()
   const liftedAt = (place: Place, entry: Entry): Lifted => {
     const found = lifted.get(entry)
     if (found !== undefined) return found
-    const wrap = wrapMessage(place, entry.instance)
-    const subscriptions = Arr.map(
-      Arr.fromIterable(
-        childOf(place.name).program.subscriptions(entry.state) as HashMap.HashMap<
-          unknown,
-          Subscription<unknown, unknown>
-        >
-      ),
-      ([key, subscription]) =>
-        [
-          isById(place.name) ? [place.name, place.id, entry.instance, key] : [place.name, entry.instance, key],
-          subscription.pipe(Channel.map(wrap), Channel.mapDone(wrap))
-        ] as const
+    const keys = Arr.map(
+      childOf(place.name).program.subscriptions(entry.state) as ReadonlyArray<unknown>,
+      wrapKey(place, entry.instance)
     )
-    lifted.set(entry, subscriptions)
-    return subscriptions
+    lifted.set(entry, keys)
+    return keys
   }
   // The types require an object, by which a child's model is kept: only a cast, or a caller without TypeScript, gets a
   // primitive this far, which a `WeakMap` would refuse with a `TypeError`.
@@ -1093,37 +1116,49 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
       if (config.runCommand === undefined) throw new Error("make: a command of its own, and no runCommand")
       return config.runCommand(command)
     },
-    // A child's keys are under its name, its id and its instance, so two children never clash: only an own key
-    // shaped like one of theirs could, and would silently take the child's place. Built in place: a list of a
-    // thousand children makes a thousand keys on every change of state.
+    // A child's keys are under its name, its id and its instance, so two children never clash, and the types refuse an
+    // own key that could take a child's name, as they refuse such a command.
     subscriptions: (state: unknown) => {
-      const own = config.subscriptions?.(ownOf(state)) ?? HashMap.empty<unknown, Subscription<unknown, unknown>>()
+      const own = config.subscriptions?.(ownOf(state)) ?? none
       if (!composed) return own
       const whole = state as Kept<unknown, Slots>
-      return HashMap.mutate(own, (keyed) => {
-        const listen = (place: Place, entry: Entry) => {
-          const { listening } = childOf(place.name)
-          if (
-            listening !== undefined && !(isById(place.name) ? listening(whole.own, place.id) : listening(whole.own))
-          ) {
-            return
-          }
-          for (const [key, subscription] of liftedAt(place, entry)) {
-            if (HashMap.has(own, key)) {
-              throw defectAt(place, `An own subscription key is the key of a subscription of "${place.name}"`)
-            }
-            HashMap.set(keyed, key, subscription)
-          }
+      // The own keys first, then each child's, in the order the children are declared: a thousand children list a
+      // thousand keys on every change of state, each made once for each state of its child.
+      const keys: Array<unknown> = [...own]
+      const listen = (place: Place, entry: Entry) => {
+        const { listening } = childOf(place.name)
+        if (listening !== undefined && !(isById(place.name) ? listening(whole.own, place.id) : listening(whole.own))) {
+          return
         }
-        for (const name of names) {
-          const slot = whole.children[name] as Slot
-          if (isById(name)) {
-            for (const [id, entry] of slot as HashMap.HashMap<unknown, Entry>) listen({ name, id }, entry)
-          } else if (Opt.isSome(slot as Opt.Option<Entry>)) {
-            listen({ name, id: undefined }, (slot as Opt.Some<Entry>).value)
-          }
+        for (const key of liftedAt(place, entry)) keys.push(key)
+      }
+      for (const name of names) {
+        const slot = whole.children[name] as Slot
+        if (isById(name)) {
+          for (const [id, entry] of slot as HashMap.HashMap<unknown, Entry>) listen({ name, id }, entry)
+        } else if (Opt.isSome(slot as Opt.Option<Entry>)) {
+          listen({ name, id: undefined }, (slot as Opt.Some<Entry>).value)
         }
-      })
+      }
+      return keys
+    },
+    // A child's subscription is made from its own key, and lifted here, where it starts: once for each start, never
+    // for each state.
+    listen: (key: unknown): Subscription<unknown, unknown> => {
+      const place = placeOf(key)
+      if (isChildName(place.name)) {
+        const childKey = field(key, "key")
+        // Unreachable through the types: `child` and `childById` ask for a `listen` whenever the child lists keys.
+        const listen = (childOf(place.name).program as Readonly<{ listen?: Listen<unknown, unknown, unknown> }>).listen
+        if (listen === undefined) {
+          throw defectAt(place, `A key of "${place.name}", which has no listen`)
+        }
+        const wrap = wrapMessage(place, field(key, "instance") as number)
+        return listen(childKey).pipe(Channel.map(wrap), Channel.mapDone(wrap))
+      }
+      // Unreachable through the types: `listen` is required whenever the program has keys of its own.
+      if (config.listen === undefined) throw new Error("make: a key of its own, and no listen")
+      return config.listen(key)
     },
     makeModel: (state: unknown) => config.makeModel(ownOf(state), modelsFor(state)),
     // Only where the program has external messages, as `Program` writes it.
@@ -1147,11 +1182,11 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
 
 /**
  * What a program declares of itself, by name, for `program`: its state, and its own messages, commands, events,
- * external messages, flags and output. Its model may be named too: a model named is checked, and one not named is
+ * external messages, flags, output and keys. Its model may be named too: a model named is checked, and one not named is
  * inferred.
  *
  * - Each is the program's own: what its children and its inputs bring is added to it.
- * - The services are never named: they are inferred from `runCommand`, `subscriptions` and the children.
+ * - The services are never named: they are inferred from `runCommand`, `listen` and the children.
  *
  * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
  * @see The guide, "Composition", "The parent's own types".
@@ -1173,6 +1208,8 @@ type DeclaredTypes = Readonly<{
   flags?: unknown
   /** What its parent reads of it, if anything: what its `output` returns. */
   output?: unknown
+  /** What it listens to, as data, if anything: the keys of its own subscriptions, which its `listen` takes. */
+  key?: unknown
 }>
 
 /**
@@ -1180,7 +1217,7 @@ type DeclaredTypes = Readonly<{
  * `make`, which makes it.
  *
  * Naming the types first lets `update`, `get`, `set` and the rest be typed without annotations. The types also say
- * the program's own messages, commands, events, external messages and flags. A type that the program does not name is
+ * the program's own messages, commands, events, external messages, flags and keys. A type that the program does not name is
  * a type that the program does not have: a program that names no messages has no `update`. The model may be named
  * too. A model that is named is checked, and a model that is not named is inferred. The services are never named:
  * they are inferred.
@@ -1195,12 +1232,11 @@ type DeclaredTypes = Readonly<{
  * - a message as `{ _tag: <child>, message }`, and a write as `{ _tag: <input>, message }`;
  * - a command as `{ _tag: <child>, instance, command }`, run by the child's `runCommand`, whose answer names the
  *   `instance` too;
- * - a subscription under the key `[<child>, instance, key]`.
+ * - a key as `{ _tag: <child>, instance, key }`, whose subscription the child's `listen` makes.
  *
- * For children and inputs by id, each of these also carries the `id`: a key is then `[<child>, id, instance, key]`. A
- * message of the parent's own that can take the name of a child or of an input does not compile, as one tagged
- * `string` can. A key of the parent's own subscriptions that is the key of a child's subscription is a defect, a
- * `CompositionDefect`.
+ * For children and inputs by id, each of these also carries the `id`. A message, a command or a key of the parent's
+ * own that can take the name of a child, or a message that can take the name of an input, does not compile, as one
+ * tagged `string` can.
  *
  * @returns `child` and `childById`, which declare a child alone and children by id, `withChildren`, which takes the
  * children of a parent, `input` and `inputById`, which declare an input alone and inputs by id, and `make`, which
@@ -1400,11 +1436,11 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    *
    * A model named in `program` is checked against `makeModel`, and a model not named is inferred from it. `update`
    * may reject the program's own messages, as any `update` does. `external` never rejects. The program's commands need
-   * the services of its `runCommand`, and its subscriptions the services of its `subscriptions`. Nothing names these
+   * the services of its `runCommand`, and its subscriptions the services of its `listen`. Nothing names these
    * services: they are inferred.
    *
-   * @param config - Its `init` and `makeModel`, its `update`, `external`, `runCommand` and `subscriptions` where it
-   * has them, and its `inputs`.
+   * @param config - Its `init` and `makeModel`, its `update`, `external`, `runCommand`, `subscriptions` and `listen`
+   * where it has them, and its `inputs`.
    * @returns The program, which runs alone or as a child of another.
    *
    * @example
@@ -1535,8 +1571,8 @@ export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T
    *   step is taken and its children are there, in order.
    * - `init` is a step of the parent's own: the library starts the children that its state lists.
    *
-   * @param config - Its `init` and `makeModel`, its `update`, `external`, `runCommand`, `subscriptions` and `onEvent`
-   * where it has them, and its `inputs`.
+   * @param config - Its `init` and `makeModel`, its `update`, `external`, `runCommand`, `subscriptions`, `listen` and
+   * `onEvent` where it has them, and its `inputs`.
    * @returns The parent, which runs alone or as a child of another.
    *
    * @example
@@ -1586,8 +1622,7 @@ export type MakeProgram<T extends DeclaredTypes> = <
   Model,
   I extends Inputs<Field<T, "state">> = None,
   Ran = never,
-  Heard = never,
-  K = unknown
+  Heard = never
 >(
   // The inputs are inferred from where they are declared alone.
   config:
@@ -1601,7 +1636,7 @@ export type MakeProgram<T extends DeclaredTypes> = <
       Named<T, "model", Model>,
       Ran,
       Heard,
-      K,
+      Field<T, "key">,
       Field<T, "external">,
       Field<T, "flags">,
       Field<T, "output">
@@ -1623,6 +1658,7 @@ export type MakeProgram<T extends DeclaredTypes> = <
     external: Field<T, "external">
     flags: Field<T, "flags">
     output: Field<T, "output">
+    key: Field<T, "key">
   }>
 >
 
@@ -1636,8 +1672,7 @@ export type MakeParent<T extends DeclaredTypes, C extends Children<Field<T, "sta
   Model,
   I extends Inputs<Field<T, "state">> = None,
   Ran = never,
-  Heard = never,
-  K = unknown
+  Heard = never
 >(
   // The children are fixed by `withChildren`, so that nothing of what a step tells them is inferred here: a literal
   // in a `tell` would otherwise lose its tags (`_tag: string`), and need `as const`.
@@ -1652,7 +1687,7 @@ export type MakeParent<T extends DeclaredTypes, C extends Children<Field<T, "sta
       Named<T, "model", Model>,
       Ran,
       Heard,
-      K,
+      Field<T, "key">,
       Field<T, "external">,
       Field<T, "flags">,
       Field<T, "output">
@@ -1671,6 +1706,7 @@ export type MakeParent<T extends DeclaredTypes, C extends Children<Field<T, "sta
     external: Field<T, "external">
     flags: Field<T, "flags">
     output: Field<T, "output">
+    key: Field<T, "key"> | ChildKeys<C>
   }>
 >
 

@@ -33,6 +33,11 @@ version, and everything else, features included, the patch version.
   that does more, as storing another form, is not supported ("Inputs", "Rules").
   Upgrade: a `set` that changes the form, `set: (state, note) => ({ ...state, note: note.toUpperCase() })`, becomes
   `store: (note) => note.toUpperCase()` beside the place, `at` where the place is a path.
+- **Breaking**: a subscription is made from its key alone: `subscriptions(state)` lists keys in an array, a key listed
+  twice once, and `listen(key)` makes the subscription of one; `key` names their type (`Listen`, `Listener`, `KeyOf`).
+  Upgrade: `subscriptions: () => HashMap.make(['ticks', ticks])` becomes `subscriptions: () => ['ticks']` with
+  `listen: () => ticks` and `key: 'ticks'` among the types; a child's key `[<child>, instance, key]` becomes
+  `{ _tag: <child>, instance, key }`, and `Subscriptions<State, Message>` becomes `Subscriptions<State, Key>`.
 
 - The guide's "Inputs the user types into" is now "Inputs", and a value that an element reports, as the offset of a
   scroll, is an input too: its rule is promised, and nothing of the element ("What an element reports").

@@ -2,7 +2,6 @@
 import * as Channel from "effect/Channel"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
-import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 import { program, type Subscription, type Written } from "../../src/index.ts"
 
@@ -41,7 +40,8 @@ const kidPieces = {
   update: (_: KidMessage) => (state: KidState) => ({ state: { k: state.k + 1 }, events: [{ _tag: "KDone" } as const] }),
   external: (_: KReset) => () => ({ state: { k: 0 } }),
   runCommand: () => Effect.as(Effect.service(KidDb), Opt.none()),
-  subscriptions: () => HashMap.make(["kid", Channel.unwrap(Effect.map(Effect.service(KidFeed), (feed) => feed.ticks))]),
+  subscriptions: (): ReadonlyArray<"kid"> => ["kid"],
+  listen: () => Channel.unwrap(Effect.map(Effect.service(KidFeed), (feed) => feed.ticks)),
   makeModel: (state: KidState) => state.k,
   output: (state: KidState) => state.k > 0
 }
@@ -56,6 +56,7 @@ export const kid = program<{
   event: KidEvent
   external: KReset
   output: boolean
+  key: "kid"
 }>().make({ init: { state: { k: 0 }, commands: [{ _tag: "KSave" }] }, ...kidPieces })
 
 // The same child, started from flags.
@@ -68,6 +69,7 @@ export const kidF = program<{
   external: KReset
   flags: number
   output: boolean
+  key: "kid"
 }>().make({ init: (k) => ({ state: { k }, commands: [{ _tag: "KSave" }] }), ...kidPieces })
 
 export type SNone = Readonly<{ n: number }>

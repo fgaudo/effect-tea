@@ -244,7 +244,7 @@ wherever the tool calls the program: `init`, `update`, `makeModel`, `subscriptio
 #### How a subscription is heard
 
 - A subscription's message is heard only while its key is in the state. Keys compare by value, as the run compares
-  them. A child's key names its instance, as `['Clock', 1, 'ticks']` (see
+  them. A child's key names its instance, as `{ _tag: 'Clock', instance: 1, key: 'ticks' }` (see
   [the number of an instance](./testing.md#the-model-of-any-state)).
 - `hear` runs nothing. The test answers for what it says was heard, and for whether the subscription had ended.
 - `hear` on a key that has just appeared waits until the key's subscription would have started: once what the message
@@ -252,8 +252,8 @@ wherever the tool calls the program: `init`, `update`, `makeModel`, `subscriptio
   longer in the current state.
 - `hearNext` runs the subscription:
   1. The first time `hearNext` hears a key, it starts that key's subscription, with the services provided and in a
-     scope of its own, once what the messages before it stopped has released what it held. The subscription it starts
-     is the one listed when the key appeared, as the run starts that one.
+     scope of its own, once what the messages before it stopped has released what it held. It makes the subscription
+     with the program's `listen`, from the key, as the run does.
   2. `hearNext` keeps the subscription for as long as the key stays, as the run does. It does not matter which fiber
      of the test heard the subscription first.
   3. Each call of `hearNext` hears the subscription's next message, and succeeds with that message. The message waits

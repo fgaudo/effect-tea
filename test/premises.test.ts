@@ -22,7 +22,6 @@ import * as Hash from "effect/Hash"
 import * as HashMap from "effect/HashMap"
 import * as Logger from "effect/Logger"
 import * as Opt from "effect/Option"
-import * as Pull from "effect/Pull"
 import * as Queue from "effect/Queue"
 import * as Scope from "effect/Scope"
 import * as Stream from "effect/Stream"
@@ -642,35 +641,6 @@ describe("while a release the channel wraps around itself runs as its pull fails
     }))
     expect(log).toEqual(["released", "pull died"])
   })
-})
-
-test("a channel that Channel.map and Channel.mapDone make runs afresh each time it is run, one run after another or at once", async () => {
-  let runs = 0
-  const channel = Channel.fromIterator(() =>
-    (function*() {
-      const run = ++runs
-      yield run
-      yield run
-      return run
-    })()
-  ).pipe(Channel.map((run) => `message ${run}`), Channel.mapDone((run) => `end ${run}`))
-  // Each run as the engine runs a subscription (`runSubscription` in `shell.ts`).
-  const drained = Effect.scoped(Effect.gen(function*() {
-    const pull = yield* Channel.toPull(channel)
-    const messages: Array<string> = []
-    const end = yield* Effect.forever(Effect.map(pull, (message) => void messages.push(message))).pipe(
-      Pull.catchDone(Effect.succeed)
-    )
-    return [...messages, end]
-  }))
-  const once = await Effect.runPromise(drained)
-  const again = await Effect.runPromise(drained)
-  const atOnce = await Effect.runPromise(Effect.all([drained, drained], { concurrency: "unbounded" }))
-  expect([once, again]).toEqual([["message 1", "message 1", "end 1"], ["message 2", "message 2", "end 2"]])
-  expect(atOnce.map((run) => String(run[0])).sort((a, b) => a.localeCompare(b))).toEqual(["message 3", "message 4"])
-  expect(atOnce.every(([first, second, end]) => first === second && end === first?.replace("message", "end"))).toBe(
-    true
-  )
 })
 
 test("Effect.raceFirst waits for the effect it interrupts to end, its release included", async () => {

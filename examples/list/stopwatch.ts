@@ -4,7 +4,6 @@ import { defect, program, reject, type Subscription, type Update } from "@fgaudo
 import * as Channel from "effect/Channel"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
-import * as HashMap from "effect/HashMap"
 
 export type Watch = Data.TaggedEnum<{ Running: object; Stopped: object }>
 
@@ -74,12 +73,14 @@ export const stopwatch = program<{
   event: Event
   external: External
   output: Output
+  key: "ticks"
 }>().make({
   init: { state: { seconds: 0, watch: Watch.Stopped() } },
   update,
   external,
   output: (state) => ({ running: state.watch._tag === "Running" }),
-  subscriptions: (state) => state.watch._tag === "Running" ? HashMap.make(["ticks", ticks]) : HashMap.empty(),
+  subscriptions: (state) => state.watch._tag === "Running" ? ["ticks"] : [],
+  listen: () => ticks,
   makeModel: (state) => ({
     seconds: state.seconds,
     remove: Message.RemoveClicked(),

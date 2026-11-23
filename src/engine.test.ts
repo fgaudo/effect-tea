@@ -6,7 +6,6 @@ import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import { absurd, identity } from "effect/Function"
-import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 import * as Scope from "effect/Scope"
 import * as Stream from "effect/Stream"
@@ -75,7 +74,8 @@ describe("a dispatch applies its message at once", () => {
       init: { state: { count: 0 } },
       runCommand: absurd,
       update: (message) => (state) => message === "Same" ? { state } : counter(state.count)(message),
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
+      listen: absurd,
       onApplied: ({ message, after }) => void heard.push(`applied ${message} ${after.count}`),
       onIgnored: ({ message }) => void heard.push(`ignored ${message}`)
     })
@@ -178,7 +178,8 @@ describe("a dispatch applies its message at once", () => {
         init: { state: { count: 0 } },
         runCommand: absurd,
         update: (message) => (state) => counter(state.count)(message),
-        subscriptions: () => HashMap.empty(),
+        subscriptions: () => [],
+        listen: absurd,
         onApplied: ({ after }) => {
           heard.push(`applied ${after.count}`)
           for (const wake of woken) wake()
@@ -220,16 +221,12 @@ describe("a dispatch applies its message at once", () => {
             : message === "Work"
             ? { state, commands: [Effect.succeedSome("Done" as const)] }
             : { state: { ...state, heard: [...state.heard, message] } },
-        subscriptions: ({ listening }) =>
-          listening
-            ? HashMap.make([
-              "ticks",
-              Channel.succeed("Tick" as const).pipe(
-                Channel.concatWith(() => Channel.fromEffectDrain(Deferred.succeed(ticked, undefined))),
-                Channel.concatWith(() => Channel.never)
-              )
-            ])
-            : HashMap.empty(),
+        subscriptions: ({ listening }) => listening ? ["ticks"] : [],
+        listen: () =>
+          Channel.succeed("Tick" as const).pipe(
+            Channel.concatWith(() => Channel.fromEffectDrain(Deferred.succeed(ticked, undefined))),
+            Channel.concatWith(() => Channel.never)
+          ),
         onApplied: ({ message }) => void told.push(`applied ${message}`)
       })
       // Told once the state is current: a waiter that `onApplied` resumed could run before the new state is.
@@ -259,7 +256,8 @@ describe("a rejected message", () => {
       init: { state: { count: 0 }, commands },
       runCommand: identity,
       update: (message) => (state) => message === "Same" ? { state } : counter(state.count)(message),
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
+      listen: absurd,
       onIgnored
     })
 
@@ -312,24 +310,20 @@ describe("subscriptions follow their keys, in the order of the states", () => {
       init: { state: { names: [] } },
       runCommand: absurd,
       update: (next) => () => ({ state: next }),
-      subscriptions: ({ names }) =>
-        HashMap.fromIterable(names.map((name) =>
-          [
-            name,
-            Channel.unwrap(Effect.suspend(() => {
-              const start = `${name}#${(starts += 1)}`
-              log.push(`start ${start}`)
-              return Effect.as(
-                Effect.addFinalizer(() =>
-                  (releases.get(name) ?? Effect.void).pipe(
-                    Effect.andThen(Effect.sync(() => log.push(`released ${start}`)))
-                  )
-                ),
-                Channel.never
+      subscriptions: ({ names }) => Array.from(names),
+      listen: (name) =>
+        Channel.unwrap(Effect.suspend(() => {
+          const start = `${name}#${(starts += 1)}`
+          log.push(`start ${start}`)
+          return Effect.as(
+            Effect.addFinalizer(() =>
+              (releases.get(name) ?? Effect.void).pipe(
+                Effect.andThen(Effect.sync(() => log.push(`released ${start}`)))
               )
-            }))
-          ] as const
-        ))
+            ),
+            Channel.never
+          )
+        }))
     })
   }
 
@@ -425,18 +419,14 @@ describe("subscriptions follow their keys, in the order of the states", () => {
               state: { ...state, bumps: state.bumps + 1 },
               commands: [Effect.as(Effect.sync(() => log.push(`bumped ${state.bumps + 1}`)), Opt.none())]
             },
-        subscriptions: ({ names }) =>
-          HashMap.fromIterable(names.map((name) =>
-            [
-              [name, 1] as const,
-              Channel.unwrap(
-                Effect.acquireRelease(
-                  Effect.sync(() => log.push(`start ${name}`)),
-                  () => Effect.sync(() => log.push(`stop ${name}`))
-                ).pipe(Effect.as(Channel.never))
-              )
-            ] as const
-          ))
+        subscriptions: ({ names }) => Array.from(names.map((name) => [name, 1] as const)),
+        listen: ([name]) =>
+          Channel.unwrap(
+            Effect.acquireRelease(
+              Effect.sync(() => log.push(`start ${name}`)),
+              () => Effect.sync(() => log.push(`stop ${name}`))
+            ).pipe(Effect.as(Channel.never))
+          )
       })
       engine.dispatch("Listen")
       yield* log.reached("start a")
@@ -465,7 +455,8 @@ describe("the very same state", () => {
           : signal === "Same"
           ? { state }
           : { state, commands: ["Bump"] },
-      subscriptions: () => HashMap.empty()
+      subscriptions: () => [],
+      listen: absurd
     })
 
   test("a message that keeps the same state makes no new revision", async () => {
@@ -519,16 +510,12 @@ describe("subscriptions that end", () => {
             state: { ...state, bumps: state.bumps + 1 },
             commands: signal.done === undefined ? [] : [Effect.as(Deferred.succeed(signal.done, undefined), Opt.none())]
           },
-      subscriptions: ({ listening }) =>
-        listening
-          ? HashMap.make([
-            "feed",
-            Channel.suspend(() => {
-              starts.push(starts.length + 1)
-              return Channel.mapDone(Channel.succeed(heard("a")), () => heard("end"))
-            })
-          ])
-          : HashMap.empty()
+      subscriptions: ({ listening }) => listening ? ["feed"] : [],
+      listen: () =>
+        Channel.suspend(() => {
+          starts.push(starts.length + 1)
+          return Channel.mapDone(Channel.succeed(heard("a")), () => heard("end"))
+        })
     })
 
   /** Waits for a state that `done` accepts: the current one, or the first new one. */
@@ -596,7 +583,8 @@ describe("the fiber of effects", () => {
         message === "Open"
           ? { state: { ...state, gated: false } }
           : { state: { ...state, works: state.works + 1 }, commands: [state.works + 1] },
-      subscriptions: ({ gated }) => gated ? HashMap.make(["gate", gate<"Open" | "Work">(release)]) : HashMap.empty()
+      subscriptions: ({ gated }) => gated ? ["gate"] : [],
+      listen: () => gate<"Open" | "Work">(release)
     })
 
   // The jobs applied while a release holds the fiber of effects wait behind it, and are done in the order of their
@@ -656,7 +644,7 @@ describe("drop by start, against the keys of the current state", () => {
 
   // `gate` holds the fiber of effects in the job that stops it; `ticks` sends a tick as soon as it starts.
   const watching = (held: Subscription<WatchMessage>, starts: Array<number>, ticked: Deferred.Deferred<void>) =>
-    Engine.make<Watch, WatchMessage, never, never, string>({
+    Engine.make<Watch, WatchMessage, never, never, "gate" | "ticks">({
       init: { state: { gated: true, ticking: false, ticks: 0 } },
       runCommand: absurd,
       update: (message) => (state) =>
@@ -666,29 +654,24 @@ describe("drop by start, against the keys of the current state", () => {
           ? { state: { ...state, gated: false } }
           : { state: { ...state, ticking: message === "Start" } },
       subscriptions: (state) =>
-        HashMap.fromIterable([
-          ...(state.gated ? [["gate", held] as const] : []),
-          ...(state.ticking
-            ? [
-              [
-                "ticks",
-                Channel.suspend(() => {
-                  starts.push(starts.length + 1)
-                  return Channel.succeed<WatchMessage>("Tick").pipe(
-                    Channel.concatWith(() =>
-                      Channel.fromEffectDrain(
-                        Effect.sync(() => {
-                          if (starts.length === 2) Deferred.doneUnsafe(ticked, Exit.void)
-                        })
-                      )
-                    ),
-                    Channel.concatWith(() => Channel.never)
-                  )
+        Array.from([
+          ...(state.gated ? ["gate" as const] : []),
+          ...(state.ticking ? ["ticks" as const] : [])
+        ]),
+      listen: (key) =>
+        key === "gate" ? held : Channel.suspend(() => {
+          starts.push(starts.length + 1)
+          return Channel.succeed<WatchMessage>("Tick").pipe(
+            Channel.concatWith(() =>
+              Channel.fromEffectDrain(
+                Effect.sync(() => {
+                  if (starts.length === 2) Deferred.doneUnsafe(ticked, Exit.void)
                 })
-              ] as const
-            ]
-            : [])
-        ])
+              )
+            ),
+            Channel.concatWith(() => Channel.never)
+          )
+        })
     })
 
   test("a start whose key went away before the fiber of effects started it sends nothing that reaches update", async () => {
@@ -729,7 +712,8 @@ describe("commands and scopes", () => {
             .pipe(Effect.as(Opt.some("Done" as const))),
         update: (message) => () =>
           message === "Run" ? { state: { done: false }, commands: ["Work"] } : { state: { done: true } },
-        subscriptions: () => HashMap.empty(),
+        subscriptions: () => [],
+        listen: absurd,
         onApplied: ({ message }) => {
           log.push(`applied ${message}`)
           if (message === "Done") Deferred.doneUnsafe(answered, Exit.void)
@@ -794,8 +778,8 @@ describe("commands and scopes", () => {
           ? { state: listening }
           : { state: listening, commands: [signal] },
       runCommand,
-      subscriptions: (listening) =>
-        listening ? HashMap.make(["subscription", subscription({ note, resource })]) : HashMap.empty(),
+      subscriptions: (listening) => listening ? ["subscription"] : [],
+      listen: () => subscription({ note, resource }),
       onApplied: ({ message }) => {
         log.push(`applied ${message}`)
         return undefined
@@ -885,10 +869,9 @@ describe("defects in the thunk", () => {
       },
       subscriptions: ({ listening, n }) => {
         if (where === "subscriptions" && n > 0) throw "subscriptions threw"
-        return listening
-          ? HashMap.make(["boom", Channel.succeed<Sent>("Boom").pipe(Channel.concatWith(() => Channel.never))])
-          : HashMap.empty()
+        return listening ? ["boom"] : []
       },
+      listen: () => Channel.succeed<Sent>("Boom").pipe(Channel.concatWith(() => Channel.never)),
       onApplied: ({ message }) => {
         if (message === "Boom" && where === "onApplied") throw "onApplied threw"
         return undefined
@@ -953,7 +936,8 @@ describe("defects in the thunk", () => {
           message === "Work"
             ? { state, commands: [Effect.succeedSome("Done" as const)] }
             : { state: { n: state.n + 1 } },
-        subscriptions: () => HashMap.empty()
+        subscriptions: () => [],
+        listen: absurd
       })
       engine.subscribe(() => {
         throw "listener threw"
@@ -970,7 +954,8 @@ describe("defects in the thunk", () => {
         init: { state: { n: 0 } },
         runCommand: absurd,
         update: () => (state) => ({ state: { n: state.n + 1 } }),
-        subscriptions: () => HashMap.empty()
+        subscriptions: () => [],
+        listen: absurd
       })
       engine.subscribe(() => {
         throw "first listener"
@@ -1000,16 +985,12 @@ describe("defects in the thunk", () => {
             if (message === "Boom") throw "boom"
             return message === "Listen" ? { state: { listening: true } } : { state }
           },
-          subscriptions: ({ listening }) =>
-            listening
-              ? HashMap.make([
-                "late",
-                Channel.fromEffect(Effect.as(Deferred.await(go), "Late" as const)).pipe(
-                  Channel.concatWith(() => Channel.fromEffectDrain(Deferred.succeed(asked, undefined))),
-                  Channel.concatWith(() => Channel.never)
-                )
-              ])
-              : HashMap.empty()
+          subscriptions: ({ listening }) => listening ? ["late"] : [],
+          listen: () =>
+            Channel.fromEffect(Effect.as(Deferred.await(go), "Late" as const)).pipe(
+              Channel.concatWith(() => Channel.fromEffectDrain(Deferred.succeed(asked, undefined))),
+              Channel.concatWith(() => Channel.never)
+            )
         })
         engine.dispatch("Listen")
         engine.dispatch("Boom")
@@ -1041,15 +1022,11 @@ describe("defects in the thunk", () => {
             ? { state: { gated: false } }
             : { state, commands: [Effect.as(Deferred.succeed(ran, undefined), Opt.none())] }
         },
-        subscriptions: ({ gated }) =>
-          gated
-            ? HashMap.make([
-              "gate",
-              gate<"Open" | "Work" | "Boom">(
-                Deferred.succeed(holding, undefined).pipe(Effect.andThen(Deferred.await(opened)))
-              )
-            ])
-            : HashMap.empty()
+        subscriptions: ({ gated }) => gated ? ["gate"] : [],
+        listen: () =>
+          gate<"Open" | "Work" | "Boom">(
+            Deferred.succeed(holding, undefined).pipe(Effect.andThen(Deferred.await(opened)))
+          )
       })
       engine.dispatch("Open")
       yield* Deferred.await(holding)
@@ -1088,7 +1065,8 @@ describe("after the first defect", () => {
             if (message === "Hit") calls.n += 1
             return { state: { n: state.n + 1 } }
           },
-          subscriptions: () => HashMap.make(["interrupted", interrupted])
+          subscriptions: () => ["interrupted"],
+          listen: () => interrupted
         })
         yield* Deferred.await(releasing)
         engine.dispatch("Hit")
@@ -1108,7 +1086,8 @@ describe("the sites of the fibers of effects", () => {
       update: () => (state) => ({ state }),
       subscriptions: () => {
         throw "subscriptions threw"
-      }
+      },
+      listen: absurd
     })))
     expect(sites(exit)).toEqual(["subscriptions: subscriptions threw"])
   })
@@ -1119,7 +1098,8 @@ describe("the sites of the fibers of effects", () => {
         init: { state: { n: 0 } },
         runCommand: () => Effect.die("command threw"),
         update: () => (state) => ({ state, commands: ["Boom"] }),
-        subscriptions: () => HashMap.empty()
+        subscriptions: () => [],
+        listen: absurd
       })
       engine.dispatch("Work")
       yield* engine.died
@@ -1130,8 +1110,8 @@ describe("the sites of the fibers of effects", () => {
         init: { state: { on: false } },
         runCommand: absurd,
         update: () => () => ({ state: { on: true } }),
-        subscriptions: ({ on }) =>
-          on ? HashMap.make(["k", Channel.fromEffectDone(Effect.die("subscription threw"))]) : HashMap.empty()
+        subscriptions: ({ on }) => on ? ["k"] : [],
+        listen: () => Channel.fromEffectDone(Effect.die("subscription threw"))
       })
       engine.dispatch("On")
       yield* engine.died
@@ -1156,7 +1136,8 @@ describe("the end of the engine", () => {
           init: { state: { n: 0 } },
           runCommand: absurd,
           update: () => (state) => ({ state: { n: state.n + 1 } }),
-          subscriptions: () => HashMap.empty(),
+          subscriptions: () => [],
+          listen: absurd,
           onApplied: () => void heard.push("applied")
         })
         dispatch = engine.dispatch
@@ -1186,13 +1167,8 @@ describe("the end of the engine", () => {
           state: { step: state.step + 1 },
           commands: [Effect.as(Effect.sync(() => log.push(`command of ${state.step + 1}`)), Opt.none())]
         }),
-        subscriptions: ({ step }) =>
-          step === 0
-            ? HashMap.make([
-              "gate",
-              gate<"Next">(Deferred.succeed(holding, undefined).pipe(Effect.andThen(Deferred.await(go))))
-            ])
-            : HashMap.empty()
+        subscriptions: ({ step }) => step === 0 ? ["gate"] : [],
+        listen: () => gate<"Next">(Deferred.succeed(holding, undefined).pipe(Effect.andThen(Deferred.await(go))))
       }).pipe(Scope.provide(scope))
       engine.dispatch("Next")
       yield* Deferred.await(holding)
@@ -1230,16 +1206,14 @@ describe("the end of the engine", () => {
                 )
               )
             )).pipe(Effect.andThen(Deferred.succeed(holding, undefined)), Effect.andThen(Effect.never)),
-        subscriptions: () =>
-          HashMap.make([
-            "subscription",
-            Channel.fromEffectDrain(
-              Deferred.succeed(listening, undefined).pipe(
-                Effect.andThen(Effect.never),
-                Effect.onInterrupt(() => Deferred.succeed(interrupted, undefined))
-              )
-            ).pipe(Channel.concatWith(() => Channel.never))
-          ])
+        subscriptions: () => ["subscription"],
+        listen: () =>
+          Channel.fromEffectDrain(
+            Deferred.succeed(listening, undefined).pipe(
+              Effect.andThen(Effect.never),
+              Effect.onInterrupt(() => Deferred.succeed(interrupted, undefined))
+            )
+          ).pipe(Channel.concatWith(() => Channel.never))
       }).pipe(Scope.provide(scope))
       yield* Deferred.await(holding)
       yield* Deferred.await(listening)
@@ -1260,7 +1234,8 @@ describe("the end of the engine", () => {
             Effect.andThen(Effect.never),
             Effect.onInterrupt(() => Effect.die("boom"))
           ),
-        subscriptions: () => HashMap.empty()
+        subscriptions: () => [],
+        listen: absurd
       })
       yield* Deferred.await(holding)
     })))
@@ -1294,18 +1269,14 @@ describe("the end of the engine", () => {
         init: { state: { on: true } },
         update: () => () => ({ state: { on: false } }),
         runCommand: absurd,
-        subscriptions: ({ on }) =>
-          on
-            ? HashMap.make([
-              "a",
-              Channel.fromEffectDone(Effect.uninterruptible(Effect.gen(function*() {
-                yield* untilReceived(1)
-                yield* Deferred.succeed(stopped, undefined)
-                yield* untilReceived(2)
-                return yield* Fiber.join(stale)
-              })))
-            ])
-            : HashMap.empty()
+        subscriptions: ({ on }) => on ? ["a"] : [],
+        listen: () =>
+          Channel.fromEffectDone(Effect.uninterruptible(Effect.gen(function*() {
+            yield* untilReceived(1)
+            yield* Deferred.succeed(stopped, undefined)
+            yield* untilReceived(2)
+            return yield* Fiber.join(stale)
+          })))
       }).pipe(Scope.provide(scope))
       engine.dispatch("Stop")
       yield* Deferred.await(stopped)
@@ -1333,7 +1304,8 @@ describe("the end of the engine", () => {
           Deferred.doneUnsafe(closing, Effect.succeed(fork(Scope.close(scope, Exit.void))))
           return Effect.never.pipe(Effect.onInterrupt(() => Effect.sync(() => log.push("command interrupted"))))
         },
-        subscriptions: () => HashMap.empty()
+        subscriptions: () => [],
+        listen: absurd
       }).pipe(Scope.provide(scope))
       engine.dispatch("Go")
       yield* Fiber.join(yield* Deferred.await(closing))
@@ -1355,18 +1327,14 @@ describe("the end of the engine", () => {
         init: { state: 0 },
         update: () => (n) => ({ state: n + 1 }),
         runCommand: absurd,
-        subscriptions: (n) =>
-          n === 1
-            ? HashMap.make([
-              "k",
-              Channel.unwrap(Effect.sync(() => {
-                Deferred.doneUnsafe(closing, Effect.succeed(fork(Scope.close(scope, Exit.void))))
-                return Channel.fromEffectDrain(
-                  Effect.never.pipe(Effect.onInterrupt(() => Effect.sync(() => log.push("subscription interrupted"))))
-                ).pipe(Channel.concatWith(() => Channel.never))
-              }))
-            ])
-            : HashMap.empty()
+        subscriptions: (n) => n === 1 ? ["k"] : [],
+        listen: () =>
+          Channel.unwrap(Effect.sync(() => {
+            Deferred.doneUnsafe(closing, Effect.succeed(fork(Scope.close(scope, Exit.void))))
+            return Channel.fromEffectDrain(
+              Effect.never.pipe(Effect.onInterrupt(() => Effect.sync(() => log.push("subscription interrupted"))))
+            ).pipe(Channel.concatWith(() => Channel.never))
+          }))
       }).pipe(Scope.provide(scope))
       engine.dispatch("Go")
       yield* Fiber.join(yield* Deferred.await(closing))

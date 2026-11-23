@@ -183,7 +183,12 @@ A defect anywhere ends the run, which dies with a `ProgramDefect`:
     and `ids`, an output read in `update`, and the `get` and the `set` of an input;
   - in `'subscriptions'`: `listening`, and a child's `subscriptions`;
   - in `'render'`: a child's `makeModel`, and an output read in `makeModel`;
-  - in `'command'`: `runCommand` itself, as it makes the command's effect.
+  - in `'command'`: `runCommand` itself, as it makes the command's effect;
+  - in `'subscription'`: `listen` itself, as it makes the subscription, a child's `listen` too.
+
+**A key is shown whole.** A defect of a subscription holds its key as it is, where a defect names a message by its tags
+alone. `onApplied` and `onIgnored` hear the key too, in the `origin`. So what must stay private, as a token, goes in a
+service, not in a key.
 
 From the defect on, the run applies no message. Every defect is in the cause, each with where it happened. A program
 that was never run reports its defect only once `run` runs, and dies of it then (see [rules](#rules)).

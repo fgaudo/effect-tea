@@ -1,6 +1,6 @@
 // The cost of a parent's subscriptions on each change of state: a list of many children by id, each ticking, and a
 // sequence of states that each change one child. First with the changes spread over all the children, then with all
-// of them made to the first child alone: a parent keeps a child's lifted subscriptions by the object it keeps the
+// of them made to the first child alone: a parent keeps a child's lifted keys by the object it keeps the
 // child's instance in, which a step of another child leaves as it was.
 // Not part of `bun run test`.
 //
@@ -12,7 +12,6 @@ import * as Command from "effect/cli/Command"
 import * as Flag from "effect/cli/Flag"
 import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
-import * as HashMap from "effect/HashMap"
 import * as Num from "effect/Number"
 import { type MessageOf, type Program, program, reject, type StateOf } from "../../src/index.ts"
 import { stateOf } from "../../src/testing/index.ts"
@@ -24,10 +23,11 @@ type RowMessage = Readonly<{ _tag: "Ticked" }>
 
 const ticks = Channel.never
 
-const row: Program<{ state: RowState; model: number; message: RowMessage }> = {
+const row: Program<{ state: RowState; model: number; message: RowMessage; key: "ticks" }> = {
   init: { state: { seconds: 0 } },
   update: () => (state) => ({ state: { seconds: state.seconds + 1 } }),
-  subscriptions: () => HashMap.make(["ticks", ticks]),
+  subscriptions: () => ["ticks"],
+  listen: () => ticks,
   makeModel: (state) => state.seconds
 }
 
@@ -59,7 +59,7 @@ const subscriptions = list.subscriptions
 const round = (children: number, states: ReadonlyArray<StateOf<typeof list>>) => {
   const start = performance.now()
   for (const state of states) {
-    if (HashMap.size(subscriptions(state)) !== children) throw new Error("a child lost its subscription")
+    if (subscriptions(state).length !== children) throw new Error("a child lost its subscription")
   }
   return (performance.now() - start) / states.length
 }

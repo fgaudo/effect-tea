@@ -8,7 +8,6 @@ import * as Channel from "effect/Channel"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
-import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 import * as Stream from "effect/Stream"
 import * as fc from "fast-check"
@@ -17,6 +16,7 @@ import {
   Ball,
   bounce,
   flying,
+  Key,
   type Loop,
   type Message,
   type Model,
@@ -75,7 +75,13 @@ const flight = (from: State): ReadonlyArray<State> => {
 const messagesOf = (model: Model): ReadonlyArray<Message> => [model.throw]
 
 // What a key sends, as `messagesOf` says what the model holds.
-const heardFrom = (key: unknown): ReadonlyArray<Message> => key === "steps" ? [stepped, advanced(0.5)] : []
+// A key at a time: a new key does not compile here until the test says what it sends.
+const heardFrom = (key: Key): ReadonlyArray<Message> => {
+  switch (key._tag) {
+    case "Steps":
+      return [stepped, advanced(0.5)]
+  }
+}
 
 describe("bounce", () => {
   // `update` alone: the rules, without running anything. The steps carry no time, so a flight is a list of them.
@@ -192,7 +198,7 @@ describe("bounce", () => {
 
   test("listens to the screen exactly while the ball flies", () => {
     fc.assert(fc.property(state, (before) => {
-      expect(Arr.fromIterable(HashMap.keys(bounce.subscriptions(before)))).toEqual(flying(before) ? ["steps"] : [])
+      expect(bounce.subscriptions(before)).toEqual(flying(before) ? [Key.Steps({ dt: before.dt })] : [])
     }))
   })
 
@@ -200,15 +206,15 @@ describe("bounce", () => {
   // repeat, and no control sends them, so only a rejection is asked of them.
   test("update accepts what each key it listens to sends", () => {
     fc.assert(fc.property(state, (before) => {
-      const heard = Arr.flatMap(Arr.fromIterable(HashMap.keys(bounce.subscriptions(before))), heardFrom)
+      const heard = Arr.flatMap(bounce.subscriptions(before), heardFrom)
       expect(dispatchViolations(update, { state: before, held: heard, repeatable: () => true })).toEqual([])
     }))
   })
 
-  // The subscription itself, from the state, with frames half a step apart: for each frame, it sends a step for each
+  // The subscription itself, from its key, with frames half a step apart: for each frame, it sends a step for each
   // whole `dt`, none for a frame that adds less, and then the part of the next step.
   test("the subscription sends, for each frame of the screen, its steps, then the part of the next step", async () => {
-    const steps = Opt.getOrThrow(HashMap.get(bounce.subscriptions(bounce.init({ dt: 20 }).state), "steps"))
+    const steps = bounce.listen(Key.Steps({ dt: 20 }))
     const sent: Array<Message> = []
     // The frames end after the last one, so the subscription dies there: the messages are what it sent before.
     await Effect.runPromiseExit(
@@ -281,7 +287,7 @@ describe("bounce", () => {
     )
     const died = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
     expect(died).toBeInstanceOf(ProgramDefect)
-    expect(died).toMatchObject({ where: "subscription", key: "steps" })
+    expect(died).toMatchObject({ where: "subscription", key: Key.Steps({ dt }) })
     expect(died instanceof ProgramDefect ? died.cause : undefined).toEqual(new Error("The frames of the screen ended"))
   })
 })

@@ -164,28 +164,34 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   subscription keeps its key among the active ones until the key goes away and comes back: never restart it
   automatically, which would loop on one that ends at once. What the end of a library's stream means is the
   caller's decision: no helper takes it for them, and the type of a subscription asks for it (`Channel.mapDone`).
-- **Subscriptions are reconciled by key**: a new key starts, a kept key leaves running, a gone key interrupts.
-  The keys are reconciled in the thunk that makes the state (`Core.reconcile` in `applyOne`), so the keys the engine
-  holds are always those of the current state, while the fibers that run are those the fiber of effects has reached:
-  the two diverge by design, and the drop by start keeps them apart. The gone keys of a job are interrupted together,
-  and awaited before any key of that job or a later one starts (`perform` in `engine.ts`): the fiber of effects waits
-  for the slowest release rather than for their sum, the next message does not wait for it, and a key that comes back
-  finds its old subscription released. A parent lifts its children's keys under their names, and dies on an own key
-  equal to a lifted one. Each start has a generation that its messages carry, and a message whose key is gone, or came
+- **Subscriptions are reconciled by key**: a new key starts, a kept key leaves running, a gone key interrupts. The keys
+  are reconciled in the thunk that makes the state (`Core.reconcile` in `applyOne`), so the keys the engine holds are
+  always those of the current state, while the fibers that run are those the fiber of effects has reached: the two
+  diverge by design, and the drop by start keeps them apart. The gone keys of a job are interrupted together, and
+  awaited before any key of that job or a later one starts (`perform` in `engine.ts`): the fiber of effects waits for
+  the slowest release rather than for their sum, the next message does not wait for it, and a key that comes back finds
+  its old subscription released. A key listed twice is listed once: `reconcile` counts the starts of the active keys it
+  finds, not the keys listed, so a key listed twice hides no key that went away, and starts once ("a key listed twice is
+  listed once, and hides no key that went away", `core.test.ts`). A subscription is made from its key alone, by
+  `listen`, which the fiber of the start calls, as a command's calls `runCommand`: a defect of `listen` is the
+  subscription's, with its key, and never one of the fiber of effects ("the run dies in the subscription, with its key,
+  of what listen throws", `contract.test.ts`). A parent lifts its children's keys under their names, as it lifts their
+  commands, so the types refuse an own key that could take a child's name, and its `listen` lifts a child's subscription
+  once for each start. Each start has a generation that its messages carry, and a message whose key is gone, or came
   back with a new start, is dropped before `update`, as soon as the key is gone, though the fiber of effects has not
   stopped the subscription yet, or not started it: "a start whose key went away before the fiber of effects started it
-  sends nothing that reaches update" (`engine.test.ts`), with a gate, "what a subscription sends once its key went
-  away, before it is stopped, does not reach update" (`run.test.ts`), and "in the run, a message of a start whose key
-  went away before it started reaches no update" (`contract.test.ts`). Such a start is still started, and dropped by
-  its start: never skip it in the fiber of effects, which would be a check of what the thunk changes, made in another
-  fiber, against "one thunk" below. `rehearse` never gives `arrive` such a message: `hear` fails on a key gone from the
-  current state, also after it has waited for the job that starts its start, and its ledger forgets a start in the
-  transition that stops it ("a start whose key went away is stopped and forgotten, and the calls waiting on it are
-  told", `ledger.test.ts`; "hear on a key that goes away while it waits for its start's job fails the test, and
-  reaches no update", `rehearse.test.ts`). The rule rests on nothing of Effect: it is the engine's own, tested where
-  the fibers' order would otherwise hide it. Keys are the program's, and so are their `Equal` and `Hash`: the run
-  compares them only in `'subscriptions'` (`reconcile` in `core.ts`), and keeps its fibers, and tells a message that
-  still applies, by their start, which compares no keys.
+  sends nothing that reaches update" (`engine.test.ts`), with a gate, "what a subscription sends once its key went away,
+  before it is stopped, does not reach update" (`run.test.ts`), and "in the run, a message of a start whose key went
+  away before it started reaches no update" (`contract.test.ts`). Such a start is still started, and dropped by its
+  start: never skip it in the fiber of effects, which would be a check of what the thunk changes, made in another fiber,
+  against "one thunk" below. `rehearse` never gives `arrive` such a message: `hear` fails on a key gone from the current
+  state, also after it has waited for the job that starts its start, and its ledger forgets a start in the transition
+  that stops it ("a start whose key went away is stopped and forgotten, and the calls waiting on it are told",
+  `ledger.test.ts`; "hear on a key that goes away while it waits for its start's job fails the test, and reaches no
+  update", `rehearse.test.ts`). The rule rests on nothing of Effect: it is the engine's own, tested where the fibers'
+  order would otherwise hide it. Keys are the program's, and so are their `Equal` and `Hash`: the run compares them only
+  in `'subscriptions'` (`reconcile` in `core.ts`), and keeps its fibers, and tells a message that still applies, by
+  their start, which compares no keys.
 - **Commands are data; only `runCommand` runs them.** Never let a command carry its effect, or a description
   that must be kept in step with one: a test and `onApplied` read the command itself.
 - **Commands cannot be cancelled**, a deliberate choice: do not add cancellation without asking.
@@ -369,21 +375,22 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
 
 ## What the engine keeps for itself
 
-- **A child's model is kept by its state object, and its lifted subscriptions by its instance** (`modelsOf` and
-  `lifted` in `compose.ts`), for as long as that object lives: they rely on `makeModel` and `subscriptions` being pure
-  and on states being replaced, never mutated, and hold nothing of the run, so runs that share a state share them. A
-  model holds nothing of its place either, so children that share a state share its model. The instance, the object
-  in which the library keeps a child, is at one place, and is replaced with the child's state, so its lifted
-  subscriptions carry its place and its number with no check, and go with it. The model's cache needs the state to be
-  an object, which every program keeps (above): never add a cache for primitive states, which nothing could let go
-  of.
-- **A state that changes no key costs a lookup for each key** (`reconcile` in `core.ts`): where no key appeared, among
-  as many keys as were active, none went away either, so the active ones are left the very same and nothing is made,
-  where a long list of children lists a key for each on every change of state. It runs in the thunk, on the stack of
-  whoever sent the message. Whether a key is active is asked once, for that shortcut and for the starts alike, so that
-  no check stands in front of another ("one thunk", below). A key that stays is kept as the listing that started it
-  gave it, equal to those listed since. "the same keys, made anew, leave the active ones the very same"
-  (`core.test.ts`) holds that the shortcut is taken, and each half of its check has a mutation.
+- **A child's model is kept by its state object, and its lifted keys by its instance** (`modelsOf` and `lifted` in
+  `compose.ts`), for as long as that object lives: they rely on `makeModel` and `subscriptions` being pure and on states
+  being replaced, never mutated, and hold nothing of the run, so runs that share a state share them. A model holds
+  nothing of its place either, so children that share a state share its model. The instance, the object in which the
+  library keeps a child, is at one place, and is replaced with the child's state, so its lifted keys carry its place and
+  its number with no check, and go with it. A lifted key holds no subscription: the parent's `listen` makes one for each
+  start, so nothing of a run is kept with the key. The model's cache needs the state to be an object, which every
+  program keeps (above): never add a cache for primitive states, which nothing could let go of.
+- **A state that changes no key costs a lookup for each key** (`reconcile` in `core.ts`): where no key appeared, and
+  every active key was found among those listed, none went away either, so the active ones are left the very same and
+  nothing is made, however often a key is listed, where a long list of children lists a key for each on every change of
+  state. It runs in the thunk, on the stack of whoever sent the message. Whether a key is active is asked once, for that
+  shortcut and for the starts alike, so that no check stands in front of another ("one thunk", below). A key that stays
+  is kept as the listing that started it gave it, equal to those listed since. "the same keys, made anew, leave the
+  active ones the very same" (`core.test.ts`) holds that the shortcut is taken, and each half of its check has a
+  mutation.
 - **A child's dispatch is the same while anyone holds it** (`forwardTo` in `dispatch.ts`): kept weakly by its
   parent's dispatch, its name and its id (compared with `Equal`, as subscription keys are), and removed by a
   `FinalizationRegistry` once collected. Never hold them strongly: ids that are never reused, as the guide

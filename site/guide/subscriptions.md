@@ -10,9 +10,9 @@ This page shows how a program listens to the world for as long as its state want
 runs, or a download that stops when the user leaves the page.
 
 A subscription is what the program listens to, or work it keeps going, while its state wants it: a clock, the size of
-the window, a download. The program's `subscriptions(state)` returns its subscriptions in a `HashMap`, by key. Each
-subscription is an Effect `Channel` of messages. When the state changes, a new key starts its subscription, and a
-missing key stops its subscription.
+the window, a download. The program's `subscriptions(state)` lists the keys of its subscriptions, as data, in an array.
+Its `listen(key)` makes the subscription of a key: an Effect `Channel` of messages. When the state changes, a new key
+starts its subscription, and a missing key stops its subscription.
 
 ## An example
 
@@ -21,10 +21,12 @@ sends `Ticked` once a second, forever:
 
 {@includeCode ../../examples/timer/timer.ts#subscriptions}
 
-The program lists the subscription under the key `'ticks'` while the timer runs. Otherwise, it lists nothing:
+The program names the type of its keys, `key: 'ticks'`, among its types. It lists the key `'ticks'` while the timer
+runs, and nothing otherwise. Its `listen` makes the subscription of that key:
 
 ```ts
-subscriptions: (state) => state.phase._tag === 'Running' ? HashMap.make(['ticks', ticks]) : HashMap.empty(),
+subscriptions: (state) => state.phase._tag === 'Running' ? ['ticks'] : [],
+listen: () => ticks,
 ```
 
 ## Rules
@@ -33,7 +35,26 @@ subscriptions: (state) => state.phase._tag === 'Running' ? HashMap.make(['ticks'
 
 - a new key starts its subscription;
 - a kept key leaves it running;
-- a missing key stops it.
+- a missing key stops it;
+- a key listed twice is listed once.
+
+**A subscription is made from its key alone.** `listen` takes the key, and does not see the state. So the key carries
+everything that its subscription needs, as a command carries everything that `runCommand` needs. A key that carries
+data is a case of a `Data.TaggedEnum`. A string does for a subscription that needs nothing, as the timer's `'ticks'`.
+The ball of [`bounce`](../../examples/bounce/bounce.ts) moves by steps of a length its flags give, and its key carries
+that length:
+
+```ts
+type Key = Data.TaggedEnum<{ Steps: { dt: number } }>
+const Key = Data.taggedEnum<Key>()
+
+subscriptions: (state) => flying(state) ? [Key.Steps({ dt: state.dt })] : [],
+listen: ({ dt }) => steps(dt),
+```
+
+A new value of the key starts the subscription anew. Starting anew is cheap for a timer whose interval changes. A key
+is shown whole where a defect or `onApplied` names it, so what must stay private goes in a service, not in a key (see
+[running](./running.md#when-a-defect-happens)).
 
 **A subscription never ends in silence.** Either it never ends, or it ends with **one last message**, its end value.
 
@@ -60,14 +81,6 @@ the subscription's key in the state while the work is wanted.
   released.
 - When the work ends by itself, its last message says so.
 
-**A subscription sees the state only through its key.** Whatever the subscription depends on goes into its key. A new
-value of the key starts the subscription anew. Starting anew is cheap for a timer whose interval changes.
-
-**A value that stays the same while the key is kept can stay out of the key.** A child's own id is such a value: the
-child's `init` sets the id once. While a key is kept, its subscription keeps running. A new subscription that
-`subscriptions` returns under the kept key is not used. Under a parent, the keys of a child by id are already under the
-child's id.
-
 **A connection that stays open is split three ways.** Some things should stay open while a value they use changes. An
 example is a connection whose filter the user picks. Split such a thing in three:
 
@@ -84,15 +97,11 @@ class Feed extends Context.Service<Feed, {
 }>()('Feed') {}
 
 // While the feed is open, one subscription listens, whatever the filter.
-subscriptions: (state) =>
-  state.feed._tag === 'Open'
-    ? HashMap.make([
-      'feed',
-      Channel.unwrap(Effect.map(Effect.service(Feed), (feed) =>
-        Channel.map(feed.items, (item) => Message.Received({ item }))
-      )),
-    ])
-    : HashMap.empty(),
+subscriptions: (state) => state.feed._tag === 'Open' ? ['feed'] : [],
+listen: () =>
+  Channel.unwrap(Effect.map(Effect.service(Feed), (feed) =>
+    Channel.map(feed.items, (item) => Message.Received({ item }))
+  )),
 
 // A new filter is a command: the connection stays open.
 runCommand: (command) =>
@@ -107,13 +116,17 @@ Each pair sums up a rule of this page. The rule itself is above.
 
 | Do                                                                                          | Don't                                                                                                   |
 | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Put into the key whatever the subscription depends on.                                      | Leave out of the key a value that changes while the key is kept. The new value is not used.             |
+| Put into the key whatever the subscription needs.                                           | Put a secret into a key. A key is shown whole: keep the secret in a service.                            |
 | Let a subscription that ends say so with one last message.                                  | Expect an ended subscription to start again while its key is kept.                                      |
 | Make a connection that stays open a service, and send it a new value with a command.        | Put the filter of an open connection in the subscription's key. A new key starts the subscription anew. |
 | Use a subscription for work that stops when the state no longer wants it.                   | Use a command for that work. A command cannot be cancelled.                                             |
 | Use a command for a one-off effect whose answer must arrive even if the state has moved on. | Use a subscription for that effect. A missing key stops it.                                             |
 
 ## Precisely
+
+**Where `listen` runs.** `listen` is called as its subscription starts, in the subscription's fiber, as `runCommand` is
+called in a command's. What it throws is a defect of the subscription, with its key (see
+[running](./running.md#when-a-defect-happens)).
 
 **What a stopped subscription sent.** A missing key stops its subscription. The run also drops the messages that the
 subscription sent and that `update` has not seen, from the moment the key is gone, before the subscription has been

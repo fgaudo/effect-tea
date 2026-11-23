@@ -9,15 +9,12 @@ import * as Equal from "effect/Equal"
 import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import * as Hash from "effect/Hash"
-import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 import type * as Scope from "effect/Scope"
-import { program } from "../compose.ts"
-import { CompositionDefect, ProgramDefect } from "../defect.ts"
+import { ProgramDefect } from "../defect.ts"
 import type { Applied, Ignored } from "../engine.ts"
 import type { Program } from "../program.ts"
 import { start } from "../run.ts"
-import type { Subscription } from "../subscription.ts"
 import { reject, type Update } from "../update.ts"
 import { applyAll } from "./apply-all.ts"
 import { drive } from "./drive.ts"
@@ -66,17 +63,12 @@ const empty: Draft = { text: "", isSaving: false, saved: [], ticks: 0 }
 const draftProgram = (
   answer: Effect.Effect<void>,
   ticking: boolean
-): Program<{ state: Draft; model: DraftModel; message: Edit; command: Store }> => ({
+): Program<{ state: Draft; model: DraftModel; message: Edit; command: Store; key: "ticks" }> => ({
   init: { state: empty },
   update: edit,
   runCommand: ({ text }) => Effect.as(answer, Opt.some<Edit>({ _tag: "Stored", text })),
-  subscriptions: (draft) =>
-    ticking && draft.isSaving
-      ? HashMap.make([
-        "ticks",
-        Channel.succeed<Edit>({ _tag: "Tick" }).pipe(Channel.concatWith(() => Channel.never))
-      ])
-      : HashMap.empty(),
+  subscriptions: (draft) => ticking && draft.isSaving ? ["ticks" as const] : [],
+  listen: () => Channel.succeed<Edit>({ _tag: "Tick" }).pipe(Channel.concatWith(() => Channel.never)),
   makeModel: (draft) => ({
     draft,
     type: (text) => draft.isSaving ? Opt.none() : Opt.some({ _tag: "Typed", text }),
@@ -199,7 +191,7 @@ describe("the order of the answers of commands started together", () => {
         ? { state: { heard }, commands: ["A", "B"] }
         : { state: { heard: [...heard, message.by] }, commands: message.by === "A" ? ["C"] : [] },
     runCommand: (command) => Effect.succeedSome<Answer>({ _tag: "Answered", by: command }),
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: (order) => order
   }
 
@@ -238,16 +230,14 @@ describe("a subscription that sends A, then ends with B", () => {
   // Listens under `k` while `listening`; `Stop` and `Listen` make the key go away and come back.
   type Log = Readonly<{ heard: ReadonlyArray<string>; listening: boolean }>
   type Said = "A" | "B" | "Stop" | "Listen"
-  const said: Program<{ state: Log; model: Log; message: Said }> = {
+  const said: Program<{ state: Log; model: Log; message: Said; key: "k" }> = {
     init: { state: { heard: [], listening: true } },
     update: (message) => (log) =>
       message === "Stop" || message === "Listen"
         ? { state: { ...log, listening: message === "Listen" } }
         : { state: { ...log, heard: [...log.heard, message] } },
-    subscriptions: ({ listening }) =>
-      listening
-        ? HashMap.make(["k", Channel.succeed<Said>("A").pipe(Channel.concatWith(() => Channel.end<Said>("B")))])
-        : HashMap.empty(),
+    subscriptions: ({ listening }) => listening ? ["k" as const] : [],
+    listen: () => Channel.succeed<Said>("A").pipe(Channel.concatWith(() => Channel.end<Said>("B"))),
     makeModel: (log) => log
   }
 
@@ -296,25 +286,21 @@ describe("how a stopped subscription ends", () => {
   // Listening under `ticks` until the first `Tick`, which makes the key go away; the subscription tells `ended` how
   // it ended, as a release that reads its exit sees it.
   type Listening = Readonly<{ listening: boolean }>
-  type Listener = Program<{ state: Listening; model: Listening; message: "Tick" }>
+  type Listener = Program<{ state: Listening; model: Listening; message: "Tick"; key: "ticks" }>
   const listener = (ended: Deferred.Deferred<string>): Listener => ({
     init: { state: { listening: true } },
     update: () => () => ({ state: { listening: false } }),
-    subscriptions: ({ listening }) =>
-      listening
-        ? HashMap.make([
-          "ticks",
-          Channel.succeed<"Tick">("Tick").pipe(
-            Channel.concatWith(() => Channel.never),
-            Channel.onExit((exit) =>
-              Deferred.succeed(
-                ended,
-                Exit.isSuccess(exit) ? "ended" : Cause.hasInterruptsOnly(exit.cause) ? "interrupted" : "failed"
-              )
-            )
+    subscriptions: ({ listening }) => listening ? ["ticks" as const] : [],
+    listen: () =>
+      Channel.succeed<"Tick">("Tick").pipe(
+        Channel.concatWith(() => Channel.never),
+        Channel.onExit((exit) =>
+          Deferred.succeed(
+            ended,
+            Exit.isSuccess(exit) ? "ended" : Cause.hasInterruptsOnly(exit.cause) ? "interrupted" : "failed"
           )
-        ])
-        : HashMap.empty(),
+        )
+      ),
     makeModel: (listening) => listening
   })
 
@@ -340,14 +326,12 @@ describe("how a stopped subscription ends", () => {
   test("rehearse fails, as the run dies, on a defect of what a subscription releases when the scenario ends", async () => {
     const dying: Listener = {
       ...listener(Deferred.makeUnsafe<string>()),
-      subscriptions: () =>
-        HashMap.make([
-          "ticks",
-          Channel.succeed<"Tick">("Tick").pipe(
-            Channel.concatWith(() => Channel.never),
-            Channel.onExit(() => Effect.die("release"))
-          )
-        ])
+      subscriptions: () => ["ticks" as const],
+      listen: () =>
+        Channel.succeed<"Tick">("Tick").pipe(
+          Channel.concatWith(() => Channel.never),
+          Channel.onExit(() => Effect.die("release"))
+        )
     }
     const exit = await Effect.runPromiseExit(rehearse(dying, (rehearsal) => rehearsal.hearNext("ticks")))
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
@@ -360,14 +344,12 @@ describe("how a stopped subscription ends", () => {
     const dying: Listener = {
       ...listener(Deferred.makeUnsafe<string>()),
       update: () => (state) => ({ state }),
-      subscriptions: () =>
-        HashMap.make([
-          "ticks",
-          Channel.succeed<"Tick">("Tick").pipe(
-            Channel.concatWith(() => Channel.never),
-            Channel.onExit(() => Effect.die("release"))
-          )
-        ])
+      subscriptions: () => ["ticks" as const],
+      listen: () =>
+        Channel.succeed<"Tick">("Tick").pipe(
+          Channel.concatWith(() => Channel.never),
+          Channel.onExit(() => Effect.die("release"))
+        )
     }
     const exit = await Effect.runPromiseExit(drive(dying, (driver) => driver.model))
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
@@ -375,20 +357,16 @@ describe("how a stopped subscription ends", () => {
   })
 
   // `Stop` makes the key go away; the subscription ticks once, then waits, and dies as it releases what it holds.
-  type Stopping = Program<{ state: Listening; model: Listening; message: "Tick" | "Stop" }>
+  type Stopping = Program<{ state: Listening; model: Listening; message: "Tick" | "Stop"; key: "ticks" }>
   const stopping: Stopping = {
     init: { state: { listening: true } },
     update: (message) => (state) => message === "Stop" ? { state: { listening: false } } : { state },
-    subscriptions: ({ listening }) =>
-      listening
-        ? HashMap.make([
-          "ticks",
-          Channel.succeed<"Tick" | "Stop">("Tick").pipe(
-            Channel.concatWith(() => Channel.never),
-            Channel.onExit(() => Effect.die("release"))
-          )
-        ])
-        : HashMap.empty(),
+    subscriptions: ({ listening }) => listening ? ["ticks" as const] : [],
+    listen: () =>
+      Channel.succeed<"Tick" | "Stop">("Tick").pipe(
+        Channel.concatWith(() => Channel.never),
+        Channel.onExit(() => Effect.die("release"))
+      ),
     makeModel: (listening) => listening
   }
   // Each reason of the cause: the defect a `ProgramDefect` holds, or the tag of what is not a defect.
@@ -412,7 +390,9 @@ describe("how a stopped subscription ends", () => {
 
   // `Stop` starts `Note` too: the step whose release dies goes on whole, its state written and its commands started,
   // until the end of the run stops its loop. The run's renderer is stopped first, so `onApplied` is what shows it.
-  const noting: Program<{ state: Listening; model: Listening; message: "Tick" | "Stop"; command: "Note" }> = {
+  const noting: Program<
+    { state: Listening; model: Listening; message: "Tick" | "Stop"; command: "Note"; key: "ticks" }
+  > = {
     ...stopping,
     update: (message) => (state) =>
       message === "Stop" ? { state: { listening: false }, commands: ["Note"] } : { state },
@@ -475,16 +455,11 @@ describe("how a stopped subscription ends", () => {
   // run makes a state current before it stops the subscriptions the state takes away.
   const awaiting = (releasing: Deferred.Deferred<void>, seen: Deferred.Deferred<void>): Stopping => ({
     ...stopping,
-    subscriptions: ({ listening }) =>
-      listening
-        ? HashMap.make([
-          "ticks",
-          Channel.succeed<"Tick" | "Stop">("Tick").pipe(
-            Channel.concatWith(() => Channel.never),
-            Channel.onExit(() => Effect.andThen(Deferred.succeed(releasing, undefined), Deferred.await(seen)))
-          )
-        ])
-        : HashMap.empty()
+    listen: () =>
+      Channel.succeed<"Tick" | "Stop">("Tick").pipe(
+        Channel.concatWith(() => Channel.never),
+        Channel.onExit(() => Effect.andThen(Deferred.succeed(releasing, undefined), Deferred.await(seen)))
+      )
   })
 
   test("in the run, a stopped subscription releases once the state that stopped it is current", async () => {
@@ -526,111 +501,16 @@ describe("how a stopped subscription ends", () => {
   })
 })
 
-describe("a subscription that depends on more of the state than its key", () => {
-  // Under the one key `seen`, the subscription holds the count of the state it is listed in, and ends with it once
-  // `gate` opens; `Inc` counts up while the key stays.
-  type Counted = Readonly<{ count: number; seen: ReadonlyArray<number> }>
-  type Counting = Readonly<{ _tag: "Inc" }> | Readonly<{ _tag: "Seen"; count: number }>
-  const counted = (gate: Effect.Effect<void>): Program<{ state: Counted; model: Counted; message: Counting }> => ({
-    init: { state: { count: 0, seen: [] } },
-    update: (message) => (state) =>
-      message._tag === "Inc"
-        ? { state: { ...state, count: state.count + 1 } }
-        : { state: { ...state, seen: [...state.seen, message.count] } },
-    subscriptions: ({ count }) =>
-      HashMap.make(["seen", Channel.unwrap(Effect.as(gate, Channel.end<Counting>({ _tag: "Seen", count })))]),
-    makeModel: (state) => state
-  })
-
-  test("rehearse's hearNext runs the subscription listed when its key appeared, as the run starts it", async () => {
-    const rehearsed = await Effect.runPromise(rehearse(
-      counted(Effect.void),
-      Effect.fnUntraced(function*(rehearsal) {
-        yield* rehearsal.send(() => Opt.some({ _tag: "Inc" }))
-        yield* rehearsal.hearNext("seen")
-        return (yield* rehearsal.state).seen
-      })
-    ))
-    const ran = await Effect.runPromise(Effect.gen(function*() {
-      const gate = yield* Deferred.make<void>()
-      return yield* drive(
-        counted(Deferred.await(gate)),
-        Effect.fnUntraced(function*(driver) {
-          yield* driver.send(() => Opt.some({ _tag: "Inc" }))
-          yield* driver.waitFor(({ count }) => count === 1 ? Opt.some(count) : Opt.none())
-          yield* Deferred.succeed(gate, undefined)
-          return yield* driver.waitFor(({ seen }) => seen.length === 1 ? Opt.some(seen) : Opt.none())
-        })
-      )
-    }))
-    expect(rehearsed).toEqual(ran)
-  })
-})
-
 describe("what the run dies of, and the tools fail on", () => {
-  // A row by id, listening under `ticks`; `Doubled` makes the parent listen under the key that the row's subscription
-  // is lifted to, `["Row", 1, 1, "ticks"]`, which the parent's subscriptions find in the state `Doubled` leaves.
+  // A program that listens under `ticks`, and counts what it hears.
   type Row = Readonly<{ seen: number }>
-  const row: Program<{ state: Row; model: number; message: "Seen" }> = {
+  const row: Program<{ state: Row; model: number; message: "Seen"; key: "ticks" }> = {
     init: { state: { seen: 0 } },
     update: () => ({ seen }) => ({ state: { seen: seen + 1 } }),
-    subscriptions: () => HashMap.make(["ticks", Channel.never]),
+    subscriptions: () => ["ticks" as const],
+    listen: () => Channel.never,
     makeModel: ({ seen }) => seen
   }
-  type Table = Readonly<{ clashing: boolean }>
-  const { childById, withChildren } = program<{ state: Table; message: "Doubled" }>()
-  const table = withChildren({ Row: childById(row, { ids: () => [1] }) }).make({
-    init: { state: { clashing: false } },
-    update: (_: "Doubled") => (state) => ({ state: { ...state, clashing: true } }),
-    subscriptions: (state) =>
-      state.clashing
-        ? HashMap.make([["Row", 1, 1, "ticks"] as ReadonlyArray<unknown>, Channel.never as Subscription<"Doubled">])
-        : HashMap.empty<ReadonlyArray<unknown>, Subscription<"Doubled">>(),
-    makeModel: ({ clashing }) => ({ double: clashing ? Opt.none<"Doubled">() : Opt.some<"Doubled">("Doubled") })
-  })
-
-  const isCompositionDefect = (exit: Exit.Exit<unknown>) => {
-    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
-    return (defect instanceof ProgramDefect ? defect.cause : defect) instanceof CompositionDefect
-  }
-
-  test("the run dies of a state whose subscriptions are a defect", async () => {
-    const exit = await Effect.runPromiseExit(drive(
-      table,
-      Effect.fnUntraced(function*(driver) {
-        yield* driver.send(({ double }) => double)
-        yield* driver.waitFor(({ double }) => Opt.isNone(double) ? Opt.some(true) : Opt.none())
-      })
-    ))
-    expect(isCompositionDefect(exit)).toBe(true)
-  })
-
-  // Neither tool runs the subscriptions, but both read them on each new state, as the run does.
-  test("rehearse fails, as the run dies, on a state whose subscriptions are a defect", async () => {
-    const exit = await Effect.runPromiseExit(rehearse(table, (rehearsal) => rehearsal.send(({ double }) => double)))
-    expect(isCompositionDefect(exit)).toBe(true)
-  })
-
-  // The run makes the state current before it reads its subscriptions: what the test reads of the state after the
-  // defect is the state the message left.
-  test("rehearse keeps the state whose subscriptions are a defect, as the run makes it current", async () => {
-    const clashing: Array<boolean> = []
-    const exit = await Effect.runPromiseExit(rehearse(
-      table,
-      Effect.fnUntraced(function*(rehearsal) {
-        yield* Effect.exit(rehearsal.send(({ double }) => double))
-        clashing.push((yield* rehearsal.state).own.clashing)
-      })
-    ))
-    expect(isCompositionDefect(exit)).toBe(true)
-    expect(clashing).toEqual([true])
-  })
-
-  test("simulate fails, as the run dies, on a state whose subscriptions are a defect", async () => {
-    const exit = await Effect.runPromiseExit(simulate(table)(["Doubled"], table.init))
-    expect(isCompositionDefect(exit)).toBe(true)
-  })
-
   // A key whose Equal throws, under the same hash as every other: no state lists two, so only a comparison with
   // the keys of the state before finds it, as the run's reconciliation does ("a key whose Equal throws dies in
   // subscriptions", `run.test.ts`).
@@ -642,9 +522,10 @@ describe("what the run dies of, and the tools fail on", () => {
       return 0
     }
   }
-  const renewing: Program<{ state: Row; model: number; message: "Seen" }> = {
+  const renewing: Program<{ state: Row; model: number; message: "Seen"; key: Throwing }> = {
     ...row,
-    subscriptions: () => HashMap.make([new Throwing(), Channel.never])
+    subscriptions: () => [new Throwing()],
+    listen: () => Channel.never
   }
   const diesInSubscriptions = (exit: Exit.Exit<unknown>) => {
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
@@ -672,7 +553,7 @@ describe("what the run dies of, and the tools fail on", () => {
     init: { state: { seen: 0 } },
     update: () => (state) => ({ state, commands: ["Quit"] }),
     runCommand: () => Effect.interrupt,
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: ({ seen }) => seen
   }
 
@@ -700,11 +581,40 @@ describe("what the run dies of, and the tools fail on", () => {
     expect(diedIn(exit)).toBe("command")
   })
 
+  // `listen` is called in the subscription's fiber, as `runCommand` is in the command's: what it throws dies there,
+  // with the key it was given.
+  type Feed = Readonly<{ _tag: "Feed"; room: string }>
+  const unheard = new Error("boom")
+  const unlistened: Program<{ state: Row; model: number; message: "Seen"; key: Feed }> = {
+    ...row,
+    subscriptions: () => [{ _tag: "Feed", room: "a" }],
+    listen: () => {
+      throw unheard
+    }
+  }
+  const diedOfListen = (exit: Exit.Exit<unknown>) => {
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    return defect instanceof ProgramDefect
+      ? { where: defect.where, key: defect.key, cause: defect.cause === unheard }
+      : undefined
+  }
+
+  test("the run dies in the subscription, with its key, of what listen throws", async () => {
+    const exit = await Effect.runPromiseExit(drive(unlistened, () => Effect.never))
+    expect(diedOfListen(exit)).toEqual({ where: "subscription", key: { _tag: "Feed", room: "a" }, cause: true })
+  })
+
+  test("rehearse fails in the subscription, with its key, as the run dies, of what listen throws", async () => {
+    const exit = await Effect.runPromiseExit(
+      rehearse(unlistened, (rehearsal) => rehearsal.hearNext({ _tag: "Feed", room: "a" }))
+    )
+    expect(diedOfListen(exit)).toEqual({ where: "subscription", key: { _tag: "Feed", room: "a" }, cause: true })
+  })
+
   test("rehearse fails with a defect, as the run dies, on a subscription interrupting itself", async () => {
-    const leaving: Program<{ state: Row; model: number; message: "Seen" }> = {
+    const leaving: Program<{ state: Row; model: number; message: "Seen"; key: "ticks" }> = {
       ...row,
-      subscriptions: () =>
-        HashMap.make(["ticks", Channel.fromEffect(Effect.interrupt).pipe(Channel.mapDone((): "Seen" => "Seen"))])
+      listen: () => Channel.fromEffect(Effect.interrupt).pipe(Channel.mapDone((): "Seen" => "Seen"))
     }
     const exit = await Effect.runPromiseExit(rehearse(leaving, (rehearsal) => rehearsal.hearNext("ticks")))
     expect(diedIn(exit)).toBe("subscription")
@@ -766,12 +676,12 @@ describe("what the run dies of, and the tools fail on", () => {
     expect(diedIn(exit)).toBe("command")
   })
 
-  const stopping = (started: Deferred.Deferred<void>): Program<{ state: Row; model: number; message: "Seen" }> => ({
+  const stopping = (
+    started: Deferred.Deferred<void>
+  ): Program<{ state: Row; model: number; message: "Seen"; key: "ticks" }> => ({
     ...row,
-    subscriptions: ({ seen }) =>
-      seen === 0
-        ? HashMap.make(["ticks", Channel.fromEffectDone(interruptsItselfOnceInterrupted(started))])
-        : HashMap.empty()
+    subscriptions: ({ seen }) => seen === 0 ? ["ticks" as const] : [],
+    listen: () => Channel.fromEffectDone(interruptsItselfOnceInterrupted(started))
   })
 
   test("the run dies with a defect of a subscription interrupting itself as the run stops it", async () => {
@@ -939,17 +849,14 @@ describe("what the run dies of, and the tools fail on", () => {
   const listensOnceInterrupted = (
     started: Deferred.Deferred<void>,
     stale: Fiber.Fiber<never>
-  ): Program<{ state: Row; model: number; message: "Seen" }> => ({
+  ): Program<{ state: Row; model: number; message: "Seen"; key: "ticks" }> => ({
     ...row,
-    subscriptions: () =>
-      HashMap.make([
-        "ticks",
-        Channel.fromEffectDone(Effect.uninterruptible(Effect.gen(function*() {
-          yield* Deferred.succeed(started, undefined)
-          yield* untilInterrupted
-          return yield* Fiber.join(stale)
-        })))
-      ])
+    listen: () =>
+      Channel.fromEffectDone(Effect.uninterruptible(Effect.gen(function*() {
+        yield* Deferred.succeed(started, undefined)
+        yield* untilInterrupted
+        return yield* Fiber.join(stale)
+      })))
   })
 
   test("the run dies with a defect of a subscription joining, as its end stops it, a fiber its caller interrupted", async () => {
@@ -990,10 +897,12 @@ describe("what the run dies of, and the tools fail on", () => {
     return yield* Fiber.join(work)
   }, Effect.uninterruptible)
 
-  const forging = (started: Deferred.Deferred<void>): Program<{ state: Row; model: number; message: "Seen" }> => ({
+  const forging = (
+    started: Deferred.Deferred<void>
+  ): Program<{ state: Row; model: number; message: "Seen"; key: "ticks" }> => ({
     ...row,
-    subscriptions: ({ seen }) =>
-      seen === 0 ? HashMap.make(["ticks", Channel.fromEffectDone(forgesTheIdItReceived(started))]) : HashMap.empty()
+    subscriptions: ({ seen }) => seen === 0 ? ["ticks" as const] : [],
+    listen: () => Channel.fromEffectDone(forgesTheIdItReceived(started))
   })
 
   test("the run dies with a defect of a subscription interrupting itself as the fiber that stops it", async () => {
@@ -1037,7 +946,7 @@ describe("what the run dies of, and the tools fail on", () => {
   const seeded: Seeded = {
     init: (seen) => ({ state: { seen } }),
     update: () => (state) => ({ state: { seen: state.seen + 1 } }),
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: ({ seen }) => seen
   }
   const throwing = (): never => {
@@ -1054,7 +963,7 @@ describe("what the run dies of, and the tools fail on", () => {
     init: { state: { seen: 0 } },
     update: () => (state) => ({ state, commands: ["Explode"] }),
     runCommand: () => Effect.die(new Boom()),
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: ({ seen }) => seen
   }
 
@@ -1121,9 +1030,10 @@ describe("what the run dies of, and the tools fail on", () => {
     expect(said(exit)).toEqual(["init", undefined])
   })
 
-  const ticking: Seeded = {
+  const ticking: Program<{ state: Row; model: number; message: "Go"; flags: number; key: "ticks" }> = {
     ...seeded,
-    subscriptions: () => HashMap.make(["ticks", Channel.fromEffectDone(Effect.sync(throwing))])
+    subscriptions: () => ["ticks" as const],
+    listen: () => Channel.fromEffectDone(Effect.sync(throwing))
   }
   const keyed = (exit: Exit.Exit<unknown>) => {
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
@@ -1158,9 +1068,10 @@ describe("what the run dies of, and the tools fail on", () => {
     }
   }
   const listed = new Key(1, "program")
-  const listing: Program<{ state: Row; model: number; message: "Seen" }> = {
+  const listing: Program<{ state: Row; model: number; message: "Seen"; key: Key }> = {
     ...row,
-    subscriptions: () => HashMap.make([listed, Channel.fromEffectDone(Effect.sync(throwing))])
+    subscriptions: () => [listed],
+    listen: () => Channel.fromEffectDone(Effect.sync(throwing))
   }
   const keyOf = (exit: Exit.Exit<unknown>) => {
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
@@ -1207,7 +1118,7 @@ describe("what the run dies of, and the tools fail on", () => {
       Effect.scoped(Effect.addFinalizer(() => Effect.yieldNow).pipe(Effect.andThen(Effect.die(new Boom())))).pipe(
         Effect.catchCause(() => Effect.succeedSome<"Go" | "Saved">("Saved"))
       ),
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: ({ seen }) => seen
   }
 
@@ -1248,7 +1159,7 @@ describe("what the run dies of, and the tools fail on", () => {
       message === "Go" ? { state, commands: ["Save"] } : { state: { seen: state.seen + 1 } },
     runCommand: () =>
       Effect.addFinalizer(() => Effect.die(new Boom())).pipe(Effect.as(Opt.some<"Go" | "Saved">("Saved"))),
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: ({ seen }) => seen
   }
 
@@ -1299,7 +1210,7 @@ describe("what the run dies of, and the tools fail on", () => {
       Effect.addFinalizer((exit) => Effect.andThen(Effect.sync(() => seen.push(...wheres(exit))), release(exit))).pipe(
         Effect.andThen(body)
       ),
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: ({ seen }) => seen
   })
   const tools = {
@@ -1436,7 +1347,10 @@ describe("what the run dies of, and the tools fail on", () => {
   })
 
   // The subscriptions of the state the program starts from are read before any message.
-  const deaf: Program<{ state: Row; model: number; message: "Seen" }> = { ...row, subscriptions: throwing }
+  const deaf: Program<{ state: Row; model: number; message: "Seen"; key: "ticks" }> = {
+    ...row,
+    subscriptions: throwing
+  }
 
   test("the run dies in subscriptions on the subscriptions of the state it starts from", async () => {
     const exit = await Effect.runPromiseExit(drive(deaf, () => Effect.never))
@@ -1469,26 +1383,24 @@ describe("a defect of the program, then a failure of the scenario", () => {
   const booming = (
     releasing: Deferred.Deferred<void>,
     failed: Deferred.Deferred<void>
-  ): Program<{ state: Still; model: Still; message: "Boom" }> => ({
+  ): Program<{ state: Still; model: Still; message: "Boom"; key: "k" }> => ({
     init: { state: { still: true } },
     update: () => () => {
       throw new Error("update")
     },
-    subscriptions: () =>
-      HashMap.make([
-        "k",
-        Channel.unwrap(
-          // Bounded, so that a scenario that never fails still lets the run end.
-          Effect.acquireRelease(
-            Effect.void,
-            () =>
-              Effect.andThen(
-                Deferred.succeed(releasing, undefined),
-                Effect.timeoutOption(Deferred.await(failed), "1 second")
-              )
-          ).pipe(Effect.as(Channel.never))
-        )
-      ]),
+    subscriptions: () => ["k" as const],
+    listen: () =>
+      Channel.unwrap(
+        // Bounded, so that a scenario that never fails still lets the run end.
+        Effect.acquireRelease(
+          Effect.void,
+          () =>
+            Effect.andThen(
+              Deferred.succeed(releasing, undefined),
+              Effect.timeoutOption(Deferred.await(failed), "1 second")
+            )
+        ).pipe(Effect.as(Channel.never))
+      ),
     makeModel: (state) => state
   })
 
@@ -1525,7 +1437,7 @@ describe("a defect of makeModel", () => {
   const modeling: Program<{ state: Count; model: number; message: "Go" }> = {
     init: { state: { count: 0 } },
     update: () => ({ count }) => ({ state: { count: count + 1 } }),
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: () => {
       throw new Error("boom")
     }
@@ -1571,21 +1483,17 @@ describe("a defect of makeModel", () => {
   // so the step goes on whole, its commands started and the subscription it stops released.
   const noting = (
     released: Array<boolean>
-  ): Program<{ state: Count; model: number; message: "Go" | "Tick"; command: "Note" }> => ({
+  ): Program<{ state: Count; model: number; message: "Go" | "Tick"; command: "Note"; key: "ticks" }> => ({
     init: { state: { count: 0 } },
     update: (message) => ({ count }) =>
       message === "Go" ? { state: { count: count + 1 }, commands: ["Note"] } : { state: { count } },
     runCommand: () => Effect.succeedNone,
-    subscriptions: ({ count }) =>
-      count === 0
-        ? HashMap.make([
-          "ticks",
-          Channel.succeed<"Go" | "Tick">("Tick").pipe(
-            Channel.concatWith(() => Channel.never),
-            Channel.onExit(() => Effect.sync(() => released.push(true)))
-          )
-        ])
-        : HashMap.empty(),
+    subscriptions: ({ count }) => count === 0 ? ["ticks" as const] : [],
+    listen: () =>
+      Channel.succeed<"Go" | "Tick">("Tick").pipe(
+        Channel.concatWith(() => Channel.never),
+        Channel.onExit(() => Effect.sync(() => released.push(true)))
+      ),
     makeModel: ({ count }) => {
       if (count > 0) throw new Error("boom")
       return count
@@ -1641,7 +1549,7 @@ describe("a defect of makeModel", () => {
     ...modeling,
     subscriptions: ({ count }) => {
       if (count > 0) throw new Error("keys")
-      return HashMap.empty()
+      return []
     },
     makeModel: ({ count }) => {
       if (count > 0) throw new Error("boom")
@@ -1722,7 +1630,7 @@ describe("a fiber of the test's that sends once the tool has ended", () => {
       applied.push(message)
       return { state: { count: count + 1 } }
     },
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: (state) => state
   })
   // The fiber is forked in the test's own fiber, which outlives the tool: it sends once `ended` opens.
@@ -1786,7 +1694,7 @@ describe("a command whose runCommand is called as whoever runs the tool interrup
             begun = true
           })).pipe(Effect.andThen(Effect.never))
         },
-        subscriptions: () => HashMap.empty(),
+        subscriptions: () => [],
         makeModel: ({ seen }) => seen
       }
       const fiber = yield* Effect.forkChild(
@@ -1834,16 +1742,16 @@ describe("a command or a subscription that a fiber of the program interrupts", (
     init: { state: { seen: 0 } },
     update: () => (state) => ({ state, commands: ["Quit"] }),
     runCommand: () => interruptingItself(interrupted),
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: ({ seen }) => seen
   })
   const listening = (
     interrupted: Deferred.Deferred<void>
-  ): Program<{ state: Row; model: number; message: "Seen" }> => ({
+  ): Program<{ state: Row; model: number; message: "Seen"; key: "ticks" }> => ({
     init: { state: { seen: 0 } },
     update: () => ({ seen }) => ({ state: { seen: seen + 1 } }),
-    subscriptions: () =>
-      HashMap.make(["ticks", Channel.fromEffectDone(Effect.as(interruptingItself(interrupted), "Seen" as const))]),
+    subscriptions: () => ["ticks" as const],
+    listen: () => Channel.fromEffectDone(Effect.as(interruptingItself(interrupted), "Seen" as const)),
     makeModel: ({ seen }) => seen
   })
   const diedIn = (exit: Exit.Exit<unknown, unknown>) => {
@@ -1927,7 +1835,7 @@ describe("a command or a subscription that a fiber of the program interrupts", (
         )
         return Opt.some<"Go" | "Done">("Done")
       }),
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: ({ seen }) => seen
   }
 
@@ -1957,20 +1865,20 @@ describe("a command or a subscription that a fiber of the program interrupts", (
 
   // The same of a subscription, whose release interrupts its fiber once it has given its last message: the
   // interruption lands once the scope has closed, before the message is sent, which only the root takes for a defect.
-  const ending: Program<{ state: Row; model: number; message: "Done"; subscriptionServices: Scope.Scope }> = {
+  const ending: Program<
+    { state: Row; model: number; message: "Done"; subscriptionServices: Scope.Scope; key: "once" }
+  > = {
     init: { state: { seen: 0 } },
     update: () => ({ seen }) => ({ state: { seen: seen + 1 } }),
-    subscriptions: () =>
-      HashMap.make([
-        "once",
-        Channel.fromEffectDone(Effect.gen(function*() {
-          const self = yield* Effect.fiber
-          yield* Effect.addFinalizer(() =>
-            Effect.asVoid(Effect.forkDetach(Fiber.interrupt(self), { startImmediately: true }))
-          )
-          return "Done" as const
-        }))
-      ]),
+    subscriptions: () => ["once" as const],
+    listen: () =>
+      Channel.fromEffectDone(Effect.gen(function*() {
+        const self = yield* Effect.fiber
+        yield* Effect.addFinalizer(() =>
+          Effect.asVoid(Effect.forkDetach(Fiber.interrupt(self), { startImmediately: true }))
+        )
+        return "Done" as const
+      })),
     makeModel: ({ seen }) => seen
   }
 
@@ -2055,7 +1963,7 @@ describe("a message applied while a release holds the effects of the step before
   })
   const holding = (
     { releasing, gate, noted, released, log }: Signals
-  ): Program<{ state: Held; model: Held; message: HeldMessage; command: "Note" }> => ({
+  ): Program<{ state: Held; model: Held; message: HeldMessage; command: "Note"; key: "a" | "b" }> => ({
     init: { state: { a: true, b: false, count: 0 } },
     update: (message) => (state) => {
       switch (message) {
@@ -2076,33 +1984,23 @@ describe("a message applied while a release holds the effects of the step before
         Effect.andThen(Deferred.succeed(noted, undefined)),
         Effect.as(Opt.none())
       ),
-    subscriptions: ({ a, b }) =>
-      HashMap.make(
-        ...(a
-          ? [
-            [
-              "a",
-              Channel.never.pipe(
-                Channel.ensuring(Effect.andThen(Deferred.succeed(releasing, undefined), Deferred.await(gate)))
-              )
-            ] as const
-          ]
-          : []),
-        ...(b
-          ? [
-            [
-              "b",
-              Channel.unwrap(Effect.sync(() => {
-                log.push("b started")
-                return Channel.succeed<HeldMessage>("Tick").pipe(
-                  Channel.concatWith(() => Channel.never),
-                  Channel.ensuring(Deferred.succeed(released, undefined))
-                )
-              }))
-            ] as const
-          ]
-          : [])
-      ),
+    subscriptions: ({ a, b }) => [...(a ? ["a" as const] : []), ...(b ? ["b" as const] : [])],
+    listen: (key) => {
+      switch (key) {
+        case "a":
+          return Channel.never.pipe(
+            Channel.ensuring(Effect.andThen(Deferred.succeed(releasing, undefined), Deferred.await(gate)))
+          )
+        case "b":
+          return Channel.unwrap(Effect.sync(() => {
+            log.push("b started")
+            return Channel.succeed<HeldMessage>("Tick").pipe(
+              Channel.concatWith(() => Channel.never),
+              Channel.ensuring(Deferred.succeed(released, undefined))
+            )
+          }))
+      }
+    },
     makeModel: (state) => state
   })
 
@@ -2270,6 +2168,7 @@ describe("an end where the release of a fiber waits for the release of another",
     message: "Go" | "Tick"
     command: "Hold"
     commandServices: Scope.Scope
+    key: "k"
   }>
   type Waiting = "command" | "subscription"
   type Gates = Readonly<{
@@ -2295,14 +2194,12 @@ describe("an end where the release of a fiber waits for the release of another",
         Effect.andThen(Deferred.succeed(started, undefined)),
         Effect.andThen(Effect.never)
       ),
-    subscriptions: () =>
-      HashMap.make([
-        "k",
-        Channel.succeed<"Go" | "Tick">("Tick").pipe(
-          Channel.concatWith(() => Channel.never),
-          Channel.ensuring(releasing(waiting === "subscription", command, subscription))
-        )
-      ]),
+    subscriptions: () => ["k" as const],
+    listen: () =>
+      Channel.succeed<"Go" | "Tick">("Tick").pipe(
+        Channel.concatWith(() => Channel.never),
+        Channel.ensuring(releasing(waiting === "subscription", command, subscription))
+      ),
     makeModel: (state) => state
   })
 

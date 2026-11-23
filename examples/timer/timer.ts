@@ -5,7 +5,6 @@ import * as Channel from "effect/Channel"
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
-import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 
 // #region state
@@ -123,11 +122,12 @@ const makeModel = ({ minutes, phase }: State): Model => {
 // #endregion model
 
 // #region program
-export const timer = program<{ state: State; model: Model; message: Message; command: Command }>().make({
+export const timer = program<{ state: State; model: Model; message: Message; command: Command; key: "ticks" }>().make({
   init: { state: { minutes: 25, phase: Phase.Setting() } },
   update,
   runCommand,
-  subscriptions: (state) => state.phase._tag === "Running" ? HashMap.make(["ticks", ticks]) : HashMap.empty(),
+  subscriptions: (state) => state.phase._tag === "Running" ? ["ticks"] : [],
+  listen: () => ticks,
   makeModel
 })
 // #endregion program

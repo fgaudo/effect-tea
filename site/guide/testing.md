@@ -66,7 +66,8 @@ test("the model holds what update accepts, all of it", () => {
 ### The model of any state
 
 `program.makeModel(state)` makes a model as the run does. So a property test can read the model of any state.
-`program.subscriptions(state)` says what the program listens to in that state. `program.output(state)` is what its
+`program.subscriptions(state)` lists the keys of what the program listens to in that state, and `program.listen(key)`
+gives the subscription of a key. `program.output(state)` is what its
 parent would read of it: no tool reads the output of a program that has no parent.
 
 **A state of a parent** holds its own state and the children that the library keeps (see
@@ -80,11 +81,11 @@ parent would read of it: no tool reads the output of a program that has no paren
 - A test can also fold messages from `init`, with `applyAll`.
 
 **The number of an instance.** A child's commands, as its parent's `update` returns them, name the instance that asked:
-`{ _tag: 'About', instance: 2, command }`. A child's subscriptions are under `[<child>, instance, key]`, and
-`[<child>, id, instance, key]` for children by id. The instances are numbered in the order the library starts them,
+`{ _tag: 'About', instance: 2, command }`. A child's keys are listed as `{ _tag: <child>, instance, key }`,
+and `{ _tag: <child>, id, instance, key }` for children by id. The instances are numbered in the order the library starts them,
 from 1 (see [composition](./composition.md#precisely), which describes the order). In
 [`pages`](../../examples/pages/app.test.ts), the Clock that `init` starts is 1, and the About that a step opens next is
-2. A test that needs only the child reads the key's first item, as `pages` does.
+2. A test that needs only the child reads the key's `_tag`, as `pages` does.
 
 **That the model is data** is checked on two equal states built apart. To get them, draw the same seed twice: call
 `fc.sample(states, { seed, numRuns: 1 })` two times. Then compare the two models with `Equal.equals`, as

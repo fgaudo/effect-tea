@@ -179,7 +179,7 @@ this summary says less. What every change keeps, an example's and a document's t
   step of the parent's own code, and an answer reaches the instance that asked for it, or is rejected. Never give a
   parent a way to write a child's state.
 - **Every program keeps its state in an object**, replaced and never mutated: a child's model is kept by it, and its
-  lifted subscriptions by the instance the library keeps it in. Never add a cache for primitive states, nor hold a
+  lifted keys by the instance the library keeps it in. Never add a cache for primitive states, nor hold a
   child's dispatch strongly.
 - **A dispatch is a function that applies its message before it returns, and needs no services**: a renderer calls
   it from a plain callback as it is, and the library exports no helper for it.
@@ -215,9 +215,10 @@ this summary says less. What every change keeps, an example's and a document's t
   the loop that does its jobs one at a time).
 - `runCommand`, missing from a program without commands, is read through `runCommandOf`, never directly: the engine
   always gets the complete set. Likewise `init`, a step or a function of the flags, is read through `startOf`: a step
-  is never a function, so `typeof` tells them apart, and so does `make` for a parent's `init`. Both are internal. A
-  program always has `subscriptions`: `make` is the one place where a config without them means listening to nothing,
-  and a test reads `program.subscriptions(state)` as it reads `program.makeModel(state)`.
+  is never a function, so `typeof` tells them apart, and so does `make` for a parent's `init`. And `listen`, missing
+  from a program without keys, is read through `listenOf`. All three are internal. A program always has
+  `subscriptions`: `make` is the one place where a config without them means listening to nothing, and a test reads
+  `program.subscriptions(state)` as it reads `program.makeModel(state)`.
 - A key or symbol of the library is named `@fgaudo/effect-tea/<Type>` after the type it belongs to (`Rejected`, the
   service `Stopped`), and `@fgaudo/effect-tea/<Type>/<part>` for a part of one. A property keyed by a string starts
   with `~`, as Effect's own type ids: `~@fgaudo/effect-tea/<Type>/<part>`.

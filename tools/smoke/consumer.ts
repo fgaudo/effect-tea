@@ -1,7 +1,7 @@
 // A consumer of the packed package, run with Node and typechecked by `smoke.ts` under several TypeScript versions
 // and module resolutions. It instantiates the types of `program` (a child, children by id, with a key, flags and
 // `listening`, events and external messages told in a step, an output its parent reads, inputs, a parent of parents,
-// a function over programs), checks that what they reject does not compile, and that the declarations of what it
+// subscriptions made from their keys, a function over programs), checks that what they reject does not compile, and that the declarations of what it
 // exports can be emitted.
 import {
   andThen,
@@ -10,6 +10,7 @@ import {
   type Instance,
   InvariantDefect,
   type Kept,
+  type KeyOf,
   type MessageOf,
   type Program,
   program,
@@ -27,7 +28,6 @@ import * as Channel from "effect/Channel"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
-import * as HashMap from "effect/HashMap"
 import * as Optic from "effect/Optic"
 import * as Opt from "effect/Option"
 import * as Stream from "effect/Stream"
@@ -265,28 +265,63 @@ loading.withChildren(loadingChildren).make({
   makeModel: () => null
 })
 
-// A parent's services are those its `runCommand` needs, and those its `subscriptions` need, with no annotation.
+// A program's services are those its `runCommand` needs, and those its `listen` needs, with no annotation.
 class Server extends Context.Service<Server, { readonly load: Effect.Effect<void> }>()("Server") {}
 class Backup extends Context.Service<Backup, { readonly load: Effect.Effect<void> }>()("Backup") {}
 class Feed extends Context.Service<Feed, { readonly resets: Stream.Stream<ResetAll> }>()("Feed") {}
 
-export const served = loading.make({
+const listening = program<{ state: State; command: "Load"; message: ResetAll; key: "resets" }>()
+
+export const served = listening.make({
   init: { state: first },
   update: () => (state) => ({ state, commands: ["Load" as const] }),
   runCommand: () =>
     Math.random() < 0.5
       ? Effect.as(Effect.service(Server), Opt.none<ResetAll>())
       : Effect.as(Effect.service(Backup), Opt.none<ResetAll>()),
-  subscriptions: () =>
-    HashMap.make([
-      "resets",
-      Channel.unwrap(Effect.map(Effect.service(Feed), (feed) =>
-        feed.resets.pipe(
-          Stream.toChannel,
-          Channel.flattenArray,
-          Channel.mapDone((): ResetAll => ({ _tag: "ResetAll" }))
-        )))
-    ]),
+  subscriptions: () => ["resets"],
+  listen: () =>
+    Channel.unwrap(Effect.map(Effect.service(Feed), (feed) =>
+      feed.resets.pipe(
+        Stream.toChannel,
+        Channel.flattenArray,
+        Channel.mapDone((): ResetAll => ({ _tag: "ResetAll" }))
+      ))),
+  makeModel: () => null
+})
+
+export const keyed: [KeyOf<typeof served>] extends ["resets"] ? ["resets"] extends [KeyOf<typeof served>] ? true
+  : false
+  : false = true
+
+// A program that names keys has a `listen`, which makes their subscriptions.
+// @ts-expect-error
+listening.make({
+  init: { state: first },
+  update: () => (state) => ({ state }),
+  runCommand: () => Effect.succeedNone,
+  subscriptions: () => ["resets"],
+  makeModel: () => null
+})
+
+// One that names none lists none.
+loading.make({
+  init: { state: first },
+  update: () => (state) => ({ state }),
+  runCommand: () => Effect.succeedNone,
+  // @ts-expect-error
+  subscriptions: () => ["resets"],
+  makeModel: () => null
+})
+
+// An own key that takes a child's name does not compile, as an own command that takes it does not.
+// @ts-expect-error
+program<{ state: State; message: ResetAll; key: Readonly<{ _tag: "Main" }> }>().withChildren(children).make({
+  init: { state: first },
+  update: () => (state) => ({ state }),
+  onEvent: handled,
+  subscriptions: () => [{ _tag: "Main" }],
+  listen: () => Channel.never,
   makeModel: () => null
 })
 
@@ -339,7 +374,7 @@ withChildren(children).make({
 const deaf: Program<{ state: CounterState; model: null; message: Full; external: Reset }> = {
   init: { state: { count: 0 } },
   update: () => (state) => ({ state }),
-  subscriptions: () => HashMap.empty(),
+  subscriptions: () => [],
   makeModel: () => null
 }
 
@@ -374,7 +409,7 @@ child(
   {
     init: { state: { count: 0 }, commands: ["Save" as const] },
     update: counterUpdate,
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: () => null
   }
 )
@@ -383,7 +418,7 @@ child(
 const resetting = {
   init: { state: { count: 0 } },
   update: counterUpdate,
-  subscriptions: () => HashMap.empty(),
+  subscriptions: () => [],
   makeModel: () => null
 }
 const saving = {

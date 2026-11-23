@@ -7,7 +7,7 @@ import * as Core from "./core.ts"
 import type { Dispatch } from "./dispatch.ts"
 import type { RunOptions } from "./engine.ts"
 import * as Engine from "./engine.ts"
-import { type FlagsOption, type Program, runCommandOf, startOf } from "./program.ts"
+import { type FlagsOption, listenOf, type Program, runCommandOf, startOf } from "./program.ts"
 import * as Shell from "./shell.ts"
 import type { Step } from "./update.ts"
 
@@ -113,7 +113,7 @@ type Parts<State, Model, Message, R> = Readonly<{
 }>
 
 // Plain code, outside any fiber: `init`, the engine, and the model of the current state, made when it is read.
-const partsOf = <State extends object, Model, Message, Command, RC, RS, Flags>(
+const partsOf = <State extends object, Model, Message, Command, RC, RS, Flags, Key>(
   program: Program<{
     state: State
     model: Model
@@ -122,6 +122,7 @@ const partsOf = <State extends object, Model, Message, Command, RC, RS, Flags>(
     commandServices: RC
     subscriptionServices: RS
     flags: Flags
+    key: Key
   }>,
   options: RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>,
   deaths: Shell.Deaths,
@@ -161,7 +162,7 @@ const partsOf = <State extends object, Model, Message, Command, RC, RS, Flags>(
     }
     return { app: dead, engine: undefined, end }
   }
-  const engine = Engine.build<State, Message, Command, RC | RS, unknown>({
+  const engine = Engine.build<State, Message, Command, RC | RS, Key>({
     ...runOptions,
     deaths,
     rendered: isThrown,
@@ -169,7 +170,8 @@ const partsOf = <State extends object, Model, Message, Command, RC, RS, Flags>(
     init,
     update: program.update,
     runCommand: runCommandOf(program),
-    subscriptions: program.subscriptions
+    subscriptions: program.subscriptions,
+    listen: listenOf(program)
   })
   // The last state a model was made of, with its model or the defect `makeModel` threw: a model is made only when it
   // is read, and once for each state, by its identity, a failed one too. An option, since any value may be a state.
@@ -201,7 +203,7 @@ const partsOf = <State extends object, Model, Message, Command, RC, RS, Flags>(
  * and one interrupted before it begins leaves the program as it was, not stopped. `settled` is called as each call
  * that applies messages returns, once its step is done (`Engine.build`).
  */
-export const startWith = <State extends object, Model, Message, Command, RC, RS, Flags>(
+export const startWith = <State extends object, Model, Message, Command, RC, RS, Flags, Key>(
   program: Program<{
     state: State
     model: Model
@@ -210,6 +212,7 @@ export const startWith = <State extends object, Model, Message, Command, RC, RS,
     commandServices: RC
     subscriptionServices: RS
     flags: Flags
+    key: Key
   }>,
   options: RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>,
   deaths: Shell.Deaths,
@@ -296,7 +299,8 @@ export const start = <
   Command = never,
   RC = never,
   RS = never,
-  Flags = never
+  Flags = never,
+  Key = never
 >(
   program: Program<{
     state: State
@@ -306,6 +310,7 @@ export const start = <
     commandServices: RC
     subscriptionServices: RS
     flags: Flags
+    key: Key
   }>,
   ...[options = {}]: [Flags] extends [never]
     ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>]

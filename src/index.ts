@@ -39,6 +39,8 @@ export type {
   FlagsOption,
   Init,
   Interpreter,
+  KeyOf,
+  Listener,
   MessageOf,
   ModelOf,
   ObjectState,
@@ -56,7 +58,7 @@ export type { Written } from "./input.ts"
 
 // The effects it describes: commands, and subscriptions to the world.
 export type { Execution, RunCommand } from "./command.ts"
-export type { Subscription, Subscriptions } from "./subscription.ts"
+export type { Listen, Subscription, Subscriptions } from "./subscription.ts"
 
 // How a view sends messages, its children's included.
 export { type Dispatch, forwardTo } from "./dispatch.ts"

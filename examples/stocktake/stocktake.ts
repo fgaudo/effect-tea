@@ -8,7 +8,6 @@ import * as Channel from "effect/Channel"
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
-import * as HashMap from "effect/HashMap"
 import * as Optic from "effect/Optic"
 import * as Opt from "effect/Option"
 import * as Result from "effect/Result"
@@ -181,7 +180,7 @@ const withText = (id: string, text: (was: string) => string) => (counts: Open): 
   lines: Arr.map(counts.lines, (line) => line.id === id ? { ...line, text: text(line.text) } : line)
 })
 
-const { make, inputById } = program<{ state: State; command: Command; flags: Flags; message: Own }>()
+const { make, inputById } = program<{ state: State; command: Command; flags: Flags; message: Own; key: "scanner" }>()
 
 // Only an open count is a place to write into: a write over a locked one finds no place, and is rejected. The model
 // reads the same place, so a line is drawn editable exactly where a write is stored. It is exported for its test, which
@@ -272,7 +271,8 @@ export const stocktake = make({
     }
   },
   runCommand,
-  subscriptions: (state) => listens(state) ? HashMap.make(["scanner", scans]) : HashMap.empty(),
+  subscriptions: (state) => listens(state) ? ["scanner"] : [],
+  listen: () => scans,
   makeModel: (state): Model => {
     switch (state.load._tag) {
       case "Loading":

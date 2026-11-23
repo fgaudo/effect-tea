@@ -27,27 +27,28 @@ import { reject } from "./update.ts"
 
 // The search of the interleavings, in which a dispatch applies its message before it returns. Run apart:
 // `bun run interleavings`.
-// The program is a list of rows by id, from a pool of two so that ids come back, which starts with none, one or both
-// of them. Each row is a child that the library keeps, started anew from its flags when it is added, so that an answer
-// of its command may arrive once the row has been removed and added again at its id. It works with a command that
-// acquires something and completes when the scheduler says (working mutes the row, so that one step both stops a
-// subscription and starts a command), can be poked, which leaves it as it is, and, while it listens, hears two ticks from a subscription that then stays open,
-// ends with a last message, or dies; each time it starts listening again is a new session. The list can clear all its
-// rows at once, stopping their subscriptions together. The list has a field, which is the place of one of two inputs,
-// a note or a title, and which a swap turns into the other's place, the text kept. The user types into the element of
-// that field, which shows what the current model holds, as a controlled element does, or writes from a model read
-// before, as its element would have; clearing empties the field, and while it holds a text the list searches for it,
-// under a key of that text. The program is started by plain code, and the user may act before its run begins. The
-// renderer is plain code too: a listener of the handle, told of each new state, which reads the model or not, as the
-// fates say, and now and then sends a poke from inside the step that told it. What the user does, when the run
-// begins, when commands complete, when ticks arrive and when releases end is all in the hands of the scheduler of the
-// tests (`test/scheduled.test_scheduler.ts`), which may also make any fiber yield between two of its steps; what is
-// drawn beside it (`Fates`) says how many rows the list starts with, which subscriptions end or die, which releases
-// take time or die, which commands die, which steps `onApplied` and `onIgnored` die in, whether the renderer stops
-// listening, and whether it dies: throwing from its listener, or giving what it threw to `die`, as one that draws
-// outside a listener does. To die is to die of a defect, or, for a command or a subscription, to interrupt oneself,
-// which the run takes for one.
-// The run runs in a span of whoever runs it, with debug logs enabled, and the program logs and opens spans of its own.
+// The program is a list of rows by id, from a pool of two so that ids come back, which starts with none, one or both of
+// them. Each row is a child that the library keeps, started anew from its flags when it is added, so that an answer of
+// its command may arrive once the row has been removed and added again at its id. It works with a command that acquires
+// something and completes when the scheduler says (working mutes the row, so that one step both stops a subscription
+// and starts a command), can be poked, which leaves it as it is, and, while it listens, hears two ticks from a
+// subscription that then stays open, ends with a last message, or dies; each time it starts listening again is a new
+// session. The list can clear all its rows at once, stopping their subscriptions together. The list has a field, which
+// is the place of one of two inputs, a note or a title, and which a swap turns into the other's place, the text kept.
+// The user types into the element of that field, which shows what the current model holds, as a controlled element
+// does, or writes from a model read before, as its element would have; clearing empties the field, and while it holds a
+// text the list searches for it, under a key of that text, and hears what the search sends, which names the start that
+// sent it. The program is started by plain code, and the user may act before its run begins. The renderer is plain code
+// too: a listener of the handle, told of each new state, which reads the model or not, as the fates say, and now and
+// then sends a poke from inside the step that told it. What the user does, when the run begins, when commands complete,
+// when ticks arrive and when releases end is all in the hands of the scheduler of the tests
+// (`test/scheduled.test_scheduler.ts`), which may also make any fiber yield between two of its steps; what is drawn
+// beside it (`Fates`) says how many rows the list starts with, which subscriptions end or die, which releases take time
+// or die, which commands die, which steps `onApplied` and `onIgnored` die in, whether the renderer stops listening, and
+// whether it dies: throwing from its listener, or giving what it threw to `die`, as one that draws outside a listener
+// does. To die is to die of a defect, or, for a command or a subscription, to interrupt oneself, which the run takes
+// for one. The run runs in a span of whoever runs it, with debug logs enabled, and the program logs and opens spans of
+// its own.
 
 type Id = 1 | 2
 const ids: ReadonlyArray<Id> = [1, 2]
@@ -63,6 +64,8 @@ type RowMessage = Data.TaggedEnum<{
 }>
 const RowMessage = Data.taggedEnum<RowMessage>()
 type RowCommand = Readonly<{ _tag: "Work"; born: number; attempt: number }>
+/** What a row listens to: its ticks, made from the key alone, so the key carries the row and the session. */
+type RowKey = Readonly<{ _tag: "Ticks"; id: Id; born: number; session: number }>
 
 type Row = Readonly<{
   id: Id
@@ -94,6 +97,7 @@ type Own =
   | Readonly<{ _tag: "Remove"; id: Id }>
   | Readonly<{ _tag: "Clear" }>
   | Readonly<{ _tag: "Swap" }>
+  | Readonly<{ _tag: "Found"; text: string; start: number }>
 
 const emptyField: Field = { _tag: "Note", text: "" }
 
@@ -246,7 +250,9 @@ type Event =
   | Readonly<{ _tag: "Sending" }>
   | Readonly<{ _tag: "Returned"; message: unknown }>
   | Readonly<{ _tag: "Spanned"; parent: Opt.Option<string> }>
-  | Readonly<{ _tag: "Searching"; text: string }>
+  // A search begun, numbered as it begins; what it sends, as it sends it; and its end.
+  | Readonly<{ _tag: "Searching"; text: string; start: number }>
+  | Readonly<{ _tag: "Sent"; text: string; start: number }>
   | Readonly<{ _tag: "SearchStopped"; text: string }>
   // `released`: what died is a release, whose defect counts only once the scope it is in has closed (guide), which
   // the scenario does not see.
@@ -443,6 +449,7 @@ const makeList = (fates: Fates, events: Array<Event>) => {
       command: RowCommand
       commandServices: Scope.Scope
       flags: RowFlags
+      key: RowKey
     }
   > = {
     init: (flags) => ({ state: rowOf(flags) }),
@@ -496,9 +503,13 @@ const makeList = (fates: Fates, events: Array<Event>) => {
         )
       })
     },
-    // The same key in every session: only the engine tells a session from the one before.
+    // The key carries the session, which the ticks name: each session has a key of its own. A message of an earlier
+    // start of a key that came back is the search's (`searching`).
     subscriptions: (state) =>
-      state.listening ? HashMap.make(["ticks", ticking(state.id, state.born, state.session)]) : HashMap.empty(),
+      state.listening
+        ? [{ _tag: "Ticks" as const, id: state.id, born: state.born, session: state.session }]
+        : [],
+    listen: ({ born, id, session }) => ticking(id, born, session),
     makeModel: (state) => ({
       working: state.working,
       work: state.working ? Opt.none() : Opt.some(RowMessage.WorkClicked()),
@@ -507,15 +518,32 @@ const makeList = (fates: Fates, events: Array<Event>) => {
       poke: RowMessage.Poked()
     })
   }
-  // It sends nothing and holds nothing: what it shows is when it starts and stops.
+  // Numbered as it begins, it sends three messages that name its start, each when the scheduler says, and holds
+  // nothing. Its key comes back whenever the field holds the same text again, so what it sends may reach a start of
+  // the same key that is not its own, which must not hear it.
+  let starts = 0
   const searching = (text: string): Subscription<Own, never> =>
-    Channel.fromEffectDone(
-      Effect.sync(() => events.push({ _tag: "Searching", text })).pipe(
-        Effect.andThen(Effect.never),
-        Effect.onInterrupt(() => Effect.sync(() => events.push({ _tag: "SearchStopped", text })))
+    Channel.unwrap(Effect.sync(() => {
+      starts += 1
+      const start = starts
+      events.push({ _tag: "Searching", text, start })
+      const found = (nth: number) =>
+        Channel.fromEffect(
+          waits(fates, start * 3 + nth).pipe(
+            Effect.andThen(Effect.sync((): Own => {
+              events.push({ _tag: "Sent", text, start })
+              return { _tag: "Found", text, start }
+            }))
+          )
+        )
+      return found(0).pipe(
+        Channel.concatWith(() => found(1)),
+        Channel.concatWith(() => found(2)),
+        Channel.concatWith(() => Channel.never),
+        Channel.onExit(() => Effect.sync(() => events.push({ _tag: "SearchStopped", text })))
       )
-    )
-  const List = program<{ state: ListOwn; message: Own }>()
+    }))
+  const List = program<{ state: ListOwn; message: Own; key: readonly ["search", string] }>()
   // A row is there while its id is listed, started from the flags listed with it: one added again at its id is
   // another row.
   return List.withChildren({
@@ -543,14 +571,18 @@ const makeList = (fates: Fates, events: Array<Event>) => {
             state: { ...state, field: state.field._tag === "Note" ? { _tag: "Title", text } : { _tag: "Note", text } }
           }
         }
+        // Accepted, of any start, and the very same state: whether one of a start that is not current can arrive is
+        // what the test checks.
+        case "Found":
+          return { state }
       }
     },
     inputs: {
       Note: List.input({ at: Optic.id<ListOwn>().key("field").tag("Note").key("text") }),
       Title: List.input({ at: Optic.id<ListOwn>().key("field").tag("Title").key("text") })
     },
-    subscriptions: ({ field: { text } }) =>
-      text === "" ? HashMap.empty() : HashMap.make([["search", text], searching(text)]),
+    subscriptions: ({ field: { text } }) => text === "" ? [] : [["search", text] as const],
+    listen: ([, text]) => searching(text),
     makeModel: (state, children) => ({
       field: state.field,
       swap: { _tag: "Swap" } as Own,
@@ -795,6 +827,19 @@ const heardOf = (event: Event) =>
     : Opt.none()
 
 /** The searches running after the first `count` events, by their text. */
+/**
+ * Whether the start of a search is no longer the current one by the first `count` events: the field has held another
+ * text since it began, or a later start of its text has begun. It may be one before then too, begun once its key had
+ * gone: that a run reaches the comparison of starts at all is what matters.
+ */
+const superseded = (events: ReadonlyArray<Event>, text: string, start: number, count: number) => {
+  const begun = events.findIndex((event) => event._tag === "Searching" && event.start === start)
+  return events.slice(begun, count).some((event) =>
+    (event._tag === "Applied" && event.applied.after.own.field.text !== text)
+    || (event._tag === "Searching" && event.text === text && event.start > start)
+  )
+}
+
 const searches = (events: ReadonlyArray<Event>, count = events.length) => {
   const running: Array<string> = []
   for (const event of events.slice(0, count)) {
@@ -930,6 +975,12 @@ describe("interleavings of the user, commands and subscriptions", () => {
         if (event._tag === "Acquired" && !listeners(stateAfter(first, events, index)).includes(event.listener)) {
           reached.add("a subscription started once its key had gone")
         }
+        if (
+          event._tag === "Sent" && superseded(events, event.text, event.start, index)
+          && stateAfter(first, events, index).own.field.text === event.text
+        ) {
+          reached.add("a message of an earlier start of a key that came back")
+        }
         if (event._tag !== "Applied") return
         const { message } = event.applied
         reached.add(message._tag === "Rows" ? message.message._tag : message._tag)
@@ -982,6 +1033,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       "Clear",
       "Done",
       "Finished",
+      "Found",
       "ListenClicked",
       "MuteClicked",
       "Note",
@@ -1015,7 +1067,8 @@ describe("interleavings of the user, commands and subscriptions", () => {
       "a release overtaken",
       "a message a listener sends",
       "a message applied while a release is under way",
-      "a subscription started once its key had gone"
+      "a subscription started once its key had gone",
+      "a message of an earlier start of a key that came back"
     ].filter((tag) => !reached.has(tag))
     if (missing.length > 0) throw new Error(`No scenario of seed ${seed} reached ${missing.join(", ")}`)
   }, 240_000)
@@ -1202,6 +1255,22 @@ describe("interleavings of the user, commands and subscriptions", () => {
       expect(searches(events, settled)).toEqual(text === "" ? [] : [text])
     })
   }, 120_000)
+
+  // A key that comes back is a new start of its subscription: what an earlier start of the same key sends is not heard.
+  // The search meets such a message in few of its scenarios, so it draws as many as the test of what they reach.
+  test("a search's message reaches update only from the start that runs for the text the field holds", () => {
+    property(({ events }) => {
+      const late: Array<string> = []
+      events.forEach((event, index) => {
+        if (event._tag !== "Applied" || event.applied.message._tag !== "Found") return
+        const { start, text } = event.applied.message
+        if (event.applied.before.own.field.text !== text || superseded(events, text, start, index)) {
+          late.push(`${text} of start ${start}`)
+        }
+      })
+      expect(late).toEqual([])
+    }, { numRuns: 2000 })
+  }, 240_000)
 
   test("a subscription that ends is heard ending, and never starts again while its key stays", () => {
     property(({ events, first, settled }) => {

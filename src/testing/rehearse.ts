@@ -18,9 +18,8 @@ import * as Core from "../core.ts"
 import { ProgramDefect } from "../defect.ts"
 import { recordThrown } from "../engine.ts"
 import { describeByTag } from "../log.ts"
-import { type AnyProgram, type FlagsOption, type Program, runCommandOf, startOf } from "../program.ts"
+import { type AnyProgram, type FlagsOption, listenOf, type Program, runCommandOf, startOf } from "../program.ts"
 import { diesIn, makeDeaths, rootedIn, runSubscription, scopedIn, stopping as stopFiber } from "../shell.ts"
-import type { Subscription } from "../subscription.ts"
 import * as Ledger from "./ledger.ts"
 import * as Loop from "./loop.ts"
 
@@ -162,9 +161,8 @@ type Call<Message> = Readonly<{ key: unknown; heard: Deferred.Deferred<Opt.Optio
 // the completion of the job that starts it, which `hear` waits for. A start of the first state has no job, and one
 // completed at once. The key is the program's, which its defects carry as it is: the test finds it by `Equal`, with
 // another key that may hold other data.
-type Unheard<Message, RS> = Readonly<{
+type Unheard = Readonly<{
   key: unknown
-  subscription: Subscription<Message, RS>
   begun: Deferred.Deferred<void>
 }>
 
@@ -205,7 +203,8 @@ const rehearsing = Effect.fnUntraced(function*<
   A = unknown,
   E = never,
   RT = never,
-  Flags = never
+  Flags = never,
+  Key = never
 >(
   program: Program<{
     state: State
@@ -216,6 +215,7 @@ const rehearsing = Effect.fnUntraced(function*<
     subscriptionServices: RS
     event: Event
     flags: Flags
+    key: Key
   }>,
   scenario: (rehearsal: Rehearsal<State, Model, Message, Command, Event, RC, RS>) => Effect.Effect<A, E, RT>,
   ...[{ flags } = {}]: [Flags] extends [never] ? [options?: FlagsOption<never>]
@@ -225,6 +225,7 @@ const rehearsing = Effect.fnUntraced(function*<
   type Now = Current<State, Message, Event>
   const runCommand = runCommandOf(program)
   const { subscriptions } = program
+  const listenTo = listenOf(program)
   // Each fiber of the rehearsal, and each thunk, records the defects of the program it dies of, as the engine's do: a
   // thunk, a command's fiber, a subscription's. The run dies of the first, so the rehearsal fails with them at its end,
   // and what the test asks for after the first fails with them, as nothing happens in a run that died. The tool's own
@@ -259,7 +260,7 @@ const rehearsing = Effect.fnUntraced(function*<
   let active: Core.Active<unknown> = Core.noneActive
   // The commands, and how each start is heard, by its generation. Written by every fiber of the test's and by the loop,
   // each time by one transition in one thunk.
-  type LedgerOf = Ledger.Ledger<Command, Unheard<Message, RS>, Asks, Call<Message>, Message>
+  type LedgerOf = Ledger.Ledger<Command, Unheard, Asks, Call<Message>, Message>
   let ledger: LedgerOf = Ledger.start(started.commands)
   const stoppedWhileWaiting = (key: unknown) =>
     new Error(
@@ -284,7 +285,7 @@ const rehearsing = Effect.fnUntraced(function*<
       ledger = Ledger.listened(
         ledger,
         [],
-        fresh.map(([key, subscription, generation]) => [generation, { key, subscription, begun }] as const)
+        fresh.map(([key, generation]) => [generation, { key, begun }] as const)
       )[2]
     } catch (thrown) {
       recordThrown(register, "subscriptions", thrown)
@@ -394,7 +395,7 @@ const rehearsing = Effect.fnUntraced(function*<
           if (!changed) return queued(jobOf([], [], owed, hearer))
           // Compared with the keys of the state before, as the run reconciles them: a state whose subscriptions are a
           // defect ends the run, and so does a key whose `Equal` throws against a key of the state before.
-          let reconciled: Core.Reconciled<unknown, Subscription<Message, RS>>
+          let reconciled: Core.Reconciled<unknown>
           try {
             reconciled = Core.reconcile(active, subscriptions(next.state))
           } catch (thrown) {
@@ -407,7 +408,7 @@ const rehearsing = Effect.fnUntraced(function*<
           const [, stopped, listening] = Ledger.listened(
             ledger,
             generations,
-            fresh.map(([key, subscription, generation]) => [generation, { key, subscription, begun: done }] as const)
+            fresh.map(([key, generation]) => [generation, { key, begun: done }] as const)
           )
           ledger = listening
           // Recorded, never raised into the step, which goes on whole: what is asked after it fails with the defect.
@@ -525,12 +526,15 @@ const rehearsing = Effect.fnUntraced(function*<
     // Started as the run starts a subscription, but held after each message until a `hearNext` asks for one: between
     // two of them, it waits where the run's would be sending its next message. Its last message follows the end of its
     // scope, as in the run. Kept by its start, so that the job that stops the start finds it.
-    const listen = (key: unknown, generation: Core.Generation, subscription: Subscription<Message, RS>, asks: Asks) =>
+    // `listen` runs inside the subscription's fiber, as in the run: a defect in it is the subscription's.
+    const listen = (key: unknown, generation: Core.Generation, asks: Asks) =>
       Queue.take(asks).pipe(
         Effect.andThen(
-          runSubscription(
-            subscription,
-            (message: Message) => sends(key, generation, message, false).pipe(Effect.andThen(Queue.take(asks)))
+          Effect.suspend(() =>
+            runSubscription(
+              listenTo(key as Key),
+              (message: Message) => sends(key, generation, message, false).pipe(Effect.andThen(Queue.take(asks)))
+            )
           )
         ),
         scopedIn(register, "subscription", () => ({ key })),
@@ -558,7 +562,7 @@ const rehearsing = Effect.fnUntraced(function*<
               const [asks, asked] = Ledger.ask(ledger, generation, call)
               ledger = asked
               return Effect.andThen(
-                listen(found.subscription.key, generation, found.subscription.subscription, fresh),
+                listen(found.subscription.key, generation, fresh),
                 asks ? Queue.offer(fresh, undefined) : Effect.void
               )
             }
@@ -821,7 +825,8 @@ export const rehearse = <
   A = unknown,
   E = never,
   RT = never,
-  Flags = never
+  Flags = never,
+  Key = never
 >(
   program:
     & P
@@ -831,12 +836,13 @@ export const rehearse = <
       message: Message
       command: Commanded<P, Command>
       commandServices: Commanded<P, RC>
-      subscriptionServices: RS
+      subscriptionServices: Listened<P, RS>
       event: Event
       flags: Flags
+      key: Listened<P, Key>
     }>,
   scenario: (
-    rehearsal: Rehearsal<State, Model, Message, Commanded<P, Command>, Event, Commanded<P, RC>, RS>
+    rehearsal: Rehearsal<State, Model, Message, Commanded<P, Command>, Event, Commanded<P, RC>, Listened<P, RS>>
   ) => Effect.Effect<A, E, RT>,
   ...options: [Flags] extends [never] ? [options?: FlagsOption<never>] : [options: FlagsOption<NoInfer<Flags>>]
 ): Effect.Effect<A, E, RT> => rehearsing(program, scenario, ...options)
@@ -846,3 +852,5 @@ export const rehearse = <
 // `unknown` wherever it reads `rehearsal`. So each is read through the program, whose type is always inferred: `never`
 // when it has no `runCommand`, and otherwise inferred as any type, from every piece that names it.
 type Commanded<P, T> = P extends { readonly runCommand: unknown } ? T : never
+// The same for a program without keys, which gives `Key` and `RS` nothing to be inferred from.
+type Listened<P, T> = P extends { readonly listen: unknown } ? T : never

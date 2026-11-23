@@ -4,7 +4,6 @@ import * as Channel from "effect/Channel"
 import * as Data from "effect/Data"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
-import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 
 /** How the time is shown: as an ISO date, or as the seconds since the Unix epoch. */
@@ -51,10 +50,11 @@ export type Model = Readonly<{
 const formatted = (now: DateTime.Utc, format: Format): string =>
   format === "Iso" ? DateTime.formatIso(now) : String(Math.floor(DateTime.toEpochMillis(now) / 1000))
 
-export const clock = program<{ state: State; model: Model; message: Message; event: Event }>().make({
+export const clock = program<{ state: State; model: Model; message: Message; event: Event; key: "ticks" }>().make({
   init: { state: { maybeNow: Opt.none(), format: "Iso" } },
   update,
-  subscriptions: () => HashMap.make(["ticks", ticks]),
+  subscriptions: () => ["ticks"],
+  listen: () => ticks,
   makeModel: (state) => ({
     time: Opt.match(state.maybeNow, { onNone: () => "", onSome: (now) => formatted(now, state.format) }),
     openAbout: Message.AboutClicked(),

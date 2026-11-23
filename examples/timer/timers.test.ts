@@ -92,7 +92,7 @@ describe("timers", () => {
 
   test("only running timers tick, each under its own key", () => {
     const { state } = applyAll(timers.update)([added, to(2, { _tag: "StartClicked" })], timers.init.state)
-    expect(Array.from(HashMap.keys(timers.subscriptions(state)))).toEqual([["Timer", 2, 2, "ticks"]])
+    expect(timers.subscriptions(state)).toEqual([{ _tag: "Timer", id: 2, instance: 2, key: "ticks" }])
   })
   // #endregion update
 

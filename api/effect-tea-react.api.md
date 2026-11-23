@@ -7,7 +7,6 @@
 import type * as Channel from 'effect/Channel';
 import * as Effect from 'effect/Effect';
 import * as Fiber from 'effect/Fiber';
-import type * as HashMap from 'effect/HashMap';
 import type * as Opt from 'effect/Option';
 import { ReactNode } from 'react';
 import type * as Scope from 'effect/Scope';
@@ -68,10 +67,10 @@ type FlagsOption<Flags> = [Flags] extends [never] ? {
 export type Fork<R> = (effect: Effect.Effect<void, never, R>) => Fiber.Fiber<void, unknown>;
 
 // @public
-export const Host: <State extends object, Model, Message, Command = never, RC = never, RS = never, Flags = never>(props: HostProps<State, Model, Message, Command, RC, RS, Flags>) => ReactNode;
+export const Host: <State extends object, Model, Message, Command = never, RC = never, RS = never, Flags = never, Key = never>(props: HostProps<State, Model, Message, Command, RC, RS, Flags, Key>) => ReactNode;
 
 // @public
-export type HostProps<State extends object, Model, Message, Command, RC, RS, Flags> = {
+export type HostProps<State extends object, Model, Message, Command, RC, RS, Flags, Key = never> = {
     readonly program: Program<{
         state: State;
         model: Model;
@@ -80,6 +79,7 @@ export type HostProps<State extends object, Model, Message, Command, RC, RS, Fla
         commandServices: RC;
         subscriptionServices: RS;
         flags: Flags;
+        key: Key;
     }>;
     readonly children: View<Model, Message>;
 } & ([Flags] extends [never] ? {
@@ -108,6 +108,14 @@ type Interpreter<Command, Message, R> = [Command] extends [never] ? object : {
 };
 
 // @public
+type Listen<Key, Message, R = never> = (key: Key) => Subscription<Message, R>;
+
+// @public
+type Listener<Key, Message, R> = [Key] extends [never] ? object : {
+    readonly listen: Listen<Key, Message, R>;
+};
+
+// @public
 type ObjectState<State> = [State] extends [object] ? Fielded<State> : {
     readonly "a program keeps its state in an object": State;
 };
@@ -126,7 +134,7 @@ type Origin = {
 type Primitive = string | number | bigint | boolean | symbol;
 
 // @public
-type Program<T extends ProgramTypes> = Shape<Field<T, "state">, Field<T, "model">, Field<T, "message">, Field<T, "command">, Field<T, "commandServices">, Field<T, "subscriptionServices">, Field<T, "event">, Field<T, "external">, Field<T, "flags">, Field<T, "output">>;
+type Program<T extends ProgramTypes> = Shape<Field<T, "state">, Field<T, "model">, Field<T, "message">, Field<T, "command">, Field<T, "commandServices">, Field<T, "subscriptionServices">, Field<T, "event">, Field<T, "external">, Field<T, "flags">, Field<T, "output">, Field<T, "key">>;
 
 // @public
 type ProgramTypes = Readonly<{
@@ -135,6 +143,7 @@ type ProgramTypes = Readonly<{
     message: unknown;
     command?: unknown;
     commandServices?: unknown;
+    key?: unknown;
     subscriptionServices?: unknown;
     event?: unknown;
     external?: unknown;
@@ -158,12 +167,12 @@ interface RunOptions<State, Message, Command = unknown> {
 }
 
 // @public (undocumented)
-type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never, Output = never> = ObjectState<State> & {
+type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never, Output = never, Key = never> = ObjectState<State> & {
     readonly init: Init<State, Command, Flags>;
     readonly update: Update<State, Message, Command, Event>;
-    readonly subscriptions: Subscriptions<State, Message, RS, unknown>;
+    readonly subscriptions: Subscriptions<State, Key>;
     readonly makeModel: (state: State) => Model;
-} & Interpreter<Command, Message, RC> & ExternalHandler<External, State, Command, Event> & ([Output] extends [never] ? object : {
+} & Interpreter<Command, Message, RC> & Listener<Key, Message, RS> & ExternalHandler<External, State, Command, Event> & ([Output] extends [never] ? object : {
     readonly output: (state: State) => Output;
 });
 
@@ -179,7 +188,7 @@ type Step<State, Command = never, Event = never, Tell = never> = {
 type Subscription<Message, R = never> = Channel.Channel<Message, never, Message, unknown, unknown, unknown, R>;
 
 // @public
-type Subscriptions<State, Message, R = never, K = unknown> = (state: State) => HashMap.HashMap<K, Subscription<Message, R>>;
+type Subscriptions<State, Key = unknown> = (state: State) => ReadonlyArray<Key>;
 
 // @public
 type Transition<State, Command = never, Event = never, Tell = never> = Step<State, Command, Event, Tell> | Rejected;

@@ -7,7 +7,6 @@ import * as DateTime from "effect/DateTime"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
-import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 import * as fc from "fast-check"
 import * as About from "./about.ts"
@@ -77,9 +76,8 @@ const userMessages: ReadonlyArray<Message> = Object.values(
   } satisfies { [Tag in Message["_tag"]]: ReadonlyArray<Extract<Message, { _tag: Tag }>> }
 ).flat()
 
-/** The pages whose subscriptions run, from the keys the library namespaces (`['Clock', 'ticks']`). */
-const listening = (state: State) =>
-  Array.from(HashMap.keys(app.subscriptions(state))).flatMap((key) => Array.isArray(key) ? [key[0]] : [])
+/** The pages whose subscriptions run, from the keys the library puts under each page's name. */
+const listening = (state: State) => app.subscriptions(state).map((key) => key._tag)
 
 describe("pages", () => {
   describe("navigation", () => {

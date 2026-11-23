@@ -19,7 +19,7 @@ import * as Core from "./core.ts"
 import type { DefectSite } from "./defect.ts"
 import { describeByTag } from "./log.ts"
 import { type Deaths, makeDeaths, rootedIn, runSubscription, scopedIn, stopping, withExternalSpan } from "./shell.ts"
-import type { Subscription, Subscriptions } from "./subscription.ts"
+import type { Listen, Subscriptions } from "./subscription.ts"
 import type { Step, Update } from "./update.ts"
 
 /**
@@ -167,9 +167,9 @@ const originOf = <K>(source: Core.Source<K>): Origin =>
   source._tag === "Subscription" ? { _tag: "Subscription", key: source.key } : source
 
 /** What a step leaves to the fiber of effects, in the order it is done. */
-type Job<Message, Command, R, K> = Readonly<{
+type Job<Command, K> = Readonly<{
   gone: ReadonlyArray<readonly [K, Core.Generation]>
-  fresh: ReadonlyArray<readonly [K, Subscription<Message, R>, Core.Generation]>
+  fresh: ReadonlyArray<readonly [K, Core.Generation]>
   commands: ReadonlyArray<Command>
 }>
 
@@ -255,7 +255,8 @@ type Config<State, Message, Command, R, K> =
     init: Step<State, Command>
     update: Update<State, Message, Command>
     runCommand: RunCommand<Command, Message, R>
-    subscriptions: Subscriptions<State, Message, R, K>
+    subscriptions: Subscriptions<State, K>
+    listen: Listen<K, Message, R>
   }>
   & RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>
 
@@ -271,6 +272,7 @@ export const build = <State, Message, Command, R, K>({
   update,
   runCommand: interpret,
   subscriptions,
+  listen,
   onApplied = () => undefined,
   onIgnored = () => undefined
 }: Config<State, Message, Command, R, K>): Engine<State, Message, R> => {
@@ -290,8 +292,8 @@ export const build = <State, Message, Command, R, K>({
   // The jobs not offered yet, in the order of the states, and the queue the fiber of effects takes them from, once
   // `effects` has made it. The thunk only adds to `waiting`: they are offered once, as the outermost `apply` returns.
   // Unbounded, and offered with a call that never waits: a bounded queue would refuse a job when full.
-  let waiting: Array<Job<Message, Command, R, K>> = []
-  let jobs: Queue.Queue<Job<Message, Command, R, K>> | undefined
+  let waiting: Array<Job<Command, K>> = []
+  let jobs: Queue.Queue<Job<Command, K>> | undefined
   // Stopped first as the run ends, and awaited: nothing forks a fiber while the end reads those to interrupt.
   let effects: Fiber.Fiber<unknown, never> | undefined
   const stop = Effect.suspend(() => {
@@ -315,7 +317,7 @@ export const build = <State, Message, Command, R, K>({
   }
   // Decided from the step alone: a step that stops, starts and commands nothing leaves the fiber of effects nothing to
   // do, and costs no job.
-  const queue = (job: Job<Message, Command, R, K>) => {
+  const queue = (job: Job<Command, K>) => {
     if (job.gone.length > 0 || job.fresh.length > 0 || job.commands.length > 0) waiting.push(job)
   }
   // A listener that throws is a defect of the renderer's; the others are still told. The copy keeps a listener added
@@ -418,7 +420,7 @@ export const build = <State, Message, Command, R, K>({
     // The run's context, its scope included: what a command or a subscription acquires goes into a scope of its own,
     // which `scopedIn` puts in front of this one.
     const context = withExternalSpan(yield* Effect.context<Exclude<R, Scope.Scope>>())
-    const queued = yield* Effect.acquireRelease(Queue.unbounded<Job<Message, Command, R, K>>(), Queue.shutdown)
+    const queued = yield* Effect.acquireRelease(Queue.unbounded<Job<Command, K>>(), Queue.shutdown)
     // The fiber of effects and the commands.
     const fibers = yield* FiberSet.make<unknown, never>()
     // Kept by their start, never by their key: `FiberMap` compares its keys, in a fiber's observer too, where nothing
@@ -455,7 +457,7 @@ export const build = <State, Message, Command, R, K>({
       )
     // The stops of a job are awaited together, before any start of that job or a later one: a key that comes back
     // finds its old subscription released. The next message does not wait for them: the effects of the next state do.
-    const perform = Effect.fnUntraced(function*({ gone, fresh, commands }: Job<Message, Command, R, K>) {
+    const perform = Effect.fnUntraced(function*({ gone, fresh, commands }: Job<Command, K>) {
       yield* Effect.forEach(
         gone,
         ([, generation]) =>
@@ -464,9 +466,11 @@ export const build = <State, Message, Command, R, K>({
           ),
         { concurrency: "unbounded", discard: true }
       )
-      for (const [key, subscription, generation] of fresh) {
+      // `listen` runs inside the subscription's fiber, as the interpreter runs inside the command's: a defect in it is
+      // the subscription's.
+      for (const [key, generation] of fresh) {
         const send = sending({ _tag: "Subscription", key, generation })
-        yield* runSubscription(subscription, send).pipe(
+        yield* Effect.suspend(() => runSubscription(listen(key), send)).pipe(
           scopedIn(deaths, "subscription", () => ({ key })),
           Effect.flatMap(send),
           rootedIn("subscription", () => ({ key })),

@@ -108,7 +108,7 @@ describe("list", () => {
         Stopwatch.Watch.Stopped(),
         Stopwatch.Watch.Stopped()
       ])
-      expect(HashMap.size(list.subscriptions(state))).toBe(0)
+      expect(list.subscriptions(state)).toEqual([])
     })
 
     // The list reads from each stopwatch's output whether it runs: "Stop all" is offered, and applies, only then.
@@ -122,7 +122,7 @@ describe("list", () => {
 
     test("only running stopwatches tick, each under its own key", () => {
       const { state } = applyAll(list.update)([added, added, to(2, { _tag: "Started" })], list.init.state)
-      expect(Array.from(HashMap.keys(list.subscriptions(state)))).toEqual([["Stopwatch", 2, 2, "ticks"]])
+      expect(list.subscriptions(state)).toEqual([{ _tag: "Stopwatch", id: 2, instance: 2, key: "ticks" }])
     })
   })
 

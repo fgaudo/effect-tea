@@ -6,7 +6,6 @@ import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
-import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 import { program } from "./compose.ts"
 import { defect, InvariantDefect, ProgramDefect } from "./defect.ts"
@@ -20,7 +19,7 @@ type Loads = Readonly<{ loaded: number; asked: number }>
 type LoadMessage = "Loaded" | "More"
 
 const loader = (log: Array<string>, answer: Deferred.Deferred<void>) => {
-  const program: Program<{ state: Loads; model: Loads; message: LoadMessage; command: "Load" }> = {
+  const program: Program<{ state: Loads; model: Loads; message: LoadMessage; command: "Load"; key: "held" }> = {
     init: { state: { loaded: 0, asked: 1 }, commands: ["Load"] },
     update: (message) => (state) =>
       message === "Loaded"
@@ -34,16 +33,14 @@ const loader = (log: Array<string>, answer: Deferred.Deferred<void>) => {
           Effect.onInterrupt(() => Effect.sync(() => log.push("command interrupted")))
         )
       }),
-    subscriptions: () =>
-      HashMap.make([
-        "held",
-        Channel.unwrap(
-          Effect.acquireRelease(
-            Effect.sync(() => log.push("subscription started")),
-            () => Effect.sync(() => log.push("subscription released"))
-          ).pipe(Effect.as(Channel.never))
-        )
-      ]),
+    subscriptions: () => ["held" as const],
+    listen: () =>
+      Channel.unwrap(
+        Effect.acquireRelease(
+          Effect.sync(() => log.push("subscription started")),
+          () => Effect.sync(() => log.push("subscription released"))
+        ).pipe(Effect.as(Channel.never))
+      ),
     makeModel: (state) => state
   }
   return program
@@ -141,7 +138,7 @@ describe("a program started", () => {
       init: { state: { n: 0 }, commands: ["Boom"] },
       update: () => (state) => ({ state: { n: state.n + 1 } }),
       runCommand: () => Effect.die("boom"),
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: ({ n }) => n
     }
     const { app, run } = start(boom)
@@ -161,7 +158,7 @@ describe("a program started", () => {
         if (message === "Break") throw new Error("broke")
         return { state: { n: state.n + 1 } }
       },
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: ({ n }) => n
     }
     const { app, run } = start(fragile)
@@ -185,7 +182,7 @@ describe("a program started", () => {
         return { state: { n: state.n + 1 }, commands: ["Note"] }
       },
       runCommand: () => Effect.as(Effect.sync(() => log.push("command started")), Opt.none()),
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: ({ n }) => n
     }
     const { app, run } = start(noting)
@@ -217,7 +214,7 @@ describe("a program whose start throws", () => {
     update: () => (state) => ({ state: { n: state.n + 1 } }),
     subscriptions: ({ n }) => {
       if (n === 13) throw new Error("unlucky")
-      return HashMap.empty()
+      return []
     },
     makeModel: ({ n }) => n
   }
@@ -259,7 +256,7 @@ describe("a program whose start throws", () => {
   const leaf: Program<{ state: Leaf; model: null; message: "Flip" }> = {
     init: { state: { on: false } },
     update: () => (state) => ({ state: { on: !state.on } }),
-    subscriptions: () => HashMap.empty(),
+    subscriptions: () => [],
     makeModel: () => null
   }
 
@@ -334,7 +331,7 @@ describe("the end of a run", () => {
         if (message._tag === "Up") return { state: { n: state.n + 1 } }
         throw new Error("update threw")
       },
-      subscriptions: () => HashMap.empty(),
+      subscriptions: () => [],
       makeModel: ({ n }) => n
     }
     let reads = 0

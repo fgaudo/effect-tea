@@ -123,8 +123,8 @@ Each of these is a function of the parent's own state:
   - The parent's `update` may reject the parent's own messages, as any `update` does.
   - The parent's commands need the services that its `runCommand` needs, and the services that its children's commands
     need.
-  - The parent's subscriptions need the services that its own `subscriptions` need, and the services that its
-    children's subscriptions need.
+  - The parent's subscriptions need the services that its own `listen` needs, and the services that its children's
+    subscriptions need.
   - Nothing names these services. They are inferred (see [anatomy of a program](./anatomy-of-a-program.md)).
 - **The parent's own types**, like those of any program, are named in `program` (see
   [anatomy of a program](./anatomy-of-a-program.md)). Each type names what is the parent's own. What the children and
@@ -161,9 +161,11 @@ From these declarations, the library derives the parent's state, messages, comma
   child's `runCommand` runs them.
   - **An answer reaches the instance that asked for it, or is rejected.** An answer for an instance that is no longer
     there is rejected, even when another instance of the same child, or at the same id, is there now.
-- **The parent's subscriptions** are the parent's own subscriptions, plus each child's subscriptions, under the key
-  `[<child>, instance, key]`. For children by id, the key is `[<child>, id, instance, key]`. So a child started again
-  starts its subscriptions again.
+- **The parent's subscriptions** are the parent's own subscriptions, plus each child's subscriptions. A child's keys
+  are wrapped as its commands are, with `key` in place of `command`, and with the instance that listens:
+  `{ _tag: <child>, instance, key }`, and `{ _tag: <child>, id, instance, key }` for children by id. So a child started
+  again starts its subscriptions again. The parent's `listen` makes the subscription of a child's key with the child's
+  own `listen`.
 
 `MessageOf<typeof app>` names the parent's messages. More on each is in [commands](./commands.md),
 [subscriptions](./subscriptions.md) and [children's views](#childrens-views).
@@ -174,8 +176,8 @@ Three more facts hold for children and inputs:
   child's state is the same object. So a renderer can skip redrawing it (see `thunk` in
   [`pages`](../../examples/pages/view.ts)). A number or a string has no identity by which a model could be kept. This
   is why a program's state is always an object.
-- **A test reads a child's subscriptions by key.** `HashMap.has(app.subscriptions(state), ['Clock', 1, 'ticks'])`
-  tells a test whether the Clock of the first start ticks (see [testing](./testing.md)).
+- **A test reads a child's subscriptions by key.** `app.subscriptions(state)` lists
+  `{ _tag: 'Clock', instance: 1, key: 'ticks' }` when the Clock of the first start ticks (see [testing](./testing.md)).
 - **The rule of an input.** A write is stored, in the form that the input declares, wherever the input's place is
   there, and rejected where it is not. Every other step leaves an input as that step wrote it.
 
@@ -199,8 +201,9 @@ compares a function by reference: its child starts again at each such step. This
 
 **What does not compile:**
 
-- a message or a command of the parent's own that can take the name of a child or of an input: by its tag, which a
-  tag of `string` can be, or as any value, which a message of `unknown` can be;
+- a message or a command of the parent's own that can take the name of a child or of an input, and a key of the
+  parent's own that can take the name of a child: by its tag, which a tag of `string` can be, or as any value, which
+  a message of `unknown` can be;
 - an input that takes the name of a child;
 - an input whose optic, alone or by id, points into a state other than the program's;
 - a subscription or a command of the parent's own that sends anything but a message of the parent's own: a message for
@@ -210,7 +213,8 @@ compares a function by reference: its child starts again at each such step. This
 - a child with flags declared without them, or a child without flags declared with them;
 - children by id without `ids` or `flags`;
 - a child with commands and no `runCommand`, those its `external` returns among them (a program written without
-  `Program<…>` can be one).
+  `Program<…>` can be one);
+- a child with keys and no `listen` (a program written without `Program<…>` can be one).
 
 The parent's own subscriptions and commands send only the parent's own messages. To tell a child something, a step of
 the parent's `update`, `external` or `onEvent` lists it in `tell` (see
@@ -255,11 +259,12 @@ export function inDialog(content: Program<{ state: object; model: unknown; messa
 
 - a child with commands and no `runCommand` that reaches the program through a cast. The defect comes when one of its
   commands runs;
+- a child with keys and no `listen` that reaches the program through a cast. The defect comes when one of its
+  subscriptions starts;
 - a child with events and no handler in `onEvent` that reaches the program through a cast. The defect comes when the
   child raises an event;
 - a child whose state is not an object, which only a cast lets into the program. The defect comes when the child's model
-  or its subscriptions are made;
-- a subscription key of the parent's own that is the key of a child's subscription;
+  is made;
 - children by id whose `ids` or `flags` lists one id twice. In an `init` that is a step, `make` throws it, as the module
   that makes the parent loads;
 - the model or the output of a child that is not there: of an id that the parent's state does not list, or of a child
