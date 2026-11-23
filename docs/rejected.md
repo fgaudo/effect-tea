@@ -288,6 +288,16 @@ answer, and saying so in the proposal.
   for no test of a program. Weighed with a second opinion (Fable), the owner deciding. _Reopen if_ a test of a program
   needs what an observer is told; the form would then be the records as data, not callbacks: an `applied` list of
   `Applied`, and `ignored` widened to `Ignored`, which `Rehearsal.ignored` already half is (that widening breaks it).
+- **A caret as the peer range of Effect** (`^4.1.4`), with the daily job as its alarm and, for a premise that falls at
+  a version the range accepts, a patch release that leaves that version out. Reasoned, 23 November 2026, on step 8 of
+  `ROADMAP.md`, advised by [`architecture-review.md`](records/architecture-review.md) and by the session that sorted
+  the premises ([`premises-and-range.md`](records/premises-and-range.md)): no premise holds the state or the order of
+  the messages, so a fall takes at worst the end of a run and its defects, and Effect's own packages name `effect` with
+  a caret. The owner kept the tilde: a version published keeps its range, so such a patch reaches only whoever installs
+  or updates after it, and a version that a later Effect breaks can still be installed, with a deprecation as its one
+  warning. The range had been a caret from 12 to 17 November 2026 (`a7cb3df`, `fa55459`). What the owner took instead,
+  to rest on less of Effect and to learn of a fall sooner, is steps 45 to 47 of `ROADMAP.md`. _Reopen if_ the premises
+  that hold a guarantee are documented by Effect, or the library no longer rests on them.
 
 ## The API
 

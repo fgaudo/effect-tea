@@ -21,6 +21,23 @@ the lead for this upgrade, a red one names a premise to read first.
 The oldest TypeScript the package supports is Effect's (5.9 for Effect 4): the README's "Installation" states it,
 and `tools/smoke/smoke.ts` checks it by default. An upgrade that raises Effect's raises both, with a changelog entry.
 
+## A premise that falls inside the range
+
+The range accepts the later patches of its minor, and a patch may change what Effect does not document. A version of
+the library that is published keeps its range: nothing takes back a pair that it accepts. So when the daily job fails
+at a version the range accepts, and what fails is a premise's test, or a test that `docs/premises.md` names under a
+premise:
+
+1. Release a patch of the library whose range leaves that version out (`>=4.1.4 <4.1.6`), with a `Changed` entry that
+   names it. Whoever installs or updates the library from then on meets the conflict in their package manager.
+2. Tell the owner which versions of the library accept the broken Effect, for `npm deprecate` with a message that
+   names it: whoever has one of them in a lockfile learns of nothing otherwise. The owner runs it, as the owner
+   publishes.
+3. Then the fix, by an upgrade (below) to a version the library holds on, which takes it back into the range.
+
+None of the three keeps the broken pair from being installed: they make it loud. What shortens the time before the
+first is an alarm that comes before Effect's release (`ROADMAP.md`).
+
 ## An API of a newer Effect
 
 When Effect has a direct API for what is needed, but only since a later version (its `@since` tag in

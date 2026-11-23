@@ -1,9 +1,9 @@
 # What each premise holds, and the peer range of Effect
 
 **Status:** sorted on 23 November 2026 by a session of Fable 5.2, for step 8 of [`ROADMAP.md`](../../ROADMAP.md). The
-owner decided the same day on the two finest guarantees, which is done; the range waits for the owner ("Decided"). It
-answers part 6 of [`architecture-review.md`](architecture-review.md). Reasoned, not run: no premise was taken away to
-see what fails. Last read against the code at `476d754`.
+owner decided the same day ("Decided"): the two finest guarantees are described, which is done, and the range stays a
+tilde, against the advice. It answers part 6 of [`architecture-review.md`](architecture-review.md). Reasoned, not run:
+no premise was taken away to see what fails. Last read against the code at `476d754`.
 
 ## In short
 
@@ -178,8 +178,9 @@ is developed with", and an upgrade still raises both. With it:
 
 - The daily job is the alarm, at the newest Effect the range accepts, the search included when that is a new minor.
 - **A premise that falls at a version the range accepts is answered by a patch release that leaves that version out
-  of the range**, and then by one that holds on it, or that raises the minimum. So a known break is never installed
-  in silence, and the library never keeps code for two minors.
+  of the range**, and then by one that holds on it, or that raises the minimum. So whoever installs or updates after
+  it is told of a known break, and the library never keeps code for two minors. This said more at first, that a known
+  break is never installed in silence, which is false of a version already published ("Decided").
 - A green minor is still a lead for an upgrade, for the reading that finds what nobody named. Nothing waits for it.
 
 What it costs: between the day a minor of Effect is published and the release that answers a fall, a consumer on that
@@ -205,6 +206,14 @@ By the owner, on 23 November 2026:
   "Running", "The defects in the cause", and names them where it promises the rest ("Guarantees", "Nothing ends in
   silence", and "Running", "When a defect happens"); `invariants.md`, `premises.md` and the changelog say so. No code,
   test or mutation changed.
-- **The range is not decided.** The owner asked whether the package's peer would stay a tilde under the caret. It
-  would not: `peerDependencies.effect` becomes `^4.1.4`. What stays at 4.1.4 is the Effect of `devDependencies` and of
-  the lockfile, which the library is developed and checked with, and which is the lowest that the range accepts.
+- **The range stays a tilde**, against the advice. The owner's reason: under a caret, a premise that falls between two
+  minors leaves a package that is broken and that people can install all the same. The advice had no answer to it. A
+  version published keeps its range, so the patch that leaves a version of Effect out reaches only whoever installs or
+  updates after it, and `npm deprecate` warns and stops nothing. The caret is in [`rejected.md`](../rejected.md).
+- **The same holds of a patch inside the tilde**, which is why what to do then is written down, in
+  [`upgrade-effect`](../../.agents/skills/upgrade-effect/SKILL.md), "A premise that falls inside the range".
+- **Guards against each premise were asked about, and advised against**: a guard holds only a premise that is named,
+  which a test holds already, and no test fails when a guard goes, as `premises.md` says where it forbids them. The
+  owner took three steps instead, 45 to 47 of [`ROADMAP.md`](../../ROADMAP.md): an alarm before a version of Effect is
+  released, the guarantee that six of the twelve premises keep weighed again with a spike, and requests to Effect to
+  document what is left.

@@ -49,7 +49,7 @@ version, and everything else, features included, the patch version.
   `drive`, `rehearse` and `simulate`: an answer of `runCommand` or a message of `listen` no longer narrows them.
   Upgrade: `{ ...counter, update: (message) => … }` becomes `{ ...counter, update: (message: Message) => … }`.
 - **Breaking**: described, and no longer promised ("Running", "The defects in the cause"): two releases of one scope
-  that die of defects equal by `Equal` are two defects, and a command that interrupts itself while the run stops it is one.
+  that die of defects equal by `Equal` are two defects, and a command that interrupts itself as the run stops it is one.
   Upgrade: nothing to change in a program; a test relies on neither.
 
 - The guide's "Inputs the user types into" is now "Inputs": a value an element reports for the program to keep is an

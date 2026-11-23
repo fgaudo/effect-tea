@@ -33,12 +33,16 @@ of `docs/rejected.md` that breaks the API ([`inert-steps.md`](docs/records/inert
 [`declared-inputs.md`](docs/records/declared-inputs.md), "Weighed again"). Steps 41 to 43 write what the owner took
 of its spike the same day, with the conditions of a second opinion
 ([`value-in-message.md`](docs/records/value-in-message.md), "Decided"): step 41, the rule in the guide, step 42, what
-`messagesSentBy` gives a handler, and step 43, `volume`'s press as its example, are done. A step done leaves its number unused.
+`messagesSentBy` gives a handler, and step 43, `volume`'s press as its example, are done. Steps 45 to 47 come
+from step 8, done on 23 November 2026 ([`premises-and-range.md`](docs/records/premises-and-range.md)): the owner kept
+the tilde, refused guards against each premise, and took what lets the library rest on less of Effect, and learn of a
+fall sooner. A step done leaves its number unused.
 
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. the peer range of Effect, step 8, which decides whether an application on a later Effect can install the library;
+1. what the library rests on of Effect with no promise, steps 45 to 47. The peer range, step 8, stayed a tilde on 23
+   November 2026: a version published keeps its range, so one that a later Effect breaks could still be installed;
 2. the engine, steps 18 to 21, which change nothing that a user writes.
 
 The checks came first: step 44, of the types by mutations, and step 6, of the bridges in a real browser, are done.
@@ -69,48 +73,92 @@ is a lead, "valid, but taken with other types".
 
 ## Next, in order
 
-### 8. What the premises hold, and the peer range of Effect
+### 45. An alarm before a version of Effect is released
 
-**Model and effort.** Fable 5.2, `high`: premises and guarantees are questioned, and a rule of `AGENTS.md` with them.
+**Model and effort.** Opus 5.5, `medium`: a job of the CI, after a reading of how Effect publishes its builds.
 
-**Depends on** no other step. It comes before 1.0, and stays before step 18: the count of the premises was checked by
-reading on 23 November 2026, and steps 18 and 19 change none of the premises that hold a guarantee. Step 19 sorts
-again the premise of `Effect.acquireUseRelease`, the one that names `rehearse` alone, and the clauses of others that
-name what `rehearse` does by itself.
+**Depends on** no other step.
 
-**Why.** [`architecture-review.md`](docs/records/architecture-review.md), "What the premises hold, and the peer range
-of Effect". The peer range of Effect accepts only patches, so an application on a later minor cannot install the
-library: the highest price of the premises, for a library meant to be adopted.
+**Why.** The daily job (`.github/workflows/effect-latest.yml`) tests a version of Effect once it is published. From
+that day until a release of the library, a consumer may have an Effect on which a premise fell: a patch inside the
+range, today. A version of the library that is published keeps its range
+([`premises-and-range.md`](docs/records/premises-and-range.md), "Decided"). An alarm on what Effect has not released
+yet lets the patch that leaves a version out ([`upgrade-effect`](.agents/skills/upgrade-effect/SKILL.md), "A premise
+that falls inside the range") come with that version, or before it.
 
-**Done so far**, on 23 November 2026, in [`premises-and-range.md`](docs/records/premises-and-range.md): each premise
-is sorted by what falls with it, and no premise holds the state or the order of the messages. The owner took the two
-finest guarantees as described, not promised, and the guide, `docs/invariants.md`, `docs/premises.md` and the
-changelog say so.
+**How.** Read first, and assume nothing: on 23 November 2026 npm had the tags `snapshot` (`0.0.0-snapshot-<commit>`)
+and `staging` for `effect`. Which commits get one, and how long before a release, is not known. Where neither is a
+build of what will be released, the job builds Effect from the `main` of
+[`Effect-TS/effect`](https://github.com/Effect-TS/effect). Then a job that runs the typecheck, `test`, `test:node` and
+the search at that build, and opens an issue once for each build that fails, as `next-minor` does for a version. A
+failure names what Effect has not released: the owner decides whether to tell Effect before it is. The owner is asked
+before the workflow is pushed: it runs on the repository's account, and opens issues.
 
-**Left: the range**, which the owner decides: a caret, `^4.1.4`, or the tilde, as the record's "The range" weighs
-them. The owner asked what the caret changes, and was answered in the record's "Decided".
+**Done when** the job has run once, green or red, and `upgrade-effect` and `docs/premises.md` name it beside the daily
+job.
 
-- **The caret.** `peerDependencies.effect` and `devDependencies.effect` are `^4.1.4`, the lockfile stays at 4.1.4, and
-  `@effect/platform-bun` follows. The rule of `AGENTS.md` ("The peer range is the patches of the Effect the library is
-  developed with") says that the range starts at that Effect, and what answers a premise that falls at a version the
-  range accepts: a patch release that leaves that version out, then one that holds on it or raises the minimum. The
-  rule after the list of `docs/premises.md` ("Not documented"), [`upgrade-effect`](.agents/skills/upgrade-effect/SKILL.md),
-  the README's "Installation" and a `Changed` entry of the changelog say the same. In
-  `.github/workflows/effect-latest.yml`, the job `newest` then reaches a later minor by itself: it takes the ten runs
-  of the search and the issue of `next-minor`, once for each version, and `next-minor` goes.
-- **The tilde.** Nothing of the package changes. `docs/rejected.md` gets the caret, with the sort as its evidence, and
-  what would reopen it.
+### 46. The guarantee of an interruption by the program, weighed again by what it rests on
 
-**Done when** the owner has decided the range, and `AGENTS.md`, `docs/premises.md` and `package.json` say what was
-decided.
+**Model and effort.** Fable 5.2, `high`: a guarantee questioned, with a spike.
+
+**Depends on** no other step. It comes before step 18, which writes the roots and the records of the fibers that the
+run forks into the engine's seams, and before step 47, which asks Effect to document only the premises that are left.
+
+**Why.** Six of the twelve premises that hold a guarantee
+([`premises-and-range.md`](docs/records/premises-and-range.md), "The sort") keep one sentence of "Nothing ends in
+silence": "A command or a subscription that the program interrupts is a defect too", with "Only the run, and whoever
+runs it, interrupt them". They tell an interruption by the run from one by the program: the mark that
+`Fiber.interruptAs` carries, what `Effect.interruptible` fails with, a fork that is no child, the order of a scope's
+finalizers, a handler that an interrupted fiber does not run, and the fiber that `Fiber.getCurrent` gives. Every stop
+of every subscription passes there. The owner kept the guarantee on 13 and 19 November 2026 (`docs/rejected.md`, "A
+flag for each fiber, in place of the mark on the run's interruptions" and "Leaving 'Only the run, and whoever runs it,
+interrupt them' to the program"). Two reasons that neither entry answers: the library is since for others to adopt,
+and the sort counts what the guarantee rests on. And the one thing that the flag gave up, a fiber that interrupts
+itself as the run stops it, is described and no longer promised, since 23 November 2026.
+
+**How.** A spike on a branch that is never merged, which counts and does not reason. Two forms: the guarantee left to
+the program ("What is left to you"), with the mark, the roots and the question to the fiber taken out; and the flag of
+13 November again, whose spike also gave false defects in `init`. For each: which premises leave `docs/premises.md`
+(six by reading, not run), which tests and mutations go, what the search finds in a thousand runs, and what a program
+then meets. The entry of 19 November names it: a run that hangs, a `hearNext` that waits for ever, `simulate`
+succeeding. The owner decides with the counts. The skills are
+[`change-engine`](.agents/skills/change-engine/SKILL.md) and
+[`premise-review`](.agents/skills/premise-review/SKILL.md).
+
+**Done when** the owner has decided. Kept: its two entries of `docs/rejected.md` have the counts. Changed: the steps
+that write the change are here, before step 18.
+
+### 47. Ask Effect to document what the library rests on
+
+**Model and effort.** Opus 5.5, `high`: each request states a general rule of Effect, true of its source.
+
+**Depends on** step 46, which decides which premises are left.
+
+**Why.** A behaviour that a stable API documents is no premise (`docs/premises.md`, the rule after the list): Effect
+keeps it within the major, and a change of it is Effect's to announce. It is the one way a premise leaves the list
+with nothing of the library changed, and what would reopen the caret (`docs/rejected.md`, "A caret as the peer range of
+Effect").
+
+**How.** Each premise on Effect, in the order of the sort: those that hold a guarantee, the broad ones first; then
+the where and the order of a defect; then the testing tools'. A request asks for the general rule, never for the
+library's case: when a scope runs its finalizers, not that the engine's end runs before its sets close. Read first
+whether the JSDoc of the newest Effect says it already (`upgrade-effect`, step 4 of "Upgrading Effect"), and whether an
+issue asks it. A request is an issue, or a pull request of the JSDoc alone where the rule is a sentence. The owner is
+asked before each is opened, with its text: it is opened in the owner's name. That of `Stream.callback` is one of
+them: when it closes the scope it gives its callback, once the stream ends, by the end of its queue or interrupted.
+The premise of the scheduler of the tests, and that of the JavaScript engine, are not asked.
+
+**Done when** each premise on Effect names, in `docs/premises.md`, the request that the owner opened for it, or says
+that none was asked and why. A premise leaves the list by an upgrade to the Effect that documents it
+(`upgrade-effect`).
 
 ### 18. The engine's seams, with the run as their only user
 
 **Model and effort.** Opus 5.5, `high`: code that keeps the invariants.
 
-**Depends on** no other step. Since step 38, a job holds the keys alone, and the fiber of a subscription calls
-`listen`, as the fiber of a command calls `runCommand`: what the engine gives that fiber is the key. It changes nothing
-a user writes.
+**Depends on** step 46, which decides what the engine keeps of the mark and of the roots of its fibers. Since step
+38, a job holds the keys alone, and the fiber of a subscription calls `listen`, as the fiber of a command calls
+`runCommand`: what the engine gives that fiber is the key. It changes nothing a user writes.
 
 **Why.** `rehearse` is a second engine, kept in step with the first by hand and by the contract's tests
 ([`architecture-review.md`](docs/records/architecture-review.md), part 5). The owner took, on 21 November 2026, the
@@ -287,10 +335,6 @@ otherwise.
   (`tools/bench/subscriptions.ts`) measures a parent's subscriptions only, and `tools/bench/writes.ts`, run by hand,
   what a write into an input and a dispatch with its model read cost; neither runs in the CI. To be designed:
   what is measured, and against what it fails, since a CI machine's times vary.
-- **Ask Effect to document when `Stream.callback` closes the scope it gives its callback**, in general: once the
-  stream ends, by the end of its queue or interrupted. The premise "`Stream.callback` closes the scope it gives its
-  callback once the stream ends, however it ends" (`docs/premises.md`) rests on what its JSDoc does not say, and leaves
-  the list once Effect documents it. The owner is asked before the issue is opened.
 - **A devtools bridge over `onApplied`** (e.g. Redux DevTools), with time travel through `init: { state }` and
   replay through `applyAll`.
 - **An example of routing**: flags from the URL, `popstate` as a subscription, navigation as a command.
