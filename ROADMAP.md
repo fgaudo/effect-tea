@@ -36,12 +36,13 @@ of its spike the same day, with the conditions of a second opinion
 `messagesSentBy` gives a handler, and step 43, `volume`'s press as its example, are done. Steps 45 to 47 come
 from step 8, done on 23 November 2026 ([`premises-and-range.md`](docs/records/premises-and-range.md)): the owner kept
 the tilde, refused guards against each premise, and took what lets the library rest on less of Effect, and learn of a
-fall sooner. A step done leaves its number unused.
+fall sooner: step 45, the job that tests the build of Effect's `main` before it is released, was done on 24 November
+2026. A step done leaves its number unused.
 
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. what the library rests on of Effect with no promise, steps 45 to 47. The peer range, step 8, stayed a tilde on 23
+1. what the library rests on of Effect with no promise, steps 46 and 47. The peer range, step 8, stayed a tilde on 23
    November 2026: a version published keeps its range, so one that a later Effect breaks could still be installed;
 2. the engine, steps 18 to 21, which change nothing that a user writes.
 
@@ -72,31 +73,6 @@ is a lead, "valid, but taken with other types".
   `high`.
 
 ## Next, in order
-
-### 45. An alarm before a version of Effect is released
-
-**Model and effort.** Opus 5.5, `medium`: a job of the CI, after a reading of how Effect publishes its builds.
-
-**Depends on** no other step.
-
-**Why.** The daily job (`.github/workflows/effect-latest.yml`) tests a version of Effect once it is published. From
-that day until a release of the library, a consumer may have an Effect on which a premise fell: a patch inside the
-range, today. A version of the library that is published keeps its range
-([`premises-and-range.md`](docs/records/premises-and-range.md), "Decided"). An alarm on what Effect has not released
-yet lets the patch that leaves a version out ([`upgrade-effect`](.agents/skills/upgrade-effect/SKILL.md), "A premise
-that falls inside the range") come with that version, or before it.
-
-**How.** Written on 24 November 2026: the job `unreleased` of `.github/workflows/effect-latest.yml`, and the lines
-that name it in `upgrade-effect` and `docs/premises.md`. What was read: neither npm tag is a build of what will be
-released (`snapshot` stopped in July 2024, and `staging` holds a release only for the minutes before
-`npm-promote.yml` of Effect makes it `latest`), but Effect's `snapshot.yml` publishes each push to its `main` to
-pkg.pr.new, so the job installs that build and builds nothing. A build carries the version of the last release, so the
-job names it by its commit. `@effect/platform-bun`'s build takes `effect` as a peer from npm, a second copy, so the
-job overrides it and checks that one copy is installed. Locally, at the build of `32f8fbe1a598`, the typecheck, the
-lint, `test`, `test:node` and one search passed. What is left: the owner's yes to push the workflow, which runs on the
-repository's account and opens issues, then a run by hand (`workflow_dispatch`).
-
-**Done when** the job has run once on the CI, green or red.
 
 ### 46. The guarantee of an interruption by the program, weighed again by what it rests on
 
