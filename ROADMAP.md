@@ -42,13 +42,22 @@ the owner the same day with no spike and the guarantee kept, once Effect 4.1.5 h
 (`docs/rejected.md`, "Leaving 'Only the run, and whoever runs it, interrupt them' to the program"). Step 48 comes from
 a review of the guide's descriptions that the owner asked for on 24 November 2026, once Effect's answer to
 Effect-TS/effect#10877 showed how Effect documents what it does not promise
-([`guide-descriptions.md`](docs/records/guide-descriptions.md)). A step done leaves its number unused.
+([`guide-descriptions.md`](docs/records/guide-descriptions.md)). Steps 49 to 55 come from the owner's question, on 24
+November 2026, of how the testing tools and the run could be aligned by construction
+([`tools-on-the-engine.md`](docs/records/tools-on-the-engine.md)): it answered step 21, `simulate` weighed again,
+which is closed, with `simulate` to run over the engine in step 52. A step done leaves its number unused.
 
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. the engine, step 21, which changes nothing that a user writes (step 19, `rehearse` over the engine, and step 20,
-   the review of the premises of steps 18 and 19, were done on 24 November 2026);
+1. the engine, steps 49 to 55, the testing tools on the engine, which the owner put first on 24 November 2026, and
+   which change nothing that a user writes (step 19, `rehearse` over the engine, and step 20, the review of the
+   premises of steps 18 and 19, were done that day, and step 21 was closed). Among them, by what a test meets today,
+   then by what each rests on: step 49, a wait of `drive` that skips a state, which a test with two waits meets; steps
+   50 and 51, the two parts of `rehearse` still written by hand, small, which step 52 builds on; step 52, `simulate`
+   over the engine, the largest, which closes a finding by its form; step 53, a rehearsal that waits for ever, which
+   only a key whose printing throws meets, written once the code of step 52 is where it stays; step 54, the rule as a
+   check, which needs the three before it; and step 55, their review;
 2. the strength of what the guide says, step 48, added on 24 November 2026 and put after the engine by the owner the
    same day;
 3. what the library rests on of Effect with no promise, step 47, put last by the owner on 24 November 2026. The peer
@@ -72,16 +81,18 @@ is a lead, "valid, but taken with other types".
 
 - **`simulate` reads the state from what `update` returns**: with no `init` to read, the state of
   `{ ...typed, update: (message: Own) => (state: SNone) => … }` is `{ n: number }`, the literal of its steps, and not
-  the `SNone` the program names (`object.spread.annotated.state`). Step 21 weighs `simulate` again.
+  the `SNone` the program names (`object.spread.annotated.state`). Step 21, which was to weigh `simulate` again, was
+  closed on 24 November 2026 with its form alone decided, and step 52 keeps what `simulate` takes: the lead waits for
+  no step. Opus 5.5, `high`, by [`change-api`](.agents/skills/change-api/SKILL.md).
 - **`simulate` loses the defect of `update` when the message's tag throws as it is said**: the run dies of the defect
   of `update`, then of what the tag threw, and `simulate` fails with what the tag threw alone. `diesIn` (`shell.ts`)
   makes its details, `describeByTag(message)`, with no guard, where `recordThrown` (`engine.ts`) records the defect
   first. Its `test.failing` is "simulate fails with both, as the run dies" (`contract.test.ts`, "a message whose tag
   throws as the defect of update is said"). Found by a second opinion of Fable 5.2 on step 19, on 24 November 2026,
-  and run. The fix makes `dying` keep the defect when its details throw, as `recordThrown` does, wherever `diesIn`
-  is used, and gives the order a mutation; or step 21 takes it, if `simulate` goes over the engine. The review of step
-  20 found the same unguarded `describeByTag` in `outcomeOf` and `describeAll` (`rehearse.ts`), where a tag that throws
-  replaces the tool's error with what it threw: a fix by form checks them too. Opus 5.5, `high`.
+  and run. Step 52 fixes it by its form: with `simulate` over the engine, no site of `diesIn` describes a message,
+  and its details are data. The review of step 20 found the same unguarded `describeByTag` in `outcomeOf` and
+  `describeAll` (`rehearse.ts`), where a tag that throws replaces the tool's error with what it threw: step 53 takes
+  them.
 - **`rehearse` waits for ever on a key whose printing throws**: a `hearNext` waits on a key whose `toJSON` and
   `toString` throw, and a `send` takes the key away. The fiber of effects tells the calls that waited (`released` in
   `rehearse.ts`) with an error it builds at once, `stoppedWhileWaiting(key)`, whose `Inspectable.toStringUnknown`
@@ -93,9 +104,7 @@ is a lead, "valid, but taken with other types".
   (`rehearse.test.ts`). Found by the review of step 20, on 24 November 2026, and run. Of the same form, untested: the
   job of a `hearNext` builds `hasEnded(call.key)`, and `openFor` the error of a start `hear` played, in the `done` of
   `Engine.after`; the end's `stoppedWhileWaiting` fails the rehearsal's fiber with the throw. The form is that of the
-  item above it, a value of the program printed outside its functions with no guard, and the two are fixed together:
-  print in the fiber of the call that fails, never in the fiber of effects, and race a call's wait for its job with a
-  death, as `orDead` does. Opus 5.5, `high`.
+  item above it, a value of the program printed outside its functions with no guard: step 53 fixes both by that form.
 - **`drive` skips a state for a wait, when another wait woken by that state sends first**: with a `send` that finds
   its message and a `waitFor` both waiting on a state, the `send` waiting first, `settled` wakes them as the outermost
   `apply` returns; the `send` dispatches at once, and the `waitFor` then reads `latest()`, the model of the state its
@@ -104,8 +113,7 @@ is a lead, "valid, but taken with other types".
   "a wait looks at the model of the state that woke it, though another wait woken by it sent first" (`drive.test.ts`).
   So since f4cce89, before 0.8.0, which wakes the waits once the call returns. Found by the review of step 20, on 24
   November 2026, and run. The form: a wake that reads the latest state, not the one that woke it; of the tools, only
-  `first` in `drive.ts` has it, since `rehearse` waits on no model. A fix could complete `changed` with the models
-  read since the waits were last woken, and have `look` select on those before `latest()`. Opus 5.5, `high`.
+  `first` in `drive.ts` has it, since `rehearse` waits on no model. Step 49 fixes it by that form.
 - **A search that runs, once the run has settled, is not that of the text the field holds**: `bun run interleavings`
   failed on 23 November 2026 in "a search runs for the text of the field while it holds one, and starts once for each
   text it holds", at its second check (no search started twice passes), with `seed: -1335866316` and `path:
@@ -117,21 +125,205 @@ is a lead, "valid, but taken with other types".
 
 ## Next, in order
 
-### 21. `simulate`, weighed again
+### 49. A wait of `drive` reads each model, in order
 
-**Model and effort.** Fable 5.2, `high`: a form to decide, with the owner.
+**Model and effort.** Opus 5.5, `high`: a testing tool, and what a wait reads between the state that wakes it and the
+next.
 
-**Depends on** step 19, done on 24 November 2026.
+**Depends on** no other step. It is first because a test meets it today, with two waits and nothing else, and has
+since before 0.8.0.
 
-**Why.** `simulate` is then the one tool with a thunk of its own: a fold in the caller's fiber over `Core.arrive` and
-`Core.reconcile`, with 14 mutations. The owner keeps it in the API (21 November 2026): three examples and the guide's
-"Testing tools" use it, for a flow where the test decides no order.
+**Why.** The finding of "Open problems": a wait woken by a state reads `latest()`, the model of whatever state is
+current as it runs, so it skips a state when another wait woken by the same one sends first. Its form is a wait that
+reads a variable, where the guide promises a sequence: "reads the model of each one", "looks at the current model and
+at later ones" ("Testing tools", "drive").
 
-**How.** Over the engine it would be the rehearsal's command that waits, run oldest first after each message: a
-rehearsal that hears nothing. It would cost a fiber of effects and a scope for each simulation, where a property may
-run thousands: measured before it is decided ([`one-engine.md`](docs/records/one-engine.md), "`simulate`").
+**How.** `driven` (`drive.ts`) keeps the models that its listener read, in order, where it keeps `latest`. A wait
+keeps the place it has read to, and `look` selects on each model from there before it waits on `changed`: so no wake
+skips a state, whichever wait runs first. The models are kept from the oldest place that a wait still holds, and the
+last one alone while none waits, so that a long scenario keeps no model that nothing will read. A `send` may then find
+its message on a model that the state has moved past, and sends it all the same, as a tap on a model drawn before: the
+guide says so of `drive` ("a model may be past by the time its message arrives"). `model`, and the `cause` of a wait
+that timed out, stay the latest model. Read "one thunk" of `docs/invariants.md` first, for where the waits are woken
+(`settled`) and what a wait takes before it reads.
 
-**Done when** the owner has decided: `simulate` runs over the engine, or an entry of `docs/rejected.md` says why not.
+**Done when** "a wait looks at the model of the state that woke it, though another wait woken by it sent first"
+(`drive.test.ts`) passes unmarked, and is the killer of a mutation that makes a wait read the latest model alone; a
+test holds what is kept of the models; the item leaves "Open problems"; `docs/invariants.md` says how a wait reads;
+the changelog has the fix, by [`release`](.agents/skills/release/SKILL.md); and the checks of
+[`change-engine`](.agents/skills/change-engine/SKILL.md) pass. The guide changes only if a sentence of "drive" is
+found to say otherwise, and the owner is asked first.
+
+### 50. What the fiber of a command and that of a start run, written once
+
+**Model and effort.** Opus 5.5, `high`: the engine and `rehearse`, code that keeps invariants.
+
+**Depends on** no other step.
+
+**Why.** `rehearse` gives the engine what the fiber of a command and that of a start run (`answering`, `listening`),
+and so writes again what the defaults of `Engine.build` do: a scope of its own, whose defects die in `'command'`, or
+in `'subscription'` with the key (`scopedIn`); the answer applied once the scope has closed; `listen` called inside
+the fiber; and the end value sent after the scope. Mutations of `rehearse.ts` and the contract keep the two in step,
+by hand. And the engine is given a `runCommand` and a `listen` that nothing calls.
+
+**How.** `shell.ts` gets the two bodies, beside `runSubscription`: what a command's fiber runs of the effect that
+`runCommand` returned, given what applies its answer; and what a start's fiber runs of the subscription that `listen`
+makes, given what takes each message and what takes the last. The defaults of `Engine.build` call them, and so do
+`answering` and `listening` of `rehearse.ts`, which keep what the test decides: when the fiber goes on (the `run` that
+gives it its effect, the ask of a `hearNext`), the services of that call, and what applies a message. The region that
+nothing interrupts, between a command's answer and its apply, stays the rehearsal's unless the run is shown to need
+it: the owner is asked before the run gets it. The config of `Engine.build` takes `runCommand` and `listen`, or
+`answering` and `listening`, never both, so the two that are given and never called go. Weighed, and not to be
+written: a seam that says only when ([`tools-on-the-engine.md`](docs/records/tools-on-the-engine.md), "Alternatives").
+
+**Done when** `rehearse.ts` calls neither `scopedIn` nor `runSubscription`; `contract.test.ts` and `rehearse.test.ts`
+pass as they are; each mutation of those two sites of `rehearse.ts` is gone, its killers named by the mutation of
+`shell.ts` or of `engine.ts` that takes out the same check, and seen to fail under it; `docs/invariants.md` ("What the
+engine gives a testing tool", "The testing tools behave like the engine") says where the bodies are; and the checks of
+`change-engine` pass, `bun run mutations` among them. A consumer can notice nothing: no changelog entry.
+
+### 51. One handle: `rehearse` reads its models as `drive` does
+
+**Model and effort.** Opus 5.5, `high`: the handle of the run, and a testing tool over it.
+
+**Depends on** no other step. It comes after step 50 only so that the two do not rewrite `rehearse.ts` at once.
+
+**Why.** `rehearse` builds the engine itself, and writes again what `partsOf` (`run.ts`) does for the run and for
+`drive`: `init` called with the flags, its defect in `'init'` (by `diesIn`, where the run has `recordThrown`); the
+first model, made whatever the first keys did; and a model made for each new state, in a listener. A change of the
+handle is then made twice: the review of step 20 found a comment of the contract that one such change had left
+behind.
+
+**How.** `partsOf` passes on what a testing tool gives the engine (`stepped`, `listening`, `answering`, `released`),
+and gives the engine back with the handle, as it does inside `run.ts` today. `rehearse` takes both: its model is
+`app.model()`, made once for each state, read in a listener of the handle as `drive` reads it, and `send` selects on
+it. An `init` that throws leaves no engine, and the rehearsal fails with the register, as it fails today. Where
+`drive` and `rehearse` then read each state the same way, that is one function. Reasoned, not run: check first, with
+the tests of "a defect of makeModel" (`contract.test.ts`), that a defect of `makeModel` read through the handle is one
+`ProgramDefect` in `'render'`, recorded once, the step going on whole, for the first model and for a later one.
+
+**Done when** `rehearse.ts` has no `diesIn`, no `startOf` and no call of `makeModel`; `contract.test.ts` and
+`rehearse.test.ts` pass as they are; "rehearse dies with no site for a defect of init", "rehearse dies with no site
+for a defect of the first model" and "rehearse stops at the keys of the first state, before its first model" are gone
+from the mutations, their killers named by those of the handle that take out the same check; `docs/invariants.md`
+says it; and the checks of `change-engine` pass. A consumer can notice nothing: no changelog entry.
+
+### 52. `simulate` over the engine
+
+**Model and effort.** Opus 5.5, `high`. The form is decided: the step measures it, then writes it.
+
+**Depends on** steps 50 and 51: the half of `rehearse.ts` that `simulate` shares is taken out once it calls nothing of
+the shell's and builds no handle.
+
+**Why.** `simulate` is the one tool left with a thunk of its own: a fold in the caller's fiber over `Core.arrive` and
+`Core.reconcile`, with its own fork of a command, its own stop and its own end, and 14 mutations, kept in step with
+the engine by the contract. A finding of "Open problems" lives there. The owner keeps it in the API (21 November
+2026), and took it over the engine on 24 November 2026, on a measure by a proxy
+([`tools-on-the-engine.md`](docs/records/tools-on-the-engine.md), "The measure").
+
+**How.**
+
+1. The measure first, on the form itself: the flows of the record, with `simulate` as it is and as point 2 makes it.
+   The proxy gave 2.4 to 5.7 times, 62 µs to 0.9 ms a simulation, and the form should cost less. If it costs more,
+   the owner is asked before anything else is written: the other form is `simulate` as a fold with no run, which takes
+   back a promise of the guide (the record, "Alternatives").
+2. The half of `rehearse.ts` that hears nothing goes to a module of its own in `src/testing/`: the engine built with a
+   command that waits, the ledger of the commands, a message applied and what its call waits for, `runFirst`, and the
+   end. `rehearse` is that with a handle, `hear` and `hearNext`. `simulate` is that with no model: the commands of
+   `from` run oldest first until none is pending; then each of the test's messages is applied as a dispatch, failing
+   on a rejection with `unexpectedRejection`, and the commands run again. A start runs nothing, and ends at once.
+   `simulate` takes the pieces it takes today and succeeds with the same `Simulation`, whose lists are read from what
+   the thunk tells (`stepped`).
+3. `Core.arrive`, `Core.reconcile`, `diesIn`, `scopedIn`, `rootedIn` and `Effect.forkChild` leave `simulate.ts`. No
+   site of `diesIn` then describes a message: its details, and those of `scopedIn` and `rootedIn`, become data, a key
+   or nothing, and `dying` calls nothing that can throw.
+4. A simulation that whoever runs it interrupts is read against the guide's "`simulate`, as the run dies" and against
+   "a command whose runCommand is called as whoever runs the tool interrupts it" (`contract.test.ts`): it ends as a
+   rehearsal ends, but fails on no command left, which is the rehearsal's rule.
+
+**Done when** `simulate.ts` makes no step, no scope and no site of a defect itself; "simulate fails with both, as the
+run dies" (`contract.test.ts`) passes unmarked, and `contract.test.ts` and `simulate.test.ts` pass with no other
+change; the 14 mutations of `simulate.ts` are gone, or written again where a check is still the tool's, each killer
+seen to fail; the measure is in the record; `docs/invariants.md`, `docs/premises.md`, the comment of `rootedIn` and
+`AGENTS.md` ("Code", for what `core.ts`, `shell.ts` and `testing/` are) say what is so; the item leaves "Open
+problems", but for its last sentence, which is step 53's; the changelog has the fix of a message whose tag throws, by
+`release`; and the checks of `change-engine` pass.
+
+### 53. In `rehearse`, the fiber of effects tells data, and the call makes the error
+
+**Model and effort.** Opus 5.5, `high`: a fix by its form, in the largest tool.
+
+**Depends on** step 52, so that it is written once, where the code then is. It waits because only a key whose printing
+throws, or a message whose tag does, meets it.
+
+**Why.** Two findings of "Open problems", of one form: a value of the program, or of the test, printed where what it
+throws is not the call's. `released`, the job of a `hearNext` and `openFor` build an `Error` with
+`Inspectable.toStringUnknown(key)` in the fiber of effects, inside a `done` of `Engine.after` that "throws nothing": a
+key whose printing throws ends that fiber, and every call that waits for a job waits for ever. `outcomeOf` and
+`describeAll` call `describeByTag` with no guard, and a tag that throws takes the place of the tool's error.
+
+**How.** A call of `hearNext` is told data: the message it heard, that its start has ended, or that it was stopped.
+`heard` is completed with a value, never with a defect, and the fiber of the call makes the error of it. What the job
+of a `hearNext` decides (`openFor`) is data too, which the call turns into its effect. So nothing that runs in the
+fiber of effects, or at the end, builds a text. One function says how a tool names a value in its own errors, a key or
+a message by its tags. What it does when the value throws as it is named is decided with the owner before it is
+written: the run's rule for a defect is that neither is lost (`recordThrown`), and here the first of the two is a
+failure of the test, no defect of the program. The other half of the item, a call's wait for its job raced with a
+death, has no case once nothing throws in the fiber of effects: `docs/invariants.md` says so, or the race is written
+if a case is found.
+
+**Done when** "a hearNext stopped as its key goes away fails the test, and the rehearsal ends" (`rehearse.test.ts`)
+passes unmarked; a test of the same form holds each other place that the item names (the job of a `hearNext` on a
+start that has ended, a start that `hear` played, the end), and one holds a tag that throws in `outcomeOf` and in
+`describeAll`; each check has its mutation; both items leave "Open problems"; the changelog has the fix, by `release`;
+and the checks of `change-engine` pass.
+
+### 54. The rule as a boundary: a tool decides when, never what
+
+**Model and effort.** Opus 5.5, `high`: a rule of `AGENTS.md` and of `docs/invariants.md` said again, each sentence
+checked against the code, and the owner asked for its words.
+
+**Depends on** steps 50 to 52.
+
+**Why.** After them, each tool that plays a program runs it on the engine, and "when the engine or one tool changes,
+keep the others in step" (`AGENTS.md`, `docs/invariants.md`, `change-engine`) is a duty with nothing left to keep.
+What keeps the tools aligned is then a structure, which a check can hold where a duty could not.
+
+**How.**
+
+1. A check, in `bun run lint`, that fails when a module of `src/testing/`, its tests aside, uses `Core.arrive`,
+   `Core.reconcile`, `diesIn`, `scopedIn`, `rootedIn` or `runSubscription`. The library's modules are imported as
+   namespaces, so `no-restricted-imports` cannot name a member: either `src/testing/` is forbidden `core.ts` and
+   `shell.ts` whole, and takes what it may use from `engine.ts` and `run.ts`, or a script reads the uses, as
+   `tools/comments.ts` reads the doc comments. The smaller of the two, seen to fail on a use put back by hand.
+2. The rule said as it then is, in `AGENTS.md` ("Invariants"), in `docs/invariants.md` ("The testing tools behave like
+   the engine") and in `change-engine` (point 4 of "Before the change"): a tool that plays a program runs it on the
+   engine; it decides when a command runs, when a subscription's message is heard and what fails the test; and it
+   makes no step, no scope and no site of a defect. The owner is asked for the words before they are written.
+3. The contract, `contract.test.ts`, read case by case: a case that gives a tool what the engine alone now does is
+   held by the engine's tests and mutations. The owner decides which stay as alarms and which go, and none goes that
+   a mutation still names as its killer.
+4. The guide's "Testing tools" says "as the run does" of each tool already: it changes only if a sentence is found
+   that the code no longer keeps, and then as `AGENTS.md` says.
+
+**Done when** the check runs in `bun run lint`, and was seen to fail on a use put back by hand; the three documents
+say the rule in the owner's words; the owner has decided the cases of the contract; and `bun run comments`,
+`bun run lint`, `bun run test`, `bun run test:node` and `bun run mutations` pass.
+
+### 55. A review of the premises of steps 49 to 54
+
+**Model and effort.** Opus 5.5, `high`, by a reviewer that wrote none of them
+([`premise-review`](.agents/skills/premise-review/SKILL.md)).
+
+**Depends on** steps 49 to 54, and comes before the release that follows them.
+
+**Why.** Each of them moves a check from a tool to the engine, or takes one away with the code it guarded: a premise
+may leave with it, and no test fail. From step 52 on, `simulate` rests on the engine's premises, and no longer on
+those of a fork of its own.
+
+**Done when** the review has read the engine and the testing tools over the changes of those steps; each finding is
+an item of "Open problems" with its `test.failing`; each place where the code or a document says otherwise is set
+right; and `docs/premises.md` says what `simulate` rests on.
 
 ### 48. The guide's descriptions, weighed by what they hold
 
