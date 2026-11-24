@@ -46,112 +46,19 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 57 and 58 make the project cheaper to keep, and steps 59 and 60 then make its API right, when a name changes the
-fewest documents. The steps of the engine, 53 to 55, come after them, since the review of the API may reshape the
+Step 58 makes the project cheaper to keep, and steps 59 and 60 then make its API right, when a name changes the fewest
+documents. The steps of the engine, 53 to 55, come after them, since the review of the API may reshape the
 testing tools they change, and step 55 comes before the release that follows them all.
-
-### 57. The points left for the owner, decided
-
-**Model and effort.** Opus 5.5, `high`: each point is a decision of the engine, of a bridge or of the guide, with its
-change.
-
-**Depends on** no other step. A point that adds to the guide adds a promise under the "Rules" of a page, or an
-explanation that binds nothing, as the guide's "What a page promises" and `AGENTS.md` ("The guide promises only its
-rules") say since step 56; a behaviour left out of both is unspecified, and says so in a few words where a reader
-would ask.
-
-**Why.** Each point below was left for the owner, as the rules of the time asked. "Deciding" leaves it to the agent.
-
-**How.** For each point, read its precedents (`docs/rejected.md`, the record it names), decide by the values of
-"Deciding", and do what the decision asks, by the skill that the change needs (`change-engine`, `change-api`,
-`add-example`). A point decided against a change leaves with its line in the commit, or goes to `docs/rejected.md`
-where it weighed a design. Points of one form are decided together.
-
-- **Two points of the review of the premises of step 20** (24 November 2026), whose reports are the bodies of
-  `b6793dc` on `claude/premise-review-engine-20-badc4f` and `2c0862a` on `claude/premise-review-testing-20-d42368`:
-  1. **A `listen` that gives the same channel for every start**, as `listen: () => ticks` in the examples and the
-     guide's "Subscriptions", runs that one value again at each start of its key, and at once for two keys. The
-     library rests on it, and the JSDoc of `Channel` in Effect 4.1.5 does not state it: it is the premise that 04eb7b4
-     dropped, of a channel that `Channel.map` makes, now of the user's value. A test of Effect alone passes (one value
-     of `Channel.fromIterator(…).pipe(Channel.concatWith(…))` drained twice in turn and twice at once through
-     `Channel.toPull`). To decide: list it in `docs/premises.md` with that test, or ask a `listen` to make its channel
-     anew, which changes the guide's form.
-  2. **A new state whose `subscriptions` dies is the current one, and no listener is told of it**: `applyOne` sets
-     `current`, then returns on the defect before `tell` (`engine.ts`). The guide promises, under the "Rules" of
-     "Running", that "`subscribe(listener)` tells `listener` of each new state, once it is the current one", and so do
-     the doc comments of `App.subscribe` (`run.ts`) and `Engine.subscribe` (`engine.ts`); "after a defect" there says
-     only that `onApplied` "may have heard a step whose model is never drawn". A renderer that draws in its listener
-     shows the state before, while `model()` gives the new one. To decide: tell the listeners of that state too, leave
-     `current` as it was, as a defect of `onApplied` does, or state the exception in `running.md` and the two doc
-     comments.
-- **Two points of the table of step 27** ([`given-functions.md`](docs/records/given-functions.md), "For the owner"):
-  1. **An `Equal` and a `Hash` that keep Effect's laws.** The library compares keys, ids, flags and values written by
-     `Equal`. No sentence says that an `Equal` a program writes must keep Effect's laws, and nothing checks one: a
-     wrong one leaves the reconciling of keys and children, the cache of `forwardTo` and the skip of an equal write
-     not defined. To decide: whether "Guarantees", "What is left to you" names it, beside "Flags and keys made of
-     values that `Equal` compares by value", and the skill with it.
-  2. **Whether a tool keeps the table**, as `bun run comments` keeps the `guarantees`: each function that a user gives,
-     read from the declarations, would name a row. Advised against by the step: a new function of the API goes
-     through `change-api`, which could ask for its row in a line. To decide: a tool, a line of `change-api`, or
-     neither.
-- **Three findings of the reader's check of 20 November 2026**, the last stage of
-  [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md): two readers that had not seen the code built a
-  greenhouse panel, one from the package and one from the guide alone. Each finding changes what a page promises, or
-  adds a page, so none was written. A fourth, that `renderInto` replaced `root`, is done: it draws into `root`.
-  1. **What the bridge to snabbdom draws of a vnode's data.** It has snabbdom's modules of props, of style and of
-     listeners: a `class`, an `attrs` or a `dataset` is dropped in silence, and `disabled` is a prop. The examples'
-     views say it in comments. Since step 56, "Writing a bridge", "The package's bridges", promises that it draws a
-     node's props, style and listeners, and says that whether it draws the rest is unspecified, as the doc comment of
-     `drawInto` does. To decide: whether it promises that it draws no `class`, `attrs` or `dataset`, or draws them.
-  2. **A subscription from an API of callbacks, with its stop**, is shown only by `examples/volume/main.ts`. Both
-     readers needed one: the guide starts every subscription from a `Stream` that a service already has. To decide:
-     whether "Subscriptions" gets a section for it, and for a feed that never ends, which promises nothing new of the
-     library.
-  3. **What is drawn outside the root**, as `document.title`. No page says how. The readers drew the title two ways, a
-     hook of the view's top vnode and a renderer over `App` beside `renderInto`. To decide: whether the guide says
-     which way is the library's. Its other half, an event of the whole page, as a key pressed anywhere, is decided:
-     both readers took it as a subscription to a service, and "Inputs", "What an element reports", says that it is one.
-
-  Smaller, and not written either: "Running" could name `Fiber.interrupt` where it says to interrupt the fiber, and
-  "Testing tools" could say that `hearNext` asks for the services of every subscription, not of the one it hears.
-- **Left open by the stages of the dispatch that applies its message at once**, each in its record under its stage: a
-  snabbdom renderer that was interrupted while its run goes on, whose handlers still apply and draw; and a test of the
-  timer's buttons, in the bridges' tests, that no mutation tried makes fail. To weigh, each.
-- **The skill's "Rules that nothing checks" does not say that the state is ahead of its effects**, found by the session
-  that rewrote the guide for the swap, and by point 5 of a review of the design of 20 November 2026, by the session
-  that verified the stages of `synchronous-dispatch.md`. A step's commands start in a later job, and the end drops the
-  jobs not taken, so a test that ends once the state shows something may end before the commands of that step start.
-  The guide promises it ("Guarantees", "What you can rely on", and "Testing tools", "drive"), and so does the doc
-  comment of `drive`. A coding agent that writes a test with `drive` meets it first. The reader's check bears on it: an
-  examiner that had not seen the library wrote 27 acceptance tests from the requirement, and seven of them took the
-  world to be in step with the page; and the reader of the guide alone met the rule as a test that timed out. To
-  decide: whether the skill names it.
-- **The whole pure step runs in the event that sends the message**, point 6 of the same review: `update`, `onApplied`,
-  `subscriptions` with the lookup of every key, the listeners and, with React, `makeModel`. It was measured for a
-  counter with no key alone. The guide promises that a model is made only when it is read, and says that React may
-  read one for each state, when React chooses. To do before the release: measure a step with many keys and a model
-  that costs (the benchmark of "Any time"). Reasoned from the code, and not run.
-- **A listener of the `App` that sends on every notice never returns, and no page says so.** Found on 21 November
-  2026, from the memory guard of the tests: two helpers of `compose.test.ts` did it under a mutation, and filled the
-  memory of the machine. A message that a listener sends is applied right after the step that told it ("View"), in the
-  loop of the outermost call and not in a call inside it. So a listener that answers each new state with a message
-  that makes another loops with no stack to overflow, and no defect says so. Only code that subscribes to the `App`
-  itself reaches it: a bridge, or a helper of a test. The bridge to snabbdom draws in a microtask, where a hook that
-  sends on every draw would loop by microtasks, outside the run: reasoned, not run. To decide: whether "Guarantees"
-  says it under "Nothing is bounded, and nothing times out", of which it is a case, and whether "Writing a bridge"
-  names it. Weighed by the session that found it, and advised against: a bound on the messages applied in one call,
-  with a defect past it. It adds an export, and a number that nothing gives, for the few who write a listener, where
-  the guide says that nothing is bounded.
-
-**Done when** each point is decided and done, each decision is a line of the commit, and the checks that `AGENTS.md`
-asks for what changed pass.
 
 ### 58. The documents within their budgets, and less bookkeeping
 
 **Model and effort.** Opus 5.5, `high`: what the documents that rule say is kept, in fewer words, and the tools that
 check them may change.
 
-**Depends on** step 57, which changes what the guide, `AGENTS.md` and the skills say.
+**Depends on** no other step. Step 57, done, changed what the guide, the skill and `docs/rejected.md` say, with its
+decisions in [`left-points.md`](docs/records/left-points.md): the three entries it added to `docs/rejected.md` are
+short already, and the item it added under "Nothing is bounded, and nothing times out" restates a rule of "What you can
+rely on" by a link.
 
 **Why.** About 245,000 words of Markdown, 134,000 of them in the records, stand beside 7,264 lines of source, and a
 change rereads each place that states its rule (value 7 of "Deciding").
@@ -306,12 +213,14 @@ say the rule; each case of the contract is kept or removed, with its line in the
 **Model and effort.** Opus 5.5, `high`, by a reviewer that wrote none of the changes
 ([`premise-review`](.agents/skills/premise-review/SKILL.md)).
 
-**Depends on** steps 57 to 60, 53 and 54, and comes before the release that follows them.
+**Depends on** steps 58 to 60, 53 and 54, and comes before the release that follows them.
 
 **Why.** Steps 49 to 54 move a check from a tool to the engine, or take one away with the code it guarded: a premise
 may leave with it, and no test fail. From step 52 on, `simulate` rests on the engine's premises, and no longer on
 those of a fork of its own. Step 56 made the guide promise only its rules, and steps 57 to 60 change what it
-promises, and how the API is written.
+promises, and how the API is written. Step 57 made a state current only once its keys are, a defect of `subscriptions`
+leaving the state as it was (`applyOne` in `engine.ts`, and `stepped`, which the stage of the tools reads), and added
+the premise of one channel run again, the first on the user's own value.
 
 **Done when** the review has read the engine and the testing tools over the changes since the last review; each
 finding is an item of "Open problems" with its `test.failing`; each place where the code or a document says otherwise
@@ -388,8 +297,9 @@ declined; and those of what a `Queue` and the runtime keep, whose fall would be 
 
 **Still to ask**, since step 46 kept the guarantee that rests on them: what `Effect.interruptible` fails with, entered
 by an interrupted fiber where it is uninterruptible (the second half of its premise; the first half holds only what
-the guide leaves unspecified), and the fiber that code run on the stack of its forker sees as its own. Each is read
-first against what the first answer declined, as the others were.
+the guide leaves unspecified), and the fiber that code run on the stack of its forker sees as its own. Since step 57,
+also that one channel runs afresh each time it is run, which the guide's `listen: () => ticks` rests on: a rule of
+`Channel` in general, not of `listen`. Each is read first against what the first answer declined, as the others were.
 
 **Done when** each premise on Effect names, in `docs/premises.md`, the request that the owner opened for it, or says
 that none was asked and why. A premise leaves the list by an upgrade to the Effect that documents it
@@ -421,6 +331,8 @@ otherwise.
   (`tools/bench/subscriptions.ts`) measures a parent's subscriptions only, and `tools/bench/writes.ts`, run by hand,
   what a write into an input and a dispatch with its model read cost; neither runs in the CI. A CI machine's times
   vary, so what fails is a count that does not: how often `makeModel` runs, how many keys one message reconciles.
+  What one step with many keys costs was measured by hand in step 57 ([`left-points.md`](docs/records/left-points.md),
+  the last item): a start for its cases.
 - **A devtools bridge over `onApplied`** (e.g. Redux DevTools), with time travel through `init: { state }` and
   replay through `applyAll`.
 - **An example of routing**: flags from the URL, `popstate` as a subscription, navigation as a command.

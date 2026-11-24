@@ -259,6 +259,8 @@ program's own value, as it is, and may hold data.
 ### What the run still does after a defect
 
 - From the defect on, the run applies no message: the run does not call `update`.
+- A defect of `update`, `onApplied`, `onIgnored` or `subscriptions` stops its step before the new state is the current
+  one. The state stays as it was, and no listener is told of the new one.
 - A message that the run does not apply starts no command and no subscription, and `onApplied` does not hear the
   message. So a session recorded with `onApplied` ends, at the latest, with the step that was under way at the defect.
 - That is a bound on what the run still does: at most the step under way. The bound is nothing `update` can count on.

@@ -197,9 +197,8 @@ snabbdom's props module sets the props a view gives, and never removes one. So a
 a prop it changes in every state: `disabled: false` where a button is enabled, as the view of
 [`form`](../../examples/form/view-snabbdom.ts) does. Without it, a button once disabled stays disabled.
 
-Give an element's id and classes in its selector, as `h('span.weight')`, and the rest as props, a style or
-listeners. The bridge to snabbdom draws a node's props, its style and its event listeners. Whether it draws the
-`class`, the `attrs` or the `dataset` of a node is unspecified.
+The bridge to snabbdom draws a node's `class`, `props`, `attrs`, `dataset`, `style` and `on`, with snabbdom's modules
+of each. Unlike a prop, a class, an attribute or a data entry that a later vnode leaves out is removed.
 
 [`counter`](../../examples/counter) and [`form`](../../examples/form) draw their programs with the bridge to snabbdom
 and with the bridge to React, one under the other. Both bridges draw the `App` of one program, which React draws with
@@ -223,7 +222,8 @@ stops it:
   `'render'`, and the bridge draws nothing more. A draw that comes once the run has ended throws it out of its
   microtask, as an error of the page.
 - Once it is stopped, a draw that it asked for before is not made. The run does not stop it: whoever started the
-  program does, or does not.
+  program does, or does not. Whether a handler of what it drew still sends its message once it is stopped is
+  unspecified.
 
 **`Host` and `Draw`, the bridge to React,** give React the `App`: `Host` starts the program and its run, and `Draw`
 draws a program that the application starts itself, as `<Draw app={app} view={view} />`. They read the model with

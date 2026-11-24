@@ -347,16 +347,17 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
     defect recorded outside a step, by a fiber or by a model read, completes `died` at once.
   - From the first defect recorded on, the run applies no message, until its end stops it: it calls no `update`,
     checked in the thunk that calls it (`arrive` in `core.ts`, called by `applyOne`, which `rehearse` runs too). It is
-    the only check. A defect in the thunk stops the step there: one of `update` changes nothing, one of `onApplied`
-    leaves the state as it was, one of `subscriptions` leaves the new state with the old keys and offers no job, and
-    one of a listener is in `'render'`, the other listeners still told: "a defect of update in a dispatch is recorded in
-    update, never thrown to the caller, and no update follows", and the same of the others, "defects are recorded in
-    the order they happened, and a listener that throws leaves the others told" (`engine.test.ts`). A step whose
-    `update` was called before goes on whole until the end stops the fiber of effects: its job may still start its
-    commands and the subscriptions of its new keys ("a step applied before the first defect goes on whole: its commands
-    still start", `engine.test.ts`). Never add a check in the middle of a job: it would leave a state whose commands
-    never started, which `onApplied` heard of, and protect nothing a correct program needs, since a command that died
-    is, to `update`, one that has not answered yet (`docs/records/single-owner.md`).
+    the only check. A defect in the thunk stops the step there: one of `update` changes nothing, one of `onApplied` or
+    of `subscriptions` leaves the state as it was, with its keys, tells no listener and offers no job, so that a state
+    is current only once its keys are, and one of a listener is in `'render'`, the other listeners still told: "a
+    defect of update in a dispatch is recorded in update, never thrown to the caller, leaves the state as it was, and no
+    update follows", and the same of the others, "defects are recorded in the order they happened, and a listener that
+    throws leaves the others told" (`engine.test.ts`). A step whose `update` was called before goes on whole until the
+    end stops the fiber of effects: its job may still start its commands and the subscriptions of its new keys ("a step
+    applied before the first defect goes on whole: its commands still start", `engine.test.ts`). Never add a check in
+    the middle of a job: it would leave a state whose commands never started, which `onApplied` heard of, and protect
+    nothing a correct program needs, since a command that died is, to `update`, one that has not answered yet
+    (`docs/records/single-owner.md`).
   - What an effect of the program does once started is its own, until the end of the run interrupts it: no check can
     come between two of its operations. So is what a renderer reads: `model()` checks no register, `makeModel` is pure,
     and a model read after the first defect is still made.

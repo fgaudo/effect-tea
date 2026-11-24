@@ -38,3 +38,4 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`premises-and-range.md`](premises-and-range.md)         | done, the tilde kept: what each premise holds            |
 | [`guide-descriptions.md`](guide-descriptions.md)         | sorted, to be decided: what the descriptions hold        |
 | [`tools-on-the-engine.md`](tools-on-the-engine.md)       | taken, to be done: tools and run aligned by construction |
+| [`left-points.md`](left-points.md)                       | done: the points left for the owner, decided             |

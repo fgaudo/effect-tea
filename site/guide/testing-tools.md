@@ -174,8 +174,8 @@ rehearse(
 - **A subscription's message is one the test says was heard** (`hear`), or the next one the subscription itself sends
   (`hearNext`). Either message is heard only while the subscription's key is in the state.
 - **`rehearse` asks for the services of what the test runs.**
-  - `run` and `runAll` ask for the services of the commands.
-  - `hearNext` asks for the services of the subscriptions.
+  - `run` and `runAll` ask for the services of all the commands, whichever they run.
+  - `hearNext` asks for the services of all the subscriptions, whichever key it hears.
   - A test that runs neither provides none.
 - What fails the test is under [what fails the test](#what-fails-the-test).
 

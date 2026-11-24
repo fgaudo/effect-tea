@@ -458,15 +458,20 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
           commands
         }
         if (Opt.isNone(attempt("onApplied", () => onApplied(applied)))) return
-        current = next
-        stepped({ _tag: "Arrived", arrived: step })
-        if (!changed) return queue({ gone: [], fresh: [], commands })
+        // The very same state is the current one already, and has the keys it had.
+        if (!changed) {
+          stepped({ _tag: "Arrived", arrived: step })
+          return queue({ gone: [], fresh: [], commands })
+        }
         // The keys are the program's, and so are their `Equal` and `Hash`: compared here, in `subscriptions`, and
         // nowhere else in the run.
         const reconciled = attempt("subscriptions", () => Core.reconcile(active, subscriptions(next.state)))
+        // A state whose keys are a defect is never current, as one that `onApplied` died of: no listener is told of it.
         if (Opt.isNone(reconciled)) return
         const { gone, fresh, active: keys } = reconciled.value
+        current = next
         active = keys
+        stepped({ _tag: "Arrived", arrived: step })
         stepped({ _tag: "Listened", gone, fresh })
         queue({ gone, fresh, commands })
         return tell()

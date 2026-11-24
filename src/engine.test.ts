@@ -882,15 +882,15 @@ describe("defects in the thunk", () => {
       }
     })
 
-  // The step stops at the defect: a state that `onApplied` did not hear is not made, and no listener is told of a state
-  // that was not made. A defect of `subscriptions` leaves the new state with the old keys.
+  // The step stops at the defect: a state that `onApplied` did not hear, or whose keys `subscriptions` died of, is never
+  // current, and no listener is told of it.
   for (const where of ["update", "onApplied", "onIgnored", "subscriptions"] as const) {
-    test(`a defect of ${where} in a dispatch is recorded in ${where}, never thrown to the caller, and no update follows`, async () => {
+    test(`a defect of ${where} in a dispatch is recorded in ${where}, never thrown to the caller, leaves the state as it was, and no update follows`, async () => {
       const outcome = await Effect.runPromise(Effect.gen(function*() {
         const calls: Array<string> = []
         const exit = yield* Effect.exit(Effect.scoped(Effect.gen(function*() {
           const engine = yield* exploding(where, calls)
-          if (where !== "subscriptions") engine.subscribe(() => void calls.push("told"))
+          engine.subscribe(() => void calls.push("told"))
           const thrown = throws(() => engine.dispatch("Boom"))
           engine.dispatch("Fine")
           calls.push(`thrown ${thrown}`, `n ${engine.current().state.n}`)
@@ -898,7 +898,7 @@ describe("defects in the thunk", () => {
         })))
         return { calls, sites: sites(exit) }
       }))
-      expect(outcome.calls).toEqual(["update Boom", "thrown false", `n ${where === "subscriptions" ? 1 : 0}`])
+      expect(outcome.calls).toEqual(["update Boom", "thrown false", "n 0"])
       expect(outcome.sites).toEqual([`${where}: ${where} threw`])
     })
   }
@@ -1411,10 +1411,11 @@ describe("what a testing tool is given", () => {
     ])
   })
 
-  // `onApplied` throws on `Work`, and `onIgnored` on `Refuse`, which each engine is sent first.
+  // `onApplied` throws on `Work`, `onIgnored` on `Refuse`, and `subscriptions` on a state that has worked, which each
+  // engine is sent first.
   test("stepped hears nothing of a step a defect stopped, and Dead once the engine has died", async () => {
     const outcome = await Effect.runPromise(
-      Effect.forEach(["onApplied", "onIgnored"] as const, (where) =>
+      Effect.forEach(["onApplied", "onIgnored", "subscriptions"] as const, (where) =>
         Effect.gen(function*() {
           const told: Array<string> = []
           const exit = yield* Effect.exit(Effect.scoped(Effect.gen(function*() {
@@ -1422,10 +1423,13 @@ describe("what a testing tool is given", () => {
               init: { state: { keys: [], works: 0 } },
               runCommand: () => Effect.succeedNone,
               update,
-              subscriptions: ({ keys }) => keys,
+              subscriptions: ({ keys, works }) => {
+                if (where === "subscriptions" && works > 0) throw "subscriptions threw"
+                return keys
+              },
               listen: () => Channel.never,
               onApplied: ({ message }) => {
-                if (message._tag === "Work") throw "onApplied threw"
+                if (message._tag === "Work" && where === "onApplied") throw "onApplied threw"
                 return undefined
               },
               onIgnored: () => {
@@ -1433,7 +1437,7 @@ describe("what a testing tool is given", () => {
               },
               stepped: (step) => void told.push(step._tag === "Arrived" ? step.arrived._tag : step._tag)
             })
-            engine.dispatch(where === "onApplied" ? { _tag: "Work" } : { _tag: "Refuse" })
+            engine.dispatch(where === "onIgnored" ? { _tag: "Refuse" } : { _tag: "Work" })
             engine.dispatch({ _tag: "Same" })
             yield* engine.died
           })))
@@ -1442,7 +1446,8 @@ describe("what a testing tool is given", () => {
     )
     expect(outcome).toEqual([
       { told: ["Listened", "Dead"], sites: ["onApplied: onApplied threw"] },
-      { told: ["Listened", "Dead"], sites: ["onIgnored: onIgnored threw"] }
+      { told: ["Listened", "Dead"], sites: ["onIgnored: onIgnored threw"] },
+      { told: ["Listened", "Dead"], sites: ["subscriptions: subscriptions threw"] }
     ])
   })
 

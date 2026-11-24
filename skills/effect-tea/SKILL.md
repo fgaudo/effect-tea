@@ -31,11 +31,11 @@ versions. The paths below are relative to this file.
   global `window` when it loads. So a test file that imports snabbdom before a DOM is registered must first load a file
   that sets `window` to `undefined`, as [`bridges/snabbdom-preload.ts`](../../bridges/snabbdom-preload.ts) does. This
   holds for a file that registers a DOM in `beforeAll` too: its imports run first. The preload's comment says how.
-  snabbdom never removes a prop: a view gives a prop it changes in every state, `disabled: false` too. Give an id and
-  classes in the selector: whether the bridge to snabbdom draws the `class`, the `attrs` or the `dataset` of a node is
-  unspecified. The guide, "Writing a bridge", "The package's bridges". The examples import their own files with the
-  `.ts` extension. If your `tsconfig.json` does not set `allowImportingTsExtensions`, write `.js` instead under
-  `moduleResolution` `nodenext`, or remove the extension under `bundler`.
+  snabbdom never removes a prop: a view gives a prop it changes in every state, `disabled: false` too. The bridge to
+  snabbdom draws a node's `class`, `props`, `attrs`, `dataset`, `style` and `on`, and removes a class, an attribute or
+  a data entry that a later vnode leaves out. The guide, "Writing a bridge", "The package's bridges". The examples
+  import their own files with the `.ts` extension. If your `tsconfig.json` does not set `allowImportingTsExtensions`,
+  write `.js` instead under `moduleResolution` `nodenext`, or remove the extension under `bundler`.
 - **The API**: the declarations in `dist/`, with their doc comments. A line `@see The guide, "<page>", "<section>".`
   names a page of the guide by its title, and a heading or a bold title in that page.
 
@@ -144,8 +144,15 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   program", "A value that the user writes belongs to the program whose rules use it".
 - **Flags and keys are compared with `Equal`.** Other flags, or another key, start a child again, as another
   instance. A function made anew in `flags` or `key` is other flags each time, since `Equal` compares a function by
-  reference: give plain values. The guide, "Composition", "Ids are compared by value". The guide, "Guarantees", "What
-  is left to you".
+  reference: give plain values. An `Equal` and a `Hash` written by hand, for a key, an id, flags or a stored value,
+  keep Effect's rules: equal values have the same `Hash`, and both give the same answer each time. Otherwise what the
+  library does with that value is undefined. The guide, "Composition", "Ids are compared by value". The guide,
+  "Guarantees", "What is left to you".
+- **The state is ahead of its effects.** A step's commands, and the subscriptions it starts, start after the step,
+  so when a message has been applied they may not have started yet. A test that checks what a command does waits for
+  a model that shows its answer, never only for the model that shows the step: with `drive`, a scenario that ends
+  there may end the run before the commands start. The guide, "Guarantees", "One message at a time, in the order they
+  were sent". The guide, "Testing tools", "drive".
 - **What must stay private is in a service, not in a key.** A key is shown whole, in a defect of its subscription and
   to `onApplied` and `onIgnored`. The guide, "Guarantees", "What must stay private is in a service, not in a key". The
   guide, "Running", "A key is shown whole".

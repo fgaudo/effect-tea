@@ -179,16 +179,14 @@ export const make = <State, Message, Command, Event, RC, Key, S = never, W = nev
   // before it is done does not tell.
   const undelivered = new Set<Deferred.Deferred<void>>()
   // What the engine's thunk tells of the message `apply` gives it, read by `apply` as `send` returns: what it came to,
-  // and whether the keys of its new state were reconciled. Written only by `stepped`, on this stack.
+  // told only once its state is current, with its keys. Written only by `stepped`, on this stack.
   let arrived: Opt.Option<Core.Arrived<State, Command, Event>> = Opt.none()
-  let listened = false
   const stepped = (step: Engine.Stepped<State, Command, Key, Event>) => {
     if (step._tag === "Arrived") {
       arrived = Opt.some(step.arrived)
       if (step.arrived._tag === "Applied") events = [...events, ...step.arrived.events]
       return
     }
-    listened = true
     stage.ledger = listenedTo(stage.ledger, step.gone, step.fresh)
   }
   const afterJobs = (then: () => void = () => undefined): Deferred.Deferred<void> => {
@@ -212,7 +210,6 @@ export const make = <State, Message, Command, Event, RC, Key, S = never, W = nev
     told: () => void = () => undefined
   ): Outcome => {
     arrived = Opt.none()
-    listened = false
     engine.send(message, source)
     if (Opt.isNone(arrived)) return deadOutcome
     const step = arrived.value
@@ -229,7 +226,6 @@ export const make = <State, Message, Command, Event, RC, Key, S = never, W = nev
         ignored = [...ignored, message]
         break
       case "Applied":
-        if (step.changed && !listened) return deadOutcome
         accepted(message, step)
     }
     return { _tag: "Queued", done: Opt.some(afterJobs(told)) }

@@ -161,6 +161,18 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   a release the channel wraps around itself runs as its pull fails, before the failure leaves it", of
   `Channel.onExit`, `Channel.acquireUseRelease` and `Channel.ensuring`, which fails with a channel that adds its release
   to the scope it is given. Asked of Effect in Effect-TS/effect#10877, as a case of the scope a stream runs in.
+- **One channel runs afresh each time it is run, one run after another or several at once**, which is how a `listen`
+  that gives the same value for every start, as `listen: () => ticks` in the guide's "Subscriptions" and in the
+  examples, starts that subscription anew each time its key comes back, and once for each of two keys at once. The
+  library's code makes no channel of its own that runs twice: the form the guide gives the user's code rests on it.
+  Taken on 24 November 2026, in step 57, over asking every `listen` to make its channel anew: a rule that nothing could
+  check, where a value run again is how Effect's descriptions are written. The JSDoc of `Channel` says what a channel
+  reads, writes and ends with, not whether one value can run more than once; that each run makes its state anew is
+  read in the source (a channel keeps a transform, which `toTransform` calls at each run, as `fromTransform` makes
+  it). Its tests: "one channel runs afresh each time it is run, one run after another or several at once", of
+  `Channel.fromIterator` with `Channel.concatWith`, of `Channel.forever`, and of `Stream.toChannel` under
+  `Channel.unwrap`, which fail with an iterator made once for all the runs. Not asked of Effect yet (`ROADMAP.md`,
+  step 47).
 - **A collection reclaims what nobody holds, and a `FinalizationRegistry` then calls back for each target it
   reclaimed**, which is how the cache of `forwardTo` forgets the entries of ids nobody shows any more
   (`forgotten` in `dispatch.ts`), so that they do not pile up for as long as the run lasts (`invariants.md`, "A

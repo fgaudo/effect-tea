@@ -22,7 +22,17 @@
  */
 import type { App, Dispatch } from "@fgaudo/effect-tea"
 import * as Opt from "effect/Option"
-import { eventListenersModule, init, type Module, propsModule, styleModule, type VNode } from "snabbdom"
+import {
+  attributesModule,
+  classModule,
+  datasetModule,
+  eventListenersModule,
+  init,
+  type Module,
+  propsModule,
+  styleModule,
+  type VNode
+} from "snabbdom"
 
 /**
  * A view of a program, drawn by this renderer: a pure function of its model, which sends its messages through
@@ -80,8 +90,8 @@ const giveBack = (controlled: Map<Element, Controlled>): void => {
  * - After each draw, an element drawn with a `value` or a `checked` in `props` is given it back where the element
  *   differs from it: what the user typed and the program rejected is taken back.
  * - snabbdom never removes a prop. So a view gives a prop it changes in every state: `disabled: false` too.
- * - A view gives an id and classes in its selector, as `h('span.weight')`. It draws a node's props, its style and its
- *   event listeners: whether it draws a node's `class`, `attrs` and `dataset` is unspecified.
+ * - It draws a node's `class`, `props`, `attrs`, `dataset`, `style` and `on`, with snabbdom's modules of each. Unlike
+ *   a prop, a class, an attribute or a data entry that a later vnode leaves out is removed.
  * - What a view or `makeModel` throws as it is drawn ends the run, the first draw's too: it draws nothing more, and
  *   the program's `run` dies of it, in `'render'`.
  *
@@ -106,7 +116,15 @@ export const drawInto = <Model, Message>(root: Element, { app, view }: {
 }): () => void => {
   // #region draw
   const controlled = new Map<Element, Controlled>()
-  const patch = init([propsModule, styleModule, eventListenersModule, controlledModule(controlled)])
+  const patch = init([
+    classModule,
+    propsModule,
+    attributesModule,
+    datasetModule,
+    styleModule,
+    eventListenersModule,
+    controlledModule(controlled)
+  ])
   // A child of the bridge's own, which the first patch replaces with the view's top element: so `root` keeps its
   // place, with a parent or without one, and holds what the view draws and nothing else.
   const place = root.ownerDocument.createElement("div")

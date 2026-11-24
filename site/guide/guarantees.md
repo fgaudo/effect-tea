@@ -99,6 +99,10 @@ each bridge's to promise (see [view](./view.md#rules)).
     effects may lag behind the state without a bound: a step's commands may start after messages that came after it,
     and a subscription may start, and be stopped, for a key that is already gone.
   - It starts every command, however many run.
+  - A message that a listener of the `App` sends is applied right after the step that told it (see
+    [what you can rely on](#what-you-can-rely-on)). So a listener that answers each new state with a message that
+    makes another never lets the call return, and no defect says so. Only code that subscribes to the `App` itself, as
+    a bridge does, loops so within one call.
   - It waits for each release for as long as it takes. One that never ends holds up the program, and no defect says
     so.
   - As it ends, the run waits for every release before it dies (see [how the run ends](./running.md#how-the-run-ends)).
@@ -149,6 +153,11 @@ each bridge's to promise (see [view](./view.md#rules)).
   A function made anew in `flags` or `key` is other flags each time, since `Equal` compares a function by reference.
   Nothing says so: the child starts again, and loses its state (see
   [composition](./composition.md#children-by-id)).
+  - An `Equal` and a `Hash` that your program writes, for a key, an id, flags or a value that an input stores, keep
+    Effect's rules: values that `Equal` finds equal have the same `Hash`, and both give the same answer each time.
+    Nothing checks them. Where one breaks them, what the library does with that value is undefined: which
+    subscriptions and children it keeps, which dispatch it gives a child, and whether a write leaves the very same
+    state.
 - **What must stay private is in a service, not in a key.** A key is shown whole: in a defect of its subscription, and
   in the `origin` that `onApplied` and `onIgnored` hear (see [running](./running.md#when-a-defect-happens)).
 - **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and states are never mutated.** So are

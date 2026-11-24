@@ -1775,7 +1775,7 @@ export const mutations: ReadonlyArray<Mutation> = [
       ["src/engine.test.ts", "from the first defect on, no update is called, on a subscription's message either"],
       [
         "src/engine.test.ts",
-        "a defect of update in a dispatch is recorded in update, never thrown to the caller, and no update follows"
+        "a defect of update in a dispatch is recorded in update, never thrown to the caller, leaves the state as it was, and no update follows"
       ],
       ["src/testing/rehearse.test.ts", "send calls no update once a command run in its select has died"]
     ]
@@ -1832,11 +1832,11 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/engine.test.ts",
-        "a defect of update in a dispatch is recorded in update, never thrown to the caller, and no update follows"
+        "a defect of update in a dispatch is recorded in update, never thrown to the caller, leaves the state as it was, and no update follows"
       ],
       [
         "src/engine.test.ts",
-        "a defect of onApplied in a dispatch is recorded in onApplied, never thrown to the caller, and no update follows"
+        "a defect of onApplied in a dispatch is recorded in onApplied, never thrown to the caller, leaves the state as it was, and no update follows"
       ],
       [
         "src/run.test.ts",
@@ -1853,7 +1853,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/engine.test.ts",
-        "a defect of update in a dispatch is recorded in update, never thrown to the caller, and no update follows"
+        "a defect of update in a dispatch is recorded in update, never thrown to the caller, leaves the state as it was, and no update follows"
       ],
       [
         "src/run.test.ts",
@@ -1870,7 +1870,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/engine.test.ts",
-        "a defect of update in a dispatch is recorded in update, never thrown to the caller, and no update follows"
+        "a defect of update in a dispatch is recorded in update, never thrown to the caller, leaves the state as it was, and no update follows"
       ],
       ["src/engine.test.ts", "a defect of update in a subscription's message is in update, never in the subscription"],
       ["src/run.test.ts", "defect in update dies in update, on its message, with the InvariantDefect as its cause"],
@@ -1907,7 +1907,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/engine.test.ts",
-        "a defect of onApplied in a dispatch is recorded in onApplied, never thrown to the caller, and no update follows"
+        "a defect of onApplied in a dispatch is recorded in onApplied, never thrown to the caller, leaves the state as it was, and no update follows"
       ]
     ]
   },
@@ -1920,7 +1920,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/engine.test.ts",
-        "a defect of onIgnored in a dispatch is recorded in onIgnored, never thrown to the caller, and no update follows"
+        "a defect of onIgnored in a dispatch is recorded in onIgnored, never thrown to the caller, leaves the state as it was, and no update follows"
       ]
     ]
   },
@@ -1946,7 +1946,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/engine.test.ts",
-        "a defect of subscriptions in a dispatch is recorded in subscriptions, never thrown to the caller, and no update follows"
+        "a defect of subscriptions in a dispatch is recorded in subscriptions, never thrown to the caller, leaves the state as it was, and no update follows"
       ],
       ["src/run.test.ts", "a key whose Equal throws dies in subscriptions"],
       [
@@ -1999,7 +1999,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/engine.test.ts",
-        "a defect of onApplied in a dispatch is recorded in onApplied, never thrown to the caller, and no update follows"
+        "a defect of onApplied in a dispatch is recorded in onApplied, never thrown to the caller, leaves the state as it was, and no update follows"
       ]
     ]
   },
@@ -2012,7 +2012,20 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/engine.test.ts",
-        "a defect of subscriptions in a dispatch is recorded in subscriptions, never thrown to the caller, and no update follows"
+        "a defect of subscriptions in a dispatch is recorded in subscriptions, never thrown to the caller, leaves the state as it was, and no update follows"
+      ]
+    ]
+  },
+  {
+    name: "a state whose keys are a defect is current",
+    guarantees: ["One message at a time, in the order they were sent"],
+    file: "src/engine.ts",
+    from: "        if (Opt.isNone(reconciled)) return\n",
+    to: "        if (Opt.isNone(reconciled)) {\n          current = next\n          return\n        }\n",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "a defect of subscriptions in a dispatch is recorded in subscriptions, never thrown to the caller, leaves the state as it was, and no update follows"
       ]
     ]
   },
@@ -2048,8 +2061,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "the very same state tells the listeners",
     guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
-    from: "        if (!changed) return queue({ gone: [], fresh: [], commands })\n",
-    to: "",
+    from: "        if (!changed) {\n",
+    to: "        if (!changed && false) {\n",
     killedBy: [
       [
         "src/engine.test.ts",
@@ -2550,10 +2563,22 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the thunk tells what a message came to before onApplied has heard it",
     file: "src/engine.ts",
-    from: "        if (Opt.isNone(attempt(\"onApplied\", () => onApplied(applied)))) return\n        current = next\n"
-      + "        stepped({ _tag: \"Arrived\", arrived: step })\n",
+    from: "        if (Opt.isNone(attempt(\"onApplied\", () => onApplied(applied)))) return\n",
     to: "        stepped({ _tag: \"Arrived\", arrived: step })\n"
-      + "        if (Opt.isNone(attempt(\"onApplied\", () => onApplied(applied)))) return\n        current = next\n",
+      + "        if (Opt.isNone(attempt(\"onApplied\", () => onApplied(applied)))) return\n",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "stepped hears what each message came to once it stands, and the keys of each new state once they are active, the first state's as the engine is made"
+      ],
+      ["src/engine.test.ts", "stepped hears nothing of a step a defect stopped, and Dead once the engine has died"]
+    ]
+  },
+  {
+    name: "the thunk tells a message applied before its state is current",
+    file: "src/engine.ts",
+    from: "        const reconciled = attempt(",
+    to: "        stepped({ _tag: \"Arrived\", arrived: step })\n        const reconciled = attempt(",
     killedBy: [
       [
         "src/engine.test.ts",
@@ -2574,8 +2599,10 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the thunk tells the keys of a state before they are the active ones",
     file: "src/engine.ts",
-    from: "        active = keys\n        stepped({ _tag: \"Listened\", gone, fresh })\n",
-    to: "        stepped({ _tag: \"Listened\", gone, fresh })\n        active = keys\n",
+    from:
+      "        active = keys\n        stepped({ _tag: \"Arrived\", arrived: step })\n        stepped({ _tag: \"Listened\", gone, fresh })\n",
+    to:
+      "        stepped({ _tag: \"Arrived\", arrived: step })\n        stepped({ _tag: \"Listened\", gone, fresh })\n        active = keys\n",
     killedBy: [
       [
         "src/engine.test.ts",

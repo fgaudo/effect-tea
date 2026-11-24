@@ -1,8 +1,8 @@
 // The bridge to snabbdom, in a DOM (happy-dom), whose draws a test awaits: the tests every bridge passes
 // (`bridge.test_suite.ts`), drawn with controlled elements, and those of snabbdom alone: when it draws, a listener
 // called while a patch runs, what a draw after a handler throws, an element it no longer gives its prop
-// back to, and the buttons and the fields of the examples whose props snabbdom's props module never removes; then the
-// premises of the bridge on snabbdom (`docs/premises.md`).
+// back to, what it draws of a node, and the buttons and the fields of the examples whose props snabbdom's props module
+// never removes; then the premises of the bridge on snabbdom (`docs/premises.md`).
 import {
   type Dispatch,
   forwardTo,
@@ -574,6 +574,42 @@ describe("an element the bridge no longer gives its value back to", () => {
   })
 })
 
+// The counter's output is marked while the count is odd, and named by its count while it is above zero.
+describe("what the bridge to snabbdom draws of a node", () => {
+  const markedView: View<CounterModel, CounterMessage> = (model, dispatch) =>
+    h("main", [
+      h(
+        "output",
+        model.count % 2 === 1
+          ? { class: { odd: true }, attrs: { "aria-label": "odd" }, dataset: { count: String(model.count) } }
+          : model.count > 0
+          ? { dataset: { count: String(model.count) } }
+          : {},
+        String(model.count)
+      ),
+      h("button", { on: { click: () => dispatch(model.increment) } }, "+")
+    ])
+  const marks = () => {
+    const output = element("output")
+    return [output.className, output.getAttribute("aria-label"), (output as HTMLElement).dataset["count"]]
+  }
+
+  test("its class, attrs and dataset, and removes those a later vnode leaves out", async () => {
+    mount(drawInto, markedView, start(counter))
+    settle()
+    const drawnMarks = [marks()]
+    button("+").click()
+    await drawn()
+    drawnMarks.push(marks())
+    button("+").click()
+    await drawn()
+    drawnMarks.push(marks())
+    expect(drawnMarks).toEqual([["", null, undefined], ["odd", "odd", "1"], ["", null, "2"]])
+  })
+})
+
+// It holds the example's view, not the bridge: it fails once the "−" loses its key, and no mutation of the library
+// names it.
 describe("the buttons of the timer", () => {
   const quiet = Bell.of({ ring: Effect.void })
   const oneMinute = { ...timer, init: { state: { minutes: 1, phase: Phase.Setting() } } }

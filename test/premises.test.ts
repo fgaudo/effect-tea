@@ -331,6 +331,64 @@ describe("while a release the channel wraps around itself runs as its pull fails
   })
 })
 
+describe("one channel runs afresh each time it is run, one run after another or several at once", () => {
+  // Of the forms the guide and the examples give `listen` as one value for every start.
+  const channels = {
+    "Channel.fromIterator, then Channel.concatWith": Channel.fromIterator(() => [1, 2][Symbol.iterator]()).pipe(
+      Channel.concatWith(() => Channel.succeed(3))
+    ),
+    "Channel.forever over Channel.fromIterator": Channel.forever(Channel.fromIterator(() => [1, 2][Symbol.iterator]())),
+    "Channel.unwrap of Stream.toChannel, Channel.flattenArray, Channel.map and Channel.mapDone": Channel.unwrap(
+      Effect.sync(() =>
+        Stream.toChannel(Stream.fromIterable([1, 2, 3])).pipe(
+          Channel.flattenArray,
+          Channel.map((n) => n * 10),
+          Channel.mapDone(() => 0)
+        )
+      )
+    )
+  }
+  const expected = {
+    "Channel.fromIterator, then Channel.concatWith": ["1", "2", "3", "end"],
+    "Channel.forever over Channel.fromIterator": ["1", "2", "1", "2"],
+    "Channel.unwrap of Stream.toChannel, Channel.flattenArray, Channel.map and Channel.mapDone": [
+      "10",
+      "20",
+      "30",
+      "end 0"
+    ]
+  }
+  // Four pulls of a run, each a value, or the end, once the channel has ended.
+  const pulled = (pull: Effect.Effect<number, Cause.Done<unknown>>) =>
+    pull.pipe(
+      Effect.map(String),
+      Pull.catchDone((end) => Effect.succeed(end === undefined ? "end" : `end ${JSON.stringify(end)}`))
+    )
+  const runs = (channel: Channel.Channel<number, never, unknown>, together: boolean) =>
+    Effect.runPromise(Effect.scoped(Effect.gen(function*() {
+      const first = yield* Channel.toPull(channel)
+      const firstPulls: Array<string> = []
+      const secondPulls: Array<string> = []
+      if (!together) {
+        for (let n = 0; n < 4; n++) firstPulls.push(yield* pulled(first))
+      }
+      const second = yield* Channel.toPull(channel)
+      for (let n = 0; n < 4; n++) {
+        if (together) firstPulls.push(yield* pulled(first))
+        secondPulls.push(yield* pulled(second))
+      }
+      return [firstPulls, secondPulls]
+    })))
+
+  test.each(Object.keys(channels) as Array<keyof typeof channels>)("%s, one run after another", async (form) => {
+    expect(await runs(channels[form], false)).toEqual([expected[form], expected[form]])
+  })
+
+  test.each(Object.keys(channels) as Array<keyof typeof channels>)("%s, two runs at once", async (form) => {
+    expect(await runs(channels[form], true)).toEqual([expected[form], expected[form]])
+  })
+})
+
 describe("a collection reclaims what nobody holds, and a FinalizationRegistry then calls back for each target it reclaimed", () => {
   // Made by a function of its own, whose frame is gone when collecting: JavaScriptCore scans the stack conservatively,
   // and may take a stale slot there for a live reference, so a few targets are allowed to stay.

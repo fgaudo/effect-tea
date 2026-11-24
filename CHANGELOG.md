@@ -18,6 +18,8 @@ version, and everything else, features included, the patch version.
 - `messagesSentBy(view, model, reports)`, in `@fgaudo/effect-tea/snabbdom/testing`: `reports` gives what a handler
   reads of its element and its event, as `scrollTop` or `clientX`, and each event's `currentTarget` is its element too
   ("Writing a bridge").
+- The bridge to snabbdom draws a node's `class`, `attrs` and `dataset` too, with snabbdom's modules of each, where it
+  dropped them ("Writing a bridge", "The package's bridges").
 
 ### Changed
 
@@ -62,8 +64,8 @@ version, and everything else, features included, the patch version.
   which function refuses a program that does not compile, in which fiber a command runs, when the effects of a step
   start, on which stack and in what order beyond its rules the run ends, when children are compared, when `listen` is
   called, when React reads the model, whether the commands of `init` start once or twice under StrictMode, what a
-  renderer that draws after the next event leaves in the state, and whether the bridge to snabbdom draws a node's
-  `class`, `attrs` and `dataset`.
+  renderer that draws after the next event leaves in the state, and whether a handler that the bridge to snabbdom drew
+  still sends its message once the bridge is stopped.
 - The guide's "Inputs the user types into" is now "Inputs": a value an element reports for the program to keep is an
   input too, and a fact with a value, as a scroll's end, is one message that the view fills ("What an element reports").
 - A value that the user writes belongs to the program whose rules use it: the parent's where it changes or locks it,
@@ -87,6 +89,9 @@ version, and everything else, features included, the patch version.
   needs no service that a program's type names for commands or subscriptions it does not have.
 - `rehearse` and `simulate` fail, as the run dies, with the defect of `update` and what a message's tag throws while it
   is said, where `simulate` kept the second alone; `rehearse` also when the scenario catches the call that sent it.
+- A state whose `subscriptions` dies is no longer the current one: `model()` gives the state before, as a defect of
+  `onApplied` leaves it, where it gave a state that no listener was told of ("Running", "What the run still does after
+  a defect").
 - A wait of `drive` looks at the model of each state in order, where it could skip the model of the state that woke
   it when another wait woken by that state sent first.
 

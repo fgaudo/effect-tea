@@ -16,6 +16,19 @@ answer, and saying so in the proposal.
 
 ## The engine and its guarantees
 
+- **A bound on the messages applied in one call, with a defect past it**, for a listener of the `App` that answers
+  each new state with a message that makes another, and so never lets the call return. Reasoned, 21 November 2026, by
+  the session that found such a loop in two helpers of `compose.test.ts` under a mutation, and decided against in step
+  57 on 24 November 2026. It adds an export, and a number that nothing gives, for the few who subscribe to the `App`
+  themselves, where the guide says that nothing is bounded: "Guarantees", "What is left to you", names the case
+  instead. _Reopen if_ a user's bridge or application meets the loop and cannot tell why, or a check is found that
+  needs no number.
+- **Asking every `listen` to make its channel anew**, so that the library would rest on no channel run twice.
+  Reasoned, 24 November 2026, in step 57. It is a rule that nothing could check, where a value run again is how
+  Effect's descriptions are written and how the guide gives `listen: () => ticks`: the premise is listed instead, with
+  its test ([`premises.md`](premises.md), "One channel runs afresh each time it is run"). _Reopen if_ that test fails
+  on an Effect the range accepts, or Effect says that a channel may run once.
+
 - **Leaving "Only the run, and whoever runs it, interrupt them" to the program.** Reasoned, 19 November 2026, against
   the fix that keeps it (an unmarked interruption is a defect in a fiber the run forks, at its scope and at its root).
   Moving the sentence to "What is left to you" would have kept a way to end in silence (a run that hangs, a `hearNext`
@@ -1014,6 +1027,14 @@ comments are written by hand since, in plain English, and name the sections of t
   answer.
 
 ## The checks
+
+- **A tool that keeps the table of the functions a user gives** ([`given-functions.md`](records/given-functions.md)),
+  read from the declarations, each function to name a row, as `bun run comments` keeps the `guarantees` of the
+  mutations; or a line of `change-api` that asks for the row. Reasoned, 22 November 2026 in step 27, and decided
+  against in step 57 on 24 November 2026: the record is history, and what the table found is now in the guide, where a
+  misuse that nothing refuses is listed under "What is left to you" (`AGENTS.md`, "A rule of the guide is added
+  last"). A tool, or a line, would keep a record true as a rule, at a cost of each change of the API. _Reopen if_ a
+  function of the API is found that no page of the guide says how it is called.
 
 - **A framework of mutation testing (StrykerJS) in place of `tools/mutations/`.** Reasoned, 15 November 2026, when the
   run grew slow. Stryker generates mutants by syntactic operators and scores how many the suite kills; the list in
