@@ -47,7 +47,8 @@ Effect-TS/effect#10877 showed how Effect documents what it does not promise
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. the engine, steps 19 to 21, which change nothing that a user writes;
+1. the engine, steps 20 and 21, which change nothing that a user writes (step 19, `rehearse` over the engine, was
+   done on 24 November 2026);
 2. the strength of what the guide says, step 48, added on 24 November 2026 and put after the engine by the owner the
    same day;
 3. what the library rests on of Effect with no promise, step 47, put last by the owner on 24 November 2026. The peer
@@ -72,6 +73,13 @@ is a lead, "valid, but taken with other types".
 - **`simulate` reads the state from what `update` returns**: with no `init` to read, the state of
   `{ ...typed, update: (message: Own) => (state: SNone) => … }` is `{ n: number }`, the literal of its steps, and not
   the `SNone` the program names (`object.spread.annotated.state`). Step 21 weighs `simulate` again.
+- **`simulate` loses the defect of `update` when the message's tag throws as it is said**: the run dies of the defect
+  of `update`, then of what the tag threw, and `simulate` fails with what the tag threw alone. `diesIn` (`shell.ts`)
+  makes its details, `describeByTag(message)`, with no guard, where `recordThrown` (`engine.ts`) records the defect
+  first. Its `test.failing` is "simulate fails with both, as the run dies" (`contract.test.ts`, "a message whose tag
+  throws as the defect of update is said"). Found by a second opinion of Fable 5.2 on step 19, on 24 November 2026,
+  and run. The fix makes `dying` keep the defect when its details throw, as `recordThrown` does, wherever `diesIn`
+  is used, and gives the order a mutation; or step 21 takes it, if `simulate` goes over the engine. Opus 5.5, `high`.
 - **A search that runs, once the run has settled, is not that of the text the field holds**: `bun run interleavings`
   failed on 23 November 2026 in "a search runs for the text of the field while it holds one, and starts once for each
   text it holds", at its second check (no search started twice passes), with `seed: -1335866316` and `path:
@@ -82,45 +90,20 @@ is a lead, "valid, but taken with other types".
 
 ## Next, in order
 
-### 19. `rehearse` over the engine
-
-**Model and effort.** Opus 5.5, `high`.
-
-**Depends on** step 18, done on 24 November 2026: the engine has the seams of "What the engine gets", in
-[`one-engine.md`](docs/records/one-engine.md), as `docs/invariants.md` describes them ("What the engine gives a testing
-tool"), each with a test of `engine.test.ts` and a mutation. They differ from the spike's in four points a rehearsal
-reads. `Engine` takes the type of the keys (`Engine<State, Message, R, K>`), so `send` and `active` need no cast.
-`stepped` tells neither the message nor its source, which the caller of `send` has; it tells an ignored message once
-`onIgnored` has heard it, and an applied one once `onApplied` has, and the keys of the first state too, with no
-`Arrived` before them. `listening` is given the key, its start and a `send`, not a subscription: since step 38 the
-fiber calls `listen`, so a rehearsal's `listening` calls it inside the effect it returns, where a defect of it is the
-subscription's. And `after` is a job of its own, not a field of a step's job. The engine does not hand a command's
-fiber to `answering`: how a `run` finds it is still decided here. The two mutations of `rehearse.ts` that tell a call
-once a release has ended rest on where the engine tells `released`, which "a job tells its stops released before they
-have ended" now holds. What a message costs did not move with the seams (`tools/bench/writes.ts`: the dispatch of a long
-text, 564 ns before and 495 ns after).
-
-**How.** As spiked on `de4b7d7`, written anew. The rehearsal builds the engine with a command that waits until a
-`run` takes it and a subscription that waits until a `hearNext` asks it. The ledger holds what the spike keeps in
-mutable maps: the fiber of each pending command, the asks of each start, and whether a start has begun, each as a
-transition with a test of `ledger.test.ts`. `loop.ts` and its test go. The record lists the mutations of `rehearse.ts`
-by what becomes of them: 22 go, and their killers are named by the engine's mutations where they add one; 21, and the
-6 of `loop.ts`, are written on the new text. Three things the record read and did not run are decided here, and asked
-of the owner where one changes what a test sees: what the engine's `catch` records with no site, which a rehearsal's
-register drops; how a `run` finds the fiber of its command; and the report of the engine's end, which the rehearsal
-does not use. `docs/invariants.md` ("The testing tools behave like the engine", "one thunk") and `docs/premises.md`
-say what is still kept by hand. Point 4 of the seven, under "Waiting for the owner", goes with this step. `Shape` is
-kept to `program.ts` since the spike: the spike's `Shape<…>` in `rehearse.ts` is written `Program<{ … }>`, with
-`State extends object`.
-
-**Done when** `src/testing/contract.test.ts` and `src/testing/rehearse.test.ts` pass as they are, and the checks of
-`change-engine` pass.
-
 ### 20. A review of the premises of the engine and of `rehearse`
 
 **Model and effort.** Opus 5.5, `high`, for each reviewer, which wrote none of steps 18 and 19.
 
-**Depends on** step 19. It comes before the first release that has the engine of steps 18 and 19.
+**Depends on** step 19, done on 24 November 2026. It comes before the first release that has the engine of steps 18
+and 19. What step 19 decided and the reviewer weighs: `rehearse` runs on `Engine.build` with the register of the run,
+`makeDeaths(() => true)`, as the owner decided after a second opinion, so that it dies, as the run, of what is thrown
+outside every function of the program ("a message whose tag throws as the defect of update is said",
+`contract.test.ts`); the fiber of a command says what it is in its first step (`Effect.fiber`), and a `run`
+interrupted before that step waits for it, with no change of the engine: the end interrupts that wait once it has
+stopped the fibers, which no deterministic test reaches, so it has no mutation (`docs/invariants.md`, "The testing
+tools behave like the engine"); the asks of a start are a mailbox of `Deferred`s made by plain code (`Asks` in
+`rehearse.ts`), whose completion resumes the subscription's fiber on the stack of the thunk that asks, which writes
+the ledger first; and the report of the engine's end is not read, since the rehearsal reads the same register.
 
 **How.** As [`premise-review`](.agents/skills/premise-review/SKILL.md) says, over the changes of the engine and of
 the testing tools since `v0.8.0`. The review of 21 November 2026, before that tag, has its reports in the bodies of
@@ -138,7 +121,7 @@ review weighs whether it is a premise of the library's, and asks the owner befor
 
 **Model and effort.** Fable 5.2, `high`: a form to decide, with the owner.
 
-**Depends on** step 19.
+**Depends on** step 19, done on 24 November 2026.
 
 **Why.** `simulate` is then the one tool with a thunk of its own: a fold in the caller's fiber over `Core.arrive` and
 `Core.reconcile`, with 14 mutations. The owner keeps it in the API (21 November 2026): three examples and the guide's
@@ -254,8 +237,8 @@ that none was asked and why. A premise leaves the list by an upgrade to the Effe
 
 ## Waiting for the owner
 
-Where a step above would answer a point below, the point stays here until the step is done. Step 19 would answer point
-4 of the seven. A point of the seven that is gone leaves its number unused.
+Where a step above would answer a point below, the point stays here until the step is done. A point of the seven that
+is gone leaves its number unused.
 
 - **Two points of the table of step 27** ([`given-functions.md`](docs/records/given-functions.md), "For the owner"):
   1. **An `Equal` and a `Hash` that keep Effect's laws.** The library compares keys, ids, flags and values written by
@@ -301,12 +284,9 @@ Where a step above would answer a point below, the point stays here until the st
     The reader's check bears on it: an examiner that had not seen the library wrote 27 acceptance tests from the
     requirement, and seven of them took the world to be in step with the page; and the reader of the guide alone met
     the rule as a test that timed out. To decide: whether the skill names it.
-- **Seven points of a review of the design**, of which 4 to 6 are left. By the session of Fable 5.2 that briefed and verified the stages of
+- **Seven points of a review of the design**, of which 5 and 6 are left. By the session of Fable 5.2 that briefed and verified the stages of
   the same record, asked by the owner on 20 November 2026 what does not fit. Reasoned from the code read for those
   reviews, and not run, but where a point says so. Each is to be weighed.
-  4. **The pure half of a step is written twice**, in `applyOne` (`src/engine.ts`) and in `apply`
-  (`src/testing/rehearse.ts`): `arrive`, the state, `reconcile` and the stop at a defect, in the same order.
-  To weigh: one transition of `core.ts` for both, as `shared-core.md` did for `arrive` and `reconcile`.
   5. **The state is ahead of its effects, and a test may assume it is not.** A step's commands start in a later job,
   and the end drops the jobs not taken. So a test that ends once the state shows something may end before the
   commands of that step start: a test of `drive` changed meaning for it in stage 2. Done in stage 4 for the guide,

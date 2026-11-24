@@ -71,6 +71,8 @@ version, and everything else, features included, the patch version.
   as `never`.
 - `start` and `drive` take a program with an `external`, which they refused, and check it as `child` does; their run
   needs no service that a program's type names for commands or subscriptions it does not have.
+- `rehearse` fails, as the run dies, with what a message's tag throws while a defect of `update` is said, also when
+  the scenario catches the call that sent it.
 
 ## 0.8.0 (2026-11-21)
 

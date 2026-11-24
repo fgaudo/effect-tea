@@ -35,8 +35,8 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   message, as it promises" (`drive.test.ts`), the killers of "the end of the run may begin inside a step" and "drive
   wakes its waits inside the step", rest on it. So does "a command that answers as the end tells a call that its job
   was not done is no defect" (`rehearse.test.ts`), the killer of "rehearse interrupts a command whose answer comes once
-  it has ended": the end of a rehearsal interrupts the completion of the jobs its loop did not do before it stops the
-  commands, and a command answers in between only where the call that waited for such a job is resumed on the end's
+  it has ended": the end of a rehearsal interrupts the completion of the jobs the engine's fiber of effects did not do before
+  the engine's end stops the commands, and a command answers in between only where the call that waited for such a job is resumed on the end's
   stack, and the command on the call's. So does its twin for a subscription, "a subscription that sends as the end
   tells a call that its job was not done is no defect", the killer of "rehearse interrupts a subscription that sends
   once it has ended". Should it fall, the library stays correct, and `bun run mutations` reports those mutations as

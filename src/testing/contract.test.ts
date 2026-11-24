@@ -1429,6 +1429,93 @@ describe("a defect of the program, then a failure of the scenario", () => {
   })
 })
 
+// `update` throws, and the engine reads the message's tag again to say what the defect was on: a tag that throws there
+// is thrown outside every function of the program, once the defect of `update` is recorded, and the run dies of both.
+// Each tool fails with both, wherever the message comes from, and though the scenario catches the call that sent it.
+describe("a message whose tag throws as the defect of update is said", () => {
+  type Phase = Readonly<{ listening: boolean }>
+  type Tagged = Readonly<{ _tag: string }>
+  // Its tag is read once by `update`, and throws when it is read again.
+  const twice = (): Tagged => {
+    let reads = 0
+    return {
+      get _tag() {
+        if (reads++ > 0) throw new Error("tag threw")
+        return "Other"
+      }
+    }
+  }
+  const saying: Program<{ state: Phase; model: Phase; message: Tagged; command: "Fetch"; key: "k" }> = {
+    init: { state: { listening: false } },
+    update: (message) => (state) => {
+      switch (message._tag) {
+        case "Fetch":
+          return { state, commands: ["Fetch"] }
+        case "Listen":
+          return { state: { listening: true } }
+        default:
+          throw new Error("update threw")
+      }
+    },
+    runCommand: () => Effect.succeedSome(twice()),
+    subscriptions: ({ listening }) => listening ? ["k" as const] : [],
+    listen: () => Channel.succeed(twice()).pipe(Channel.concatWith(() => Channel.never)),
+    makeModel: (state) => state
+  }
+  const sending = (tagged: () => Tagged) => () => Opt.some(tagged())
+  const sites = (exit: Exit.Exit<unknown, unknown>) =>
+    Exit.isFailure(exit)
+      ? exit.cause.reasons.map((reason) =>
+        Cause.isDieReason(reason)
+          ? reason.defect instanceof ProgramDefect
+            ? `${reason.defect.where}: ${String(reason.defect.cause)}`
+            : `raw: ${String(reason.defect)}`
+          : reason._tag
+      )
+      : []
+  const both = ["update: Error: update threw", "raw: Error: tag threw"]
+
+  test("the run dies of both, the defect of update first", async () => {
+    const exit = await Effect.runPromiseExit(drive(
+      saying,
+      (driver) => Effect.andThen(driver.send(sending(twice)), driver.waitFor(() => Opt.none()))
+    ))
+    expect(sites(exit)).toEqual(both)
+  })
+
+  test("rehearse fails with both, as the run dies, on a message the test sends, though the scenario catches it", async () => {
+    const exit = await Effect.runPromiseExit(
+      rehearse(saying, (rehearsal) => Effect.exit(rehearsal.send(sending(twice))))
+    )
+    expect(sites(exit)).toEqual(both)
+  })
+
+  test("rehearse fails with both, as the run dies, on a command's answer, though the scenario catches it", async () => {
+    const exit = await Effect.runPromiseExit(rehearse(
+      saying,
+      (rehearsal) =>
+        Effect.andThen(rehearsal.send(sending(() => ({ _tag: "Fetch" }))), Effect.exit(rehearsal.run(() => true)))
+    ))
+    expect(sites(exit)).toEqual(both)
+  })
+
+  test("rehearse fails with both, as the run dies, on a message hearNext hears, though the scenario catches it", async () => {
+    const exit = await Effect.runPromiseExit(rehearse(
+      saying,
+      (rehearsal) =>
+        Effect.andThen(rehearsal.send(sending(() => ({ _tag: "Listen" }))), Effect.exit(rehearsal.hearNext("k")))
+    ))
+    expect(sites(exit)).toEqual(both)
+  })
+
+  // Found by a second opinion on step 19 of `ROADMAP.md`, on 24 November 2026: `simulate` says where its defect is in
+  // `diesIn`, whose details read the tag with no guard, so that it fails with what the tag threw alone.
+  test.failing("simulate fails with both, as the run dies", async () => {
+    const exit = await Effect.runPromiseExit(simulate(saying)([twice()], saying.init))
+    expect(sites(exit)).toEqual(both)
+  })
+})
+
 // Found by the sixth premise review of November 2026. The run dies of a `makeModel` that throws as a renderer reads
 // it, `drive` as it reads the model of each state, and `rehearse` as it makes the model of the state: no scenario
 // meets the defect.

@@ -215,8 +215,8 @@ this summary says less. What every change keeps, an example's and a document's t
   testing tools share as pure functions of data, and `shell.ts` what they share that has effects
   (`docs/records/shared-core.md`); `engine.ts` is the runtime only (with `RunOptions`), and `run.ts` starts a program
   over it, with the handle a renderer reads. `testing/` holds one module per testing tool (and `unexpected.ts`, the
-  failure they share, `ledger.ts`, what `rehearse` keeps of its commands and starts, as pure transitions, and `loop.ts`,
-  the loop that does its jobs one at a time).
+  failure they share, and `ledger.ts`, what `rehearse` keeps of its commands and starts, as pure transitions:
+  `rehearse` runs on the engine itself).
 - `runCommand`, missing from a program without commands, is read through `runCommandOf`, never directly: the engine
   always gets the complete set. Likewise `init`, a step or a function of the flags, is read through `startOf`: a step
   is never a function, so `typeof` tells them apart, and so does `make` for a parent's `init`. And `listen`, missing

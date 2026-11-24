@@ -183,8 +183,8 @@ type Job<Command, K> = Readonly<{
  * for one whose step a defect stopped before. `Listened` once the keys of a new state are the active ones, the first
  * state's as the engine is made, with the starts that went and those that came.
  */
-export type Stepped<State, Command, K> =
-  | Readonly<{ _tag: "Arrived"; arrived: Core.Arrived<State, Command, unknown> }>
+export type Stepped<State, Command, K, Event = unknown> =
+  | Readonly<{ _tag: "Arrived"; arrived: Core.Arrived<State, Command, Event> }>
   | Readonly<{
     _tag: "Listened"
     gone: ReadonlyArray<readonly [K, Core.Generation]>
@@ -270,7 +270,7 @@ export const recordThrown = (
   return reason !== undefined && Cause.isDieReason(reason) ? reason.defect : thrown
 }
 
-type Config<State, Message, Command, R, K> =
+type Config<State, Message, Command, R, K, Event = unknown> =
   & Readonly<{
     /** Where the fibers of the run, and the thunk, record what they die of, shared with whoever runs the engine. */
     deaths: Deaths
@@ -285,7 +285,7 @@ type Config<State, Message, Command, R, K> =
      */
     settled?: () => void
     /** Told in the thunk as each step stands, the first keys' as the engine is made (`Stepped`). It throws nothing. */
-    stepped?: (step: Stepped<State, Command, K>) => void
+    stepped?: (step: Stepped<State, Command, K, Event>) => void
     /**
      * What the fiber of a start runs, inside its root and in the run's context, given what sends a message as that
      * start: called by the job of its step, where the fiber is forked. By default, the subscription `listen` makes of
@@ -308,7 +308,7 @@ type Config<State, Message, Command, R, K> =
     /** Told by the fiber of effects once the stops of a job have ended, before its starts. It throws nothing. */
     released?: (gone: ReadonlyArray<readonly [K, Core.Generation]>) => void
     init: Step<State, Command>
-    update: Update<State, Message, Command, unknown>
+    update: Update<State, Message, Command, Event>
     runCommand: RunCommand<Command, Message, R>
     subscriptions: Subscriptions<State, K>
     listen: Listen<K, Message, R>
@@ -319,7 +319,7 @@ type Config<State, Message, Command, R, K> =
  * Makes the engine, with no fiber and no effect: what the thunk reads and writes, the keys of the first state, and
  * the first job, which waits with every later one until `effects` runs.
  */
-export const build = <State, Message, Command, R, K>({
+export const build = <State, Message, Command, R, K, Event = unknown>({
   deaths,
   rendered = () => false,
   settled = () => undefined,
@@ -334,7 +334,7 @@ export const build = <State, Message, Command, R, K>({
   listen,
   onApplied = () => undefined,
   onIgnored = () => undefined
-}: Config<State, Message, Command, R, K>): Engine<State, Message, R, K> => {
+}: Config<State, Message, Command, R, K, Event>): Engine<State, Message, R, K> => {
   const { recorded, died, report, dead } = deaths
   // What the thunk reads and writes, on the caller's stack: no fiber runs between its operations.
   const started = Core.init(first)
