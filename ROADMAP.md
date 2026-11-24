@@ -46,51 +46,16 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Step 58 makes the project cheaper to keep, and steps 59 and 60 then make its API right, when a name changes the fewest
-documents. The steps of the engine, 53 to 55, come after them, since the review of the API may reshape the
-testing tools they change, and step 55 comes before the release that follows them all.
-
-### 58. The documents within their budgets, and less bookkeeping
-
-**Model and effort.** Opus 5.5, `high`: what the documents that rule say is kept, in fewer words, and the tools that
-check them may change.
-
-**Depends on** no other step. Step 57, done, changed what the guide, the skill and `docs/rejected.md` say, with its
-decisions in [`left-points.md`](docs/records/left-points.md): the three entries it added to `docs/rejected.md` are
-short already, and the item it added under "Nothing is bounded, and nothing times out" restates a rule of "What you can
-rely on" by a link.
-
-**Why.** About 245,000 words of Markdown, 134,000 of them in the records, stand beside 7,264 lines of source, and a
-change rereads each place that states its rule (value 7 of "Deciding").
-
-**How.** Each rule has one place, and other places link to it, in plain English, as the guide is written:
-
-- `AGENTS.md` near 150 lines: what a tool enforces is named, not explained, and a reason or a story goes to
-  `docs/rejected.md` or to a record.
-- `docs/invariants.md`: each invariant and how it is kept, in a few lines. The tests that hold each check are left to
-  `tools/mutations/mutations.ts`, which a tool checks, and are not listed again in prose.
-- `docs/premises.md`: each premise, its test, and what Effect says of it, in a few lines.
-- `docs/rejected.md`: each entry a short paragraph (what, why, on what evidence, and "Reopen if"), with a link where a
-  record has the rest; "Parked, not rejected" alike.
-- The skills: what a tool runs is named, not told again, and each says only what an agent needs for its task.
-- A record, from now on, is for a decision on the API or on an invariant, and is a page at most. The records written
-  stay as they are: history.
-- What is kept in step by hand between the checks goes where a tool keeps it, or goes.
-- The guide: a rule is stated under the "Rules" of the page where it rules, and other places link to it (`AGENTS.md`,
-  "A rule of the guide is added last"), which step 56 wrote and did not apply to the whole guide. Some rules still
-  stand twice: an item of "What you can rely on" and the rule of its page ("Subscriptions follow their keys" and
-  "Keys are compared by value"), "The very same state makes no new model" in "Update" and the `App` in "Running",
-  the promises of `drawInto` and `Host` in "Writing a bridge" and the walkthrough of its example, "What is left to you"
-  and the rules it sums up. One of each becomes a link.
-
-**Done when** `AGENTS.md` is near 150 lines, each document above is as its line says, no rule is stated twice but by a
-link, and `bun run comments`, `bun run lint` and `bun run test` pass, with `bun run mutations` where `tools/` changed.
+Steps 59 and 60 make the API right, now that step 58 has made a name change fewer documents. The steps of the engine,
+53 to 55, come after them, since the review of the API may reshape the testing tools they change, and step 55 comes
+before the release that follows them all.
 
 ### 59. The API reviewed, by its names and its surface
 
 **Model and effort.** Fable 5.2, `high`: the shape of the API is decided, with constraints that pull apart.
 
-**Depends on** step 58: a name changed after it changes fewer documents.
+**Depends on** no other step. Step 58, done, stated each rule once: a name changed rereads the place that states its
+rule, and the places that link to it, which `bun run comments` finds for the guide's sections.
 
 **Why.** Users judge the library by its API first (value 3 of "Deciding"). The core exports 63 names, 54 of them
 types, and the testing tools 13. Before 1.0 a break costs little, and the breaking changes of this step go out with
@@ -103,7 +68,8 @@ glossary), read "The API" of `docs/rejected.md`, and decide by the values of "De
   thing is to a user, not how it is made;
 - the same role in the same form: families named alike, and tools that are alike called alike, with results alike;
 - the surface a user sees: what a user writes first, and the types that only name what the declarations need, kept
-  out of the way where the compiler allows it (`AGENTS.md`, "A type for how a consumer's types print").
+  out of the way where the compiler allows it (`change-api`, "A type for how a consumer's types print", where step 58
+  moved it from `AGENTS.md`).
 
 Leads, seen on 24 November 2026 and not weighed yet:
 
@@ -125,7 +91,8 @@ Leads, seen on 24 November 2026 and not weighed yet:
   "Decided, under the store"). Whether a child with flags takes a `key` beside them.
 
 The decisions go in a record, `docs/records/api-review.md`, of a page or two: each export kept or changed, with its
-new spelling, and what was weighed and left.
+new spelling, and what was weighed and left. Since step 58 a record is a page at most (`docs/records/README.md`); this
+one may take two, for its table of the exports, and says why at its head.
 
 **Done when** the record gives each export of the five entries its decision, and each lead above is decided.
 
@@ -176,15 +143,15 @@ changelog has the fix, by `release`; and the checks of `change-engine` pass.
 
 ### 54. The rule as a boundary: a tool decides when, never what
 
-**Model and effort.** Opus 5.5, `high`: a rule of `AGENTS.md` and of `docs/invariants.md` said again, each sentence
-checked against the code.
+**Model and effort.** Opus 5.5, `high`: a rule of `docs/invariants.md` said again, with the line of `change-engine`
+that links to it, each sentence checked against the code.
 
 **Depends on** step 53. Since steps 50 to 52, `src/testing/` uses none of the six: what it takes of `shell.ts` is
 `makeDeaths`, `startFiber`, `commandFiber` and `stopping` (`drive.ts`, `rehearse.ts`, `simulate.ts` and `stage.ts`),
 so the check passes once it is written.
 
 **Why.** After them, each tool that plays a program runs it on the engine, and "when the engine or one tool changes,
-keep the others in step" (`AGENTS.md`, `docs/invariants.md`, `change-engine`) is a duty with nothing left to keep.
+keep the others in step" (`docs/invariants.md`, `change-engine`) is a duty with nothing left to keep.
 What keeps the tools aligned is then a structure, which a check can hold where a duty could not.
 
 **How.**
@@ -194,17 +161,18 @@ What keeps the tools aligned is then a structure, which a check can hold where a
    namespaces, so `no-restricted-imports` cannot name a member: either `src/testing/` is forbidden `core.ts` and
    `shell.ts` whole, and takes what it may use from `engine.ts` and `run.ts`, or a script reads the uses, as
    `tools/comments.ts` reads the doc comments. The smaller of the two, seen to fail on a use put back by hand.
-2. The rule said as it then is, in `AGENTS.md` ("Invariants"), in `docs/invariants.md` ("The testing tools behave like
-   the engine") and in `change-engine` (point 4 of "Before the change"): a tool that plays a program runs it on the
-   engine; it decides when a command runs, when a subscription's message is heard and what fails the test; and it
-   makes no step, no scope and no site of a defect.
+2. The rule said as it then is, in `docs/invariants.md` ("The testing tools behave like the engine"), its one place
+   since step 58, and in `change-engine` (point 4 of "Before the change") as a line that links to it: a tool that
+   plays a program runs it on the engine; it decides when a command runs, when a subscription's message is heard and
+   what fails the test; and it makes no step, no scope and no site of a defect. `AGENTS.md` names the invariants by a
+   link alone since step 58.
 3. The contract, `contract.test.ts`, read case by case: a case that gives a tool what the engine alone now does is
    held by the engine's tests and mutations. Each stays as an alarm or goes, by "Deciding", and none goes that a
    mutation still names as its killer.
 4. The guide's "Testing tools" says "as the run does" of each tool already: it changes only if a sentence is found
    that the code no longer keeps, and then as `AGENTS.md` says.
 
-**Done when** the check runs in `bun run lint`, and was seen to fail on a use put back by hand; the three documents
+**Done when** the check runs in `bun run lint`, and was seen to fail on a use put back by hand; the two documents
 say the rule; each case of the contract is kept or removed, with its line in the commit; and `bun run comments`,
 `bun run lint`, `bun run test`, `bun run test:node` and `bun run mutations` pass.
 
@@ -213,7 +181,7 @@ say the rule; each case of the contract is kept or removed, with its line in the
 **Model and effort.** Opus 5.5, `high`, by a reviewer that wrote none of the changes
 ([`premise-review`](.agents/skills/premise-review/SKILL.md)).
 
-**Depends on** steps 58 to 60, 53 and 54, and comes before the release that follows them.
+**Depends on** steps 59, 60, 53 and 54, and comes before the release that follows them.
 
 **Why.** Steps 49 to 54 move a check from a tool to the engine, or take one away with the code it guarded: a premise
 may leave with it, and no test fail. From step 52 on, `simulate` rests on the engine's premises, and no longer on
@@ -252,7 +220,7 @@ they fork, a fork's region and `startImmediately`, the cleanup of `Effect.onExit
 handler that an interrupted fiber skips, the annotations of `Fiber.interruptAs`, the races, `acquireUseRelease`,
 `suspend`, `Fiber.await`, and the clock of a timeout and its default. Thirteen are left to ask, the scheduler's aside.
 
-**Why.** A behaviour that a stable API documents is no premise (`docs/premises.md`, the rule after the list): Effect
+**Why.** A behaviour that a stable API documents is no premise (`docs/premises.md`, "The rule"): Effect
 keeps it within the major, and a change of it is Effect's to announce. It is the one way a premise leaves the list
 with nothing of the library changed, and what would reopen the caret (`docs/rejected.md`, "A caret as the peer range of
 Effect").

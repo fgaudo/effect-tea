@@ -1174,8 +1174,8 @@ describe("the end of the engine", () => {
       yield* Deferred.await(holding)
       engine.dispatch("Next")
       const closing = yield* Effect.forkChild(Scope.close(scope, Exit.void))
-      // Long enough, once the end has begun, for the fiber of effects to go on, were it still running: nothing happens
-      // meanwhile that could be awaited instead.
+      // A window of absence, once the end has begun: long enough for the fiber of effects to go on, were it still
+      // running, and nothing happens meanwhile that could be awaited instead.
       yield* Effect.sleep("20 millis")
       yield* Deferred.succeed(go, undefined)
       yield* Fiber.join(closing)

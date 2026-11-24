@@ -5,28 +5,18 @@ description: How a review of the premises of @fgaudo/effect-tea is done: a revie
 
 # A review of the premises
 
-An invariant of [`docs/invariants.md`](../../../docs/invariants.md) holds only while what it rests on does: the
-purity of the program's code, states never mutated, and the behaviour of Effect's runtime and of the JavaScript
-engine. A change
-of the engine, or of a testing tool, may take a premise away without a test failing, until a run meets the case: the
-review of November 2026 found that a defect while the end of the run releases a subscription or a command was lost,
-since `FiberMap` and `FiberSet` discard the exits of the fibers they interrupt as they close (f415d46). This review
-looks for the same. Its rule is in [`docs/premises.md`](../../../docs/premises.md): a reading of the code alone
-gives a lead, and a finding is reproduced by a test that fails, or ruled out by what that rule asks of the premise:
-the documentation of a stable API, or a test for what is not documented.
+A change of the engine, or of a testing tool, may take away a premise of an invariant of
+[`docs/invariants.md`](../../../docs/invariants.md) without a test failing, until a run meets the case: commit f415d46
+fixed one, a defect lost as `FiberMap` closes. This review looks for the same, by the rule of
+[`docs/premises.md`](../../../docs/premises.md): a reading gives a lead, and a finding is a test that fails.
 
 ## Before it starts
 
 1. Choose what the review reads: the invariants, premises and guarantees that the changes since the last review touch
-   (`git log <the last review's commit>..main`: the last review is the commit that brought its findings to `main`), by
-   the modules they changed and the names those cite (`reconcile`, `diesIn`, `forwardTo`, `modelsOf`), or all of
-   them before 1.0. The author may name others. A review is not run after each change: changes are not held up for
-   it, and it reads them together.
-2. The reviewer wrote none of the changes. Start it in a worktree of its own, as a session or as a subagent, so that
-   its failing tests stay off `main` until they are read. Commit what the review must see first: a worktree is cut from
-   the last commit. Two reviewers at once read apart: the engine (`engine.ts`,
-   `core.ts`, `shell.ts`, `run.ts`, `compose.ts`, `dispatch.ts`, `input.ts`, `log.ts`) and the testing tools
-   (`src/testing/`).
+   (`git log <the last review's commit>..main`), by the modules they changed and the names those cite, or all of them
+   before 1.0. A review is due before a release, not after each change.
+2. The reviewer wrote none of the changes. Start it in a worktree of its own, cut from the last commit, so that its
+   failing tests stay off `main` until they are read. Two reviewers read apart: the engine and the testing tools.
 3. Fill the brief's two places: what to read, and what is already known (the open problems of
    [`ROADMAP.md`](../../../ROADMAP.md), the `test.failing` cases of `src/testing/contract.test.ts`, and the premises
    that no test reaches yet, listed in `docs/premises.md`), so that the reviewer does not report them again, and
@@ -97,31 +87,18 @@ Your last message says the branch, the commit and the findings in a few lines.
 
 ## What to do with the report
 
-- Read the report from the branch, `git log -1 --format=%B <branch>`, not from the last message alone, which says
-  less.
-- Read the report's table before its findings. A row read in part is a gap: send the reviewer back to read it, on the
-  same branch, before you act on the report.
-- Run the reviewer's tests yourself, without their `test.failing` mark, before you tell the author of a finding. A
-  report is the reviewer's, and no proof: a test that fails by an error of its own setup, and not at its assertion,
-  proves nothing. Run each again on the last commit of `main` where the branch was cut before it.
-- A finding is an open problem of `ROADMAP.md` until it is fixed, and its test may come to `main` with its
-  `test.failing` mark, as those of the November review did. Its fix removes the mark and the item, in one commit.
-- A fix or a change of design the report proposes is read against `docs/rejected.md` before it is taken; one rejected
-  there and proposed again without what its entry asks is no proposal. One that is rejected is added there.
-- A finding is fixed by its form, as `docs/premises.md` says after the rule of a review. Before the fix, write the
-  form in a line (a cleanup skipped, or an exit discarded, as a scope closes; a step applied by two actors at once; a
-  window between two fibers that nobody watches), and list each place of the engine and of the testing tools that ends a
-  run, applies a message or releases what a fiber holds: `startWith`, the engine's finalizer, `drive`, `simulate`,
-  `rehearse`, and any added since. Each place the form can reach gets a test, failing where the form is and passing
-  where it is not; the fix's commit names the form and the places it checked. Findings of one form are fixed
-  together, by one mechanism where one can hold them all, rather than one place at a time.
-- A suspect ruled out by a test, that rests on what Effect or the JavaScript engine does without promising it, is a
-  premise, added to `docs/premises.md` with the test, which comes to `main`, as that document says. One ruled out by
-  the documentation of a stable API is no premise, and is not listed there: the
-  report names the declaration.
-- A lead, and a suspect left unchecked, are no findings yet. Write the test that would reproduce each, here or in a
-  session of its own, and run it: a test that fails makes it a finding, one that passes rules it out. A lead no test
-  can reach yet goes under "Premises that no test reaches yet" in `docs/premises.md`, with what would decide it.
-- A place where the code does otherwise than `AGENTS.md`, `docs/invariants.md` or the guide says is a bug of the
-  one or of the other: the guide is a specification, and its prose changes as `AGENTS.md` says.
-- Do not merge the reviewer's branch whole: take what the points above bring to `main`, and nothing else.
+- Read the report from the branch (`git log -1 --format=%B <branch>`), its table first: a row read in part is a gap,
+  and the reviewer reads it on the same branch before the report is acted on.
+- Run the reviewer's tests yourself, without their `test.failing` mark, and again on the commit of `main` the branch
+  was cut from. A test that fails by an error of its own setup, not at its assertion, proves nothing.
+- A finding is an open problem of `ROADMAP.md`, and its test comes to `main` with its `test.failing` mark. Its fix,
+  by its form (`docs/premises.md`, the rule of fixes), removes the mark and the item in one commit, and names the form
+  and the places it checked: `startWith`, the engine's finalizer, `drive`, `simulate`, `rehearse`, and any added since.
+- A fix or a design the report proposes is read against `docs/rejected.md`; one rejected is added there.
+- A suspect ruled out by a test, resting on what Effect or the JavaScript engine does without promising it, is a
+  premise, added to `docs/premises.md` with its test. One ruled out by a stable API's documentation is no premise.
+- A lead, or a suspect left unchecked, gets the test that would reproduce it: one that fails makes it a finding, one
+  that passes rules it out. A lead no test can reach yet goes under "Premises that no test reaches yet".
+- A place where the code does otherwise than `AGENTS.md`, `docs/invariants.md` or the guide says is a bug of one or
+  the other.
+- Do not merge the reviewer's branch whole: take what the points above bring to `main`.

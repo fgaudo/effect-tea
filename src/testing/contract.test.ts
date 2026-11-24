@@ -246,7 +246,7 @@ describe("a subscription that sends A, then ends with B", () => {
       said,
       Effect.fnUntraced(function*(driver) {
         yield* driver.waitFor(({ heard }) => heard.length === 2 ? Opt.some(heard) : Opt.none())
-        // Long enough for a subscription that started again to be heard.
+        // A window of absence, once both are heard: long enough for a subscription that started again to be heard.
         yield* Effect.sleep("50 millis")
         yield* driver.send(() => Opt.some("Stop"))
         yield* driver.send(() => Opt.some("Listen"))
@@ -1723,6 +1723,7 @@ describe("a fiber of the test's that sends once the tool has ended", () => {
     const ended = yield* Deferred.make<void>()
     const exit = yield* Effect.exit(tool(ended))
     yield* Deferred.succeed(ended, undefined)
+    // A window of absence, once `ended` has opened: a correct tool applies nothing of what the fiber sends.
     yield* Effect.sleep("20 millis")
     return exit
   })

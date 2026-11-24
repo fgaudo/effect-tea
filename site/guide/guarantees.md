@@ -38,13 +38,10 @@ each bridge's to promise (see [view](./view.md#rules)).
     there again.
   - The subscriptions of an instance are under keys of that instance, so a child started again starts its
     subscriptions again (see [what the library derives](./composition.md#what-the-library-derives)).
-- **Subscriptions follow their keys.** A subscription starts when a new state brings its key. It is interrupted when a
-  new state takes its key away.
-  - A subscription is made from its key alone, by `listen`, which does not see the state.
-  - A key listed twice is listed once.
+- **Subscriptions follow their keys.** A new state starts the subscription of each key it brings, and interrupts that
+  of each key it takes away, by the rules of [subscriptions](./subscriptions.md#rules).
   - Both happen once that state is current, and before any start of a later state. A later message may be applied
     first.
-  - A subscription that ends stays ended while its key stays, until the key goes away and comes back.
   - When the key goes away, the subscription releases what it holds. The subscriptions that one state stops release
     what they hold together, not one after the other.
   - From the moment the key is gone, nothing the subscription sent reaches `update`, even before it has been stopped,
@@ -84,16 +81,13 @@ each bridge's to promise (see [view](./view.md#rules)).
 
 ## What is left to you
 
-- **Whoever starts a program runs it.** Nothing checks that `run` runs. A program that is never run still applies its
-  messages, and does nothing else: no command and no subscription starts, and no defect is reported. From a defect on,
-  it applies no message, and nobody is told (see [running](./running.md#rules)).
+- **Whoever starts a program runs it.** Nothing checks that `run` runs. What a program that is never run does, and
+  does not, is in [running](./running.md#rules).
   - Leave a program unrun only where none of its effects is meant to run: on a server, to draw its first model.
   - Take `run` from what `start` gives, as `const { app, run } = start(program)`. A `run` that is never run is then a
     variable that is never used, which a linter can report. This helps, and checks nothing.
-- **Commands run to their end, or to the end of the run.** The end of the run interrupts the commands under way.
-  - Until then, their answer goes where it is addressed, even if the state has moved on.
-  - `update` decides whether the answer still applies (see [commands](./commands.md)). For a child, the library first
-    rejects an answer for an instance that is no longer there (see [what you can rely on](#what-you-can-rely-on)).
+- **Commands run to their end, or to the end of the run.** No change of state stops one, and `update` decides whether
+  its answer still applies (see [commands](./commands.md#rules)).
 - **Nothing is bounded, and nothing times out.**
   - The run applies every message as it is sent, and queues the effects of every state, however many wait. So the
     effects may lag behind the state without a bound: a step's commands may start after messages that came after it,
@@ -118,7 +112,7 @@ each bridge's to promise (see [view](./view.md#rules)).
   - A write is applied as a message is. So an element that reports at each of its events, as a scroll does, runs a
     step at each, in its handler (see [what an element reports](./inputs.md#what-an-element-reports)).
 - **A renderer is told of every new state**, in the call that made it. One that draws later reads the latest model
-  when it draws.
+  when it draws (see [running](./running.md#rules)).
 - **A subscription that sends faster than the screen refreshes holds the run back.** The bridge to snabbdom draws once
   for each task, or listener that the browser calls, that brings a new state, and React renders a store's new states
   the same way. So the run goes no faster than one draw a task. Let such a subscription send its messages by batches,
@@ -131,22 +125,17 @@ each bridge's to promise (see [view](./view.md#rules)).
   - `dispatchViolations` checks it, in tests, on the messages a test reads from the model (see
     [testing tools](./testing-tools.md)).
   - That the view draws what its model holds is checked with your renderer's tools.
-- **A view sends only what its model holds.** It writes only into the inputs its model shows. It adds nothing to what
-  it sends but the values that an element or its event gives, as given, and never builds a message itself. The
-  library does not enforce this (see [model](./model.md#rules)).
+- **A view sends only what its model holds**, writes only into the inputs its model shows, and never builds a message
+  itself, as [model](./model.md#rules) says. The library does not enforce it.
 - **What the screen shows beside the program's model.** The guarantees are of the program. Each bridge says what it
-  draws beside the model. The bridge to snabbdom draws the model and nothing else: what it shows of a controlled
-  element is the value its model gave it. With the bridge to React, the application's components may keep state of
-  their own (see [view](./view.md#rules)).
-- **With the bridge to React, the run lives as long as the effect that starts it.** `<Activity>`, a remount and a new
-  `key` start the program again from `init`. For a state that outlives a component, start the program yourself, and
-  draw it with `Draw` (see [the package's bridges](./writing-a-bridge.md#the-packages-bridges)).
+  draws beside the model (see [view](./view.md#rules)).
+- **With the bridge to React, the run lives as long as the effect that starts it**, as
+  [the package's bridges](./writing-a-bridge.md#the-packages-bridges) says. For a state that outlives a component,
+  start the program yourself, and draw it with `Draw`.
 - **The rules of [structuring a program](./structuring-a-program.md).** The library does not enforce them: the shape
   of the state, a view that draws and never decides, a value that the user writes held by the program whose rules use
   it. The one it enforces is that a parent never reads a child's state: a parent is given none.
-- **A `set` changes its place, and nothing else.** An input's place given as `get` and `set` has a `set` that puts the
-  value it is given where `get` reads it, exactly as it is given (see [inputs](./inputs.md#rules)). The run does not
-  check it.
+- **A `set` changes its place, and nothing else**, as [inputs](./inputs.md#rules) says. The run does not check it.
   - `placeViolations` checks it, in tests, in the states and at the ids that a test gives (see
     [testing tools](./testing-tools.md#placeviolations)).
 - **Flags and keys made of values that `Equal` compares by value.** Other flags, or another key, start a child again.

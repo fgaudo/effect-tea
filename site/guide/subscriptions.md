@@ -56,9 +56,8 @@ A new value of the key starts the subscription anew. Starting anew is cheap for 
 is shown whole where a defect or `onApplied` names it, so what must stay private goes in a service, not in a key (see
 [running](./running.md#when-a-defect-happens)). What `listen` throws is a defect of the subscription, with its key.
 
-**What a stopped subscription sent is dropped.** From the moment its key is gone, the run drops the messages that the
-subscription sent and that `update` has not seen, before the subscription has been stopped (see
-[guarantees](./guarantees.md#what-you-can-rely-on)).
+**What a stopped subscription sent is dropped**, from the moment its key is gone, as
+[guarantees](./guarantees.md#what-you-can-rely-on) says under "Subscriptions follow their keys".
 
 **A subscription never ends in silence.** Either it never ends, or it ends with **one last message**, its end value.
 

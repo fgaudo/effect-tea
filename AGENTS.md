@@ -1,29 +1,19 @@
 # @fgaudo/effect-tea — guide for coding agents
 
-How the library is used is in the guide, [`site/guide/`](site/guide), one page a concept, "Testing" among them: it is
-the user documentation. [`README.md`](README.md) is the landing page, and its "Development" names the checks. This file
-holds the rules that apply to every change; how the engine keeps its invariants is in
-[`docs/invariants.md`](docs/invariants.md), and what they rest on in [`docs/premises.md`](docs/premises.md). What was
-tried or weighed and rejected is in [`docs/rejected.md`](docs/rejected.md): read it before proposing a change of design.
-These three are kept true of the code. The records of designs proposed, spiked, done or set aside are under
-[`docs/records/`](docs/records), each as it was decided, with its status at its head: history, not rules.
+The guide, [`site/guide/`](site/guide), is the user documentation and the specification. This file holds the rules
+of every change. [`docs/invariants.md`](docs/invariants.md) says how the engine keeps its invariants,
+[`docs/premises.md`](docs/premises.md) what they rest on, and [`docs/rejected.md`](docs/rejected.md) what was weighed
+and rejected: the three are kept true of the code. The records of [`docs/records/`](docs/records) are history. Each
+rule has one place, and other places link to it.
 
-Procedures live in skills, plain Markdown that any agent or person reads, under `.agents/skills/`. Read the one
-for the task before starting it:
-
-| Before…                                                 | read                                                       |
-| ------------------------------------------------------- | ---------------------------------------------------------- |
-| adding, changing or removing an export                  | [`change-api`](.agents/skills/change-api/SKILL.md)         |
-| changing the engine or a testing tool, or their tests   | [`change-engine`](.agents/skills/change-engine/SKILL.md)   |
-| adding or changing an example, or the bridge they share | [`add-example`](.agents/skills/add-example/SKILL.md)       |
-| an API of a newer Effect, or a dependency upgrade       | [`upgrade-effect`](.agents/skills/upgrade-effect/SKILL.md) |
-| a changelog entry, the version, a release, the site     | [`release`](.agents/skills/release/SKILL.md)               |
-| a review of what the invariants rest on                 | [`premise-review`](.agents/skills/premise-review/SKILL.md) |
-| a reader's check of the documentation                   | [`guide-reader`](.agents/skills/guide-reader/SKILL.md)     |
-
-The engine is `src/core.ts`, `shell.ts`, `engine.ts`, `run.ts`, `compose.ts`, `dispatch.ts`, `input.ts` and `log.ts`,
-and the testing tools are `src/testing/`: a change of one, of `tools/mutations/` or of
-`test/scheduled.test_scheduler.ts` reads `change-engine` first, whatever else it is.
+Read the skill of the task first, in `.agents/skills/`: [`change-api`](.agents/skills/change-api/SKILL.md) for an
+export; [`change-engine`](.agents/skills/change-engine/SKILL.md) for the engine (`src/core.ts`, `shell.ts`,
+`engine.ts`, `run.ts`, `compose.ts`, `dispatch.ts`, `input.ts`, `log.ts`), a testing tool (`src/testing/`), their
+tests, `tools/mutations/` or `test/scheduled.test_scheduler.ts`; [`add-example`](.agents/skills/add-example/SKILL.md)
+for an example or a bridge; [`upgrade-effect`](.agents/skills/upgrade-effect/SKILL.md) for a newer Effect or a
+dependency; [`release`](.agents/skills/release/SKILL.md) for the changelog, the version, a release or the site;
+[`premise-review`](.agents/skills/premise-review/SKILL.md) for a review of the premises; and
+[`guide-reader`](.agents/skills/guide-reader/SKILL.md) for a reader's check of the documentation.
 
 ## Deciding
 
@@ -79,362 +69,97 @@ so that users upgrade once.
 - A question that must go to the owner is one question, with the agent's choice first, the difference said by what it
   changes for a user of the library, and whether it can be undone.
 
-## Language
+## Language and commits
 
-All code, comments, identifiers, commit messages and `.md` files are in **English**.
-
-## Commits
-
-Commits go on `main`, whose history is linear: a branch is for a spike or a large port, when one is asked for. They
-stay local, and the owner pushes them ("Deciding"). A commit made with an AI agent ends with an `Assisted-by: <model>`
-trailer (e.g. `Assisted-by: Claude Opus 5.5`), never `Co-Authored-By`: the author is the person who commits. A clear
-subject is usually enough: a body only says why, or what the diff, the docs and the changelog do not, never what they
-already describe. Each decision of a step is a line of its commit ("Deciding").
+All code, comments, identifiers, commit messages and `.md` files are in **English**. Commits go on `main`, linear, and
+stay local ("Deciding"). One made with an AI agent ends with an `Assisted-by: <model>` trailer, never
+`Co-Authored-By`. A body says only why, or what the diff and the docs do not, and lists the decisions of a step.
 
 ## What belongs here
 
-- **Generic, and only Effect.** The library knows nothing of the applications that use it, nor of any
-  renderer: views are generic over their node type, and a renderer is plain code over the handle that `start` gives.
-  `effect` (v4) is the only dependency of `.` and `./testing`, as a peer. The bridges are the one part of the package
-  that knows a renderer, each an entry of its own (`./snabbdom`, `./snabbdom/testing`, `./react`), whose renderer is an
-  optional peer: nothing else may import them. Oxlint forbids renderer imports, and `lib` (`ES2022`, no `DOM`) rejects
-  browser APIs, everywhere but in `examples/` and `bridges/`. The bridge to React needs no browser: it is typechecked
-  with that `lib` too (`bridges/tsconfig.react.json`), and declares by name each global it reads.
-- **An API of its own.** The API is exactly what `src/index.ts` and `src/testing/index.ts` export, and the bridges,
-  `bridges/snabbdom.ts`, `bridges/snabbdom-testing.ts` and `bridges/react.ts`; every other module is internal. It is
-  judged on its own terms, from the library's concepts, its examples and its users in general: coherent, symmetric where
-  its tools are (what `drive` gets, `simulate` and `rehearse` are asked about), and never shaped by, nor justified with,
-  what one application happens to use. Another project may be named, as the README names Foldkit, but nothing in the
-  repository says that one was read or compared to decide what this library does.
-- **A type is Effect's or the library's, never half of each.** One of Effect's is an alias with a name
-  (`Subscription` is a `Channel`, `Execution` an `Effect`): it is built and transformed with Effect's own
-  combinators, and the library defines no function over it. One of the library's own has a shape the library
-  defines and documents, public where it is meant to be written by hand (an `update` writes a `Step`,
-  `{ state, commands?, events?, tell? }`, as data, and a program is its pieces, which a test calls and
-  `{ ...program, init }` spreads) and hidden where it is not (`Rejected`, the symbol that `reject` is); the
-  library gives the functions over it (`andThen` over `Step`). An alias with a few helpers over it
-  has the costs of both and keeps neither promise: users still write the representation everywhere else, so it
-  cannot change. A type moves to the library's side only when the library must do with it what Effect alone
-  cannot: inspect it in tests without running it, keep it the same from one draw to the next by a cache of its own (as
-  `forwardTo` does for a dispatch), or enforce at construction what the type cannot. A subscription is already
-  inspected by its key: that is why `Subscription` stays Effect's.
-- **The types of a program keep three rules, and only these.** Every correct program can be written (a concrete
-  one: a function over any program is an overload over erased types, "Composition" in the guide). No broken
-  combination can: pieces that cannot work together, as an `update` without an `init`, and what compiles and then dies
-  by the engine's rules where the types could have prevented it, as a child that rejects an external message; a cast
-  takes that risk on itself. And what a program names is what its types give back,
-  however it is written: no type widened, or narrowed to a `never` that is false. They are owed by form: a form may be
-  refused, but it is never taken wrongly. The first rule is owed to a program of `make`, to a value typed
-  `Program<…>` and to `{ ...program, init }`; the second and the third to every form a function takes, an object not
-  typed `Program<…>` among them. The rest is not a gap: a misspelled
-  name is a name not given, a form that repeats another is allowed, and a type that is empty but true, as
-  `update: (message: never) => …`, says that something does not happen. A check that only moves an error that exists
-  elsewhere is not worth its complexity. What was weighed by these rules is in `docs/rejected.md`.
-- **A type for how a consumer's types print is admitted on four conditions.** Some types exist only for how TypeScript
-  prints a consumer's types, in a hover or an emitted declaration: `ProgramMaker` and its functions, `CheckedChild`,
-  `Present`. They change nothing that compiles, and they rest on behaviour of the compiler that no documentation
-  states. One is admitted only when all four hold. It is not exported, or it names what a consumer's declarations would
-  otherwise spell out in full, as `ProgramMaker` does. The smoke test (`tools/smoke/smoke.ts`) has a check that fails
-  without it, with each supported TypeScript. The types are the same once resolved: the typecheck, the tests and the
-  inference matrix pass unchanged. And a comment at the type says what would print without it. One whose check fails
-  with a new TypeScript is removed, not repaired with a second trick. How a type prints never justifies a change of the
-  API's shape: a parameter, an overload, or an export that a user must write.
-- **A function earns its place by doing what Effect alone cannot**, or by being the one place where a rule of
-  the library is applied (`reject`, `program`). A name over a composition of Effect's combinators is not one,
-  however often the composition recurs in an application: `attempt`, `silent` and `Subscription.every` were
-  removed by this rule. Nor is a name over a literal of a shape the library documents, or over an operator: `write`,
-  `isRejected` and `raise` went by it too. A type that already imposes a rule (`Execution` cannot fail, a
-  `Subscription` ends with a message) makes the function that would remind of it superfluous. A form of a
-  declaration that takes a standard type of Effect in place of hand-written functions (`at`, an `Optic`, for `get` and
-  `set`) is not a function, and may stay. `andThen` is dual (`Function.dual`), for a chain of steps written in a
-  `pipe`; `forEach`, its n-ary form, went once a parent told its children in the `tell` of a step.
-- **Only stable APIs.** A module or function marked `@stability unstable` in Effect's declarations may change
-  under the library's users: never build on one, not even as an option, and not in `examples/` or `bridges/`
-  either, since users import the bridges and copy the examples. The same holds for React's `unstable_` and
-  `experimental_` APIs in the bridges. The typecheck fails on one, in the library, the examples and the bridges (the
-  Effect language service's `unstableApiUsage`). The tools are the one exception: `tools/` is not packed and no user
-  copies it, so a tool may build on an unstable module of Effect, or on `@effect/platform-bun`, that `tsconfig.json`
-  lists for `tools/` (an `allowedUnstableApis` of its `overrides`), as `effect/cli` for its arguments and
-  `effect/process` for the processes it runs. A module is added to that list when a tool first needs it, and a tool that
-  breaks on an upgrade of Effect is fixed in the same commit (`upgrade-effect`). The files of `tools/` that stand for a
-  user's code (`tools/smoke/consumer.ts`, `tools/inference/prelude.ts`, and the programs the inference and the benchmark
-  write or measure) keep the rule, and so do the tests.
-- **Nothing deprecated.** No module, type, function, method or option marked `@deprecated`, of any dependency,
-  in the library, its tests or its examples: use what the deprecation names instead, and replace a use found in
-  passing. `bun run lint` fails on one (Oxlint's type-aware `typescript/no-deprecated`).
-- **The peer range is the patches of the Effect the library is developed with** (`~4.1.5` today):
-  `peerDependencies` names the version of `devDependencies` with a tilde, and an upgrade of Effect raises both in one
-  commit, so that the library is checked, and what it rests on of Effect read and tested, at one version only. What
-  Effect does not document may change in a minor version, and the premises (`docs/premises.md`) rest on some of it: so
-  the range accepts no minor that the tests have not run on, and a new minor of Effect needs an upgrade and a release
-  of the library. No older Effect is supported. An API that exists only in a newer Effect is not a reason for a
-  workaround, but for an upgrade (`upgrade-effect`). The official repository of Effect v4 is
-  [`Effect-TS/effect`](https://github.com/Effect-TS/effect): its sources, issues and changes are read there.
-  A renderer's peer range is wider, with a caret from the version its bridge is developed with (`^19.3.1` for React,
-  `^3.6.4` for snabbdom): a tilde would refuse the whole package to an application on a later minor, which uses no
-  bridge too. So the daily job (`.github/workflows/renderers-latest.yml`) runs the bridges' tests, and the premises of a
-  bridge on its renderer, at the newest version the range accepts.
-- **A change a consumer can notice has a changelog entry** in the same commit, and raises the version when it
-  needs more than the unreleased section says (`release`). The changelog holds only what a user of the library notices
-  on upgrading, as the net change since the last release: nothing for tests, tooling, internals, the repository's
-  documents or a rewording with the same promises; a change to what the unreleased section already lists, or to what
-  it added, edits that entry instead of adding one; an entry is a line or two. Every entry answers the four questions
-  of `release` first.
-- **The guide promises only its rules.** Its pages ([`site/guide/`](site/guide)) say what the library does at the
-  version they ship with, and applications cite them as rules. The guide promises what stands under the "Rules" of a
-  page, under "What you can rely on" in "Guarantees", and in the types, as its "What a page promises" says; the rest of
-  a page explains, and binds nothing. A promise is what a user builds on and the library means to keep: a test checks
-  it, and a change of one is a breaking change (`release`). It says what happens, and when a program can see it: a user
-  would write another program if it were false. What is not promised is unspecified, as Effect says of what it does
-  not promise (Effect-TS/effect#10878): it has no test of its own, unless the test holds an invariant of
-  `docs/invariants.md`, and no changelog entry when it changes. So no page says how the engine works inside (in which
-  fiber, in which order its own work is done), nor promises what rests on a renderer or a browser that the library does
-  not control, beyond what their documentation says (when React reads a model, how often StrictMode starts the commands
-  of `init`): where a reader would ask, a few words say that it is unspecified. In doubt, a behaviour is left
-  unspecified: one becomes a promise at any time, and a promise taken back breaks its users. The rules change one
-  section at a time, each sentence checked against the old one: the same promise, no weaker and no stronger, as the
-  code and the tests keep it. A word that looks minor ("exactly when", "by `Equal`", "never more") is often the rule.
-- **A rule of the guide is added last, and stated where it rules.** Before a rule is added, the rule it is a case of is
-  looked for: a case goes under that rule, as an example of it, and how one program does something goes in an
-  example's code, not in a list of rules. A rule is stated once, under the "Rules" of the page where it rules, and
-  other places link to it, saying no more than what follows from it there: a change of a rule rereads every place that
-  links to it. A rule that nothing checks (not the compiler, not the run, not a testing tool) is where a person or an AI
-  goes wrong in silence: it is listed in "Guarantees", under "What is left to you", and first in the skill. And an
-  example never brings the rule that allows it: a change of the guide that an example needs comes first, as a change of
-  the guide.
-- **A doc comment of the API follows the guide, in its own words.** It is written by hand, for whoever meets the
-  export in a hover: what the export is and how it is called (a summary, its parameters and result, its fields, an
-  example), and the rules of the guide that a caller needs at that point, in short. It promises nothing the guide
-  does not, and where the two differ, the guide rules. It names the sections it follows, with a line
-  `@see The guide, "<page>", "<section>".` for each, as plain text: a comment never links the site, which shows the
-  latest release, not the version installed. A change of a section of the guide rereads the comments that name it,
-  and a change of a comment rereads the sections it names. `bun run comments` (`tools/comments.ts`) fails on a name
-  the guide does not have.
-- **The package ships its documentation, at its version**: the guide, the tutorial and the examples, beside the code,
-  and the skill [`skills/effect-tea/SKILL.md`](skills/effect-tea/SKILL.md), which leads a user's coding agent to them.
-  So their links to the repository's files are relative, as the package holds them (`../../examples/form/form.ts`):
-  the site's build sends them to the repository at the built commit, and `bun run smoke` fails on one the package
-  lacks. The skill sums up the guide as a doc comment does: it promises nothing the guide does not, and names the
-  section of each rule as `The guide, "<page>", "<section>"`, which `bun run comments` checks. A change of a section
-  rereads the skill's rules that name it too.
-- **The guide, the doc comments and the skill are in plain English**, for readers who are not native speakers: short
-  sentences, one idea each, common words, and the words the guide defines.
+- **Generic, and only Effect.** The library knows no application and no renderer: views are generic over their node
+  type, and `effect` (v4) is the one dependency of `.` and `./testing`, as a peer. The bridges (`./snabbdom`,
+  `./snabbdom/testing`, `./react`) alone know a renderer, an optional peer. Oxlint and `lib` (`ES2022`, no `DOM`) refuse
+  renderers and browser APIs but in `examples/` and `bridges/`; the bridge to React declares each global it reads.
+- **An API of its own**: what `src/index.ts`, `src/testing/index.ts` and the bridges export, judged by the library's
+  concepts, its examples and its users in general, never by one application. Another project may be named, never as
+  read or compared to decide what this library does.
+- **A type is Effect's or the library's, never half of each.** Effect's is a named alias (`Subscription` is a
+  `Channel`), with no function of the library's over it. The library's has a shape it documents, public where written
+  by hand (a `Step`), hidden where not (`Rejected`), with the functions over it (`andThen`). A type is the library's
+  only where the library must do what Effect cannot: inspect it in tests without running it, keep it the same across
+  draws (`forwardTo`), or enforce what its type cannot.
+- **The types of a program keep three rules, and only these.** Every correct program can be written (a concrete one: a
+  function over any program is an overload over erased types). No broken combination can: pieces that cannot work
+  together, and what compiles and then dies where the types could have prevented it. And what a program names is what
+  its types give back, however it is written. A form may be refused, never taken wrongly. The first rule is owed to a
+  program of `make`, a value typed `Program<…>` and `{ ...program, init }`, the others to every form a function takes.
+  A misspelled name, a form that repeats another and a type empty but true are no gaps (`docs/rejected.md`, "The API").
+- **A function earns its place by doing what Effect alone cannot**, or by being the one place where a rule of the
+  library is applied (`reject`, `program`): never a name over Effect's combinators, a documented literal or an operator
+  (`docs/rejected.md`, "The API"). A declaration that takes a standard type of Effect (`at`, an `Optic`) may stay.
+- **Only stable APIs**: nothing `@stability unstable` of Effect, nor `unstable_` or `experimental_` of React, but what
+  `tsconfig.json` lists for `tools/`, outside its files that stand for a user's code; and **nothing deprecated**, of
+  any dependency, in the library, its tests or its examples. The typecheck and the lint fail on one.
+- **The peer range is the patches of the Effect the library is developed with** (`~4.1.5`), raised with
+  `devDependencies` in one commit; an API of a newer Effect calls for an upgrade, not a workaround (`upgrade-effect`).
+  Effect v4 is [`Effect-TS/effect`](https://github.com/Effect-TS/effect). A renderer's range is a caret.
+- **A change a consumer can notice has a changelog entry** in the same commit (`release`).
+- **The guide promises only its rules**: what stands under the "Rules" of a page, under "What you can rely on", and in
+  the types, as its index says. A test checks each promise, and a change of one is breaking. The rest is unspecified,
+  with no test of its own but an invariant's and no changelog entry, and so is how the engine works inside, or what a
+  renderer does beyond its documentation. In doubt, a behaviour stays unspecified. A rule changes one section at a
+  time, each sentence checked against the old one: no weaker, no stronger.
+- **A rule of the guide is added last, and stated where it rules**: once, under the "Rules" of its page, as a case of
+  the rule it falls under where there is one, and other places link to it. How one program does something goes in an
+  example's code. A rule nothing checks is listed under "What is left to you", and first in the skill. An example
+  never brings the rule that allows it.
+- **A doc comment of the API follows the guide, in its own words**: what the export is, how it is called, and the
+  rules a caller needs there, promising nothing the guide does not. It names each section it follows with a line
+  `@see The guide, "<page>", "<section>".`, never a link to the site. A change of a section rereads the comments and
+  the skill's rules that name it, and the reverse.
+- **The package ships its documentation, at its version**: the guide, the tutorial, the examples and the skill
+  [`skills/effect-tea/SKILL.md`](skills/effect-tea/SKILL.md), which sums up the guide as a doc comment does. Their
+  links to the repository's files are relative, as the package holds them.
+- **The guide, the doc comments and the skill are in plain English**: short sentences, common words, the guide's words.
 
 ## Invariants
 
-The guide's "Guarantees" ([`site/guide/guarantees.md`](site/guide/guarantees.md)) says what a user may rely on.
-[`docs/invariants.md`](docs/invariants.md) says how the engine keeps each one and what a change must not undo, and
-[`docs/premises.md`](docs/premises.md) what they rest on of Effect's runtime and of the JavaScript engine, each with
-what checks it. Both are read before a change of the engine or of a testing tool (`change-engine`), and they rule where
-this summary says less. What every change keeps, an example's and a document's too:
-
-- **`update` is pure and called freely**: never assume it runs once per message.
-- **`reject` means one thing: the message does not apply in the state.** Never add a runtime check of the model
-  against `update`, nor a way for a model to ask `update` what it accepts. A `defect` is only for a message the state
-  and the engine together rule out: an example never dies on a message of its view, nor on an event raised for one.
-- **A parent and its children talk only through external messages, events and outputs**: a parent is not given its
-  children's states, reads only the `output` a child declares, and tells them what to do in the `tell` of its step. A
-  break of what a parent declared is a `CompositionDefect`, and the types enforce what it declares.
-- **The library keeps a parent's children**: they are those that the parent's own state lists, reconciled after each
-  step of the parent's own code, and an answer reaches the instance that asked for it, or is rejected. Never give a
-  parent a way to write a child's state.
-- **Every program keeps its state in an object**, replaced and never mutated: a child's model is kept by it, and its
-  lifted keys by the instance the library keeps it in. Never add a cache for primitive states, nor hold a
-  child's dispatch strongly.
-- **A dispatch is a function that applies its message before it returns, and needs no services**: a renderer calls
-  it from a plain callback as it is, and the library exports no helper for it.
-- **Defects always die, and the run dies with them.** Nothing in the library may retry, swallow, log or turn them
-  into messages: reporting is the job of whoever runs the program.
-- **A subscription never ends in silence**: its end value is a message (or `never`), and an ended one is never
-  restarted automatically. Subscriptions are reconciled by key.
-- **Commands are data; only `runCommand` runs them**, and they cannot be cancelled, by a choice of design.
-- **Each command and each subscription has a scope of its own**: never let them acquire into the run's scope.
-- **A model is made only when it is read**, and no span lives as long as the run.
-- **`onApplied` and `onIgnored` are given no dispatch, and return nothing**: they are functions, not effects, so
-  applying a message runs no effect of the program; they send no message and change no state, and a defect in one is
-  a defect.
-- **The testing tools behave like the engine** where it is deterministic: when the engine or one tool changes, keep
-  the others in step.
-- **The run writes no log of its own**: what the program logs is its own. Where the library names a message, in the
-  `on` of a defect or a failure of a testing tool, it names it by its tags alone, never its data.
-- **A premise about what code does when it runs is checked before the change that rests on it is written**, and
-  never only reasoned: by the documentation of a stable API, or by a test that fails without it.
-- **A new premise is taken only where no design without it is as good** (value 5 of "Deciding"): it gets a test of
-  its own before the change that rests on it is written, never code of the library's that makes it unneeded, and the
-  report of the change names it, as `docs/premises.md` says.
+[`docs/invariants.md`](docs/invariants.md) says what the engine keeps, and how: every change keeps it, an example's and
+a document's too. A premise is checked before the change that rests on it, and a new one is taken only where no design
+without it is as good ([`docs/premises.md`](docs/premises.md)).
 
 ## Code
 
-- One module per concept: `update.ts`, `command.ts`, `subscription.ts`, `dispatch.ts` (views and their
-  dispatch), `program.ts` (the program and its types), `compose.ts` (`program`), `input.ts` (an input, and the
-  rule of a write), `log.ts`, `defect.ts`; `core.ts` is what the run and the
-  testing tools share as pure functions of data, and `shell.ts` what they share that has effects
-  (`docs/records/shared-core.md`); `engine.ts` is the runtime only (with `RunOptions`), and `run.ts` starts a program
-  over it, with the handle a renderer reads. `testing/` holds one module per testing tool (and `unexpected.ts`, the
-  failure they share; `stage.ts`, what `rehearse` and `simulate` share to run on the engine itself, the commands that
-  wait for the test and the end; and `ledger.ts`, what the stage keeps of its commands and `rehearse` of its starts, as
-  pure transitions).
-- `runCommand`, missing from a program without commands, is read through `runCommandOf`, never directly: the engine
-  always gets the complete set. Likewise `init`, a step or a function of the flags, is read through `startOf`: a step
-  is never a function, so `typeof` tells them apart, and so does `make` for a parent's `init`. And `listen`, missing
-  from a program without keys, is read through `listenOf`. All three are internal. A program always has
-  `subscriptions`: `make` is the one place where a config without them means listening to nothing, and a test reads
-  `program.subscriptions(state)` as it reads `program.makeModel(state)`.
-- The pieces of a program are written once, in `Shape` (`program.ts`), and a check of a program reads them from there,
-  never a copy, as `ProgramChecked` does for a child. Every function that takes a program is listed in the inference
-  matrix, which gives each case to all of them and fails where they disagree beyond the differences it lists
-  (`checks`, `refusesEvents` and `formsRefused` in `tools/inference/generate.ts`). So is every function that takes a
-  message (`takers` there), given each message of a program in each form it is written. A change of the signature of
-  one runs `bun run inference` (`change-api`).
-- A key or symbol of the library is named `@fgaudo/effect-tea/<Type>` after the type it belongs to (`Rejected`, the
-  service `Stopped`), and `@fgaudo/effect-tea/<Type>/<part>` for a part of one. A property keyed by a string starts
-  with `~`, as Effect's own type ids: `~@fgaudo/effect-tea/<Type>/<part>`.
-- An exported type that is an object record is written with `readonly` on each member, `{ readonly state: State }`,
-  never as `Readonly<{ … }>`: TypeScript prints `Readonly<{ … }>` for one in a consumer's declarations and hovers, not
-  its name. An internal type may keep the wrapper.
-- Effect modules are imported as namespaces (`import * as Effect from "effect/Effect"`), with `Arr`, `Opt` for
-  `Array`, `Option`.
-- A function that returns an effect made with `Effect.gen` is an `Effect.fnUntraced` instead, with what would
-  follow it in a `pipe` as its further arguments, tests included: the library opens no spans of its own (they
-  belong to the application, e.g. `Effect.fn("Save")` in a `runCommand`), and the stack frames `Effect.fn`
-  records add nothing a test's name does not say. An effect that takes no arguments stays an `Effect.gen`.
-- Relative imports carry the `.ts` extension (Oxlint's `import/extensions`); `tsc` rewrites them to `.js` in
-  the build, and `tools/build.ts` does the same in the declarations.
-- Comments only for what the code cannot say: a reason, an invariant the types do not show, a choice that
-  would look like a mistake. Never a repetition of names or of the next line.
-- The doc comment of an export is for whoever uses the package: a note on how it is implemented is a `//` comment, or
-  the doc comment of an internal declaration (as `startWith` beside `start`), which neither the hover of a user nor the
-  site shows. `@privateRemarks`, and a doc comment right after another, reach the declarations all the same, and
-  `bun run comments` fails on both.
-- A reason is written once, where the check it explains is: another place that needs it names that place
-  (`Core.arrive`, a section of `docs/invariants.md`) and says only what follows from it there, never the reason again.
-  The documentation of an export stands alone, since a user reads it in the declarations; and a summary says that it
-  is one and what rules where it says less, as "Invariants" above does. A doc comment's rules, in short, are such a
-  summary of the guide's, and its `@see` lines name what rules ("What belongs here").
-- No blank lines between the statements of a block; blank lines separate declarations and `describe`/`test`
-  calls.
-- Formatting is dprint's, with Effect's options (`dprint.json`): 120 columns, two-space indentation, double quotes,
-  no semicolons, no trailing commas, and the imports sorted. `bun run format` applies it and Oxlint's fixes, and
-  `bun run lint` fails on a file it would change. `.md` prose is wrapped at 120 columns by hand. A change of
-  `dprint.json` or of its plugins formats the repository in a commit of its own, listed in `.git-blame-ignore-revs`,
-  and checks the mutations against the commit before it (`change-engine`).
+- One module per concept. `core.ts` is what the run and the tools share as pure functions, `shell.ts` with effects.
+- `runCommand`, `init` and `listen` are read through `runCommandOf`, `startOf` and `listenOf`. A program always has
+  `subscriptions`. A program's pieces are written once, in `Shape`.
+- A key is named `@fgaudo/effect-tea/<Type>[/<part>]`, a property keyed by a string `~@fgaudo/effect-tea/<Type>/<part>`.
+  An exported object type writes `readonly` on each member, never `Readonly<{ … }>`, which prints in declarations.
+- Effect modules are imported as namespaces, with `Arr`, `Opt` for `Array`, `Option`. A function that returns an
+  `Effect.gen` is an `Effect.fnUntraced`, tests included: the library opens no spans.
+- Comments say only what the code cannot: a reason, written once where its check is, an invariant the types do not
+  show, a choice that would look like a mistake. A doc comment of an export holds no note on the implementation.
+- No blank lines between the statements of a block. `.md` prose is wrapped at 120 columns by hand. A change of
+  `dprint.json` formats the repository in a commit of its own, listed in `.git-blame-ignore-revs`.
 
 ## Tests
 
-- `bun:test`, in a `*.test.ts` next to the module. Tests, and the files that serve them, are excluded from `dist/` and
-  from the packed `src/`.
-- **A file of the tests has one of two names, and no other**: `<name>.test.ts` when it holds tests that run,
-  `<name>.test_<kind>.ts` when it serves them, and never both in one name (no `<name>.test_<kind>.test.ts`): a file
-  is a test or serves the tests. So a file of neither form is no file of the tests: in `src/`, `examples/` and
-  `bridges/` it is, at a glance, code of the library, of an example or of a bridge. One that serves the tests takes the
-  `<name>` of the test file it goes with, as `test/scheduled.test_scheduler.ts`, the scheduler of the tests, goes with
-  `test/scheduled.test.ts`, which tests it, and `examples/timer/timer.test_reader.ts`, the reader of a timer's model,
-  with `examples/timer/timer.test.ts`; one that several test files call has a name of its own, as
-  `bridges/bridge.test_suite.ts`, which runs in each bridge's test, and `test/gc.test_helper.ts`, which the
-  tests that ask for a collection call. `bun test` does not collect a `.test_<kind>.ts` (it collects `*.test.ts`,
-  `*_test.ts`, `*.spec.ts` and `*_spec.ts`), so it runs only where a test file imports it, or where a runner loads it
-  before the tests: `bun run test:node` has Node import `test/node/register.test_hook.ts`.
-- **What a bridge gives a user's tests is code of the bridge**, in `bridges/` beside it: `snabbdom-testing.ts`, the
-  entry `./snabbdom/testing`, with `messagesSentBy`, and `snabbdom-preload.ts`, which `bun test` preloads
-  (`bunfig.toml`) and the guide's "Testing" describes for a user's own tests. It serves the examples' tests too, but it
-  is what a user takes, not a file of the repository's tests, so it has no `.test_<kind>`.
-- Test through behaviour: what a module gives the rest of the library (`start`, `Engine.make`, the public functions, a
-  transition of `core.ts` or of `testing/ledger.ts`), never what it keeps to itself. An export made for a test alone
-  says so (`entriesOf` in `dispatch.ts`).
-- A test of the library is of one of five kinds, and a test of none of them is not added:
-  - **the semantics of the pure pieces**: what a function that runs nothing returns, as a `Step` and `andThen` and
-    `reject` over it, a parent's composition, how a child's message is wrapped, how a message is named
-    by its tags, `defect`, `applyAll` and `dispatchViolations`, what the core makes of a cause and of the keys of a
-    state. They lie in the test file of their module (`compose.test.ts`, which holds those of a `Step` too,
-    `dispatch.test.ts`, `input.test.ts`, `log.test.ts`, `defect.test.ts`, `core.test.ts`, `src/testing/`).
-  - **invariants under random histories**: fast-check draws clicks, answers, subscription messages and ends,
-    releases, defects and self-interruptions, and the seed of the order the scheduler of the tests
-    (`test/scheduled.test_scheduler.ts`) runs them in, and each promise of the guide's "Guarantees" that the scenario
-    reaches is checked on every one (`interleaving.test.ts`). It is a search, from a seed drawn on each run, and runs
-    apart: `bun run interleavings`, and a daily job of the CI (`.github/workflows/interleavings.yml`), never
-    `bun run test`. How a lead it finds is weighed is in `change-engine`; a finding is listed in `ROADMAP.md` with its
-    seed and path until a fix leaves a deterministic test of it.
-  - **contracts**: one program and its inputs given alike to each testing tool and to the run
-    (`src/testing/contract.test.ts`, where a difference found is a `test.failing` until it is fixed).
-  - **the boundary of a run**, the run's or a testing tool's: its lifecycle, scopes, interruption and defects, what
-    it holds and lets go, what a tool fails on (`run.test.ts`, `engine.test.ts`, the cache of `forwardTo` in
-    `dispatch.test.ts`, a parent's subscriptions in a run in `compose.test.ts`, each tool's own file in
-    `src/testing/`). A test of a premise (`docs/premises.md`) is of this kind, a test of its own that checks Effect or
-    the JavaScript engine and nothing of the library (`test/premises.test.ts`), and so is one of the scheduler of the
-    tests, `test/scheduled.test_scheduler.ts`, which is no part of the package: it serves the search, and the few
-    tests of a boundary that run one scenario under the orders it gives (`engine.test.ts`, `rehearse.test.ts`),
-    alarms that are the killer of no mutation (`docs/invariants.md`, "one thunk"), and one of the memory guard of the
-    tests (`test/memory-guard.test.ts`).
-  - **the types**: what the compiler refuses (`@ts-expect-error`), or infers (`expectTypeOf`), next to the tests
-    of the function whose types they are.
-
-  A bug found is held by a case of one of them: a rule of a pure piece, an invariant, a contract, a boundary or a type,
-  and gets a scenario of its own only where none can hold it. The examples' own tests show users how to test a program.
-  So do the bridges' (`bridges/snabbdom.test.ts`, `bridges/react.test.ts`), for a bridge: the tests of
-  how a bridge draws a program started, and of an input, that every bridge passes, written once in
-  `bridges/bridge.test_suite.ts` and given each renderer's `Bridge`, with those of one renderer alone, in a DOM, and
-  those of the snabbdom bridge's `messagesSentBy`, without one (`bridges/snabbdom-testing.test.ts`). The smoke test
-  (`tools/smoke/`) and the benchmark (`tools/bench/`) check the package and its speed. The inference matrix
-  (`tools/inference/`, `bun run inference`) generates programs in each way they can be written, and the messages they
-  are given in each way those are written, and checks with each TypeScript the package supports that their types keep
-  the three rules of "What belongs here": it runs by hand, not in the CI, after a change of the types of `program.ts` or
-  `compose.ts`, or of a function that takes a program or a message. With
-  `--run`, it plays the programs of its valid cases instead, with messages drawn by fast-check
-  (`tools/inference/play.ts`), and fails on one that dies of a defect: what compiles never dies of what the types could
-  prevent. None of them is a test of the library's correctness, and they are kept apart from the five.
-- **Each check an invariant rests on has a mutation** in `tools/mutations/mutations.ts` that takes it out, with the
-  tests that must fail under it, and so has each check of the types of `program.ts` and `compose.ts`, whose tests of
-  the types `tsc` runs: `bun run mutations` applies them one at a time to each of several copies of the repository
-  (`.mutants/`), runs those tests alone, and fails when one passes under its mutation, or fails without it. What has
-  none, and why, is in `docs/invariants.md` and `change-engine`. A new check adds its mutation; a test of one renamed
-  or removed, or the code it replaces rewritten, updates the list. It runs before a release (`release`), and after a
-  change of a file it mutates; what a mutation is, and is not, is in `change-engine`. A mutation of a check that holds
-  a part of an item of the guide's "What you can rely on" names that item (`guarantees`), and one of the types an item
-  of "What does not compile" in "Anatomy of a program" and "Composition" (`refuses`); an item added to those lists is
-  named by the mutations of its checks: `bun run comments` fails on an item no mutation names.
-- **The tests of `src/` and `test/` run on Node too**, on V8 as Chrome and Edge run the library: `bun run test:node`
-  makes Node resolve `bun:test` to `test/node/bun-test.test_shim.ts`, which gives what the tests use of it over Node's
-  own runner, with Jest's `expect`. A test that needs more of `bun:test` adds it there, and one that asks for a
-  collection calls `test/gc.test_helper.ts`, never `Bun.gc`. Node strips the types itself, so the TypeScript is erasable
-  (`erasableSyntaxOnly`: no enum, namespace or parameter property). The search runs on Bun alone: the scheduler of the
-  tests decides the order its fibers run in, whatever the engine, so V8 would run the same histories. So do the
-  examples' tests: their programs are pure, and their bridges are tested against a renderer and happy-dom, not against
-  the engine.
-- A test's name says what it checks. When a change touches a test, or what it tests, check that its name, its
-  `describe` and its comments still say what the assertions check: a test adapted to a new design keeps an old
-  name that promises what it no longer proves.
-- **A test never rests on the clock for an order.** What must happen before what it checks is awaited (a
-  `Deferred`, a gate), never slept for: a sleep that must outlast work the machine may take longer to do is a race,
-  which a loaded machine loses, as `bun run mutations --discover` running the whole suite did. A clock may only bound
-  a wait that a failing test alone reaches (a mutant that never sends), wide enough never to fire otherwise, or be
-  what the test is about (a subscription that ticks), under Effect's `TestClock` where it can be. Or it may hold a
-  window of absence: a test that checks that something does not happen, where nothing a correct run does could be
-  awaited in its place, sleeps once a signal it awaits has come, and says so where it sleeps. A loaded machine can then
-  only let a mutant survive, never turn a correct run red, and the runner of the mutations runs a killer that passed
-  under its mutation again, alone, before it reports a survivor. Where a witness can be awaited, it is: which windows
-  have none is in `docs/invariants.md` ("Windows of absence").
-- **A test that loops in one call is ended by the memory guard.** A loop that never yields is past any timeout, and
-  fills the memory of the machine: a listener of a test that sends on every notice does, under a mutation that tells
-  it twice. So `bunfig.toml` preloads `test/memory-guard.test_hook.ts` in every run of `bun test`, whose worker ends the
-  process past 2 GB, a bound no file of the suite comes near; `bun run test:node` bounds Node's heap alike. Under a
-  mutation, `bun run mutations` reports such a run as one that ran away, and `--discover` names its files. A test's
-  listener that sends stops once it has what it waits for, so that a mutation makes it fail, not loop.
-- Only the bridges' tests in a DOM, `bridges/snabbdom.test.ts` and `bridges/react.test.ts`, register
-  one (happy-dom), for the tests of `bridges/bridge.test_suite.ts` they call too; every other test runs without
-  one, `bridges/snabbdom-testing.test.ts` too.
-- **The bridges' tests in a DOM run in real browsers too**, Chromium, Firefox and WebKit: `bun run test:browsers` runs
-  them unchanged in Vitest's browser mode over Playwright (`tools/browser/vitest.config.ts`), where `bun:test` is
-  Vitest and happy-dom's registrator registers nothing, and the CI runs it. What only a real browser shows (the focus
-  as the screen refreshes, an IME, an event dispatched before a draw) is in `bridges/browser.test.ts`, which imports
-  Vitest and which `bun run test` leaves out. The browsers are installed once, with
-  `bunx playwright install chromium firefox webkit`.
+- `bun:test`, in a `<name>.test.ts` next to the module; a file that serves tests is `<name>.test_<kind>.ts`. A test
+  goes through behaviour, never through what a module keeps to itself, and its name says what it checks.
+- A test of the library is of one of five kinds: the semantics of the pure pieces; invariants under random histories
+  (`bun run interleavings`, whose findings wait in `ROADMAP.md`); contracts, one program given to each tool and to the
+  run (`src/testing/contract.test.ts`); the boundary of a run or of a tool, a premise's own test among them; and the
+  types. A bug found is held by one of them. The tests of `src/` and `test/` run on Node too, so their TypeScript is
+  erasable.
+- **Each check an invariant rests on has a mutation**, and so has each check of the types of `program.ts` and
+  `compose.ts` (`change-engine`).
+- **A test never rests on the clock for an order**: what must come first is awaited. A clock may bound a wait that only
+  a failing test reaches, be what is tested, or hold a window of absence (`docs/invariants.md`).
+- **A test that loops in one call is ended by the memory guard**: a listener that sends stops once it has its answer.
 
 ## Checks
 
-Before finishing, from the repository root: `bun run typecheck` (`tsc` with the Effect language service, on the
-library and on the examples), `bun run lint` (Oxlint and dprint) and `bun run test`; after a change of the engine or of
-a testing tool, or of their tests, `bun run test:node` and `bun run interleavings` too; after a change of a bridge,
-of its tests, or of a view an example draws with both bridges, `bun run test:browsers`. `bun run build` compiles
-`src/` into `dist/` (ignored by git) and runs before `bun pm pack`. An API change is also checked as a consumer
-would see it (`change-api`). After a change of the guide or of a doc comment, `bun run comments`, which the CI runs,
-checks the doc comments and the sections of the guide they name.
+`bun run typecheck`, `bun run lint` and `bun run test`; after a change of the engine or of a testing tool,
+`bun run test:node` and `bun run interleavings`; of a bridge or a view drawn with both, `bun run test:browsers`; of the
+guide or a doc comment, `bun run comments`; of the API, `change-api`. The README's "Development" says what each runs.

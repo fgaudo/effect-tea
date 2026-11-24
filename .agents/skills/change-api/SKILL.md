@@ -5,130 +5,81 @@ description: How to add, change or remove an export of @fgaudo/effect-tea: where
 
 # Change the public API
 
-The API is exactly what [`src/index.ts`](../../../src/index.ts) and
-[`src/testing/index.ts`](../../../src/testing/index.ts) export, grouped by concept with a comment per group, and what
-the bridges export, each an entry of its own (`./snabbdom`, `./snabbdom/testing`, `./react`, from
-[`bridges/`](../../../bridges)); every other module is internal. It is judged on its own terms ("What belongs here" in `AGENTS.md`): argue a
-change from the library's concepts, its examples and its users in general, never from what one application
-needs. An export removed or refused before is in [`docs/rejected.md`](../../../docs/rejected.md): read it before
-proposing one.
+The API is what [`src/index.ts`](../../../src/index.ts), [`src/testing/index.ts`](../../../src/testing/index.ts) and the
+bridges ([`bridges/`](../../../bridges), the entries `./snabbdom`, `./snabbdom/testing` and `./react`) export. It is
+judged as "What belongs here" in `AGENTS.md` says. An export removed or refused before is in
+[`docs/rejected.md`](../../../docs/rejected.md), "The API": read it before proposing one.
 
 ## Shape it
 
-- One module per concept ("Code" in `AGENTS.md`): a new concept gets a module of its own, and the index
-  exports it next to what it belongs with. A testing tool gets a module under `src/testing/`, exported from its
-  index.
-- Keep the tools symmetric: what `drive` gets, `simulate` and `rehearse` are asked about, and the engine and
-  the three tools behave alike where the engine is deterministic (`docs/invariants.md`).
-- Only stable Effect APIs, nothing deprecated, and an upgrade of Effect, not a workaround, for an API that only a newer
-  Effect has ([`upgrade-effect`](../upgrade-effect/SKILL.md)).
-- A new entrypoint needs the three conditions of `exports` in `package.json`: `bun`
-  (the TypeScript source, for consumers that run under Bun), `types` and `default` (`dist/`, for everyone else),
-  and an entry in `files` if it is not under `src` or `dist`. `tools/api-report.ts` and the site's `typedoc.json` list
-  the entrypoints too. A bridge's is built by `bridges/tsconfig.build.json`, with the `DOM` lib, and its renderer is an
-  optional peer (`AGENTS.md`).
+- A new concept gets a module of its own, and a testing tool one under `src/testing/`, exported beside what it belongs
+  with.
+- The tools stay symmetric: what `drive` gets, `simulate` and `rehearse` are asked about.
+- A new entrypoint needs the conditions `bun` (the source), `types` and `default` (`dist/`) in `exports`, an entry in
+  `files` if it is outside `src` and `dist`, and a line in `tools/api-report.ts` and `site/typedoc.json`. A bridge's is
+  built by `bridges/tsconfig.build.json`, with the `DOM` lib, and its renderer is an optional peer.
 
 ## Test it
 
-- A `*.test.ts` next to the module, through behaviour (`run`, `Engine.make`, the public functions), never
-  through internals. A guarantee of the guide's "Guarantees" is checked by `src/interleaving.test.ts` under
-  random orders of clicks, command answers and subscription messages: a new guarantee gets a property there.
+- A `*.test.ts` next to the module, through behaviour. A new guarantee of "Guarantees" gets a property in
+  `src/interleaving.test.ts`.
 - A change of the signature of a function that takes a program (`start`, `drive`, `rehearse`, `simulate`, `child`,
-  `childById`) or a message (a `Dispatch`, `forwardTo`, the `send` of a `Driver` and of a `Rehearsal`, `hear`,
-  `simulate`, `applyAll`), or of the types of `program.ts` or `compose.ts`, runs `bun run inference`, which gives each
-  form of a program to all of them and fails where they disagree beyond the differences it lists (`AGENTS.md`,
-  "Code"), and each message of a program, in each form a test or a view writes it, to every function that takes one,
-  then `bun run inference --run`, which plays the programs of its valid cases with messages drawn by fast-check and
-  fails on one that dies of a defect. A new function that takes a program is added to its `uses`, and a difference
-  meant to its table; a new function that takes a message, to its `takers`.
-- A change of the types of `program.ts` or `compose.ts` runs `bun run mutations` too, which takes each of their checks
-  out in turn and fails where no test of the types notices. A check added gets a test of the types that refuses what it
-  refuses, and a mutation of its own in `tools/mutations/mutations.ts` ([`change-engine`](../change-engine/SKILL.md),
-  "Mutations of the types"). The matrix finds a check that is missing, and a mutation a check that no test holds.
+  `childById`) or a message (a `Dispatch`, `forwardTo`, `send`, `hear`, `simulate`, `applyAll`), or of the types of
+  `program.ts` or `compose.ts`, runs `bun run inference` and `bun run inference --run`. A new function that takes a
+  program goes in its `uses`, one that takes a message in its `takers` (`tools/inference/generate.ts`).
+- A change of the types of `program.ts` or `compose.ts` runs `bun run mutations` too. A check added gets a test of the
+  types that refuses what it refuses, and a mutation ([`change-engine`](../change-engine/SKILL.md), "Mutations of the
+  types").
 - A testing tool's test shows it on a program, and an example's test uses it
-  ([`add-example`](../add-example/SKILL.md)): the README's "Examples" table says which tool each example shows,
-  and must stay true.
+  ([`add-example`](../add-example/SKILL.md)); the README's "Examples" table stays true.
 
 ## Document it
 
 In the same change:
 
-- **Doc comments** (`/** */`) on everything the two indexes export: they are the API reference of the
-  documentation site, generated by TypeDoc. `cd site && bun install && bun run build` must give no warnings.
-  Types the API refers to without exporting them are shown by name only, on purpose (`validation.notExported` is
-  off in `site/typedoc.json`). Each is written for a reader who meets the export in a hover:
-  - a first line that says what it is or does, in one short sentence;
-  - `@param` and `@returns` for a function, and a comment on each field of a type; one made with
-    `Effect.fnUntraced`, whose type keeps no names of parameters (`drive`, `rehearse`), says its parameters in a
-    sentence instead, which TypeDoc would otherwise warn of;
-  - an `@example` of the common case, as code, never inside the prose;
-  - plain English, always, for readers who are not native speakers ("The guide and the doc comments are in plain
-    English", in `AGENTS.md`): short sentences, one idea each, common words, and only the words the guide defines;
-    what the export is before what it is not;
-  - no note on how it is implemented, which is a `//` comment ("Code" in `AGENTS.md`).
-
-  What it promises follows the guide ("A doc comment of the API follows the guide, in its own words", in
-  `AGENTS.md`). After the summary, a few sentences or a short list give the rules a caller needs at that point,
-  checked one by one against the guide and the code: the same rule in fewer words, never a stronger one. The detail,
-  the reasons and the examples stay in the guide. A comment that grows past a screen says too much: keep what a
-  caller needs before calling, and leave the rest to the guide. Last come the `@see` lines, one for each section it
-  follows: `@see The guide, "<page>", "<section>".`, where `<page>` is the page's `title` and `<section>` a heading
-  of it, or the bold title a list item or a paragraph starts with, without its final period. `bun run comments` fails
-  on a name the guide does not have. A rule the guide does not hold yet is added to the guide first, as its prose
-  changes (`AGENTS.md`). A rule of the whole run (the order of messages, scopes, logs) is on `run`, and one of a single
-  export on that export.
-- **The guide** ([`site/guide/`](../../../site/guide)): the page of the concept that uses it, and "Testing tools"
-  for a testing tool. Every code block, there and in `README.md`, uses the current API as it would be written in its
-  context (names, signatures, the shape of what it returns), and agrees with the blocks it refers to. Nothing
-  checks them: read every block that mentions what changed. The README's quick start is complete and must run as
-  it is; this extracts and runs it (it logs 0, 1, 2, 3):
+- **Doc comments** on everything the indexes export, which TypeDoc makes the API reference
+  (`cd site && bun install && bun run build`, with no warnings). Each has a first line that says what it is, in one
+  sentence; `@param` and `@returns`, or a comment on each field (a function made with `Effect.fnUntraced` says its
+  parameters in a sentence); an `@example` of the common case; then the rules a caller needs at that point, the same
+  rule as the guide's in fewer words, never a stronger one; and last its `@see` lines (`AGENTS.md`, "A doc comment of
+  the API follows the guide, in its own words"). A comment past a screen says too much. A rule the guide does not hold
+  yet goes into the guide first. A rule of the whole run is on `run`.
+- **The guide** ([`site/guide/`](../../../site/guide)): the page of the concept, and "Testing tools" for a tool. No
+  tool checks its code blocks, nor the README's: read every block that mentions what changed. The README's quick start
+  must run as it is (it logs 0, 1, 2, 3):
 
   ````sh
   awk '/^## Quick start/{f=1} f&&/^```ts/{g=1;next} g&&/^```/{exit} g' README.md > quickstart.check.ts && bun quickstart.check.ts; rm quickstart.check.ts
   ````
-- **The examples** that use it.
-- **`CHANGELOG.md`**, under the unreleased version, with the version the change needs, after the four questions of
-  [`release`](../release/SKILL.md): an existing entry edited where it covers the change, a breaking change with how to
-  upgrade.
+- **The examples** that use it, and **`CHANGELOG.md`** ([`release`](../release/SKILL.md)).
 
 ## Report it
 
-`api/effect-tea.api.md` and `api/effect-tea-testing.api.md` are the report of the API, one for each entrypoint,
-written by API Extractor from the declarations of `dist/`: what the index exports, and every type of the library it
-reaches without exporting it, since a change of one changes what a consumer writes too. `bun run build && bun run
-api` rewrites them, and the commit that changes the API commits them: the CI runs `bun run api --check`, which fails
-when they differ from the declarations. Read their diff as a consumer would: a line removed or narrowed is a
-breaking change, and needs the changelog's `**Breaking**:` (`release`). A diff of the reports that the change did
-not mean to make is a change of the API all the same.
+`api/*.api.md` is the report of the API, one for each entrypoint, written by `bun run build && bun run api` from the
+declarations of `dist/` and committed with the change; the CI runs `bun run api --check`. Read its diff as a consumer:
+a line removed or narrowed is a `**Breaking**:` change, and a diff the change did not mean is a change all the same.
 
-A type the API reaches is exported by the package, or kept to its module: a consumer's declarations spell out a type
-alias that no module exports, and must import any other by name, which only an entrypoint allows (TS2742, TS2883,
-TS4023). So `bun run api` fails on one that a module of `dist/` exports and the package does not, on an interface or a
-class of a module's own, and on a key that is a `unique symbol` of a module's own, which is a string instead
-(`~@fgaudo/effect-tea/<Type>/<part>`, as `AGENTS.md` names keys). What the API returns has a name that declarations
-use, as `ProgramMaker` for what `program` returns: spelled out, it repeats the consumer's types in each of the
-library's.
+A type the API reaches is exported by the package, or kept to its module (TS2742, TS2883, TS4023): `bun run api`
+fails on one that a module exports and the package does not, on an interface or a class of a module's own, and on a
+`unique symbol` key, which is a string (`~@fgaudo/effect-tea/<Type>/<part>`). What the API returns has a name that
+declarations use, as `ProgramMaker` for what `program` returns.
+
+**A type for how a consumer's types print is admitted on four conditions.** Some types exist only for how TypeScript
+prints a consumer's types (`ProgramMaker` and its functions, `CheckedChild`, `Present`), and rest on behaviour of the
+compiler that no documentation states. One is admitted only when all four hold: it is not exported, or it names what a
+consumer's declarations would otherwise spell out in full; the smoke test has a check that fails without it, with each
+supported TypeScript; the typecheck, the tests and the inference matrix pass unchanged without it; and a comment at
+the type says what would print without it. One whose check fails with a new TypeScript is removed, not repaired with a
+second trick. How a type prints never justifies a parameter, an overload or an export that a user must write.
 
 ## Check it as a consumer
 
-Besides `bun run typecheck`, `bun run lint` and `bun run test`, check the change as a consumer outside Bun
-would see it: the `types` and `default` conditions, and the declarations in `dist/`, whose relative imports
-`tools/build.ts` rewrites to `.js`.
+`bun run smoke` (`tools/smoke/smoke.ts`, in the CI) checks the packed package as a consumer outside Bun sees it; it
+needs Node 22.18 or newer. `--effect <version>`, `--typescript 5.9,7.0` and `--keep` change what it installs and keep
+its project.
 
-`bun run smoke` (`tools/smoke/smoke.ts`, also run by the CI) packs the package, installs the tarball with npm in a
-project outside the repository, runs the README's quick start and
-[`tools/smoke/consumer.ts`](../../../tools/smoke/consumer.ts) with Node, and typechecks both, with
-`skipLibCheck: false`, under `moduleResolution` `nodenext` and `bundler` and each supported TypeScript. It needs Node
-22.18 or newer, which runs TypeScript as it is.
-
-- A change to what `program` declares or derives, or to the shape of what `run` and the testing tools take, gets
-  code in `tools/smoke/consumer.ts` that uses it, and a `// @ts-expect-error` for what its types newly reject.
-- The consumer emits its declarations, as a package that publishes a program does, and exports what an application
-  exports: programs, children, inputs, what `program` returns, and every value of the package
-  (`{ ...Library }`). A form of export that a change makes newly possible is exported there too. The smoke test counts
-  how often those declarations spell out the consumer's state, by a field of its own, and fails on any other count
-  than the one its comment explains: a type of the library that repeats a consumer's types inside its own multiplies
-  it, wherever it is, and is given a name. A type that exists only for how those declarations print is admitted as
-  `AGENTS.md` says ("A type for how a consumer's types print"), with a check here that fails without it.
-- `--effect <version>` installs another Effect than the lockfile's, `--typescript 5.9,7.0` other
-  TypeScripts, and `--keep` leaves the project in place to look into a failure.
+- A change to what `program` declares or derives, or to what `run` and the tools take, gets code in
+  [`tools/smoke/consumer.ts`](../../../tools/smoke/consumer.ts) that uses it, and a `// @ts-expect-error` for what its
+  types newly reject. A form of export a change makes possible is exported there too.
+- The smoke test counts how often the consumer's declarations spell out its state, and fails on another count than the
+  one its comment explains: a type of the library that repeats a consumer's types multiplies it, and is given a name.

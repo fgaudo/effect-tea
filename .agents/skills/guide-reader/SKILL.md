@@ -5,51 +5,35 @@ description: How a reader's check of the documentation of @fgaudo/effect-tea is 
 
 # A reader's check of the documentation
 
-A reader who has not seen the code builds a program from what a user of the package has, and what the reader gets
-wrong is what that lacks. The package ships what a user reads, at the version installed (`files` in
-[`package.json`](../../../package.json)): the guide ([`site/guide/`](../../../site/guide)), the tutorial
-([`site/tutorial/`](../../../site/tutorial)), the examples ([`examples/`](../../../examples)), the skill for coding
-agents that leads to them ([`skills/effect-tea/SKILL.md`](../../../skills/effect-tea/SKILL.md)), the declarations with
-their doc comments, which an editor shows on hover, and the README and the changelog. The site publishes the same
-guide, tutorial and doc comments, for the latest release. `docs/` is for whoever changes the library, not for its
-users, and the reader never opens it, nor the package's `src/`, which is the implementation.
+A reader who has not seen the code builds a program from what the package ships at its version (`files` in
+[`package.json`](../../../package.json)): the guide, the tutorial, the examples, the skill for coding agents
+([`skills/effect-tea/SKILL.md`](../../../skills/effect-tea/SKILL.md)), the declarations with their doc comments, the
+README and the changelog. What the reader gets wrong is what they lack. The reader never opens `docs/` nor the
+package's `src/`. Since the guide promises only its rules, a rule the reader could learn only from an example is a gap
+too, so the report says where each answer was found.
 
-The guide is the specification ([`AGENTS.md`](../../../AGENTS.md), "What belongs here"): a rule the reader could only
-learn from the code of an example is a gap too, since what the guide does not say under its rules it does not promise
-("What a page promises", in its index). So the report says, for each thing the reader needed, where it found it.
+The reader works in a project of its own outside the repository. A check is of one of two modes, which differ in what
+of `examples/` and `bridges/` it reads:
 
-The reader works in a project of its own outside the repository, so that the code and the documents of the repository
-are out of its reach by where it stands, not only by its rules. A check is of one of two modes, which differ only in
-what of `examples/` and `bridges/` the reader reads:
+- **Package**: all of it, found as a user's agent finds it: the brief names no file of the documentation, so the
+  reader's path shows whether the README's "For coding agents" and the declarations lead to the skill and the guide.
+  It is the mode for the tutorial, whose pages are built on `examples/timer/`, and for the skill.
+- **Closed**: of `examples/` and `bridges/`, only what a user imports (`bridges/snabbdom.ts`, `bridges/react.ts`,
+  `bridges/snabbdom-testing.ts` and `bridges/snabbdom-preload.ts`). It checks the guide as the specification: a rule a
+  reader of the package would copy from an example shows here as a guess. It is the mode for pages of the guide.
 
-- **Package**: all of it, as a user's agent does, and found as it finds it: the brief names no file of the
-  documentation, so the reader's path through the package shows whether the README's "For coding agents" and the
-  declarations lead to the skill and the guide. It checks too whether what the package ships is enough, and whether
-  the skill leads to what the reader needs. It is the mode for the tutorial, whose pages are built on the code of
-  `examples/timer/` and link to it, and for the skill. A reader that knows it checks documentation looks harder than
-  an agent at work: one that does not find the skill is a finding, one that does is only a sign.
-- **Closed**: only the bridges and what they give a user's tests, which a user imports as they are, since they are
-  entries of the package: `bridges/snabbdom.ts`, `bridges/react.ts`, `bridges/snabbdom-testing.ts`
-  and `bridges/snabbdom-preload.ts`. It does not imitate a user, who has the examples: it checks the guide as
-  the specification. A rule that a reader of the package would copy from an example without noticing shows instead as a
-  guess, or as what the compiler or a test told it. It is the mode for pages of the guide.
-
-The two may run on one requirement, a closed check of the guide and a check of the package: the difference of their
-reports is what the guide leaves to the examples.
+The two may run on one requirement: the difference of their reports is what the guide leaves to the examples.
 
 ## Before it starts
 
 1. The reader is a subagent, unless the author asks for a session of its own.
 2. Choose the pages the check is for, or all of the guide and the tutorial, and the mode: closed for pages of the
    guide, package where the tutorial or the skill is among them, unless the author says otherwise.
-3. Choose a requirement that needs every page the check is for. It needs a page only where no simpler design meets
-   it: the acceptance tests pass through the page and the world, so they cannot impose a design, and a reader of the
-   package rightly takes the smallest one, as the reader of the loading dock kept its trucks in the parent's state.
-   A design that the guide allows but does not require, as children by id, is checked by a closed check, whose brief
-   names its pages. In a check of the package no example may hold it:
-   what `bounce`, `counter`, `form`, `list`, `pages`, `stocktake`, `timer` and `volume` do is taken, since a reader
-   would copy them. In either mode, so is every requirement of an earlier check, listed here. An open check read the
-   repository's guide and all its examples, as a check of the package now reads them in the package.
+3. Choose a requirement that needs every page the check is for, where no simpler design meets it: a reader rightly
+   takes the smallest design, as the reader of the loading dock kept its trucks in the parent's state. A design the
+   guide allows and does not require, as children by id, is checked by a closed check whose brief names its pages. In
+   a check of the package no example may hold the requirement, since a reader would copy it, and in either mode no
+   earlier check's requirement, listed here, may be taken again.
    - a chat room: a connection status from a server feed that ends, a draft refused when blank or offline, sends that
      may fail and are retried, a log and a composer as children, and a reconnect under a new key (2026-11-16, open).
    - a warehouse stock-take: items loaded by a command that may fail and is retried, an item per id with a typed
@@ -332,19 +316,12 @@ export const valueOf = (selector: string): string | undefined => {
   awkward is weighed by "Deciding" in [`AGENTS.md`](../../../AGENTS.md), after
   [`docs/rejected.md`](../../../docs/rejected.md) is read for it, and a change it calls for is a step of
   [`ROADMAP.md`](../../../ROADMAP.md).
-- Put each gap of (a) and (b), and each rule of (2) to (5) a user relies on, where the reader looked for it. A page of
-  the guide gets it under its "Rules", as a specification, and the tutorial an explanation of it: a sentence added
-  promises what the code and the tests already keep, and is checked against `src/` and its tests, or with the
-  compiler, before it is committed, since a reader's guess may have passed by luck. A promise that no test keeps yet
-  gets its test first. A changed section of the guide is checked one sentence at a time against the old one
-  (`AGENTS.md`, "What belongs here").
-- A doc comment gets the rule a caller needs at that point, in short and in plain English, as `change-api` says; a rule
-  the guide does not hold yet goes into the guide first. The skill gets a pointer, or a rule in short with the section
-  that rules it: it sums up the guide and promises nothing the guide does not. A gap of the README is fixed in the
-  README.
-- Reread the doc comments that name each section changed (`@see`), and the rules of the skill that name it, then run
-  `bun run comments`, `bun run typecheck`, `bun run lint` and `bun run test`. A new promise, a new page or a moved
-  section has a changelog entry; a rewording with the same promises has none (`release`).
+- Put each gap of (a) and (b), and each rule of (2) to (5) a user relies on, where the reader looked for it: a page of
+  the guide under its "Rules", as `AGENTS.md` says of a rule of the guide, a doc comment as `change-api` says, the skill
+  as a pointer or a rule in short with its section, the README in the README. A sentence added promises only what the
+  code and the tests keep, checked against `src/`, its tests or the compiler before it is committed, since a guess may
+  have passed by luck; a promise no test keeps gets its test first. Then `bun run comments`, `bun run typecheck`,
+  `bun run lint`, `bun run test`, and a changelog entry where `release` asks for one.
 - Commit the documents alone. Ask the author before deleting the reader's project.
 - Name the requirement in step 3's list of requirements taken, with its date and its mode, in the same commit. Where
   acceptance tests ran, add how many passed of how many, and how many failures were the program's.

@@ -62,12 +62,11 @@ control sends the message that the program fixed for it.
   the other format.
 - Export `Message` as a type only, so that no view calls its constructors. The types do not stop a view from writing
   a message whole, as a literal: that rule is the view's to keep.
-- The library does not enforce the rules that a view keeps to: a view sends only the messages that the model holds,
-  writes only into the inputs that the model shows, and adds nothing but the values that an element or its event
-  gives (see [what is left to you](./guarantees.md#what-is-left-to-you)). What the library says about a model rests on
-  them. A test reads the messages of a program from its model, and fills a message held without its value with values
-  that it draws (see [testing](./testing.md)). So no test sees a message that a view built itself, nor a value that a
-  view computed.
+- The library does not enforce what a view keeps to above (see
+  [what is left to you](./guarantees.md#what-is-left-to-you)). What the library says about a model rests on it. A test
+  reads the messages of a program from its model, and fills a message held without its value with values that it
+  draws (see [testing](./testing.md)). So no test sees a message that a view built itself, nor a value that a view
+  computed.
 
 **A model is data.** A model holds no function. A model compares by value with `Equal`. The models of two equal states
 are equal.

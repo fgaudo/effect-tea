@@ -34,21 +34,9 @@ what it returns, or does not: the run does not stop a bridge. With the bridge to
 its run, and gives React the `App`. A program that the application starts itself hands its `App` to `Draw`, as
 `<Draw app={app} view={view} />`.
 
-`drawInto` draws the model of the current state:
-
-1. as it is called;
-2. in a microtask after each new state, wherever its message comes from;
-3. in a microtask after each message that a handler of the view sends, whether it made a new state or not (see
-   [handlers](#handlers)).
-
-What a task, or a listener that the browser calls, sends until it returns is drawn once.
-
-As it is called, `drawInto` empties `root`. Then `root` holds the view's top element and nothing else. `root` keeps its
-place in the page, and it may have no parent.
-
-Each draw calls the view with the model and the dispatch, unless the model is the very one it drew last, and draws
-what the view returns. Then it gives each controlled element its value back (see
-[a controlled element](#a-controlled-element)):
+When `drawInto` draws, and what it does with `root`, is in [the package's bridges](#the-packages-bridges). Each draw
+calls the view with the model and the dispatch, unless the model is the very one it drew last, and draws what the view
+returns. Then it gives each controlled element its value back (see [a controlled element](#a-controlled-element)):
 
 {@includeCode ../../bridges/snabbdom.ts#draw}
 
@@ -60,23 +48,10 @@ When the line returns, snabbdom has drawn the model whole. React draws it as Rea
 that the application suspends. Between two draws, the bridge to snabbdom draws nothing, and React draws what the
 application's components hold. What else the screen may show is in [view](./view.md#rules).
 
-The rest is the bridge's own code:
-
-- A model that is the very one drawn last is not drawn again. A model is made once while its state is the current
-  one, so a rejected message, or one that leaves the very same state, draws no tree. The draw still gives the
-  controlled elements their values back.
-- A listener may be called while a patch runs. A browser may call `blur` as a patch removes the focused element, and
-  `focus()` calls `blur` and `focus` at once, as an `insert` hook that focuses an element does. What such a listener
-  sends is drawn after the patch under way, in a microtask of its own: no microtask runs while the patch is on the
-  stack.
-- With snabbdom, a view or a `makeModel` that throws as it is drawn ends the run, wherever it is drawn, the first draw
-  too. A draw in a microtask runs in no call of the run, so the bridge gives what it threw to `die`. The run dies of
-  it, in `'render'`, and the bridge draws nothing more. A draw that comes once the run has ended gets it back from
-  `die`, and throws it out of the microtask, as an error of the page.
-- With React, a view that throws is an error of the application, for its error boundaries: an error boundary above
-  `Host` unmounts it, and the run is interrupted. A `makeModel` that throws is the run's: under `Host`, React draws the
-  model it drew last until the run has ended, and `Host` then throws the defect to the boundary, once. `Draw` alone
-  throws it as it renders, and the run that the application started dies of it too: one defect, met in two places.
+The rest is the bridge's own code. What it does with a model drawn last, with a message sent while a patch runs, and
+with a view or a `makeModel` that throws is in [the package's bridges](#the-packages-bridges). A message sent during a
+patch waits for a microtask of its own, since no microtask runs while the patch is on the stack. A draw in a microtask
+runs in no call of the run, so the bridge gives what it threw to `die`.
 
 A notice of a new state queues one microtask, which draws the model of the current state. Once the bridge is
 stopped, a draw it asked for before is not made, since another program may draw into the same root by then:
@@ -154,7 +129,8 @@ Every bridge does what follows. [An example](#an-example) shows how the package'
 - **It draws the model of the current state, and says what else it draws.** The bridge to snabbdom draws each model
   whole, in a microtask after each new state. It draws nothing between two draws. The bridge to React draws the model
   as React renders. Between two draws, React draws what the application's components hold, and a part that the
-  application suspends is shown later. What else the screen may show is in [view](./view.md#rules).
+  application suspends is shown later, with the model of the state current then. What else the screen may show is in
+  [view](./view.md#rules).
 - **A handler calls `dispatch` itself.** Sending needs no services, and returns once the message is applied.
 - **The message is one the model holds**, never one the view builds.
 - **A controlled element is drawn with the value its model holds**, and its handler writes what the element holds:

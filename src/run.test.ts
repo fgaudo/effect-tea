@@ -1752,10 +1752,10 @@ describe("the end of the run", () => {
     expect(where(await endedAfter(Effect.runFork(run), Deferred.await(holding)))).toBe("command")
   })
 
-  // Nothing times out: under a `TestClock` moved on by a day, a release that never ends holds the job after it, then
+  // A window of absence: under a `TestClock` moved on by a day, a release that never ends holds the job after it, then
   // the end of the run, which waits for it before it dies. What would tell that nothing starts and nothing ends is what
-  // does not happen: the day moved once the release has begun, each hour followed by a yield for what it woke, is a
-  // window of absence, in which no real time passes.
+  // does not happen: the day moved once the release has begun, each hour followed by a yield for what it woke, in which
+  // no real time passes.
   test("a release that never ends holds the next job, then the defects the run would die with, with no defect of its own", async () => {
     type Gated = Readonly<{ gated: boolean; works: number }>
     const outcome = await Effect.runPromise(

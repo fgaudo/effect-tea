@@ -36,10 +36,10 @@ The duration of the timer's tutorial (`examples/timer/duration.ts`). Its `update
 - **Never mutate the state**, nested objects included. Return a new state.
 - **A message that cannot arrive is a defect.** If such a message arrives, that is a bug. `update` throws
   `defect(reason)`, and the run dies (see [rejections and defects](./rejections-and-defects.md)).
-- **The very same state makes no new model.** When `update` returns the very same state it was given, the same object,
-  no renderer is told of it, whoever sent the message (see [running](./running.md#rules)).
 
-How to shape the state and its messages is in [structuring a program](./structuring-a-program.md).
+When `update` returns the very same state it was given, the same object, no renderer is told of it: that rule is the
+`App`'s, in [running](./running.md#rules). How to shape the state and its messages is in
+[structuring a program](./structuring-a-program.md).
 
 ## Do and don't
 

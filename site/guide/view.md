@@ -48,17 +48,11 @@ the model holds: `on: { click: () => dispatch(model.more) }`.
   the handle that `start` gives draws it: the code reads `app.model()` once, then again each time `app.subscribe` tells
   it of a new state (see [running](./running.md)). That code draws beside the bridge, not in its place.
 - **Each bridge says what it draws beside the model.** The guarantees are of the program (see
-  [guarantees](./guarantees.md)). What a bridge adds of the screen is its own promise:
-  - The bridge to snabbdom draws the model, and nothing else: what it shows of a controlled element is the value its
-    model gave it (see [the package's bridges](./writing-a-bridge.md#the-packages-bridges)). It draws each model whole,
-    never in parts. It draws in a microtask after each new state, and after each message that a handler of the view
-    sends, so before the browser handles the next event.
-  - The bridge to React is hosted by a React application. The application's components may keep state of their own,
-    and React draws it beside the model. React draws the model of the current state when it renders, as React
-    schedules it. A part that the application suspends, under a Suspense boundary, is shown later, with the model of
-    the state current then.
-  - The program's testing tools see only the program. What the application's components draw is the application's
-    to test.
+  [guarantees](./guarantees.md)). What a bridge adds of the screen is its own promise, and those of the package's
+  bridges are in [what a bridge does](./writing-a-bridge.md#what-a-bridge-does): the bridge to snabbdom draws the model
+  and nothing else, and with the bridge to React the application's components may keep state of their own, which React
+  draws beside it. The program's testing tools see only the program: what the application's components draw is the
+  application's to test.
 
 How a bridge is written, and what the bridges of the examples do and leave out, is in
 [writing a bridge](./writing-a-bridge.md).

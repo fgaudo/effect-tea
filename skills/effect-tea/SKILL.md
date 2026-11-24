@@ -134,9 +134,10 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   again from `init`. Under StrictMode, whether the commands of `init` start once or twice is unspecified. For a state
   that outlives a component, start the program yourself and draw it with `Draw`. A run that dies is thrown to the
   nearest error boundary, or given to `reportError` when `Host` unmounts, or `<Activity>` hides it, before throwing it.
-  A `makeModel` that throws reaches it once, as the run ends. The guide, "Guarantees", "With the bridge to React, the
-  run lives as long as the effect that starts it". The guide, "Writing a bridge", "With the bridge to React, a run that
-  dies is thrown to the nearest error boundary".
+  A `makeModel` that throws reaches it once, as the run ends. The guide, "Writing a bridge", "With the bridge to React,
+  the run lives as long as the effect that starts it". The guide, "Guarantees", "With the bridge to React, the run lives
+  as long as the effect that starts it". The guide, "Writing a bridge", "With the bridge to React, a run that dies is
+  thrown to the nearest error boundary".
 - **A value that the user writes belongs to the program whose rules use it.** Where the parent changes it, locks it or
   submits it, it is an input of the parent, by id for rows, and a row is no child. Where only a child's rules use it,
   it is the child's input, and the parent reads what the child concludes from it, through the child's `output`: a
@@ -233,7 +234,7 @@ Each sign breaks the rule named after it.
 - A rejection asserted as "the state did not change". The guide, "Testing", "Do and don't".
 - An attempt to cancel a command. The guide, "Commands", "Commands cannot be cancelled".
 - A `start` whose `run` is never run, outside a server: the program changes its state and does nothing else. The
-  guide, "Guarantees", "Whoever starts a program runs it".
+  guide, "Guarantees", "Whoever starts a program runs it". The guide, "Running", "A program is started, then run".
 - A `main` that runs the program and does not report its failure. A defect ends the run, and the run does not log it:
   reporting it is the job of the app around the run. The guide, "Running", "When a defect happens".
 

@@ -460,6 +460,7 @@ describe("rehearse", () => {
         twice(log, Effect.void),
         Effect.fnUntraced(function*(rehearsal) {
           yield* rehearsal.hearNext("ping")
+          // A window of absence, once the first ping is heard: a correct rehearsal makes no second one until asked.
           yield* Effect.sleep("20 millis")
           expect(log).toEqual(["first"])
           yield* rehearsal.hearNext("ping")
