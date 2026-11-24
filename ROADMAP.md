@@ -37,17 +37,19 @@ of its spike the same day, with the conditions of a second opinion
 from step 8, done on 23 November 2026 ([`premises-and-range.md`](docs/records/premises-and-range.md)): the owner kept
 the tilde, refused guards against each premise, and took what lets the library rest on less of Effect, and learn of a
 fall sooner: step 45, the job that tests the build of Effect's `main` before it is released, was done on 24 November
-2026. Step 48 comes from a review of the guide's descriptions that the owner asked for on 24 November 2026, once
-Effect's answer to Effect-TS/effect#10877 showed how Effect documents what it does not promise
+2026, and step 46, the guarantee of an interruption by the program weighed again by what it rests on, was closed by
+the owner the same day with no spike and the guarantee kept, once Effect 4.1.5 had left two of its six premises
+(`docs/rejected.md`, "Leaving 'Only the run, and whoever runs it, interrupt them' to the program"). Step 48 comes from
+a review of the guide's descriptions that the owner asked for on 24 November 2026, once Effect's answer to
+Effect-TS/effect#10877 showed how Effect documents what it does not promise
 ([`guide-descriptions.md`](docs/records/guide-descriptions.md)). A step done leaves its number unused.
 
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. what the library rests on of Effect with no promise, steps 46 and 47. The peer range, step 8, stayed a tilde on 23
+1. what the library rests on of Effect with no promise, step 47. The peer range, step 8, stayed a tilde on 23
    November 2026: a version published keeps its range, so one that a later Effect breaks could still be installed;
-2. the strength of what the guide says, step 48, added on 24 November 2026 after them, since two of its items wait for
-   step 46;
+2. the strength of what the guide says, step 48, added on 24 November 2026 after it;
 3. the engine, steps 18 to 21, which change nothing that a user writes.
 
 The checks came first: step 44, of the types by mutations, and step 6, of the bridges in a real browser, are done.
@@ -78,45 +80,12 @@ is a lead, "valid, but taken with other types".
 
 ## Next, in order
 
-### 46. The guarantee of an interruption by the program, weighed again by what it rests on
-
-**Model and effort.** Fable 5.2, `high`: a guarantee questioned, with a spike.
-
-**Depends on** no other step. It comes before step 18, which writes the roots and the records of the fibers that the
-run forks into the engine's seams, and before step 47, which asks Effect to document only the premises that are left.
-
-**Why.** Six of the twelve premises that hold a guarantee
-([`premises-and-range.md`](docs/records/premises-and-range.md), "The sort") keep one sentence of "Nothing ends in
-silence": "A command or a subscription that the program interrupts is a defect too", with "Only the run, and whoever
-runs it, interrupt them". They tell an interruption by the run from one by the program: the mark that
-`Fiber.interruptAs` carries, what `Effect.interruptible` fails with, a fork that is no child, the order of a scope's
-finalizers, a handler that an interrupted fiber does not run, and the fiber that `Fiber.getCurrent` gives. Every stop
-of every subscription passes there. Effect 4.1.5 documents four of the six (the mark, the fork, the order and the
-handler), and the upgrade to it took them out of `docs/premises.md`: two are left, what `Effect.interruptible` fails
-with and the fiber that `Fiber.getCurrent` gives. Of the twelve of the sort, four are left. The owner weighs whether
-the step still holds before it starts. The owner kept the guarantee on 13 and 19 November 2026 (`docs/rejected.md`, "A
-flag for each fiber, in place of the mark on the run's interruptions" and "Leaving 'Only the run, and whoever runs it,
-interrupt them' to the program"). Two reasons that neither entry answers: the library is since for others to adopt,
-and the sort counts what the guarantee rests on. And the one thing that the flag gave up, a fiber that interrupts
-itself as the run stops it, is described and no longer promised, since 23 November 2026.
-
-**How.** A spike on a branch that is never merged, which counts and does not reason. Two forms: the guarantee left to
-the program ("What is left to you"), with the mark, the roots and the question to the fiber taken out; and the flag of
-13 November again, whose spike also gave false defects in `init`. For each: which premises leave `docs/premises.md`
-(two by reading since Effect 4.1.5, not run), which tests and mutations go, what the search finds in a thousand runs,
-and what a program then meets. The entry of 19 November names it: a run that hangs, a `hearNext` that waits for ever,
-`simulate` succeeding. The owner decides with the counts. The skills are
-[`change-engine`](.agents/skills/change-engine/SKILL.md) and
-[`premise-review`](.agents/skills/premise-review/SKILL.md).
-
-**Done when** the owner has decided. Kept: its two entries of `docs/rejected.md` have the counts. Changed: the steps
-that write the change are here, before step 18.
-
 ### 47. Ask Effect to document what the library rests on
 
 **Model and effort.** Opus 5.5, `high`: each request states a general rule of Effect, true of its source.
 
-**Depends on** step 46, which decides which premises are left.
+**Depends on** no other step. Step 46, which weighed the guarantee of an interruption by the program, was closed on 24
+November 2026 with the guarantee kept: its two premises stay in `docs/premises.md`, and are asked here.
 
 **Since the upgrade to Effect 4.1.5** (23 November 2026), its JSDoc documents seventeen of the thirty-one premises on
 Effect, which left `docs/premises.md` with their tests: what `FiberSet.run` and `FiberMap.run` promise of the fiber
@@ -139,7 +108,7 @@ or a pull request of the JSDoc alone where the rule is a sentence. The owner is 
 text: it is opened in the owner's name. That of `Stream.callback` is one of them, as a case of the scope a stream runs
 in. The premise of the scheduler of the tests, and that of the JavaScript engine, are not asked.
 
-**Asked on 24 November 2026**, before step 46, in Effect-TS/effect#10877, after the two requests answered
+**Asked on 24 November 2026**, before step 46 was closed, in Effect-TS/effect#10877, after the two requests answered
 (Effect-TS/effect#10667 by Effect-TS/effect#10683, and Effect-TS/effect#10719 by Effect-TS/effect#10731). What the
 first answer chose not to promise is not asked again: a rule for callbacks that throw, `run` on a closed container,
 when a loser is interrupted, how the failures of cleanups combine, and the turn of a deferred fork. The second took all
@@ -165,8 +134,12 @@ was opened. Of its four rules, only the scope of a stream has a word there, the 
 
 Not asked: the three premises of how the failures of cleanups combine (`Effect.onExit`, `Effect.scoped`, `Scope.close`)
 and that of a `Deferred` resuming on the stack of whoever completes it, which fall under what the first answer
-declined; and those of what a `Queue` and the runtime keep, whose fall would be a leak that Effect fixes as a bug. What
-`Effect.interruptible` fails with and the fiber that `Fiber.getCurrent` gives wait for step 46.
+declined; and those of what a `Queue` and the runtime keep, whose fall would be a leak that Effect fixes as a bug.
+
+**Still to ask**, since step 46 kept the guarantee that rests on them: what `Effect.interruptible` fails with, entered
+by an interrupted fiber where it is uninterruptible (the second half of its premise; the first half holds only what
+the guide describes), and the fiber that code run on the stack of its forker sees as its own. Each is read first
+against what the first answer declined, as the others were.
 
 **Done when** each premise on Effect names, in `docs/premises.md`, the request that the owner opened for it, or says
 that none was asked and why. A premise leaves the list by an upgrade to the Effect that documents it
@@ -177,9 +150,11 @@ that none was asked and why. A premise leaves the list by an upgrade to the Effe
 **Model and effort.** Opus 5.5, `high`: the guide changes a section at a time, each sentence checked against the old
 one, with the mutations and the tests that hold it.
 
-**Depends on** step 46 for the two items of a self-interruption as the run stops it (9 and 10 of "Unspecified" in
-[`guide-descriptions.md`](docs/records/guide-descriptions.md), and the third mutation of its "Four that do not match"),
-which that step weighs. The rest depends on no step.
+**Depends on** no other step. The record leaves to step 46 the two items of a self-interruption as the run stops it (9
+and 10 of "Unspecified" in [`guide-descriptions.md`](docs/records/guide-descriptions.md), and the third mutation of its
+"Four that do not match"): that step was closed on 24 November 2026 with the guarantee kept, and the mark, the roots
+and the question to the fiber with it (`docs/rejected.md`), so the run does of that case what it did, and the owner
+decides the two items here, with the others.
 
 **Why.** A description is as true as a promise, has a test, and needs a changelog entry where a consumer can notice
 that it changed (`AGENTS.md`, "The guide is a specification"): one that no decision of a user rests on is a constraint
@@ -211,9 +186,10 @@ pass. The record says what was decided, at its head.
 
 **Model and effort.** Opus 5.5, `high`: code that keeps the invariants.
 
-**Depends on** step 46, which decides what the engine keeps of the mark and of the roots of its fibers. Since step
-38, a job holds the keys alone, and the fiber of a subscription calls `listen`, as the fiber of a command calls
-`runCommand`: what the engine gives that fiber is the key. It changes nothing a user writes.
+**Depends on** no other step. The engine keeps the mark and the roots of its fibers: step 46, which weighed them, was
+closed on 24 November 2026 with the guarantee kept (`docs/rejected.md`). Since step 38, a job holds the keys alone, and
+the fiber of a subscription calls `listen`, as the fiber of a command calls `runCommand`: what the engine gives that
+fiber is the key. It changes nothing a user writes.
 
 **Why.** `rehearse` is a second engine, kept in step with the first by hand and by the contract's tests
 ([`architecture-review.md`](docs/records/architecture-review.md), part 5). The owner took, on 21 November 2026, the

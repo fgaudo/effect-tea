@@ -21,7 +21,17 @@ answer, and saying so in the proposal.
   Moving the sentence to "What is left to you" would have kept a way to end in silence (a run that hangs, a `hearNext`
   that waits for ever, `simulate` succeeding) in a library that forbids one everywhere else, and narrowed a guarantee
   the owner had kept on 13 November (the entry below). Source: the session of 19 November 2026, with two reviews.
-  _Reopen if_ a fiber the run forks can be interrupted without the run's mark by anything but the program.
+  Weighed again on 24 November 2026, for a step of the roadmap that was to spike it and the flag below, and count: the
+  owner closed the step with no spike, and kept the guarantee. The step was written on six premises that the guarantee
+  rested on. Effect 4.1.5 documents four of them (the annotations of `Fiber.interruptAs`, a fork that is no child, the
+  order of a scope's finalizers, a handler that an interrupted fiber skips), and two are left in
+  [`premises.md`](premises.md): what `Effect.interruptible` fails with, whose fall fails most of the suite, and the
+  fiber that code run on the stack of its forker sees as its own, one case with a test of its own. Leaving the sentence
+  to the program would drop both, with the mark, the roots and the question to the fiber (`Core.byTheRun`, and
+  `rootedIn` and `dying` in `shell.ts`), and keep the ways to end in silence above. These counts are read in the code
+  and in `premises.md`, not run: which tests and mutations would go, and what the search would find, were not counted.
+  The two premises are asked of Effect instead (`ROADMAP.md`). _Reopen if_ a fiber the run forks can be interrupted
+  without the run's mark by anything but the program.
 - **`onApplied` and `onIgnored` as effects, each call in a fiber of its own.** Spiked, 19 November 2026: `542cb6d`, on
   `spike/strict-interruptions`, never to be merged, against the synchronous options, `c69b78f` on
   `spike/synchronous-options`. Each call forked, awaited, stopped with the mark if the loop is
@@ -62,7 +72,12 @@ answer, and saying so in the proposal.
   weakened); and it saves one premise (the annotations of `Fiber.interruptAs`), already held by two tests that fail
   without it, and some 15 lines. `diesIn` still asks a fiber the run does not stop whether it was interrupted. The
   owner decided: the mark stays, and the guarantee is not narrowed. Source: the session "Analisi invarianti
-  progetto", 13 November 2026, and the commit. _Reopen if_ a design tells the run's stop from a self-interruption
+  progetto", 13 November 2026, and the commit. Weighed again on 24 November 2026 with the entry above, and not spiked
+  again. The one premise it saved is documented since Effect 4.1.5, and it would drop neither of the two that are
+  left: the flag still needs the question to the fiber, by the spike's own count, and which fiber a command sees as its
+  own is the same under a flag as under the mark. Read, not run. What it gave up, a fiber that interrupts itself as the
+  run stops it, is described and no longer promised since 23 November 2026: that changes what the flag would lose, not
+  what it would save. _Reopen if_ a design tells the run's stop from a self-interruption
   with no question to the fiber, and keeps a self-interruption in a stopped fiber's release a defect.
 - **Promising the order of the defects.** Reasoned, 13 November 2026. The run keeps the order and its tests check
   it; the guide describes it as how the run is made today, and promises only that every defect is in the cause,
