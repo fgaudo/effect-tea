@@ -46,16 +46,49 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Step 60 applies the review of the API that step 59 decided ([`api-review.md`](docs/records/api-review.md)), now
-that step 58 has made a name change fewer documents. The steps of the engine, 53 to 55, come after it, since it
-changes how `simulate` is called, in the modules that step 53 changes, and step 55 comes before the release that
-follows them all.
+Step 61 weighs again, by the values of "Deciding", the decisions taken before it and the invariants, and adds the
+changes of the API it decides to the review that step 59 made ([`api-review.md`](docs/records/api-review.md)). Step
+60 then applies that review, now that step 58 has made a name change fewer documents. The steps of the engine, 53 to
+55, come after it, since it changes how `simulate` is called, in the modules that step 53 changes, and step 55 comes
+before the release that follows them all.
+
+### 61. The decisions before the charter, and the invariants, weighed again
+
+**Model and effort.** Fable 5.2, `high`: invariants and premises questioned, by values that pull apart.
+
+**Depends on** no other step, and comes before step 60, so that the breaking changes of the API are decided once and
+go out together.
+
+**Why.** On 24 November 2026 the owner opened every decision to the values of "Deciding", the owner's own included,
+and the invariants with them, the model of the library aside (`AGENTS.md`, "What may change"): the library is to be
+correct, coherent, elegant and pure. Most decisions of the records were taken one at a time, before the values were
+written, and step 59 reopened only those of the API that a new fact reached.
+
+**How.** Read [`docs/invariants.md`](docs/invariants.md), [`docs/premises.md`](docs/premises.md),
+[`docs/rejected.md`](docs/rejected.md) and the decisions of `docs/records/` (their "Decided" and "What the owner
+decided"), with the code they shape. For each, ask whether a design ranks higher by the values, in their order. Look
+hardest where a mechanism, a premise or a rule serves one case, where two concepts do one job, where a rule that
+nothing checks could be a type or a defect at `make`, and where the engine keeps state or order that a purer form
+would not need. A decision kept needs no line, but where it was close. A decision changed gets:
+
+- a line in a record, `docs/records/decisions-weighed.md`, of two pages at most, with its reason by the values;
+- for the API, a change of [`api-review.md`](docs/records/api-review.md) after its change 8, in its form and with its
+  exact spellings, and its row in the table, so that step 60 applies it with the rest;
+- for the engine, a testing tool, the guide or the documents, a step of its own here, in the form of this file, placed
+  by the code it touches: before steps 53 to 55 where they touch the same modules, and before step 55 always;
+- an entry of `docs/rejected.md` that it reopens rewritten or removed, and an entry for each design weighed and left.
+
+No code changes in this step.
+
+**Done when** the record gives each decision changed its reason; `api-review.md`, step 60 and the steps after it agree
+with it; each new step has its model, effort, dependencies and "Done when"; and `bunx dprint check` passes on the
+documents changed.
 
 ### 60. The API as step 59 decided
 
 **Model and effort.** Opus 5.5, `medium`: the changes follow the record, across modules.
 
-**Depends on** no other step. Step 59, done, left its decisions in
+**Depends on** step 61, which may add changes to the record. Step 59, done, left its decisions in
 [`api-review.md`](docs/records/api-review.md): "What changes" lists the eight changes, and "Each export" what stays.
 Nothing of the API is decided again here: a change that cannot be made as the record says stops the step, with a
 report.
@@ -191,7 +224,7 @@ say the rule; each case of the contract is kept or removed, with its line in the
 **Model and effort.** Opus 5.5, `high`, by a reviewer that wrote none of the changes
 ([`premise-review`](.agents/skills/premise-review/SKILL.md)).
 
-**Depends on** steps 60, 53 and 54, and comes before the release that follows them.
+**Depends on** steps 61, 60, 53 and 54, and comes before the release that follows them.
 
 **Why.** Steps 49 to 54 move a check from a tool to the engine, or take one away with the code it guarded: a premise
 may leave with it, and no test fail. From step 52 on, `simulate` rests on the engine's premises, and no longer on

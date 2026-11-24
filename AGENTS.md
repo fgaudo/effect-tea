@@ -48,21 +48,26 @@ changing an invariant, a premise or the API if that is what it takes.
 Everything but this section may change when the change ranks higher by its values: an invariant, a premise, a promise
 of the guide, a rule of this file or of a skill, a name or a shape of the API, with a breaking change where it takes
 one (`release`). Before 1.0 a break costs little: the API is made right now, and its breaking changes go out together,
-so that users upgrade once.
+so that users upgrade once. The owner's own decisions are no exception: one of a record or of `docs/rejected.md`
+binds an agent as an agent's would, and is changed with no consent asked. What does not change is the model of the
+library, The Elm Architecture: a state made anew only by a pure `update`, from a message, with the commands it returns;
+a view of the state; subscriptions read from the state; and effects run by the engine alone, never by the program's
+functions. A change that leaves it makes another library.
 
 ### What the owner decides
 
 - Whatever leaves this machine: a push of commits or tags; an issue, a pull request, a release or a comment, on GitHub
   or anywhere else; a message to anyone; and publishing to npm. Commits and tags stay local, and the owner pushes them.
-- What the project is: its purpose and its users, a dependency or a peer added or removed, a new bridge, its licence,
-  and 1.0.
+- What the project is: its purpose and its users, its model ("What may change"), a dependency or a peer added or
+  removed, a new bridge, its licence, and 1.0.
 - This section: the values, their order, and this list.
 
 ### How a decision is taken and kept
 
 - Read the precedents first: `docs/rejected.md`, and the records that the change touches. A decision is not reopened
   without a new fact (a bug, a user's report, a change of Effect, or an argument that the precedent did not weigh),
-  and the proposal names it, as the "Reopen if" of an entry asks.
+  and the proposal names it, as the "Reopen if" of an entry asks. A decision taken before this section, on 24 November
+  2026, the owner's or an agent's, was not weighed by its values: an argument from them is its new fact.
 - Write the decision where the next agent will look: one line in the report of the step and in its commit. A decision
   on the API or on an invariant also gets a record of a page at most, in `docs/records/`.
 - A decision that the owner undoes goes in `docs/rejected.md`, with the owner's reason: it is a precedent too.
