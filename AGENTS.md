@@ -25,7 +25,9 @@ that read this section, and the precedents it names, decide alike.
 ### The values, in order
 
 When two of them pull apart, the higher one wins. When the lower one would lose much, look first for a third design,
-changing an invariant, a premise or the API if that is what it takes.
+changing an invariant, a premise or the API if that is what it takes. Look for one also where nothing pulls apart:
+when a task shows a more elegant way to solve a problem, or a better form of the API, explore it. Take it where the
+task reaches it, and otherwise write it in the roadmap as a lead, for a step to weigh.
 
 1. **Correct.** Every behaviour is defined, and nothing fails in silence.
 2. **Misuse is impossible by construction.** Only a misuse that leaves the library's behaviour undefined needs a
