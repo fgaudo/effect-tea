@@ -1,6 +1,6 @@
 ---
 name: guide-reader
-description: How a reader's check of the documentation of @fgaudo/effect-tea is done: a subagent that has never seen the code builds a program for a requirement of its own, in a project of its own where the package is installed, from what the package ships alone (in a package check all of it, found as an agent at work finds it, with nothing that names it; in a closed check the guide, the tutorial and the declarations, with only the bridges of the examples), and reports every gap, with where it found each answer; where the author asks, acceptance tests the reader never sees, written before it starts by an examiner that never sees the library, are run on its program; then what becomes of its report. Use when the author asks for a reader's check of the guide, or of pages of it, of the tutorial, of the skill, or of the package.
+description: How a reader's check of the documentation of @fgaudo/effect-tea is done: a subagent that has never seen the code builds a program for a requirement of its own, in a project of its own where the package is installed, from what the package ships alone (in a package check all of it, found as an agent at work finds it, with nothing that names it; in a closed check the guide, the tutorial and the declarations, with only the bridges of the examples), and reports every gap, with where it found each answer; where the check calls for them, acceptance tests the reader never sees, written before it starts by an examiner that never sees the library, are run on its program; then what becomes of its report. Use when the author asks for a reader's check of the guide, or of pages of it, of the tutorial, of the skill, or of the package.
 ---
 
 # A reader's check of the documentation
@@ -39,7 +39,7 @@ reports is what the guide leaves to the examples.
 
 ## Before it starts
 
-1. Ask the author whether the reader is a subagent, unless the author has just asked for one.
+1. The reader is a subagent, unless the author asks for a session of its own.
 2. Choose the pages the check is for, or all of the guide and the tutorial, and the mode: closed for pages of the
    guide, package where the tutorial or the skill is among them, unless the author says otherwise.
 3. Choose a requirement that needs every page the check is for. It needs a page only where no simpler design meets
@@ -102,9 +102,9 @@ reports is what the guide leaves to the examples.
    checked needs a run under a renderer, add `snabbdom` and `@happy-dom/global-registrator` (or `react` and
    `react-dom`, with their types) to the devDependencies at the repository's versions, and `"DOM"` to `lib`, before
    `bun install`: the reader installs nothing.
-5. Where the author asked for acceptance tests, prepare them before the reader starts, as
-   [acceptance tests the reader never sees](#acceptance-tests-the-reader-never-sees) says. Ask, unless the author has
-   said: they need a run under a renderer and a second subagent, so the check costs more.
+5. Decide, by what the check is for, whether it has acceptance tests, and prepare them before the reader starts, as
+   [acceptance tests the reader never sees](#acceptance-tests-the-reader-never-sees) says: they need a run under a
+   renderer and a second subagent, so the check costs more.
 
 ## The reader's brief
 
@@ -175,9 +175,9 @@ The package documents itself in node_modules/@fgaudo/effect-tea. Start with its 
 ## Acceptance tests the reader never sees
 
 The reader writes the program and its tests, so it judges itself: a requirement misread, or a rule of the guide, passes
-the tests of whoever misread it. Where the author asks, tests of the requirement are written before the reader starts,
-by an examiner that never sees the library, and run on the reader's program once it has reported. They pass through the
-page and the world alone, so they hold for a program written in any way, and name nothing of the library.
+the tests of whoever misread it. Where the check has them, tests of the requirement are written before the reader
+starts, by an examiner that never sees the library, and run on the reader's program once it has reported. They pass
+through the page and the world alone, so they hold for a program written in any way, and name nothing of the library.
 
 ### What the requirement fixes
 
@@ -325,12 +325,13 @@ export const valueOf = (selector: string): string | undefined => {
      (c), and is handled as any other. One the documentation says plainly is the reader's slip: no gap, but it counts.
 
 - In a check of the package, read the reader's path first. A reader that never reached the skill or the guide, or
-  reached them late, says what it read instead: where a user's agent looks, and what there could send it on, is a
-  question for the author, since the README and the doc comments are what it reads.
+  reached them late, says what it read instead: where a user's agent looks, and what there could send it on, is a gap
+  of the README and of the doc comments, which are what it reads.
 - Check each possible bug against `src/`, `docs/invariants.md` and the guide before acting on it. A defect of the code
   is fixed as any other, with its test (`change-engine`, `change-api`). A choice of the API that the reader found
-  awkward is a question for the author, and goes in [`ROADMAP.md`](../../../ROADMAP.md), under "Waiting for the
-  owner", with what would decide it, after [`docs/rejected.md`](../../../docs/rejected.md) is read for it.
+  awkward is weighed by "Deciding" in [`AGENTS.md`](../../../AGENTS.md), after
+  [`docs/rejected.md`](../../../docs/rejected.md) is read for it, and a change it calls for is a step of
+  [`ROADMAP.md`](../../../ROADMAP.md).
 - Put each gap of (a) and (b), and each rule of (2) to (5) a user relies on, where the reader looked for it. A page of
   the guide or the tutorial gets it as a specification: a sentence added promises what the code and the tests already
   keep, and is checked against `src/` and its tests, or with the compiler, before it is committed, since a reader's

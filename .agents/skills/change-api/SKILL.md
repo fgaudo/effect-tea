@@ -20,8 +20,8 @@ proposing one.
   index.
 - Keep the tools symmetric: what `drive` gets, `simulate` and `rehearse` are asked about, and the engine and
   the three tools behave alike where the engine is deterministic (`docs/invariants.md`).
-- Only stable Effect APIs, nothing deprecated, and no upgrade of Effect for a newer API without asking
-  ([`upgrade-effect`](../upgrade-effect/SKILL.md)).
+- Only stable Effect APIs, nothing deprecated, and an upgrade of Effect, not a workaround, for an API that only a newer
+  Effect has ([`upgrade-effect`](../upgrade-effect/SKILL.md)).
 - A new entrypoint needs the three conditions of `exports` in `package.json`: `bun`
   (the TypeScript source, for consumers that run under Bun), `types` and `default` (`dist/`, for everyone else),
   and an entry in `files` if it is not under `src` or `dist`. `tools/api-report.ts` and the site's `typedoc.json` list

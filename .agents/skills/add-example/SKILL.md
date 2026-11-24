@@ -86,8 +86,9 @@ In `examples/` itself are [`README.md`](../../../examples/README.md), which says
   among them, has its press a message of the model, held without the point that the view fills, and its drag a
   subscription (`volume`). A child's view is memoized with snabbdom's `thunk`, its dispatch from `forwardTo` among the
   arguments (`pages/view.ts`).
-- **An example that needs more than the guide gives is a change of design**, and the owner is asked before it is
-  written: a renderer other than the bridges' `drawInto` and `Draw`; a view that takes more than its model and its dispatch;
+- **An example that needs more than the guide gives is a change of design**, decided as one ("Deciding" in `AGENTS.md`)
+  before the example is written: a renderer other than the bridges' `drawInto` and `Draw`; a view that takes more than
+  its model and its dispatch;
   something the screen shows that is kept outside the program's state (a variable of `main.ts`, a service the renderer
   reads, what a subscription or a command writes beside its messages); a new or changed rule of the guide that the
   example needs in order to be allowed. The first `bounce` did all four.

@@ -195,7 +195,7 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   their start, which compares no keys.
 - **Commands are data; only `runCommand` runs them.** Never let a command carry its effect, or a description
   that must be kept in step with one: a test and `onApplied` read the command itself.
-- **Commands cannot be cancelled**, a deliberate choice: do not add cancellation without asking.
+- **Commands cannot be cancelled**, a deliberate choice of design.
 - **Each command and each subscription has a scope of its own** (`scopedIn` where the library starts
   them; a command's closes before its answer is applied: "a command's scope closes before its answer is applied",
   `engine.test.ts`), and the testing tools that run them, `rehearse` and `simulate`, run them on the engine. Never

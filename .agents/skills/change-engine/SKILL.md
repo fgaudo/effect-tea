@@ -17,10 +17,11 @@ and of the JavaScript engine, each with what checks it, is [`docs/premises.md`](
    [`docs/rejected.md`](../../../docs/rejected.md) too: a change of design listed there is not proposed again
    without what its entry names under "Reopen if".
 2. List the premises the change rests on. Each is checked before the change is written, and never only reasoned:
-   the documentation of a stable API, or a test that fails without it, as the rule of `docs/premises.md` says. For a
-   new one that no stable API documents, the owner is asked before the change is written; once the owner agrees, it
-   is added there with a test of its own, apart from the library's tests (`test/premises.test.ts`), and never made
-   unneeded by code written for it alone. One that cannot be checked yet holds the change up.
+   the documentation of a stable API, or a test that fails without it, as the rule of `docs/premises.md` says. A new
+   one that no stable API documents is taken only where no design without it is as good ("Deciding" in `AGENTS.md`):
+   it is added there with a test of its own, apart from the library's tests (`test/premises.test.ts`), before the
+   change is written, and never made unneeded by code written for it alone. One that cannot be checked yet holds the
+   change up.
 3. List the points where another fiber can run between a check and the act it guards ("one thunk" in
    `docs/invariants.md`). Each leaves a test that fails without the check, deterministic, of the core or with a gate,
    and a mutation that takes the check out, naming that test. The thunk that applies a message runs on the sender's
@@ -35,8 +36,8 @@ and of the JavaScript engine, each with what checks it, is [`docs/premises.md`](
 ## Tests
 
 The five kinds of test, and where each lies, are in `AGENTS.md` ("Tests"). See each new test fail without what it
-checks before the change is committed. The premises listed, and the tests seen to fail, are reported to the owner
-with the change.
+checks before the change is committed. The premises listed, and the tests seen to fail, are named in the report of the
+change.
 
 ### Mutations
 

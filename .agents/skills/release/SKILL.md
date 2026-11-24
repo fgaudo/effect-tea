@@ -1,6 +1,6 @@
 ---
 name: release
-description: How @fgaudo/effect-tea is versioned and released: the changelog entry a change needs and the version it raises, the release commit and tag, the documentation site the tag deploys to GitHub Pages, what the package contains, and what is left to the author (publishing to npm). Use when writing a changelog entry, choosing the next version, releasing, or building the documentation site.
+description: How @fgaudo/effect-tea is versioned and released: the changelog entry a change needs and the version it raises, the release commit and tag, the documentation site the tag deploys to GitHub Pages, what the package contains, and what is left to the author (pushing, and publishing to npm). Use when writing a changelog entry, choosing the next version, releasing, or building the documentation site.
 ---
 
 # Versions, changelog and releases
@@ -55,9 +55,10 @@ version never goes down. `package.json` and the changelog's section always agree
    is run too: an order it finds goes in `ROADMAP.md`, and is weighed before the release.
 2. In `CHANGELOG.md`, replace `(unreleased)` with the date: `## 0.6.0 (2026-10-23)`.
 3. Commit that change alone, with the subject `release <version>`, and tag the commit `v<version>` (a
-   lightweight tag, as the existing ones). Push the commit and the tag.
-4. The tag runs `.github/workflows/docs.yml`, which builds the site and deploys it to GitHub Pages (it can also
-   be run by hand from the repository's Actions). The site is never committed.
+   lightweight tag, as the existing ones). The author pushes the commit and the tag: nothing leaves this machine but
+   by the author ("Deciding" in `AGENTS.md`).
+4. The tag, once pushed, runs `.github/workflows/docs.yml`, which builds the site and deploys it to GitHub Pages (it
+   can also be run by hand from the repository's Actions). The site is never committed.
 5. The author publishes the package: never run `npm publish` or `bun publish`.
 
 ## What the package contains

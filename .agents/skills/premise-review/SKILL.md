@@ -22,9 +22,9 @@ the documentation of a stable API, or a test for what is not documented.
    the modules they changed and the names those cite (`reconcile`, `diesIn`, `forwardTo`, `modelsOf`), or all of
    them before 1.0. The author may name others. A review is not run after each change: changes are not held up for
    it, and it reads them together.
-2. The reviewer wrote none of the changes. Start it as a session in a worktree of its own, so that its failing tests
-   stay off `main` until they are read, or as a subagent where the author asks for one. Commit what the review must
-   see first: a worktree is cut from the last commit. Two reviewers at once read apart: the engine (`engine.ts`,
+2. The reviewer wrote none of the changes. Start it in a worktree of its own, as a session or as a subagent, so that
+   its failing tests stay off `main` until they are read. Commit what the review must see first: a worktree is cut from
+   the last commit. Two reviewers at once read apart: the engine (`engine.ts`,
    `core.ts`, `shell.ts`, `run.ts`, `compose.ts`, `dispatch.ts`, `input.ts`, `log.ts`) and the testing tools
    (`src/testing/`).
 3. Fill the brief's two places: what to read, and what is already known (the open problems of
@@ -106,9 +106,8 @@ Your last message says the branch, the commit and the findings in a few lines.
   proves nothing. Run each again on the last commit of `main` where the branch was cut before it.
 - A finding is an open problem of `ROADMAP.md` until it is fixed, and its test may come to `main` with its
   `test.failing` mark, as those of the November review did. Its fix removes the mark and the item, in one commit.
-- A fix or a change of design the report proposes is read against `docs/rejected.md` before it is put to the
-  author; one rejected there and proposed again without what its entry asks is no proposal. One the author rejects
-  is added there.
+- A fix or a change of design the report proposes is read against `docs/rejected.md` before it is taken; one rejected
+  there and proposed again without what its entry asks is no proposal. One that is rejected is added there.
 - A finding is fixed by its form, as `docs/premises.md` says after the rule of a review. Before the fix, write the
   form in a line (a cleanup skipped, or an exit discarded, as a scope closes; a step applied by two actors at once; a
   window between two fibers that nobody watches), and list each place of the engine and of the testing tools that ends a
@@ -117,13 +116,12 @@ Your last message says the branch, the commit and the findings in a few lines.
   where it is not; the fix's commit names the form and the places it checked. Findings of one form are fixed
   together, by one mechanism where one can hold them all, rather than one place at a time.
 - A suspect ruled out by a test, that rests on what Effect or the JavaScript engine does without promising it, is a
-  premise, added to `docs/premises.md` with the test, which comes to `main`, once the owner has agreed to it as that
-  document says. One ruled out by the documentation of a stable API is no premise, and is not listed there: the
+  premise, added to `docs/premises.md` with the test, which comes to `main`, as that document says. One ruled out by
+  the documentation of a stable API is no premise, and is not listed there: the
   report names the declaration.
 - A lead, and a suspect left unchecked, are no findings yet. Write the test that would reproduce each, here or in a
   session of its own, and run it: a test that fails makes it a finding, one that passes rules it out. A lead no test
-  can reach yet goes under "Premises that no test reaches yet" in `docs/premises.md`, with what would decide it, once
-  the owner has agreed to it.
+  can reach yet goes under "Premises that no test reaches yet" in `docs/premises.md`, with what would decide it.
 - A place where the code does otherwise than `AGENTS.md`, `docs/invariants.md` or the guide says is a bug of the
   one or of the other: the guide is a specification, and its prose changes as `AGENTS.md` says.
 - Do not merge the reviewer's branch whole: take what the points above bring to `main`, and nothing else.

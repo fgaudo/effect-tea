@@ -40,13 +40,15 @@ premise:
 None of the three keeps the broken pair from being installed: they make it loud. What shortens the time before the
 first is the alarm on Effect's `main`, which comes before its release: when its issue names a premise's test, the
 owner decides whether to tell Effect before the patch is released, and the patch of the library that leaves that
-version out is prepared, to be released with it.
+version out is prepared, to be released with it. A request to Effect, which the owner opens ("Deciding" in
+`AGENTS.md`), asks for the general rule of an API or of a family of modules, never for the library's case alone, and
+never again for what Effect has declined, as the "intentionally not broadened" list of Effect-TS/effect#10683.
 
 ## An API of a newer Effect
 
 When Effect has a direct API for what is needed, but only since a later version (its `@since` tag in
-`node_modules/effect/dist/<Module>.d.ts`), do not work around it: stop and ask whether to upgrade. The direct API
-is preferred, and the upgrade is the author's call.
+`node_modules/effect/dist/<Module>.d.ts`), do not work around it: upgrade, as below. The direct API is preferred, and
+the upgrade is decided as any change is ("Deciding" in `AGENTS.md`).
 
 ## Upgrading Effect
 
@@ -62,8 +64,8 @@ is preferred, and the upgrade is the author's call.
    What the new version's `ai-docs` and effect.website say of a premise is read too, and named in it: no promise, as
    that rule says.
    A guard, a workaround or a check of the library's that the new guarantee makes unneeded is a lead for a
-   simplification: propose it to the owner, with the guarantee quoted and the code it removes, and once taken, it
-   goes with its mutation in `tools/mutations/mutations.ts` and, for a change of the engine, follows `change-engine`.
+   simplification, taken by "Deciding" in `AGENTS.md`, with the guarantee quoted in the commit and the code it removes:
+   it goes with its mutation in `tools/mutations/mutations.ts` and, for a change of the engine, follows `change-engine`.
 5. A raised peer range is a change a consumer can notice: a `Changed` entry in `CHANGELOG.md` that names the new
    minimum, and the version a breaking change raises ([`release`](../release/SKILL.md)).
 

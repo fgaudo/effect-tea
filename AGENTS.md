@@ -25,15 +25,71 @@ The engine is `src/core.ts`, `shell.ts`, `engine.ts`, `run.ts`, `compose.ts`, `d
 and the testing tools are `src/testing/`: a change of one, of `tools/mutations/` or of
 `test/scheduled.test_scheduler.ts` reads `change-engine` first, whatever else it is.
 
+## Deciding
+
+The owner leaves the decisions of the project to the agent that does the work, and keeps the few listed below. A
+decision is not put to the owner because it is hard, or because it breaks something: the agent takes it by the values
+of this section, says it in one line in the report of its step and in the commit, and the owner may undo it. So agents
+that read this section, and the precedents it names, decide alike.
+
+### The values, in order
+
+When two of them pull apart, the higher one wins. When the lower one would lose much, look first for a third design,
+changing an invariant, a premise or the API if that is what it takes.
+
+1. **Correct.** Every behaviour is defined, and nothing fails in silence.
+2. **Misuse is impossible by construction.** Only a misuse that leaves the library's behaviour undefined needs a
+   refusal: one that only exposes users to their own bugs is allowed. A refusal comes from the types or the shape of
+   the API first; where they cannot give one, from a defect as the program is made (`make`); last, from a rule that
+   nothing checks, listed in "Guarantees", under "What is left to you". Three things are axioms, never checked: the
+   functions of a program are pure, a state is never mutated, and a model holds no function.
+3. **The public API is small, clear and symmetric.** Few concepts. One word for each concept, and one concept for each
+   word: the guide's glossary is the dictionary. A name says what the thing is to a user, the same role has the same
+   form, and a thing is done one way. Users judge the library by its API first.
+4. **The design is coherent and pure.** A concept is treated alike wherever it appears, and has a module of its own.
+5. **The implementation is simple.** Fewer mechanisms, less code, fewer premises (`docs/premises.md`).
+6. **It is fast enough.** A cost in memory or in time that grows with no need is a bug, and counts as 1. Anything else
+   is optimized only once it is measured, and never at the cost of 3.
+7. **It is cheap to keep.** Documents, tests, tools and procedures serve the values above. One that costs more than it
+   protects is cut, and a rule added removes or merges another, or says why it cannot.
+
+### What may change
+
+Everything but this section may change when the change ranks higher by its values: an invariant, a premise, a promise
+of the guide, a rule of this file or of a skill, a name or a shape of the API, with a breaking change where it takes
+one (`release`). Before 1.0 a break costs little: the API is made right now, and its breaking changes go out together,
+so that users upgrade once.
+
+### What the owner decides
+
+- Whatever leaves this machine: a push of commits or tags; an issue, a pull request, a release or a comment, on GitHub
+  or anywhere else; a message to anyone; and publishing to npm. Commits and tags stay local, and the owner pushes them.
+- What the project is: its purpose and its users, a dependency or a peer added or removed, a new bridge, its licence,
+  and 1.0.
+- This section: the values, their order, and this list.
+
+### How a decision is taken and kept
+
+- Read the precedents first: `docs/rejected.md`, and the records that the change touches. A decision is not reopened
+  without a new fact (a bug, a user's report, a change of Effect, or an argument that the precedent did not weigh),
+  and the proposal names it, as the "Reopen if" of an entry asks.
+- Write the decision where the next agent will look: one line in the report of the step and in its commit. A decision
+  on the API or on an invariant also gets a record of a page at most, in `docs/records/`.
+- A decision that the owner undoes goes in `docs/rejected.md`, with the owner's reason: it is a precedent too.
+- A question that must go to the owner is one question, with the agent's choice first, the difference said by what it
+  changes for a user of the library, and whether it can be undone.
+
 ## Language
 
 All code, comments, identifiers, commit messages and `.md` files are in **English**.
 
 ## Commits
 
-A commit made with an AI agent ends with an `Assisted-by: <model>` trailer (e.g. `Assisted-by: Claude Opus 5.5`),
-never `Co-Authored-By`: the author is the person who commits. A clear subject is usually enough: a body only says
-why, or what the diff, the docs and the changelog do not, never what they already describe.
+Commits go on `main`, whose history is linear: a branch is for a spike or a large port, when one is asked for. They
+stay local, and the owner pushes them ("Deciding"). A commit made with an AI agent ends with an `Assisted-by: <model>`
+trailer (e.g. `Assisted-by: Claude Opus 5.5`), never `Co-Authored-By`: the author is the person who commits. A clear
+subject is usually enough: a body only says why, or what the diff, the docs and the changelog do not, never what they
+already describe. Each decision of a step is a line of its commit ("Deciding").
 
 ## What belongs here
 
@@ -48,7 +104,8 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   `bridges/snabbdom.ts`, `bridges/snabbdom-testing.ts` and `bridges/react.ts`; every other module is internal. It is
   judged on its own terms, from the library's concepts, its examples and its users in general: coherent, symmetric where
   its tools are (what `drive` gets, `simulate` and `rehearse` are asked about), and never shaped by, nor justified with,
-  what one application happens to use.
+  what one application happens to use. Another project may be named, as the README names Foldkit, but nothing in the
+  repository says that one was read or compared to decide what this library does.
 - **A type is Effect's or the library's, never half of each.** One of Effect's is an alias with a name
   (`Subscription` is a `Channel`, `Execution` an `Effect`): it is built and transformed with Effect's own
   combinators, and the library defines no function over it. One of the library's own has a shape the library
@@ -111,7 +168,7 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   Effect does not document may change in a minor version, and the premises (`docs/premises.md`) rest on some of it: so
   the range accepts no minor that the tests have not run on, and a new minor of Effect needs an upgrade and a release
   of the library. No older Effect is supported. An API that exists only in a newer Effect is not a reason for a
-  workaround: ask whether to upgrade (`upgrade-effect`). The official repository of Effect v4 is
+  workaround, but for an upgrade (`upgrade-effect`). The official repository of Effect v4 is
   [`Effect-TS/effect`](https://github.com/Effect-TS/effect): its sources, issues and changes are read there.
   A renderer's peer range is wider, with a caret from the version its bridge is developed with (`^19.3.1` for React,
   `^3.6.4` for snabbdom): a tilde would refuse the whole package to an application on a later minor, which uses no
@@ -145,7 +202,7 @@ why, or what the diff, the docs and the changelog do not, never what they alread
   it with the same exceptions and the same strength: a change of a rule rereads every place that states it. A rule
   that nothing checks (not the compiler, not the run, not a testing tool) is where a person or an AI goes wrong in
   silence: it is listed in "Guarantees", under "What is left to you", and first in the skill. And an example never
-  brings the rule that allows it: a change of the guide that an example needs is asked first.
+  brings the rule that allows it: a change of the guide that an example needs comes first, as a change of the guide.
 - **A doc comment of the API follows the guide, in its own words.** It is written by hand, for whoever meets the
   export in a hover: what the export is and how it is called (a summary, its parameters and result, its fields, an
   example), and the rules of the guide that a caller needs at that point, in short. It promises nothing the guide
@@ -191,8 +248,7 @@ this summary says less. What every change keeps, an example's and a document's t
   into messages: reporting is the job of whoever runs the program.
 - **A subscription never ends in silence**: its end value is a message (or `never`), and an ended one is never
   restarted automatically. Subscriptions are reconciled by key.
-- **Commands are data; only `runCommand` runs them**, and they cannot be cancelled: do not add cancellation without
-  asking.
+- **Commands are data; only `runCommand` runs them**, and they cannot be cancelled, by a choice of design.
 - **Each command and each subscription has a scope of its own**: never let them acquire into the run's scope.
 - **A model is made only when it is read**, and no span lives as long as the run.
 - **`onApplied` and `onIgnored` are given no dispatch, and return nothing**: they are functions, not effects, so
@@ -204,8 +260,9 @@ this summary says less. What every change keeps, an example's and a document's t
   `on` of a defect or a failure of a testing tool, it names it by its tags alone, never its data.
 - **A premise about what code does when it runs is checked before the change that rests on it is written**, and
   never only reasoned: by the documentation of a stable API, or by a test that fails without it.
-- **A new premise needs the owner's consent**: the owner is asked before the change that rests on one is written, and
-  it gets a test of its own, never code of the library's that makes it unneeded, as `docs/premises.md` says.
+- **A new premise is taken only where no design without it is as good** (value 5 of "Deciding"): it gets a test of
+  its own before the change that rests on it is written, never code of the library's that makes it unneeded, and the
+  report of the change names it, as `docs/premises.md` says.
 
 ## Code
 

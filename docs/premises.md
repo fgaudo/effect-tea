@@ -4,14 +4,14 @@ An invariant holds only while what it rests on does: the purity of the program's
 the behaviour of Effect's runtime and of the JavaScript engine. What the program must do is the guide's ("What is
 left to you"). What Effect and the JavaScript engine must do without promising it is listed here, each with the test
 that checks it, as the rule after the list says: a guarantee that a stable API documents is no premise, and is not
-listed. A change that rests on a new premise adds it here, with its test, and only once the owner has agreed to it.
+listed. A change that rests on a new premise adds it here, with its test.
 
-A premise is never added without the owner's consent, under the list or under "Premises that no test reaches yet",
-whether a change or a review brings it: the owner is asked before the change that rests on it is written, with the
-premise, what rests on it, and its test. A premise a test can check is listed with that test, never made unneeded by
-code of the library's written for it alone (an explicit `Effect.interruptible`, a scope closed by hand): such code looks
-redundant, no test fails when it goes, and what it stood in for would change unseen. Without the owner's yes, the
-change waits.
+A premise is added, under the list or under "Premises that no test reaches yet", only where no design without it is as
+good (value 5 of "Deciding" in [`AGENTS.md`](../AGENTS.md)), whether a change or a review brings it, and the report of
+the change names it, with what rests on it and its test. A premise a test can check is listed with that test, written
+before the change that rests on it, and never made unneeded by code of the library's written for it alone (an explicit
+`Effect.interruptible`, a scope closed by hand): such code looks redundant, no test fails when it goes, and what it
+stood in for would change unseen.
 
 The invariants themselves are in [`invariants.md`](invariants.md).
 
