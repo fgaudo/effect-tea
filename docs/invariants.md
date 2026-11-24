@@ -50,7 +50,7 @@ the engine and in the testing tools.
     when a child has events, `external` exactly when it names external messages, a `tell` only with what the child's
     `external` takes, own subscriptions and commands that send only the parent's own messages (`RunCommandOf`), and no
     own message or command named like a child. A program written without `Program<…>` has `unknown` types, read as
-    `never` (`Known` in `program.ts`), so that it opens none of these checks.
+    `never` (`Items` in `program.ts`), so that it opens none of these checks.
 - **The children are those the parent's own state lists, and an answer reaches the instance that asked for it, or is
   rejected.** After each step of the parent's own code (`init`, `update`, `external`, a handler of `onEvent`, a write
   into its input), the library starts each child the own state lists anew, with its first commands, drops each it no

@@ -46,63 +46,31 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Step 61 weighs again, by the values of "Deciding", the decisions taken before it and the invariants, and adds the
-changes of the API it decides to the review that step 59 made ([`api-review.md`](docs/records/api-review.md)). Step
-60 then applies that review, now that step 58 has made a name change fewer documents. The steps of the engine, 53 to
-55, come after it, since it changes how `simulate` is called, in the modules that step 53 changes, and step 55 comes
-before the release that follows them all.
-
-### 61. The decisions before the charter, and the invariants, weighed again
-
-**Model and effort.** Fable 5.2, `high`: invariants and premises questioned, by values that pull apart.
-
-**Depends on** no other step, and comes before step 60, so that the breaking changes of the API are decided once and
-go out together.
-
-**Why.** On 24 November 2026 the owner opened every decision to the values of "Deciding", the owner's own included,
-and the invariants with them, the model of the library aside (`AGENTS.md`, "What may change"): the library is to be
-correct, coherent, elegant and pure. Most decisions of the records were taken one at a time, before the values were
-written, and step 59 reopened only those of the API that a new fact reached.
-
-**How.** Read [`docs/invariants.md`](docs/invariants.md), [`docs/premises.md`](docs/premises.md),
-[`docs/rejected.md`](docs/rejected.md) and the decisions of `docs/records/` (their "Decided" and "What the owner
-decided"), with the code they shape. For each, ask whether a design ranks higher by the values, in their order. Look
-hardest where a mechanism, a premise or a rule serves one case, where two concepts do one job, where a rule that
-nothing checks could be a type or a defect at `make`, and where the engine keeps state or order that a purer form
-would not need. A decision kept needs no line, but where it was close. A decision changed gets:
-
-- a line in a record, `docs/records/decisions-weighed.md`, of two pages at most, with its reason by the values;
-- for the API, a change of [`api-review.md`](docs/records/api-review.md) after its change 8, in its form and with its
-  exact spellings, and its row in the table, so that step 60 applies it with the rest;
-- for the engine, a testing tool, the guide or the documents, a step of its own here, in the form of this file, placed
-  by the code it touches: before steps 53 to 55 where they touch the same modules, and before step 55 always;
-- an entry of `docs/rejected.md` that it reopens rewritten or removed, and an entry for each design weighed and left.
-
-No code changes in this step.
-
-**Done when** the record gives each decision changed its reason; `api-review.md`, step 60 and the steps after it agree
-with it; each new step has its model, effort, dependencies and "Done when"; and `bunx dprint check` passes on the
-documents changed.
+Step 60 applies the review of the API that step 59 made ([`api-review.md`](docs/records/api-review.md)), now that
+step 58 has made a name change fewer documents. Steps 62 to 64 apply what step 61 decided on 24 November 2026, when it
+weighed the decisions taken before the charter, and the invariants, by the values of "Deciding"
+([`decisions-weighed.md`](docs/records/decisions-weighed.md)). Steps 62 and 63 come before the steps of the engine, 53
+and 54, since step 62 changes `rehearse.ts`. Step 64 comes after them: it is the largest, and may stop with a report,
+so their fixes do not wait for it. Step 55 comes last, before the release that follows them all, so that one release
+carries every breaking change.
 
 ### 60. The API as step 59 decided
 
 **Model and effort.** Opus 5.5, `medium`: the changes follow the record, across modules.
 
-**Depends on** step 61, which may add changes to the record. Step 59, done, left its decisions in
-[`api-review.md`](docs/records/api-review.md): "What changes" lists the eight changes, and "Each export" what stays.
-Nothing of the API is decided again here: a change that cannot be made as the record says stops the step, with a
-report.
+**Depends on** no open step. Step 59 left its decisions in [`api-review.md`](docs/records/api-review.md), and step 61
+added to them: "What changes" lists the changes, and "Each export" what stays. This step applies changes 1 to 4 and 6
+to 8. Change 5 was taken into change 9, and changes 9 to 11 change the engine and the guide too: steps 62 to 64 apply
+them, so this step changes nothing of `ObjectState`, of `Applied` and of the inputs but the tag of change 6. Nothing
+of the API is decided again here: a change that cannot be made as the record says stops the step, with a report.
 
-**How.** Each change of the record, by `change-api`: the code, the tests, the doc comments, the guide, the tutorial,
-the examples, the skill, the reports of the API, the inference matrix and the smoke test. The changelog takes changes 1
-to 4 under the unreleased section, each a `**Breaking**:` with its `Upgrade:` (`release`), so that one release carries
-them all. That section is no history yet, and follows the record where it names what changes: `Listener` (point 2) and
-two sentences on keys (point 5). In this order, since each is checked before the next:
+**How.** Each of these changes of the record, by `change-api`: the code, the tests, the doc comments, the guide, the
+tutorial, the examples, the skill, the reports of the API, the inference matrix and the smoke test. The changelog takes
+changes 1 to 4 under the unreleased section, each a `**Breaking**:` with its `Upgrade:` (`release`), so that one
+release carries them all. That section is no history yet, and follows the record where it names what changes:
+`Listener` (point 1) and two sentences on keys (point 4). In this order, since each is checked before the next:
 
-1. **Change 5, alone**: `ObjectState` off the four places, and the line of the mutations' header that names them.
-   `bun run typecheck`, `bun run smoke` and `bun run mutations` pass with nothing else changed, the smoke test's count
-   still 14.
-2. **The names of changes 2 and 3**, each by a search of what follows the code, and of nothing else:
+1. **The names of changes 2 and 3**, each by a search of what follows the code, and of nothing else:
    `git grep -w -e Simulation -e Interpreter -e ExternalHandler` and `git grep 'Listener<'`, each over
    `-- src bridges tools test examples site skills README.md`, with the imports and the index that the typecheck then
    names. `WithExternal` leaves `src/index.ts`. `WithOutput` is new, written as change 3 writes it, on one line: the
@@ -115,7 +83,7 @@ two sentences on keys (point 5). In this order, since each is checked before the
    `compose.ts`, keeps its name, as change 3 says, and so do the `Listener` of `bridges/snabbdom-testing.ts`, which is
    snabbdom's, and that of `src/testing/contract.test.ts`, a program of the test. A mutation quotes the text it
    replaces (`from` and `to`): a line renamed is renamed there too. `tools/inference/prelude.ts` reads a `Simulation`.
-3. **Change 1.** `simulate` is written as `drive` is, one `Effect.fnUntraced` of its three parameters. Then the
+2. **Change 1.** `simulate` is written as `drive` is, one `Effect.fnUntraced` of its three parameters. Then the
    calls, each `applyAll(x)(messages, from)` to `applyAll(x, messages, from)` by one pattern, and the same for
    `simulate`: some 140 lines, with the tests that keep `simulate(program)` to call it twice, and
    `tools/inference/play.ts`. In the matrix (`tools/inference/generate.ts` and `prelude.ts`): as a use, `simulate` is
@@ -123,7 +91,7 @@ two sentences on keys (point 5). In this order, since each is checked before the
    reads them from the effect it returns; as takers, `simulate` and `applyAll` are given the messages in the one call,
    and the line that reads what `applyAll` takes goes, since its messages are `NoInfer` and the uses check `update`.
    Then `bun run inference` and `bun run inference --run`.
-4. **Change 4**, in `bridges/react.ts` (the `children` of `HostProps`, the `children` of `Host`'s doc comment, and
+3. **Change 4**, in `bridges/react.ts` (the `children` of `HostProps`, the `children` of `Host`'s doc comment, and
    `props.children` in `Host`), in `tools/mutations/mutations.ts` (the `from` and the `to` of "Host gives React the
    model it read itself", which quote `view: props.children`), in `bridges/react.test.ts` and
    `tools/smoke/bridges.ts`, and in each file that writes `<Host` (`git grep '<Host' -- bridges README.md site`): the
@@ -131,7 +99,7 @@ two sentences on keys (point 5). In this order, since each is checked before the
    `<Host program={counter} view={view} />`. Only the `children` of `HostProps` changes, with what a test gives
    `host(…)` or `Host` for it. React's own `children` stays, in `bridges/react.test.ts`: that of `Boundary`
    (`this.props.children`), of `Toggle`, and of `Activity`, whose `children` is the `host(…)` that takes `view`.
-5. **The documents.** In the guide, beside that line of "Coming from Elm or React", "Testing" and "Testing tools"
+4. **The documents.** In the guide, beside that line of "Coming from Elm or React", "Testing" and "Testing tools"
    change their code, and the sentences of change 8: no rule says how a tool is called beyond "takes the program
    first", which stays true. The rows of change 7 go in the glossary as the record words them. Change 8 is made as the
    record spells it, one section at a time, each sentence checked against the old one: the sentences of "Guarantees",
@@ -148,18 +116,130 @@ two sentences on keys (point 5). In this order, since each is checked before the
    follow the code (`@returns` of `applyAll` and of `simulate`, the `children` of `HostProps`). Change 6 comes last:
    the tag goes before the `@see` lines, and its sentence in "Document it" of `change-api`, as the record words it.
 
-**Done when** the API is the record's, and `bun run typecheck`, `bun run lint`, `bun run test`, `bun run test:node`,
-`bun run comments`, `bun run build`, `bun run api --check`, `bun run smoke`, `bun run inference` and
-`bun run mutations` pass, `bun run test:browsers` for the bridge to React, and the site builds with no warning
-(`cd site && bun install && bun run build`), with "Types of the signatures" last on the page of the module.
+**Done when** the API is the record's, but for its changes 9 to 11, and `bun run typecheck`, `bun run lint`,
+`bun run test`, `bun run test:node`, `bun run comments`, `bun run build`, `bun run api --check`, `bun run smoke`,
+`bun run inference` and `bun run mutations` pass, `bun run test:browsers` for the bridge to React, and the site builds
+with no warning (`cd site && bun install && bun run build`), with "Types of the signatures" last on the page of the
+module.
+
+### 62. A program's state is any value
+
+**Model and effort.** Opus 5.5, `high`: the types of `program.ts` and `compose.ts`, with their mutations, and an
+invariant that goes.
+
+**Depends on** step 60, which renames what `Shape` is made of and leaves `ObjectState` as it is. Step 61 decided it
+([`decisions-weighed.md`](docs/records/decisions-weighed.md), point 1), and change 9 of
+[`api-review.md`](docs/records/api-review.md) spells what the API loses. It comes before step 53, since it changes the
+type parameters of `rehearse.ts`.
+
+**Why.** A program kept its state in an object so that a parent could keep a child's model by it. Since the library
+keeps the children, each has an instance, which is replaced with the child's state and keeps its lifted keys already.
+Kept there too, a model asks nothing of the state: the rule, its type, its nine checks and its defect serve nothing.
+
+**How.** By `change-api` and `change-engine`, in this order, since each is checked before the next:
+
+1. **The model, by the instance** (`src/compose.ts`). `modelOf` keeps a child's model in a `WeakMap` of `make`, by
+   its instance, as `liftedAt` keeps its keys. The cache by program and by state object (`models`, `modelsOf`) goes,
+   with the defect of a state that is no object and its two tests. One test takes the place of the two of a shared
+   model ("one program as two children, in the very same state object, has one model", and "children that share one
+   state object share its model, and their dispatch adds their id"): a child's model is the same object while its
+   instance keeps its state, through a step of another child too, and a child started again makes its own. The
+   mutation "a child's model is made anew for a state it was made for" is written again on the new cache, and "a
+   child's state that is not an object dies of the WeakMap's TypeError" goes. `bun run test` passes with the types as
+   they are.
+2. **The types**, as change 9 spells them. The tests of the types that refused a state take it now, each as a user
+   writes it: a number alone, as a child and by id, `{}`, and a state that is a type parameter in `make`
+   (`src/compose.test.ts`, `src/testing/simulate.test.ts`, `tools/smoke/consumer.ts`, and the case of
+   `tools/inference/generate.ts` on a state without fields). Eight mutations of the types held the rule, and go, each
+   by its name, since other mutations stand between them in `tools/mutations/mutations.ts`: "a state that is no object
+   is let through", "a state without fields is let through", "a state typed object is refused as a state without
+   fields", "a program typed Program is not checked for its state", "a child is not checked for its state", "make
+   takes a state without fields", "the make of a parent takes a state without fields" and "program takes a state that
+   is no object". The line of the mutations' header on the places of `child` and `childById` goes with them. Then
+   `bun run typecheck`, `bun run inference`, `bun run inference --run` and `bun run mutations`.
+3. **The very same state is told by `Object.is`**, in `Core.arrive` and in the slot of `src/run.ts`, as in
+   `compose.ts`: a state may be `NaN` now. A test of each holds it, with its mutation.
+4. **The guide**, one section at a time, each sentence checked against the old one.
+   - "Anatomy of a program": "Its state is always an object" goes, and one kind of program is left under "What does
+     not compile", one written as an object without `subscriptions`.
+   - The glossary's **State** is "What the program knows: any value, replaced and never mutated".
+   - "Composition", "A child's model is kept", says: "It is the same object while the child keeps the very same
+     state: a step that returns the state it was given, and a step of another program, leave it as it is. A child
+     started again is another instance, with a model of its own." Its sentences on a number or a string go. "What is a
+     defect" loses the child whose state is not an object. "A function that makes a parent of any program" loses the
+     sentence on `make` and a state that is a type parameter, and its example names `S` with no bound, and a program
+     whose types are all `unknown`.
+   - Where a page says "the same object" of the state after a step ("Update", "Running", "Rejections and defects"),
+     it says the very same state: the same object, or the same primitive value.
+   - A sentence on a child's model takes the words of "Composition", never that rule, which would promise what the
+     new cache does not keep. In "Guarantees", "What is left to you": "The library reuses a child's model, and the
+     keys of its subscriptions, while the child keeps the very same state: a child started again makes its own." In
+     "Testing", one state object used twice passes "because a parent keeps each child's model while the child keeps
+     its state", where it said "for each state object".
+   - The skill, the tutorial ("Children", on its children's models), the README and the doc comments follow
+     (`Program`, `Models`, `App`), by `bun run comments`, a child's model in the words of "Composition" there too.
+5. **The documents.** In `docs/invariants.md`, "Every program keeps its state in an object" goes, and "A child's model
+   is kept by its state object, and its lifted keys by its instance" says both by its instance, with no sentence on a
+   cache for primitive states. In `docs/rejected.md`, "Checks that hold for a type parameter" loses its clause on a
+   state that is a type parameter in `make`. The changelog takes the two entries that change 9 words, each a
+   `**Breaking**:` with its `Upgrade:` (`release`): the second withdraws a promise of "A child's model is kept", which
+   said the same object while the child's state is the same object.
+
+**Done when** a program whose state is a number runs alone, as a child and by id, in a test of each; `ObjectState` is
+named in no file but `CHANGELOG.md` and those of `docs/records/`; and `bun run typecheck`, `bun run lint`,
+`bun run test`, `bun run test:node`, `bun run interleavings`, `bun run comments`, `bun run build`,
+`bun run api --check` once `bun run api` has written the reports, `bun run smoke` with the count that its comment
+explains, `bun run inference`, `bun run mutations` and `bun run test:browsers` pass, and the site builds with no
+warning (`cd site && bun install && bun run build`).
+
+### 63. The engine keeps no count: the end reads the register, and a state has no revision
+
+**Model and effort.** Opus 5.5, `high`: the end of a run, which "Nothing ends in silence" rests on.
+
+**Depends on** step 62 for the order alone: both change `src/run.ts`. Step 61 decided it
+([`decisions-weighed.md`](docs/records/decisions-weighed.md), points 2 and 3), and change 10 of
+[`api-review.md`](docs/records/api-review.md) spells what the API loses.
+
+**Why.** The engine keeps two counts that nothing needs. `reported` says which defects its end has still to die of,
+and `Core.endedWith` then drops them from the cause, since the run and each tool end with the whole register.
+`revision` counts the states for `onApplied`, which hears each of them in order.
+
+**How.** By `change-engine`, and by `change-api` for the field:
+
+1. **The end.** The engine's finalizer stops its fibers, and reports nothing. `Core.report`, the `reported` of
+   `Register`, `Deaths.report` and `Engine.report` go. The run's effects end once `died` succeeds, and the run then
+   reads the register and ends with `Core.endedWith`, as today. Where `init` threw there is no engine, and the run
+   reads the register at once. The tests of `src/engine.test.ts` that read what the engine's scope dies of, 14 under
+   the probe of step 61, read the register that they give `Engine.make`, through `Core.endedWith`, as the run and the
+   tools end. The mutations "a report leaves the defects it reported to be reported again" and "the end of the engine
+   does not report what its fibers died of" go with their code, and so does the test of `src/core.test.ts` that the
+   first names. If a test of the run, of a tool or of a bridge then fails, a defect reached a cause through the second
+   report alone: the step stops, with a report.
+2. **The premise.** "`Effect.scoped` fails with what a finalizer of its scope dies of" leaves `docs/premises.md`, with
+   its tests, if no test rests on it any more. Otherwise its sentence names the test that does. Step 47 then names
+   what is left of the premises of how the failures of cleanups combine.
+3. **The revision**, as change 10 spells it. `Applied` loses `revision`, `src/core.ts` loses `Revision` and
+   `Revisioned`, and the engine's `current` gives the state. A test that read a revision reads the states, or what the
+   listeners were told, and "the very same state is taken for a new one" keeps a killer in each of its files. The item
+   of "Any time" on saving each state says "the state" where it said "the state and its revision".
+4. **The documents.** `docs/invariants.md` says how the end is kept now, where it said "Each defect is reported once,
+   in that order: by the run as soon as one dies, and by the end". The guide and the changelog change for the revision
+   alone, as change 10 words it: the end changes nothing that a consumer can notice.
+
+**Done when** `Core.report`, `Deaths.report`, `Engine.report` and `reported` are gone; `revision` is in no file of
+`src/`, of the guide and of the skill; and the checks of `change-engine` pass, with `bun run mutations`,
+`bun run comments`, `bun run build`, `bun run api --check` once `bun run api` has written the reports, and
+`bun run smoke`.
 
 ### 53. In `rehearse`, the fiber of effects tells data, and the call makes the error
 
 **Model and effort.** Opus 5.5, `high`: a fix by its form, in the largest tool.
 
-**Depends on** step 60, which renames neither tool, and changes how `simulate` is called (`simulate.ts`). Step 52
-left the code where it stays, what `rehearse` and `simulate` share in `src/testing/stage.ts`, and what `rehearse`
-hears in `rehearse.ts`. It waits because only a key whose printing throws, or a message whose tag does, meets it.
+**Depends on** step 60, which renames neither tool, and changes how `simulate` is called (`simulate.ts`), and on
+steps 62 and 63, which come before it: step 62 changes the type parameters of `rehearse.ts`, and step 63 the end of
+the engine, which `stage.ts` ends a tool by. Step 52 left the code where it stays, what `rehearse` and `simulate`
+share in `src/testing/stage.ts`, and what `rehearse` hears in `rehearse.ts`. It waits because only a key whose
+printing throws, or a message whose tag does, meets it.
 
 **Why.** Two findings of "Open problems", of one form: a value of the program, or of the test, printed where what it
 throws is not the call's. `released`, the job of a `hearNext` and `openFor` build an `Error` with
@@ -219,19 +299,159 @@ What keeps the tools aligned is then a structure, which a check can hold where a
 say the rule; each case of the contract is kept or removed, with its line in the commit; and `bun run comments`,
 `bun run lint`, `bun run test`, `bun run test:node` and `bun run mutations` pass.
 
+### 64. What an element gives is a message that the model holds, and inputs go
+
+**Model and effort.** Opus 5.5, `high`: a page of the guide is a specification, and a concept leaves `compose.ts` with
+its checks.
+
+**Depends on** steps 60 and 62, which change the types of `program.ts` and `compose.ts`, and comes after steps 53 and
+54, so that their fixes do not wait for the largest step. Step 61 decided it
+([`decisions-weighed.md`](docs/records/decisions-weighed.md), point 4), and change 11 of
+[`api-review.md`](docs/records/api-review.md) spells what the API loses.
+
+**Why.** A model holds a message without its value, and the view fills what the element gives ("Inputs", "What an
+element reports"). An input does the same job by a second concept: a place declared in `make`, a write that no model
+holds, a rule of `set` that nothing checks, and a tool for that rule. One way is left: what the user types is a
+message of the program, as a click is, and `update` decides what it does.
+
+**How.** By `change-api`, `change-engine` and `add-example`, in this order, since each is checked before the next:
+
+1. **The examples first, on the library as it is**: `examples/form`, `examples/stocktake` and the named timers of
+   `examples/timer`, each with its views and its tests. A value that an input held is a message of the program, named
+   by what happened (`NameTyped { value }`, and `CountTyped { id, value }` for a row). `update` stores it where the
+   input's place was there, and rejects it elsewhere. The model holds its held part, `{ _tag: 'NameTyped' } as const`,
+   in each case where the view draws the element to be written into. The reader of each test fills the held messages,
+   with a value other than the one the model shows, and gives them to `dispatchViolations` with the rest. A test of
+   `placeViolations` goes: `update` is tested there as for any message. If a value is found that an input serves and a
+   held message cannot, the step stops here, with a report, and changes nothing.
+2. **The guide**, one section at a time, each sentence checked against the old one. A rule that still holds keeps its
+   words.
+   - The page "Inputs" becomes "What an element gives" (`site/guide/what-an-element-gives.md`), and says what the user
+     types and what an element reports one way. Its first rule: "**What an element gives is a message of the
+     program**, as a click is: `update` decides what it does. The model holds the message without the value, and the
+     view fills it." "Why what the user types is no message", the rules of an input and of a `set`, `store` and
+     "Inputs by id" go. What is typed in another form is what `update` stores. A lock is a case of the state in which
+     `update` rejects the message and the model holds none. "The element on screen", "What is there whatever is drawn
+     is a subscription" and "A value is never a reason to reject" stay. "Only a plain tagged message can be held
+     without a value", under "What an element reports" of that page, loses the way of a write, then a message: a
+     message that an element fills is a plain tagged one.
+   - "Model", "Messages live in the model": the bullet on what the user types goes, and the bullet on a fact that comes
+     with a value says it of every value that an element holds or reports, the text of a field first. The sentence "A
+     view writes only into the inputs that the model shows" goes, and "Its shape says what the view shows" says the
+     values that the view draws in a case, where it said the values of the inputs.
+   - "Guarantees": "An input stores what is written, where its place is there" leaves "What you can rely on", since
+     "Outdated clicks are harmless" holds of what is typed as of a click. "What is left to you" loses "A `set` changes
+     its place, and nothing else", and what "A view sends only what its model holds" and the item of flags and keys
+     say of an input. Its item on the stack of whoever sends the message says "An element that reports at each of its
+     events, as a scroll does, runs a step at each, in its handler", with no sentence on a write. Its item on purity
+     loses "the `get`, the `set` and the `store` of an input and an `at` that is a function of the id" from the
+     functions that are pure, and "the `get`, the `set` and the `store` of a write" from what runs in the parent's
+     `update`. "How the tests check them" follows the search.
+   - "Running", "When a defect happens": "A function that a parent or an input gives" says "A function that a parent
+     gives", and the item of `'update'` loses "the `get` and the `set` of an input".
+   - "Rejections and defects": "A message of the view that is not a write into an input is rejected" says "A message
+     of the view is rejected", the "Three other kinds of message" are two, and the table loses its row of a write. The
+     sentence after the table stays: a screen older than the state is that of a message of the view.
+   - "Coming from Elm or React". Elm's row of `onInput` says "A message for each keystroke too: the model holds it
+     without the text, and the view fills it". Under "What is new", "Inputs" becomes "**A message that an element
+     fills.** As in Elm, what the user types is a message, and `update` stores the text. The model holds the message
+     without the value, and the view copies the value from the element into it", and a fact that comes with a value
+     is said there as another case of it. React's row of a controlled `<input>` says "A controlled `<input>` too:
+     `value` is the model's, and `onChange` sends the message that the model holds for it, filled with what the
+     element holds". Each links the new page.
+   - "View", "Rules": the sentence on an element with a value of its own links the new page.
+   - The guide's index has `./what-an-element-gives.md` among its `children`, where `./inputs.md` was. Its item of
+     "Composition" says "a parent declares its children, and says where each child lives in its state", and that of
+     the page: "[What an element gives](./what-an-element-gives.md): values that an element holds or reports, such as
+     the text of a field or the offset of a scroll. Each is a message that the model holds without its value, and that
+     the view fills."
+   - "Composition": "The parent's inputs", "The rule of an input" and what names an input under "What does not
+     compile" go. "A row whose value the parent reads" says a message of the parent's own, with the row's id.
+   - "Events and external messages" loses "An external message never writes into an input". In "Structuring a
+     program", "Input is never a reason to reject" becomes a case of "A value is never a reason to reject", and the
+     table of "What kind of thing is it" names no input.
+   - "Testing" and "Testing tools" lose what a reader does for an input, "The place of an input" and
+     `placeViolations`. In "Writing a bridge", the handler of a controlled element "sends the message that its model
+     holds for it, filled with what the element holds".
+   - The glossary loses **Input**, **Write** and **`at`**, and what **Controlled element**, **Composition** and **By
+     id** say of an input. "Anatomy of a program" draws its loop with no input.
+   - The fourth step of the tutorial teaches the same, as "What the user types"
+     (`site/tutorial/4-what-the-user-types.md`, where `4-inputs.md` was). The tutorial's index follows, in its
+     `children`, in its items of steps 4 and 5 and in its sentence on a native controlled element, and so do the links
+     of `1-first-program.md` and of `3-children.md`, and "An input" of `5-testing.md`, which says how a test fills a
+     held message.
+   - Then a search of what a user reads is read line by line
+     (`git grep -n -i -w -E "inputs?|writes?|written" -- site skills README.md`), once point 4 has changed the skill
+     and the README: what is left names an `<input>` of the DOM, what the user writes or types, or what a program, a
+     test or a tool writes as code. And `git grep -n -e 'inputs\.md' -e '4-inputs' -e '"Inputs"'` finds a line only
+     in this step, in the released sections of `CHANGELOG.md`, in `docs/records/` and in `docs/rejected.md`: no link,
+     no `@see` line of a doc comment, and not the example in the header of `tools/comments.ts`.
+3. **The library**, as change 11 spells it. `src/input.ts` and `src/testing/place-violations.ts` go, with their tests.
+   `src/compose.ts` loses the placements, the routing of a write, and what its types say of an input (`Inputs`,
+   `InputMessages`, `NoShared`, and the half of `NoClash` on an input). In `src/dispatch.ts`, the two refusals of
+   `forwardTo` take the keys that change 11 spells, and the doc comments of `IdOf`, of `ChildDispatch` and of
+   `forwardTo` name a child alone, with no line on `Written` and no `@see` of "Inputs". `src/dispatch.test.ts` reads the
+   new keys, in a test whose name says that a name is no child's. Each mutation of an input goes, or loses "or of an
+   input". The tests of the library, of the bridges and of the tools that wrote into an input send a held message:
+   `bridges/bridge.test_suite.ts` and the bridges' own tests, `src/interleaving.test.ts`, the tests of the testing
+   tools, `tools/smoke/`, `tools/inference/` and `tools/bench/writes.ts`.
+4. **The documents.** In `docs/invariants.md`, "A write is stored wherever its place is there" goes, and "What a screen
+   shows of an input is the bridges'" says it of a controlled element, under a title that names one, with its reason
+   said of a message that an element fills. "The children are those the parent's own state lists" loses "a write into
+   its input" from the steps of the parent's own code, and "as a write does" from what a message of a view carries.
+   `docs/premises.md` cites the invariant of the bridges by its new title, in the premise of a store updated outside its
+   events. In this file, the item of "Any time" on a benchmark says what `tools/bench/writes.ts` measures once point 3
+   has written it again. Then a search of the three is read line by line
+   (`git grep -n -i -w -E "inputs?|writes?|written" -- docs/invariants.md docs/premises.md ROADMAP.md`): what is left
+   names an `<input>` of the DOM, what a thunk or a tool writes, or the inputs as what this step took away. In
+   `docs/rejected.md`, the entries whose subject is a form of an input are gathered in one, "An input declared
+   in `make`, whose writes the library stores", which says why it went, and what would bring it back: a value of an
+   element that a held message cannot carry, or programs that lose what is typed where their tests with
+   `dispatchViolations` pass. "An entry of each input in the model", "A write, then a message" and "`hear` refusing a
+   write into an input" are set right: each says of an input what was, the first names no step of this file, and the
+   second loses "It stays the way for a message that is a class". An entry on something else keeps the names of its
+   day, since it tells what was weighed then, and is not edited: "`write`, `isRejected` and `raise`", "`child`,
+   `childById`, `input` and `inputById` as free functions", "Other names for `childById` and `inputById`" and their
+   like. So `docs/rejected.md` is outside the search of "Done when". The skill, the README, the doc comments and the
+   changelog follow, the last as change 11 words it (`release`). In the README, the rows of `form`, `stocktake` and
+   `timer` say what each example shows then, and the link to the page is the one that the built site gives it. In the
+   unreleased section of the changelog, the entry on the page "Inputs" names the page by its new title. The documents
+   of the agents follow too:
+   - `AGENTS.md` and `.agents/skills/change-engine/SKILL.md`, in its description and in its first paragraph, list the
+     modules of the engine without `input.ts`. In `AGENTS.md`, under "A function earns its place", the declaration
+     that takes a standard type of Effect is the `flags` of a child, an `Option`, where it was `at`, an `Optic`.
+   - `.agents/skills/add-example/SKILL.md`. In its item "The view", the sentence on an input declared in `make` says
+     that a native controlled element has the value that its model holds in `props`, no key, and a handler that sends
+     the message that its model holds for it, filled with what the element holds, as "What an element gives" says. In
+     "A bridge owes no `messagesSentBy`", the clause on a view with an input that expects its writes goes: a held
+     message is in `messagesOf(model)` already. Its last paragraph names the fourth step of the tutorial by its new
+     title, with the modules of `examples/timer` that the step has then. Its first paragraph names no optics: no
+     example places a child with one.
+
+**Done when** the examples, the tutorial and the bridges' tests send what an element gives as a held message; what
+change 11 removes is named in no file, `AGENTS.md` and those of `.agents/skills/` included, but `CHANGELOG.md`, in its
+released sections and in the entry of change 11, `docs/records/` and `docs/rejected.md`, which keep the names of their
+day; the two searches of point 2 leave what it says; and `bun run typecheck`, `bun run lint`,
+`bun run test`, `bun run test:node`, `bun run interleavings`, `bun run comments`, `bun run build`,
+`bun run api --check` once `bun run api` has written the reports, `bun run smoke`, `bun run inference`,
+`bun run mutations` and `bun run test:browsers` pass, and the site builds with no warning
+(`cd site && bun install && bun run build`).
+
 ### 55. The review before the release
 
 **Model and effort.** Opus 5.5, `high`, by a reviewer that wrote none of the changes
 ([`premise-review`](.agents/skills/premise-review/SKILL.md)).
 
-**Depends on** steps 61, 60, 53 and 54, and comes before the release that follows them.
+**Depends on** steps 60, 62, 63, 53, 54 and 64, and comes before the release that follows them.
 
 **Why.** Steps 49 to 54 move a check from a tool to the engine, or take one away with the code it guarded: a premise
 may leave with it, and no test fail. From step 52 on, `simulate` rests on the engine's premises, and no longer on
 those of a fork of its own. Step 56 made the guide promise only its rules, and steps 57 to 60 change what it
 promises, and how the API is written. Step 57 made a state current only once its keys are, a defect of `subscriptions`
 leaving the state as it was (`applyOne` in `engine.ts`, and `stepped`, which the stage of the tools reads), and added
-the premise of one channel run again, the first on the user's own value.
+the premise of one channel run again, the first on the user's own value. Steps 62 to 64 each take an invariant away:
+a state that is an object, with a child's model kept by its instance since; the end's own report of the defects, read
+from the register alone since; and the rule of an input.
 
 **Done when** the review has read the engine and the testing tools over the changes since the last review; each
 finding is an item of "Open problems" with its `test.failing`; each place where the code or a document says otherwise

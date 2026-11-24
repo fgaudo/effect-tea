@@ -22,8 +22,9 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   weighed again on 24 November, when the owner closed the step that was to spike it and kept the guarantee: it would
   keep ways to end in silence (a run that hangs, a `hearNext` that waits for ever, `simulate` succeeding) in a library
   that forbids them elsewhere. Of its six premises, four are documented since Effect 4.1.5, and two are asked of Effect
-  (`ROADMAP.md`, step 47). _Reopen if_ a fiber the run forks can be interrupted without the run's mark by anything but
-  the program.
+  (`ROADMAP.md`, step 47). Weighed again in step 61, by the values: a command that never answers ends in silence
+  (value 1), which no simpler engine pays for (value 5). _Reopen if_ a fiber the run forks can be interrupted without
+  the run's mark by anything but the program.
 - **`onApplied` and `onIgnored` as effects, each call in a fiber of its own.** Spiked, 19 November 2026 (`542cb6d` on
   `spike/strict-interruptions`, against `c69b78f` on `spike/synchronous-options`): correct under 1,424 interruptions,
   but about 28% fewer messages a second, where functions gave some 7% more. The owner chose functions as the cleaner
@@ -136,6 +137,16 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   opinion: options are how a program runs, `onApplied` and `onIgnored` cannot change what a test checks, and in
   `rehearse` they would add points between a check and its act in the largest tool. _Reopen if_ a test of a program
   needs what an observer is told: then as records of data (`applied`, `ignored`), not callbacks.
+- **A child's model kept by its state where the state is an object, and made anew, or kept by value, where it is
+  not.** Reasoned, 24 November 2026, in step 61 ([`decisions-weighed.md`](records/decisions-weighed.md)), beside the
+  model kept by the child's instance: a model made anew at each read is no model that a renderer can skip, so a state
+  that is a number would keep less than the guide promises, and nothing lets go of a cache by value. _Reopen if_ a
+  parent comes to keep a child with no object of the library's own for it.
+- **`simulate` as a fold with no run**, as `applyAll` is. Reasoned, 24 November 2026
+  ([`tools-on-the-engine.md`](records/tools-on-the-engine.md), "Alternatives"), and weighed again in step 61, by the
+  values: it is simpler (value 5), and it would give a defect another site than the run gives it, so that two tools
+  disagree on where a defect is (value 4). _Reopen if_ what the engine gives the tools comes to cost the run a
+  guarantee.
 - **A caret as the peer range of Effect** (`^4.1.4`). Reasoned, 23 November 2026
   ([`premises-and-range.md`](records/premises-and-range.md)): the owner kept the tilde, since a published version keeps
   its range and a patch that leaves a broken Effect out reaches only who installs after it. The range was a caret from
@@ -190,6 +201,15 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   `as const`. The owner chose `withChildren(children).make(config)`
   ([`kept-children.md`](records/kept-children.md), "Decided, under the store"). _Reopen if_ TypeScript keeps the literal
   types of a return inferred against a contextual type that holds a type parameter being inferred.
+- **External messages answered by `update`**, so that a program has one function of its messages. Reasoned, 20
+  November 2026 ([`external-handler.md`](records/external-handler.md)), and weighed again in step 61, by the values: a
+  `tell` that `update` may reject ends in silence, or `reject` comes to mean a defect there (values 1 and 2), where
+  `external` costs a second function for the message that a view and a parent both send. _Reopen if_ a program must
+  refuse what its parent tells it, and neither its state nor an event can say so.
+- **A child's subscriptions paused by an external message, in place of `listening`.** Reasoned, 24 November 2026, in
+  step 61: the two would do one job, but a parent says from its own state when a child listens, as it says when the
+  child is there, and each child that can be hidden would keep a state and an external message for it. _Reopen if_ a
+  child must know that it does not listen, as one that waits for an end that its subscription sends.
 - **`forEach`**, the n-ary `andThen`. Removed with the store, 22 November 2026: a parent lists what it tells in one
   `tell`, which `Arr.map` makes. `andThen` stays, the one place where two steps combine. _Reopen if_ a program must
   fold steps over items that each read the state before, and `andThen` in a reduce does not read well.
@@ -239,10 +259,6 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   ([`value-in-message.md`](records/value-in-message.md), "Decided"): two steps per fact, and a view that forgets the
   write compiles. It stays the way for a message that is a class. _Reopen if_ a held message cannot be filled with what
   the element gives.
-- **Undo at every write of an input, as a recipe, an example, or a message on each write.** Spiked on 17 November 2026,
-  outside git: correct, but it teaches a recipe with two traps, and how many writes it records rests on scheduling.
-  _Reopen if_ an application needs an undo at every write of a value its parent reads, and an undo by step is not
-  enough.
 - **An input as a `Field`, `{ value, revision }`.** Implemented on 14 November 2026, replaced unreleased by the plain
   input ([`registers.md`](records/registers.md)): composition split the ownership of a revision. Since 20 November a
   write carries its value alone ([`write-without-was.md`](records/write-without-was.md)). _Reopen if_ such a write fails
@@ -272,11 +288,10 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
 - **An entry of each input in the model, which a view writes through.** Spiked on 20 November 2026 (`17534ff` on
   `claude/spike-input-in-model`), rejected by the owner ([`input-in-the-model.md`](records/input-in-the-model.md)): it
   buys what the tests find already, costs a type of the library's in every model, and closes neither a write built by
-  hand nor the route above the program. _Reopen if_ a view writes over a value its model does not hold, or into another
-  input, where its program's tests pass.
-- **A write that `update` sees and may reject.** Reasoned, 18 November 2026: the element already shows the write, so a
-  refusal leaves it unlike the state. _Reopen if_ a program must refuse a write for a reason no place of its state can
-  say.
+  hand nor the route above the program. Weighed again in step 61, 24 November 2026, as plain data, the write without
+  its value, given to `makeModel`: left, since a message of the program held without its value is that data with no
+  declaration, which step 64 of `ROADMAP.md` takes ([`decisions-weighed.md`](records/decisions-weighed.md)). _Reopen
+  if_ a view writes over a value its model does not hold, or into another input, where its program's tests pass.
 - **A lock derived from the model.** Reasoned, 18 November 2026: the library would need a mark on an input's value in
   the model, and to check at run time what a view sends. _Reopen if_ the library comes to know which value of a model
   is an input's without a mark.
@@ -375,7 +390,10 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
 - **The `init` of a parent without flags called by `start`, not by `make`.** Reasoned, 21 November 2026, with a second
   opinion that probed each form: `make` cannot tell what that `init` returns without calling it, and each other form
   breaks a type or a spread. It now holds of the children's starts, which `make` makes ("Composition", "When the
-  children start"). _Reopen if_ a parent's `init` takes an input that `start` gives.
+  children start"). Weighed again in step 61, by the values, as one form, an `init` that is a function always: it
+  would treat `init` alike wherever it appears (value 4), and every program and test would write a call to move one
+  throw from `make` to `start`, where `init` is pure and a step reads as data (value 3). _Reopen if_ a parent's `init`
+  takes an input that `start` gives.
 - **A subscription made from its key alone, in other forms**
   ([`subscription-from-key.md`](records/subscription-from-key.md), "For the owner"): the keys in a `HashSet`
   (spiked, `40d9400`: three times slower, and `as const` on a string key); the key known to `make` alone (a program's
@@ -394,6 +412,12 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   ([`adoption.md`](records/adoption.md)), and both draw native controlled elements; what they leave out is a form's
   reset, a value written past React's setter, and a value the element changes by itself. _Reopen if_ a user of an entry
   needs a feature of its renderer that it leaves out.
+- **`Host` running its program in its effect, with no microtask**, so that the premise of StrictMode goes
+  ([`premises.md`](premises.md)). Accepted on 20 November 2026 ([`hosted-react.md`](records/hosted-react.md),
+  "Decided", 6), reversed the same day ([`store-and-effects.md`](records/store-and-effects.md), "Decided", 4), and
+  weighed again in step 61: the premise holds no promise, and its fall costs what the microtask saves each day, the
+  commands of `init` twice in development and a program started anew. _Reopen if_ a first effect must start in the
+  task of `Host`'s effect, or React says when StrictMode runs a cleanup.
 - **A frame of the very same model taken at once.** Rejected on 20 November 2026, and superseded the same day: there are
   no frames ([`synchronous-dispatch.md`](records/synchronous-dispatch.md), R1), and the bridge to snabbdom draws in a
   microtask after each notice ([`write-without-was.md`](records/write-without-was.md)).
