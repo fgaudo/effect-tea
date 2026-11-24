@@ -112,8 +112,13 @@ type Parts<State, Model, Message, R, Key> = Readonly<{
   end: (deaths: ReadonlyArray<Cause.Die>) => void
 }>
 
-// Plain code, outside any fiber: `init`, the engine, and the model of the current state, made when it is read.
-const partsOf = <State extends object, Model, Message, Command, RC, RS, Flags, Key>(
+/**
+ * The handle and the engine, by plain code, outside any fiber: `init`, the engine, and the model of the current state,
+ * made when it is read. The run gives the engine the program's `runCommand` and `listen` (`startWith`); a testing tool
+ * that runs the engine itself gives what its fibers run and what it is told, and reads its models through the handle,
+ * as a renderer does.
+ */
+export const partsOf = <State extends object, Model, Message, Command, RC, RS, Flags, Key, Event, R>(
   program: Program<{
     state: State
     model: Model
@@ -121,13 +126,15 @@ const partsOf = <State extends object, Model, Message, Command, RC, RS, Flags, K
     command: Command
     commandServices: RC
     subscriptionServices: RS
+    event: Event
     flags: Flags
     key: Key
   }>,
   options: RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>,
   deaths: Shell.Deaths,
-  settled: () => void
-): Parts<State, Model, Message, RC | RS, Key> => {
+  settled: () => void,
+  fibers: Engine.Fibers<Message, Command, R, Key> & Engine.Told<State, Command, Key, Event>
+): Parts<State, Model, Message, R, Key> => {
   const { flags, ...runOptions } = options
   // The defects the handle threw to a reader, recorded where they were thrown: those of `makeModel`, and that of an
   // `init` that threw. A listener's site and `die` take them as they are, so that a defect a renderer gives back is one
@@ -162,16 +169,15 @@ const partsOf = <State extends object, Model, Message, Command, RC, RS, Flags, K
     }
     return { app: dead, engine: undefined, end }
   }
-  const engine = Engine.build<State, Message, Command, RC | RS, Key>({
+  const engine = Engine.build<State, Message, Command, R, Key, Event>({
     ...runOptions,
+    ...fibers,
     deaths,
     rendered: isThrown,
     settled,
     init,
     update: program.update,
-    runCommand: runCommandOf(program),
-    subscriptions: program.subscriptions,
-    listen: listenOf(program)
+    subscriptions: program.subscriptions
   })
   // The last state a model was made of, with its model or the defect `makeModel` threw: a model is made only when it
   // is read, and once for each state, by its identity, a failed one too. An option, since any value may be a state.
@@ -219,7 +225,11 @@ export const startWith = <State extends object, Model, Message, Command, RC, RS,
   began: () => void = () => undefined,
   settled: () => void = () => undefined
 ): Started<Model, Message, Needed<Command, RC, Key, RS>> => {
-  const { app, engine, end } = partsOf(program, options, deaths, settled)
+  const fibers: Engine.Fibers<Message, Command, RC | RS, Key> = {
+    runCommand: runCommandOf(program),
+    listen: listenOf(program)
+  }
+  const { app, engine, end } = partsOf(program, options, deaths, settled, fibers)
   // The effects of the states, until a defect: the scope's end stops the engine, interrupts its fibers and dies of
   // what they died of. With no engine, `init` threw, and the run dies of that at once.
   const effects: Effect.Effect<never, never, Exclude<RC | RS, Scope.Scope>> = engine === undefined
@@ -251,6 +261,27 @@ export const startWith = <State extends object, Model, Message, Command, RC, RS,
   // What `Needed` leaves out is never asked: a program without commands calls no `runCommand`, one without keys no
   // `listen`.
   return { app, run: run as Effect.Effect<never, never, Needed<Command, RC, Key, RS>> }
+}
+
+/**
+ * Reads the model of every state through the handle, for a testing tool told of each one: that of each new state in a
+ * listener, on whatever stack made the state, given to `read`, and the first one, returned, whatever the first keys
+ * did, as a renderer reads it to draw. A model that throws is recorded once, in `'render'`, where it is read, as the
+ * handle records it, and the step goes on whole: the first is then `None`, and `read` is not called for a later one.
+ * Returns what stops the listener too.
+ */
+export const readEach = <Model, Message>(
+  app: App<Model, Message>,
+  read: (model: Model) => void
+): Readonly<{ first: Opt.Option<Model>; unsubscribe: () => void }> => {
+  // Subscribed before the first read, so that no state is missed.
+  const unsubscribe = app.subscribe(() => read(app.model()))
+  try {
+    return { first: Opt.some(app.model()), unsubscribe }
+  } catch {
+    // Recorded where the model was read, or by `init`: the run dies of it.
+    return { first: Opt.none(), unsubscribe }
+  }
 }
 
 /**

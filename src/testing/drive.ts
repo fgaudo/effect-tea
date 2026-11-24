@@ -13,7 +13,7 @@ import * as Core from "../core.ts"
 import type { Dispatch } from "../dispatch.ts"
 import type { RunOptions } from "../engine.ts"
 import type { FlagsOption, Program } from "../program.ts"
-import { type App, type Started, startWith } from "../run.ts"
+import { type App, readEach, type Started, startWith } from "../run.ts"
 import { type Deaths, makeDeaths } from "../shell.ts"
 
 /**
@@ -75,7 +75,7 @@ type Place<Model> = Readonly<{
 // `drive` reads the model of each one, in the listener, on whatever stack made the state, and wakes the waits only once
 // the call that applied it has returned, its step done, as the engine offers its jobs: so a wait it wakes runs outside
 // the step, wherever Effect resumes it, and a `send` it makes is applied before it returns. A model that throws is
-// recorded once, in `'render'`, where it is read.
+// recorded once, in `'render'`, where it is read (`readEach`, as `rehearse` reads them).
 const driven = <Model, Message, R>(
   starting: (deaths: Deaths, began: () => void, settled: () => void) => Started<Model, Message, R>
 ) => {
@@ -127,17 +127,12 @@ const driven = <Model, Message, R>(
   const { app, run } = starting(deaths, () => {
     if (!deaths.dead()) Deferred.doneUnsafe(running, Effect.void)
   }, settled)
-  // Subscribed before the first read, so that no state is missed.
-  const unsubscribe = app.subscribe(() => {
-    models.push(app.model())
+  const { first, unsubscribe } = readEach(app, (model) => {
+    models.push(model)
     told = true
     trim()
   })
-  try {
-    models.push(app.model())
-  } catch {
-    // Recorded where the model was read, or by `init`: the run dies of it.
-  }
+  if (Opt.isSome(first)) models.push(first.value)
   const now: Shown<Model, Message> = {
     app,
     latest: () => models[models.length - 1] as Model,

@@ -2187,10 +2187,6 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/run.test.ts",
         "a listener that throws on a command's answer dies in render, and the command ends as it should"
-      ],
-      [
-        "src/testing/contract.test.ts",
-        "rehearse fails, as the run dies, in render, on a makeModel that throws on a later state"
       ]
     ]
   },
@@ -2516,7 +2512,12 @@ export const mutations: ReadonlyArray<Mutation> = [
         "src/run.test.ts",
         "a model read outside any fiber is recorded in render, and the reader gets the defect recorded"
       ],
-      ["src/run.test.ts", "a model read before the run starts is one defect, in render, and the run dies of it"]
+      ["src/run.test.ts", "a model read before the run starts is one defect, in render, and the run dies of it"],
+      ["src/testing/contract.test.ts", "rehearse fails in render, as the run dies"],
+      [
+        "src/testing/contract.test.ts",
+        "rehearse fails, as the run dies, in render, on a makeModel that throws on a later state"
+      ]
     ]
   },
   {
@@ -2562,6 +2563,23 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/start.test.ts",
         "in init: the handle is made, model() throws the defect in init, nothing is applied, and run dies of it"
+      ],
+      ["src/testing/contract.test.ts", "rehearse fails, as the run dies, in init, on an init that throws on its flags"]
+    ]
+  },
+  {
+    name: "a testing tool reads no first model",
+    file: "src/run.ts",
+    from: "return { first: Opt.some(app.model()), unsubscribe }",
+    to: "return { first: Opt.none(), unsubscribe }",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "the run dies in subscriptions, then in render, on a first state whose model is a defect too, read"
+      ],
+      [
+        "src/testing/contract.test.ts",
+        "rehearse fails in subscriptions, then in render, as the run dies, on a first state whose model is a defect too"
       ]
     ]
   },
@@ -2903,15 +2921,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   // The testing tools (`docs/records/synchronous-dispatch.md`, stage 2).
   {
-    name: "rehearse dies with no site for a defect of init",
-    file: "src/testing/rehearse.ts",
-    from: ".pipe(diesIn(\"init\"))",
-    to: "",
-    killedBy: [
-      ["src/testing/contract.test.ts", "rehearse fails, as the run dies, in init, on an init that throws on its flags"]
-    ]
-  },
-  {
     name: "rehearse keeps only the program's defects",
     file: "src/testing/rehearse.ts",
     from: "const register = makeDeaths(() => true)",
@@ -2939,27 +2948,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "        Engine.recordThrown(register, \"update\", thrown)\n        return deadOr(Effect.never)",
     killedBy: [
       ["src/testing/rehearse.test.ts", "dies in subscriptions when a key's Equal throws, as the run does"]
-    ]
-  },
-  {
-    name: "rehearse dies with no site for a defect of the first model",
-    file: "src/testing/rehearse.ts",
-    from: "      Engine.recordThrown(register, \"render\", thrown)\n      return Opt.none()\n",
-    to: "      throw thrown\n",
-    killedBy: [
-      ["src/testing/contract.test.ts", "rehearse fails in render, as the run dies"]
-    ]
-  },
-  {
-    name: "rehearse stops at the keys of the first state, before its first model",
-    file: "src/testing/rehearse.ts",
-    from: "  const shown = firstModel()\n",
-    to: "  const shown = dead() ? Opt.none<Model>() : firstModel()\n",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "rehearse fails in subscriptions, then in render, as the run dies, on a first state whose model is a defect too"
-      ]
     ]
   },
   {
@@ -3026,8 +3014,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse reads the model after the first defect",
     file: "src/testing/rehearse.ts",
-    from: "model: deadOr(Effect.sync(() => model)),",
-    to: "model: Effect.sync(() => model),",
+    from: "model: deadOr(Effect.sync(() => app.model())),",
+    to: "model: Effect.sync(() => app.model()),",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",

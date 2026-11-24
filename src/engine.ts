@@ -289,22 +289,27 @@ type Parts<State, Message, Command, R, K, Event = unknown> =
      * testing tool wakes what waits on a new state, so that nothing it wakes runs inside a step. It throws nothing.
      */
     settled?: () => void
-    /** Told in the thunk as each step stands, the first keys' as the engine is made (`Stepped`). It throws nothing. */
-    stepped?: (step: Stepped<State, Command, K, Event>) => void
-    /** Told by the fiber of effects once the stops of a job have ended, before its starts. It throws nothing. */
-    released?: (gone: ReadonlyArray<readonly [K, Core.Generation]>) => void
     init: Step<State, Command>
     update: Update<State, Message, Command, Event>
     subscriptions: Subscriptions<State, K>
   }>
+  & Told<State, Command, K, Event>
   & Fibers<Message, Command, R, K>
   & RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>
+
+/** What a testing tool is told of the steps and the releases. The run is told nothing. */
+export type Told<State, Command, K, Event = unknown> = Readonly<{
+  /** Told in the thunk as each step stands, the first keys' as the engine is made (`Stepped`). It throws nothing. */
+  stepped?: (step: Stepped<State, Command, K, Event>) => void
+  /** Told by the fiber of effects once the stops of a job have ended, before its starts. It throws nothing. */
+  released?: (gone: ReadonlyArray<readonly [K, Core.Generation]>) => void
+}>
 
 /**
  * What the fibers of a start and of a command run: the program's `listen` and `runCommand`, in the bodies of
  * `startFiber` and `commandFiber`, or a testing tool's own, never both, so that nothing given is left uncalled.
  */
-type Fibers<Message, Command, R, K> =
+export type Fibers<Message, Command, R, K> =
   | Readonly<{
     runCommand: RunCommand<Command, Message, R>
     listen: Listen<K, Message, R>

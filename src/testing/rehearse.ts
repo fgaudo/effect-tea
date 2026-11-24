@@ -1,7 +1,8 @@
-// `rehearse` runs the program on the engine itself (`engine.ts`), built with what the fiber of a command and that of a
-// start run: a command waits until a `run` gives it the effect `runCommand` returned, and a subscription until a
-// `hearNext` asks it for a message. The thunk, the jobs and their order, the fibers, their roots and records, and the
-// end that stops them are the engine's; what is left here is what the test decides (`docs/records/one-engine.md`).
+// `rehearse` runs the program on the engine itself (`engine.ts`), through the handle the run makes (`partsOf` in
+// `run.ts`), built with what the fiber of a command and that of a start run: a command waits until a `run` gives it the
+// effect `runCommand` returned, and a subscription until a `hearNext` asks it for a message. `init`, the models, the
+// thunk, the jobs and their order, the fibers, their roots and records, and the end that stops them are the run's;
+// what is left here is what the test decides (`docs/records/one-engine.md`).
 import * as Arr from "effect/Array"
 import * as Cause from "effect/Cause"
 import type * as Context from "effect/Context"
@@ -16,8 +17,9 @@ import * as Scope from "effect/Scope"
 import * as Core from "../core.ts"
 import * as Engine from "../engine.ts"
 import { describeByTag } from "../log.ts"
-import { type AnyProgram, type FlagsOption, listenOf, type Program, runCommandOf, startOf } from "../program.ts"
-import { commandFiber, diesIn, makeDeaths, startFiber, stopping as stopFiber } from "../shell.ts"
+import { type AnyProgram, type FlagsOption, listenOf, type Program, runCommandOf } from "../program.ts"
+import { partsOf, readEach } from "../run.ts"
+import { commandFiber, makeDeaths, startFiber, stopping as stopFiber } from "../shell.ts"
 import * as Ledger from "./ledger.ts"
 
 /**
@@ -242,7 +244,6 @@ const rehearsing = Effect.fnUntraced(function*<
   ...[{ flags } = {}]: [Flags] extends [never] ? [options?: FlagsOption<never>]
     : [options: FlagsOption<NoInfer<Flags>>]
 ): Effect.fn.Return<A, E, RT> {
-  const first = yield* Effect.sync(() => startOf(program.init, flags)).pipe(diesIn("init"))
   const runCommand = runCommandOf(program)
   const listenTo = listenOf(program)
   // The register of the run: what the engine's thunk and its fibers die of, the program's defects and what is thrown
@@ -494,35 +495,21 @@ const rehearsing = Effect.fnUntraced(function*<
       })
     })
   }
-  const engine = Engine.build<State, Message, Command, never, Key, Event>({
-    deaths: register,
+  // The handle the run makes, `init` called with the flags and a defect of it recorded in `'init'`, over the engine
+  // with the rehearsal's fibers. An `init` that threw leaves no engine: the rehearsal fails with the register.
+  const { app, engine: built } = partsOf(program, { flags }, register, () => undefined, {
     stepped,
     listening,
     answering,
-    released,
-    init: first,
-    update: program.update,
-    subscriptions: program.subscriptions
+    released
   })
-  // The first model, made whatever the first keys did, as a renderer reads it to draw, and the run dies of both.
-  const firstModel = (): Opt.Option<Model> => {
-    try {
-      return Opt.some(program.makeModel(engine.current().state))
-    } catch (thrown) {
-      Engine.recordThrown(register, "render", thrown)
-      return Opt.none()
-    }
-  }
-  const shown = firstModel()
+  if (built === undefined) return yield* deadOr(Effect.never)
+  const engine = built
+  // There is no renderer: the rehearsal reads the model of each state through the handle, as `drive` does, so that
+  // the model of each new state is made in the thunk that makes the state, and the first whatever the first keys did,
+  // and a defect of `makeModel` is recorded where it is read, in `'render'`, the step going on whole.
+  readEach(app, () => undefined)
   yield* deadOr(Effect.void)
-  if (Opt.isNone(shown)) return yield* deadOr(Effect.never)
-  let model: Model = shown.value
-  // There is no renderer: the rehearsal is one told of every state that reads each one, so that the model of each new
-  // state is made in the thunk that makes the state, and a defect of `makeModel` is the engine's to record, in
-  // `'render'`, as a listener's, the step going on whole.
-  engine.subscribe(() => {
-    model = program.makeModel(engine.current().state)
-  })
   // From its scope on, nothing interrupts the rehearsal but in its scenario: the scope and the effects started in it
   // are one region with the end that closes and stops them, as `drive` forks its run, so that an interruption from
   // outside as it sets up meets the end too.
@@ -535,12 +522,13 @@ const rehearsing = Effect.fnUntraced(function*<
     yield* engine.effects.pipe(Scope.provide(forks))
     // Selected on the model of the state it applies to, in the thunk that applies it.
     const send = (select: (model: Model) => Opt.Option<Message>) =>
-      submit(() =>
-        Opt.match(select(model), {
+      submit(() => {
+        const model = app.model()
+        return Opt.match(select(model), {
           onNone: () => Effect.die(new Error("The model does not show what the test sends", { cause: model })),
           onSome: (message) => outcomeOf(apply(Core.fromDispatch, message, "fail", Opt.none()), message)
         })
-      )
+      })
     // The program's keys are compared with the test's, by their `Equal`: a defect of theirs is in `subscriptions`, as
     // in the run. In a thunk: the key's start, or the effect the call ends with. The test's key stands for the program's
     // where the engine is given a message as a subscription's, whose key only says where it came from.
@@ -717,7 +705,7 @@ const rehearsing = Effect.fnUntraced(function*<
     // included, fails.
     const rehearsal: Rehearsal<State, Model, Message, Command, Event, RC, RS> = {
       state: Effect.sync(() => engine.current().state),
-      model: deadOr(Effect.sync(() => model)),
+      model: deadOr(Effect.sync(() => app.model())),
       send: (select) => deadOr(send(select)),
       pending: Effect.sync(() => Ledger.pendingOf(ledger)),
       run,

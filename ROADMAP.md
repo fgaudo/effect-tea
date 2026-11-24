@@ -55,8 +55,7 @@ library meets:
    premises of steps 18 and 19, were done that day, and step 21 was closed). Among them, by what a test meets today,
    then by what each rests on: step 49, a wait of `drive` that skipped a state, which a test with two waits met, was
    done on 24 November 2026; step 50, what the fiber of a command and that of a start run, written once in
-   `shell.ts`, was done the same day; step 51, the last part of `rehearse` still written by hand, small, which step 52
-   builds on; step 52, `simulate`
+   `shell.ts`, and step 51, `rehearse` on the handle of the run, were done the same day; step 52, `simulate`
    over the engine, the largest, which closes a finding by its form; step 53, a rehearsal that waits for ever, which
    only a key whose printing throws meets, written once the code of step 52 is where it stays; step 54, the rule as a
    check, which needs the three before it; and step 55, their review;
@@ -113,47 +112,26 @@ is a lead, "valid, but taken with other types".
   "21:0:1:1:1:1:1:1:4:4:4:8:6:6:6:16:6:16:16:18:19:21:20:23:18:18:18:21:20:19:19:20:20:22:23:25:24:24:29:26:24:26:26:25:26:24:24:24:24:24:25:25:46:19:19:3:0:16:0"`.
   Given them, the property fails again alone, with nothing else running; the run that found it changed no code that
   runs. The review of step 20 met it again, with `seed: -714533539` (its path is in the body of `b6793dc`, on
-  `claude/premise-review-engine-20-badc4f`). Not yet weighed under the `'inline'` mode of resumption (`change-engine`, "A lead of the search"). Opus 5.5,
-  `high`.
+  `claude/premise-review-engine-20-badc4f`). Not yet weighed under the `'inline'` mode of resumption (`change-engine`,
+  "A lead of the search"). The checks of step 51 met it again on 24 November 2026, with `seed: -1146477803` and `path:
+  "43:0:0:0:0:6:4:7:7:13:9:10:9:10:9:9:11:9:9:9:10:9:9:9:9:9:9:9:9:11:10:10:12:0:1:0:17:15:13:13:15:17:17:21:16:16:15:15:17:15:17:16:19:19:15:18:19:19:20:19:19:18:21:18:18:19:23:33:24:24:24:32:33:33:33"`,
+  and given them, alone, it failed once of four runs on `2dfa460`, before that step, and passed four of four with
+  it: what decides it is not the seed and the path alone. The property runs on `start` alone, which that step did not
+  change but for how `runCommand` and `listen` reach the engine. Opus 5.5, `high`.
 
 ## Next, in order
-
-### 51. One handle: `rehearse` reads its models as `drive` does
-
-**Model and effort.** Opus 5.5, `high`: the handle of the run, and a testing tool over it.
-
-**Depends on** no other step.
-
-**Why.** `rehearse` builds the engine itself, and writes again what `partsOf` (`run.ts`) does for the run and for
-`drive`: `init` called with the flags, its defect in `'init'` (by `diesIn`, where the run has `recordThrown`); the
-first model, made whatever the first keys did; and a model made for each new state, in a listener. A change of the
-handle is then made twice: the review of step 20 found a comment of the contract that one such change had left
-behind.
-
-**How.** `partsOf` passes on what a testing tool gives the engine (`stepped`, `listening`, `answering`, `released`),
-and gives the engine back with the handle, as it does inside `run.ts` today. `rehearse` takes both: its model is
-`app.model()`, made once for each state, read in a listener of the handle as `drive` reads it, and `send` selects on
-it. An `init` that throws leaves no engine, and the rehearsal fails with the register, as it fails today. Where
-`drive` and `rehearse` then read each state the same way, that is one function: the read in the listener alone, since
-`drive` keeps, beside it, the models its waits have still to read, each at a place of its own (`place` in `drive.ts`,
-done in step 49), and `rehearse` waits on no model. Reasoned, not run: check first, with the tests of "a defect of
-makeModel" (`contract.test.ts`), that a defect of `makeModel` read through the handle is one `ProgramDefect` in
-`'render'`, recorded once, the step going on whole, for the first model and for a later one.
-
-**Done when** `rehearse.ts` has no `diesIn`, no `startOf` and no call of `makeModel`; `contract.test.ts` and
-`rehearse.test.ts` pass as they are; "rehearse dies with no site for a defect of init", "rehearse dies with no site
-for a defect of the first model" and "rehearse stops at the keys of the first state, before its first model" are gone
-from the mutations, their killers named by those of the handle that take out the same check; `docs/invariants.md`
-says it; and the checks of `change-engine` pass. A consumer can notice nothing: no changelog entry.
 
 ### 52. `simulate` over the engine
 
 **Model and effort.** Opus 5.5, `high`. The form is decided: the step measures it, then writes it.
 
-**Depends on** step 51: the half of `rehearse.ts` that `simulate` shares is taken out once it builds no handle. Step
-50 left it calling nothing of the shell's but `commandFiber` and `startFiber` (`shell.ts`), the bodies the run's fibers
-run too; the region that nothing interrupts from a command's answer to its apply stayed the rehearsal's, around
-`commandFiber`, since nothing showed the run to need it.
+**Depends on** no other step. Step 51 left `rehearse` taking its handle and its engine from `partsOf` (`run.ts`),
+with its models read by `readEach` there, as `drive` reads them: the half that `simulate` shares builds no handle of
+its own, and `simulate`, which starts from the step it is given and reads no model, can take the engine from
+`partsOf` given that step as `init`. Step 50 left it calling nothing of the shell's
+but `commandFiber` and `startFiber` (`shell.ts`), the bodies the run's fibers run too; the region that nothing
+interrupts from a command's answer to its apply stayed the rehearsal's, around `commandFiber`, since nothing showed
+the run to need it.
 
 **Why.** `simulate` is the one tool left with a thunk of its own: a fold in the caller's fiber over `Core.arrive` and
 `Core.reconcile`, with its own fork of a command, its own stop and its own end, and 14 mutations, kept in step with
