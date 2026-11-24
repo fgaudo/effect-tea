@@ -95,18 +95,6 @@ matrix is shown by its case (`bun run inference --filter <case>`).
   job of a `hearNext` builds `hasEnded(call.key)`, and `openFor` the error of a start `hear` played, in the `done` of
   `Engine.after`; the end's `stoppedWhileWaiting` fails the rehearsal's fiber with the throw. The form is that of the
   item above it, a value of the program printed outside its functions with no guard: step 53 fixes both by that form.
-- **A search that runs, once the run has settled, is not that of the text the field holds**: `bun run interleavings`
-  failed on 23 November 2026 in "a search runs for the text of the field while it holds one, and starts once for each
-  text it holds", at its second check (no search started twice passes), with `seed: -1335866316` and `path:
-  "21:0:1:1:1:1:1:1:4:4:4:8:6:6:6:16:6:16:16:18:19:21:20:23:18:18:18:21:20:19:19:20:20:22:23:25:24:24:29:26:24:26:26:25:26:24:24:24:24:24:25:25:46:19:19:3:0:16:0"`.
-  Given them, the property fails again alone, with nothing else running; the run that found it changed no code that
-  runs. The review of step 20 met it again, with `seed: -714533539` (its path is in the body of `b6793dc`, on
-  `claude/premise-review-engine-20-badc4f`). Not yet weighed under the `'inline'` mode of resumption (`change-engine`,
-  "A lead of the search"). The checks of step 51 met it again on 24 November 2026, with `seed: -1146477803` and `path:
-  "43:0:0:0:0:6:4:7:7:13:9:10:9:10:9:9:11:9:9:9:10:9:9:9:9:9:9:9:9:11:10:10:12:0:1:0:17:15:13:13:15:17:17:21:16:16:15:15:17:15:17:16:19:19:15:18:19:19:20:19:19:18:21:18:18:19:23:33:24:24:24:32:33:33:33"`,
-  and given them, alone, it failed once of four runs on `2dfa460`, before that step, and passed four of four with
-  it: what decides it is not the seed and the path alone. The property runs on `start` alone, which that step did not
-  change but for how `runCommand` and `listen` reach the engine. Opus 5.5, `high`.
 
 ## Next, in order
 

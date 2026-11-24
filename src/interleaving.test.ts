@@ -518,31 +518,38 @@ const makeList = (fates: Fates, events: Array<Event>) => {
       poke: RowMessage.Poked()
     })
   }
-  // Numbered as it begins, it sends three messages that name its start, each when the scheduler says, and holds
-  // nothing. Its key comes back whenever the field holds the same text again, so what it sends may reach a start of
-  // the same key that is not its own, which must not hear it.
+  // Numbered as it begins, it sends three messages that name its start, each when the scheduler says. Its key comes
+  // back whenever the field holds the same text again, so what it sends may reach a start of the same key that is not
+  // its own, which must not hear it. Its start is recorded as it acquires, and its end as it releases, in the scope
+  // the subscription runs in, as a row's are: a release of the channel it gives would not run for a stop that comes
+  // before that channel does, and the search would be taken for one still running.
   let starts = 0
   const searching = (text: string): Subscription<Own, never> =>
-    Channel.unwrap(Effect.sync(() => {
-      starts += 1
-      const start = starts
-      events.push({ _tag: "Searching", text, start })
-      const found = (nth: number) =>
-        Channel.fromEffect(
-          waits(fates, start * 3 + nth).pipe(
-            Effect.andThen(Effect.sync((): Own => {
-              events.push({ _tag: "Sent", text, start })
-              return { _tag: "Found", text, start }
-            }))
+    Channel.unwrap(
+      Effect.acquireRelease(
+        Effect.sync(() => {
+          starts += 1
+          events.push({ _tag: "Searching", text, start: starts })
+          return starts
+        }),
+        () => Effect.sync(() => events.push({ _tag: "SearchStopped", text }))
+      ).pipe(Effect.map((start) => {
+        const found = (nth: number) =>
+          Channel.fromEffect(
+            waits(fates, start * 3 + nth).pipe(
+              Effect.andThen(Effect.sync((): Own => {
+                events.push({ _tag: "Sent", text, start })
+                return { _tag: "Found", text, start }
+              }))
+            )
           )
+        return found(0).pipe(
+          Channel.concatWith(() => found(1)),
+          Channel.concatWith(() => found(2)),
+          Channel.concatWith(() => Channel.never)
         )
-      return found(0).pipe(
-        Channel.concatWith(() => found(1)),
-        Channel.concatWith(() => found(2)),
-        Channel.concatWith(() => Channel.never),
-        Channel.onExit(() => Effect.sync(() => events.push({ _tag: "SearchStopped", text })))
-      )
-    }))
+      }))
+    )
   const List = program<{ state: ListOwn; message: Own; key: readonly ["search", string] }>()
   // A row is there while its id is listed, started from the flags listed with it: one added again at its id is
   // another row.
@@ -826,7 +833,6 @@ const heardOf = (event: Event) =>
     ? Opt.some({ message: event.ignored.message, origin: event.ignored.origin })
     : Opt.none()
 
-/** The searches running after the first `count` events, by their text. */
 /**
  * Whether the start of a search is no longer the current one by the first `count` events: the field has held another
  * text since it began, or a later start of its text has begun. It may be one before then too, begun once its key had
@@ -840,6 +846,7 @@ const superseded = (events: ReadonlyArray<Event>, text: string, start: number, c
   )
 }
 
+/** The searches running after the first `count` events, by their text. */
 const searches = (events: ReadonlyArray<Event>, count = events.length) => {
   const running: Array<string> = []
   for (const event of events.slice(0, count)) {
