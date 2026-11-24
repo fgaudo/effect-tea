@@ -71,8 +71,8 @@ version, and everything else, features included, the patch version.
   as `never`.
 - `start` and `drive` take a program with an `external`, which they refused, and check it as `child` does; their run
   needs no service that a program's type names for commands or subscriptions it does not have.
-- `rehearse` fails, as the run dies, with what a message's tag throws while a defect of `update` is said, also when
-  the scenario catches the call that sent it.
+- `rehearse` and `simulate` fail, as the run dies, with the defect of `update` and what a message's tag throws while it
+  is said, where `simulate` kept the second alone; `rehearse` also when the scenario catches the call that sent it.
 - A wait of `drive` looks at the model of each state in order, where it could skip the model of the state that woke
   it when another wait woken by that state sent first.
 

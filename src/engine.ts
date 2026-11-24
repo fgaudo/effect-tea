@@ -568,7 +568,7 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
       if (gone.length > 0) released(gone)
       for (const [key, generation] of fresh) {
         yield* listening(key, generation, sending({ _tag: "Subscription", key, generation })).pipe(
-          rootedIn("subscription", () => ({ key })),
+          rootedIn("subscription", { key }),
           Effect.provideContext(context),
           recorded,
           FiberMap.run(subscriptionFibers, generation)

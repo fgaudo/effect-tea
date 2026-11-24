@@ -26,6 +26,9 @@ import type { Subscription } from "./subscription.ts"
 export const stopping = <A, E>(fiber: Fiber.Fiber<A, E>): Effect.Effect<void> =>
   Effect.flatMap(Effect.fiberId, (id) => Fiber.interruptAs(fiber, id, Context.make(Core.Stopped, {})))
 
+/** What a defect of a fiber of the run says besides where it happened: the key of a subscription's, or nothing. */
+export type Details = Readonly<{ key?: unknown }>
+
 /**
  * Where a defect happened is known only where it is caught: the run dies with it, and with where, and leaves
  * reporting it to whoever runs the program. Every defect of the cause is wrapped (`wrapDefects`), and a
@@ -36,12 +39,11 @@ export const stopping = <A, E>(fiber: Fiber.Fiber<A, E>): Effect.Effect<void> =>
  * own is still a defect, as a defect would be. The defects are wrapped there too, so that those of an interrupted
  * effect are: what a subscription the run stopped dies with while it releases what it holds.
  */
-// The details are made only when there is a defect to carry them: a message is described on every call otherwise.
-// `kept` says which of the interruptions the fiber received are no defect: all of them where whoever runs the program
+// The details are data, a key or nothing, so that saying where a defect happened throws nothing. `kept` says which of the interruptions the fiber received are no defect: all of them where whoever runs the program
 // may interrupt the fiber, those of the run alone in a fiber the run forks (`Core.byTheRun`, as `scopedIn` keeps).
-export const diesIn = (
+const diesIn = (
   where: DefectSite,
-  details: () => Readonly<{ key?: unknown; on?: unknown }> = () => ({}),
+  details: Details = {},
   wrapped: (defect: unknown) => boolean = () => false,
   kept: (received: Cause.Cause<never>) => Cause.Cause<never> = (received) => received
 ) =>
@@ -54,16 +56,14 @@ export const diesIn = (
  * The root of a fiber the run forks: one that ends with interruptions only, none of them the run's (`Core.byTheRun`),
  * was interrupted by the program, by whatever fiber, and dies in `where`. Only the run stops such a fiber, with its
  * mark, and before anything else could: a fiber forked with `FiberSet.run` or `FiberMap.run` is no child of the fiber
- * that forks it, and the sets close only after the end has stopped their fibers; `Effect.forkChild`, with which
- * `simulate` forks a command, interrupts a child only as its parent ends, and `simulate` stops it before. So it holds
- * where `scopedIn` cannot, which takes the same interruption for a defect while the fiber's effect runs and as its
- * scope releases: one made once `scopedIn` has returned, before the answer or the last message is sent. A cause with a
- * defect is the fiber's death already, recorded by `scopedIn`, which an interruption beside it, as Effect adds what the
- * fiber received, does not change.
+ * that forks it, and the sets close only after the end has stopped their fibers. So it holds where `scopedIn` cannot,
+ * which takes the same interruption for a defect while the fiber's effect runs and as its scope releases: one made once
+ * `scopedIn` has returned, before the answer or the last message is sent. A cause with a defect is the fiber's death
+ * already, recorded by `scopedIn`, which an interruption beside it, as Effect adds what the fiber received, does not
+ * change.
  */
 export const rootedIn =
-  (where: DefectSite, details: () => Readonly<{ key?: unknown; on?: unknown }> = () => ({})) =>
-  <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+  (where: DefectSite, details: Details = {}) => <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
     Effect.uninterruptibleMask((restore) =>
       restore(self).pipe(
         Effect.catchCauseIf(
@@ -78,13 +78,13 @@ export const rootedIn =
 const dying = <E>(
   cause: Cause.Cause<E>,
   where: DefectSite,
-  details: () => Readonly<{ key?: unknown; on?: unknown }>,
+  details: Details,
   wrapped: (defect: unknown) => boolean,
   kept: (received: Cause.Cause<never>) => Cause.Cause<never>
 ): Effect.Effect<never, E> =>
   Effect.exit(Effect.interruptible(Effect.void)).pipe(Effect.flatMap((received) => {
     const own = Core.otherwiseDefect(cause, kept(Exit.isFailure(received) ? received.cause : Cause.empty))
-    return Effect.failCause(Cause.hasDies(own) ? Core.wrapDefects(own, where, details(), wrapped) : own)
+    return Effect.failCause(Cause.hasDies(own) ? Core.wrapDefects(own, where, details, wrapped) : own)
   }))
 
 /**
@@ -102,7 +102,7 @@ const dying = <E>(
 export const scopedIn = (
   deaths: Deaths,
   where: DefectSite,
-  details?: () => Readonly<{ key?: unknown; on?: unknown }>
+  details?: Details
 ) =>
 <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, Scope.Scope>> =>
   Effect.uninterruptibleMask((restore) =>
@@ -164,7 +164,7 @@ export const startFiber = <Message, R, RS, RL>(
   last: (message: Message) => Effect.Effect<void, never, RL>
 ): Effect.Effect<void, never, Exclude<R | RS, Scope.Scope> | RL> =>
   Effect.suspend(() => runSubscription(listen(), send)).pipe(
-    scopedIn(deaths, "subscription", () => ({ key })),
+    scopedIn(deaths, "subscription", { key }),
     Effect.flatMap(last)
   )
 

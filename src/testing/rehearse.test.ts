@@ -2086,7 +2086,7 @@ describe("rehearse, as a fiber of the test's has sent a message when the scenari
 describe("rehearse and a scenario that throws before it returns its effect", () => {
   type Count = Readonly<{ count: number }>
 
-  test("what a hearNext it started holds is released", async () => {
+  test("what a hearNext it started holds is released, and the call ends", async () => {
     const log: Array<"acquire" | "release"> = []
     const program: Program<{ state: Count; model: Count; message: "Tick"; key: "k" }> = {
       init: { state: { count: 0 } },
@@ -2105,8 +2105,11 @@ describe("rehearse and a scenario that throws before it returns its effect", () 
       throw new Error("boom")
     }))
     // Bounded, so that a call left waiting still lets the test end.
-    if (call !== undefined) await Effect.runPromise(Effect.timeoutOption(Fiber.await(call), "1 second"))
+    const ended = call === undefined
+      ? Opt.none()
+      : await Effect.runPromise(Effect.timeoutOption(Fiber.await(call), "1 second"))
     expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain("boom")
+    expect(Opt.isSome(ended) && Exit.isFailure(ended.value)).toBe(true)
     expect(log.filter((each) => each === "acquire").length).toBe(log.filter((each) => each === "release").length)
   })
 })

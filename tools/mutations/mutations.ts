@@ -184,30 +184,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "a defect of update in simulate has no site",
-    file: "src/testing/simulate.ts",
-    from: "diesIn(\"update\", () => ({ on: describeByTag(message) })),",
-    to: "(self) => self,",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails, as the run dies, in update, with its message, on an update that throws"
-      ]
-    ]
-  },
-  {
-    name: "a defect of update in simulate does not say its message",
-    file: "src/testing/simulate.ts",
-    from: "diesIn(\"update\", () => ({ on: describeByTag(message) })),",
-    to: "diesIn(\"update\"),",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails, as the run dies, in update, with its message, on an update that throws"
-      ]
-    ]
-  },
-  {
     name: "scopedIn wraps again what it wrapped",
     guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
@@ -262,36 +238,6 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/testing/contract.test.ts",
         "rehearse fails, as the run dies, of each of two equal defects of what a command that dies releases"
-      ]
-    ]
-  },
-  {
-    name: "scopedIn ends with what its effect and its release died of joined by Equal",
-    guarantees: ["Nothing ends in silence"],
-    file: "src/shell.ts",
-    from: "Effect.failCause(Core.released(own, closed.cause))",
-    to: "Effect.failCause(Cause.combine(own, closed.cause))",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails, as the run dies, of two defects on a release that dies of that of its command"
-      ],
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails, as the run dies, of each of two equal defects of what a command that dies releases"
-      ]
-    ]
-  },
-  {
-    name: "scopedIn keeps twice what its release dies of again",
-    guarantees: ["Nothing ends in silence"],
-    file: "src/shell.ts",
-    from: "Effect.failCause(Core.released(own, closed.cause))",
-    to: "Effect.failCause(Cause.fromReasons<E>([...own.reasons, ...closed.cause.reasons]))",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails, as the run dies, of one defect on a release that fails with the cause of its command"
       ]
     ]
   },
@@ -1142,24 +1088,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "simulate runs a command in the fiber of whoever runs it",
-    file: "src/testing/simulate.ts",
-    from: "const message = yield* runOne(deaths, command)",
-    to: "const message = yield* Effect.suspend(() => runCommand(command)).pipe(scopedIn(deaths, 'command'))",
-    killedBy: [
-      ["src/testing/contract.test.ts", "begins its effect in simulate, as in the run"]
-    ]
-  },
-  {
-    name: "simulate forks a command without beginning it",
-    file: "src/testing/simulate.ts",
-    from: "deaths.recorded), {\n            startImmediately: true\n          })",
-    to: "deaths.recorded))",
-    killedBy: [
-      ["src/testing/contract.test.ts", "begins its effect in simulate, as in the run"]
-    ]
-  },
-  {
     name: "the run takes no interruption a command gets once its scope has closed for a defect",
     guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
@@ -1193,7 +1121,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "the run takes no interruption a subscription gets once its scope has closed for a defect",
     guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
-    from: "          rootedIn(\"subscription\", () => ({ key })),\n",
+    from: "          rootedIn(\"subscription\", { key }),\n",
     to: "",
     killedBy: [
       [
@@ -1238,37 +1166,13 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "rehearse interrupts a command whose answer comes once it has ended",
-    file: "src/testing/rehearse.ts",
+    file: "src/testing/stage.ts",
     from: "}, Effect.void)",
     to: "})",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
         "a command that answers as the end tells a call that its job was not done is no defect"
-      ]
-    ]
-  },
-  {
-    name: "simulate does not record what the root of a command dies of",
-    file: "src/testing/simulate.ts",
-    from: "rootedIn(\"command\"), deaths.recorded)",
-    to: "rootedIn(\"command\"))",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, as whoever runs it interrupts it"
-      ]
-    ]
-  },
-  {
-    name: "simulate takes no interruption a command gets once its scope has closed for a defect",
-    file: "src/testing/simulate.ts",
-    from: "rootedIn(\"command\"), deaths.recorded)",
-    to: "deaths.recorded)",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, as whoever runs it interrupts it"
       ]
     ]
   },
@@ -1557,62 +1461,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "simulate reconciles the keys of a state with none of the state before",
-    file: "src/testing/simulate.ts",
-    from: "Core.reconcile(listening.active, subscriptions(listening.current.state))",
-    to: "Core.reconcile(Core.noneActive, subscriptions(listening.current.state))",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails, as the run dies, on a key whose Equal throws against the key of the state before"
-      ]
-    ]
-  },
-  {
-    name: "simulate reads no subscriptions of a new state",
-    file: "src/testing/simulate.ts",
-    from: "return arrived.changed ? Effect.as(listen(listening), Opt.some(applied))",
-    to: "return false ? Effect.as(listen(listening), Opt.some(applied))",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails, as the run dies, on a key whose Equal throws against the key of the state before"
-      ]
-    ]
-  },
-  {
-    name: "simulate closes a command's scope before its defect says where",
-    file: "src/testing/simulate.ts",
-    from: "effect.pipe(scopedIn(deaths, \"command\"), rootedIn",
-    to: "effect.pipe(Effect.scoped, diesIn(\"command\"), rootedIn",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "simulate gives, as the run does, what a command that dies releases its defect, in a command"
-      ],
-      [
-        "src/testing/contract.test.ts",
-        "simulate gives, as the run does, what a command that interrupts itself releases a defect"
-      ],
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails, as the run dies, of two defects on a release that dies of that of its command"
-      ]
-    ]
-  },
-  {
-    name: "simulate takes a defect of what a command's scope releases for one of its own",
-    file: "src/testing/simulate.ts",
-    from: "effect.pipe(scopedIn(deaths, \"command\"), rootedIn",
-    to: "effect.pipe(diesIn(\"command\"), Effect.scoped, rootedIn",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails, as the run dies, in a command on a release of a command that dies"
-      ]
-    ]
-  },
-  {
     name: "dispatchViolations takes a step that changes the state for one that does nothing",
     file: "src/testing/dispatch-violations.ts",
     from: "Equal.equals(step.state, state)\n  && ",
@@ -1837,59 +1685,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "a defect of subscriptions in simulate has no site",
-    file: "src/testing/simulate.ts",
-    from: "    }).pipe(diesIn(\"subscriptions\"))",
-    to: "    })",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails, as the run dies, on a key whose Equal throws against the key of the state before"
-      ],
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails, as the run dies, in subscriptions on those of the state it starts from"
-      ]
-    ]
-  },
-  {
-    name: "a runCommand that throws before its effect in simulate has no site",
-    file: "src/testing/simulate.ts",
-    from: "      Effect.sync(() => runCommand(command)).pipe(\n        diesIn(\"command\"),\n",
-    to: "      Effect.sync(() => runCommand(command)).pipe(\n",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails, as the run dies, in a command on a runCommand that throws before its effect"
-      ]
-    ]
-  },
-  {
-    name: "a defect of a command in simulate is a subscription's",
-    file: "src/testing/simulate.ts",
-    from: "effect.pipe(scopedIn(deaths, \"command\"), rootedIn",
-    to: "effect.pipe(scopedIn(deaths, \"subscription\"), rootedIn",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails with a defect, as the run dies, on a command interrupting itself"
-      ],
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails with a defect of a command interrupting itself as whoever runs it interrupts it"
-      ],
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails with a defect of a command joining, as it is stopped, a fiber its interrupter interrupted"
-      ],
-      ["src/testing/contract.test.ts", "simulate fails, as the run dies, in a command on a command that dies"],
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails, as the run dies, in a command on a release of a command that dies"
-      ]
-    ]
-  },
-  {
     name: "a report leaves the defects it reported to be reported again",
     guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
@@ -1932,15 +1727,6 @@ export const mutations: ReadonlyArray<Mutation> = [
         "src/run.test.ts",
         "a defect of update in a dispatch is never thrown to the caller, and the run dies of it in update"
       ]
-    ]
-  },
-  {
-    name: "simulate stops an interrupted command with no mark of its own",
-    file: "src/testing/simulate.ts",
-    from: "                stopping(fiber),\n",
-    to: "                Fiber.interrupt(fiber),\n",
-    killedBy: [
-      ["src/testing/simulate.test.ts", "interrupted while a command runs, it ends interrupted, with no defect"]
     ]
   },
   {
@@ -2376,8 +2162,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a defect of the fiber of a start is a command's",
     guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
-    from: "scopedIn(deaths, \"subscription\", () => ({ key })),",
-    to: "scopedIn(deaths, \"command\", () => ({ key })),",
+    from: "scopedIn(deaths, \"subscription\", { key }),",
+    to: "scopedIn(deaths, \"command\", { key }),",
     killedBy: [
       [
         "src/engine.test.ts",
@@ -2411,7 +2197,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a defect of the fiber of a start does not say its key",
     guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
-    from: "scopedIn(deaths, \"subscription\", () => ({ key })),",
+    from: "scopedIn(deaths, \"subscription\", { key }),",
     to: "scopedIn(deaths, \"subscription\"),",
     killedBy: [
       [
@@ -2944,15 +2730,15 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse records a defect of a key's Equal, looked up for a call, in update",
     file: "src/testing/rehearse.ts",
-    from: "        Engine.recordThrown(register, \"subscriptions\", thrown)\n        return deadOr(Effect.never)",
-    to: "        Engine.recordThrown(register, \"update\", thrown)\n        return deadOr(Effect.never)",
+    from: "      Engine.recordThrown(register, \"subscriptions\", thrown)\n      return deadOr(Effect.never)",
+    to: "      Engine.recordThrown(register, \"update\", thrown)\n      return deadOr(Effect.never)",
     killedBy: [
       ["src/testing/rehearse.test.ts", "dies in subscriptions when a key's Equal throws, as the run does"]
     ]
   },
   {
     name: "a runCommand that throws before its effect in rehearse is no defect of its command",
-    file: "src/testing/rehearse.ts",
+    file: "src/testing/stage.ts",
     from: "calling(() => runCommand(command))",
     to: "runCommand(command)",
     killedBy: [
@@ -2986,7 +2772,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the job of a hearNext starts its subscription once the rehearsal has ended",
     file: "src/testing/rehearse.ts",
-    from: "          if (engine.ended()) return\n",
+    from: "        if (engine.ended()) return\n",
     to: "",
     killedBy: [
       ["src/testing/rehearse.test.ts", "the job of a hearNext that comes once the scenario has returned starts nothing"]
@@ -2994,18 +2780,18 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "rehearse runs a command after the first defect",
-    file: "src/testing/rehearse.ts",
+    file: "src/testing/stage.ts",
     from:
-      "            if (dead()) return deadOr(Effect.never)\n            if (engine.ended()) return Effect.interrupt\n",
-    to: "            if (engine.ended()) return Effect.interrupt\n",
+      "          if (dead()) return failedOr(Effect.never)\n          if (engine.ended()) return Effect.interrupt\n",
+    to: "          if (engine.ended()) return Effect.interrupt\n",
     killedBy: [
       ["src/testing/rehearse.test.ts", "run calls no runCommand once a command has died"]
     ]
   },
   {
     name: "rehearse runs a command once it has ended",
-    file: "src/testing/rehearse.ts",
-    from: "            if (engine.ended()) return Effect.interrupt\n",
+    file: "src/testing/stage.ts",
+    from: "          if (engine.ended()) return Effect.interrupt\n",
     to: "",
     killedBy: [
       ["src/testing/rehearse.test.ts", "a run made once the rehearsal has ended calls no runCommand"]
@@ -3025,8 +2811,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a call of rehearse waits on through another fiber's death",
-    file: "src/testing/rehearse.ts",
-    from: "    Effect.raceFirst(waiting, Effect.andThen(register.died, deadOr(Effect.never)))",
+    file: "src/testing/stage.ts",
+    from: "    Effect.raceFirst(waiting, Effect.andThen(register.died, failedOr(Effect.never)))",
     to: "    waiting",
     killedBy: [
       [
@@ -3041,8 +2827,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "rehearse lets a command's interrupted run go unanswered",
-    file: "src/testing/rehearse.ts",
-    from: "                ledger = Ledger.cancel(ledger, taking.ticket)\n",
+    file: "src/testing/stage.ts",
+    from: "                stage.ledger = Ledger.cancel(stage.ledger, taking.ticket)\n",
     to: "",
     killedBy: [
       ["src/testing/rehearse.test.ts", "when a run interrupted while its command runs leaves the command unanswered"]
@@ -3050,20 +2836,21 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "rehearse leaves the command of an interrupted run running",
-    file: "src/testing/rehearse.ts",
-    from: "                Effect.flatMap(Deferred.await(taking.parked.fiber), stopFiber)\n",
-    to: "                Effect.void\n",
+    file: "src/testing/stage.ts",
+    from: "              Effect.flatMap(Deferred.await(taking.parked.fiber), stopping)\n",
+    to: "              Effect.void\n",
     killedBy: [
       ["src/testing/rehearse.test.ts", "the command is released before the interrupted call returns"]
     ]
   },
   {
-    name: "rehearse stops the command of an interrupted run with no mark of its own",
-    file: "src/testing/rehearse.ts",
-    from: "                Effect.flatMap(Deferred.await(taking.parked.fiber), stopFiber)\n",
-    to: "                Effect.flatMap(Deferred.await(taking.parked.fiber), Fiber.interrupt)\n",
+    name: "a stage stops the command of an interrupted run with no mark of its own",
+    file: "src/testing/stage.ts",
+    from: "              Effect.flatMap(Deferred.await(taking.parked.fiber), stopping)\n",
+    to: "              Effect.flatMap(Deferred.await(taking.parked.fiber), Fiber.interrupt)\n",
     killedBy: [
-      ["src/testing/rehearse.test.ts", "when a run interrupted while its command runs leaves the command unanswered"]
+      ["src/testing/rehearse.test.ts", "when a run interrupted while its command runs leaves the command unanswered"],
+      ["src/testing/simulate.test.ts", "interrupted while a command runs, it ends interrupted, with no defect"]
     ]
   },
   {
@@ -3082,8 +2869,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "rehearse leaves a hearNext waiting as its end stops the subscription",
     file: "src/testing/rehearse.ts",
     from:
-      "      yield* Effect.forEach(\n        Arr.fromIterable(ledger.calls),\n        ({ key, heard }) => Deferred.die(heard, stoppedWhileWaiting(key)),\n        { discard: true }\n      )\n",
-    to: "",
+      "      Effect.forEach(\n        Arr.fromIterable(stage.ledger.calls),\n        ({ key, heard }) => Deferred.die(heard, stoppedWhileWaiting(key)),\n        { discard: true }\n      )\n",
+    to: "      Effect.void\n",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
@@ -3102,9 +2889,9 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the end of rehearse tells only the calls still waiting on a start",
     file: "src/testing/rehearse.ts",
-    from: "        Arr.fromIterable(ledger.calls),\n",
+    from: "        Arr.fromIterable(stage.ledger.calls),\n",
     to:
-      "        Arr.fromIterable(ledger.hearings.values()).flatMap((each) => each._tag === \"Opened\" ? each.waiting : []),\n",
+      "        Arr.fromIterable(stage.ledger.hearings.values()).flatMap((each) => each._tag === \"Opened\" ? each.waiting : []),\n",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
@@ -3118,7 +2905,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "rehearse lets the engine finish its jobs after a scenario that failed",
-    file: "src/testing/rehearse.ts",
+    file: "src/testing/stage.ts",
     from: "Exit.isSuccess(exit) ? Effect.exit(finish) : Effect.void",
     to: "Effect.exit(finish)",
     killedBy: [
@@ -3130,8 +2917,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "rehearse stops the engine at once after a scenario that returned",
-    file: "src/testing/rehearse.ts",
-    from: "      Effect.tap((exit) => Exit.isSuccess(exit) ? Effect.exit(finish) : Effect.void),\n",
+    file: "src/testing/stage.ts",
+    from: "        Effect.tap((exit) => Exit.isSuccess(exit) ? Effect.exit(finish) : Effect.void),\n",
     to: "",
     killedBy: [
       [
@@ -3143,7 +2930,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse's hearNext lets no call leave as it ends",
     file: "src/testing/rehearse.ts",
-    from: "        Effect.ensuring(Effect.sync(() => {\n          ledger = Ledger.leave(ledger, call)\n        }))\n",
+    from:
+      "      Effect.ensuring(Effect.sync(() => {\n        stage.ledger = Ledger.leave(stage.ledger, call)\n      }))\n",
     to: "",
     killedBy: [
       [
@@ -3162,7 +2950,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "Effect.suspend(() => scenario(rehearsal))",
     to: "scenario(rehearsal)",
     killedBy: [
-      ["src/testing/rehearse.test.ts", "what a hearNext it started holds is released"]
+      ["src/testing/rehearse.test.ts", "what a hearNext it started holds is released, and the call ends"]
     ]
   },
   {
@@ -3184,7 +2972,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse reads the commands pending as the scenario ends",
     file: "src/testing/rehearse.ts",
-    from: "const pending = Ledger.pendingOf(ledger)\n",
+    from: "const pending = Ledger.pendingOf(stage.ledger)\n",
     to: "const pending = Ledger.pendingOf(owed)\n",
     killedBy: [
       [
@@ -3196,8 +2984,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse lets a command whose run was interrupted go",
     file: "src/testing/rehearse.ts",
-    from: "    if (cancelled.length > 0) {\n",
-    to: "    if (false) {\n",
+    from: "  if (cancelled.length > 0) {\n",
+    to: "  if (false) {\n",
     killedBy: [
       ["src/testing/rehearse.test.ts", "when a run interrupted while its command runs leaves the command unanswered"]
     ]
@@ -3205,8 +2993,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse lets a command still under way at the end go",
     file: "src/testing/rehearse.ts",
-    from: "    if (underWay.size > 0) {\n",
-    to: "    if (false) {\n",
+    from: "  if (underWay.size > 0) {\n",
+    to: "  if (false) {\n",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
@@ -3217,8 +3005,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse lets a command still pending at the end go",
     file: "src/testing/rehearse.ts",
-    from: "    if (pending.length > 0) {\n",
-    to: "    if (false) {\n",
+    from: "  if (pending.length > 0) {\n",
+    to: "  if (false) {\n",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
@@ -3229,8 +3017,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "hear plays a start whose fiber has not begun",
     file: "src/testing/rehearse.ts",
-    from: "        if (starting !== undefined) return",
-    to: "        if (false) return",
+    from: "      if (starting !== undefined) return",
+    to: "      if (false) return",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
@@ -3246,7 +3034,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "hear plays, after the wait for its start's fiber, the start it found before",
     file: "src/testing/rehearse.ts",
     from: "Effect.andThen(Deferred.await(starting.begun), hear(key, message))",
-    to: "Effect.andThen(Deferred.await(starting.begun), submit(() => play(key, generation, message)))",
+    to: "Effect.andThen(Deferred.await(starting.begun), stage.submit(() => play(key, generation, message)))",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
@@ -3289,7 +3077,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the job of a hearNext hears no message held for it",
     file: "src/testing/rehearse.ts",
-    from: "          hearHeld(call.key as Key, generation)\n",
+    from: "        hearHeld(call.key as Key, generation)\n",
     to: "",
     killedBy: [
       [
@@ -3312,7 +3100,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a command run runs without the services of the call",
-    file: "src/testing/rehearse.ts",
+    file: "src/testing/stage.ts",
     from:
       "            Effect.provideContext(context),\n            Effect.andThen(Deferred.succeed(answer, Effect.void)),",
     to: "            Effect.andThen(Deferred.succeed(answer, Effect.void)),",
@@ -3325,7 +3113,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "rehearse decides once its end is marked",
-    file: "src/testing/rehearse.ts",
+    file: "src/testing/stage.ts",
     from: "Effect.suspend(() => engine.ended() ? refused : decide())",
     to: "Effect.suspend(() => decide())",
     killedBy: [
@@ -3334,7 +3122,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "rehearse lets a call refused once it has ended wait",
-    file: "src/testing/rehearse.ts",
+    file: "src/testing/stage.ts",
     from: "refused: Effect.Effect<A, E, R> = Effect.interrupt",
     to: "refused: Effect.Effect<A, E, R> = Effect.never",
     killedBy: [
@@ -3343,7 +3131,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "rehearse interrupts a call refused once it has ended, whatever it says",
-    file: "src/testing/rehearse.ts",
+    file: "src/testing/stage.ts",
     from: "engine.ended() ? refused : decide()",
     to: "engine.ended() ? Effect.interrupt : decide()",
     killedBy: [
@@ -3359,7 +3147,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "rehearse finishes before the engine has done the jobs offered before",
-    file: "src/testing/rehearse.ts",
+    file: "src/testing/stage.ts",
     from: "const finish = Effect.suspend(() => Deferred.await(afterJobs()))",
     to: "const finish = Effect.void",
     killedBy: [
@@ -3371,8 +3159,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the end of rehearse leaves the calls waiting for a job it stopped",
-    file: "src/testing/rehearse.ts",
-    from: "      yield* Effect.forEach(Arr.fromIterable(undelivered), Deferred.interrupt, { discard: true })\n",
+    file: "src/testing/stage.ts",
+    from: "        yield* Effect.forEach(Arr.fromIterable(undelivered), Deferred.interrupt, { discard: true })\n",
     to: "",
     killedBy: [
       [

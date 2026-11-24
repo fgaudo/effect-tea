@@ -87,7 +87,28 @@ So the proxy costs some 50 µs more for each simulation, 3 µs more for each mes
 property of a thousand simulations of ten commands goes from 0.1 s to 0.3 s. The row of one key shows what the runs
 vary by: `simulate` is no faster with a key than without.
 
-The script was not kept. Its program has a state `{ n, saved }`, a message that changes `n`, one that also starts a
+Step 52 measured the form itself before it was committed: `simulate` as it was at `6c10bba`, a fold, and as it is
+over the engine, on the stage it shares with `rehearse` (`src/testing/stage.ts`), the same flows, by the same method, on
+the owner's machine with Bun 1.4.5 and Effect 4.1.5. Three runs; the table gives the first, and the two others gave times
+over the engine at most a fifth higher, the fold's within a tenth.
+
+| Flow                                 | `simulate`, a fold | Over the engine | Times | By the proxy |
+| ------------------------------------ | ------------------ | --------------- | ----- | ------------ |
+| 1 message, no command                | 4 µs               | 54 µs           | 15.1  | 62 µs        |
+| 10 messages, no command              | 21 µs              | 89 µs           | 4.2   | 110 µs       |
+| 100 messages, no command             | 221 µs             | 461 µs          | 2.1   | 563 µs       |
+| 10 messages, a command each          | 91 µs              | 286 µs          | 3.2   | 320 µs       |
+| 100 messages, a command each         | 934 µs             | 2,417 µs        | 2.6   | 2,474 µs     |
+| 10 messages, a command each, 1 key   | 100 µs             | 308 µs          | 3.1   | 349 µs       |
+| 10 messages, a command each, 50 keys | 186 µs             | 478 µs          | 2.6   | 900 µs       |
+
+The form costs less than the proxy on every flow but that of a hundred commands, where it costs the same: some 50 µs
+more than the fold for each simulation, 2.5 µs for each message, 15 µs for each command, which is the proxy's cost, as
+a simulation runs a command as a rehearsal does, and 4 µs for each key, where the proxy cost 9: a start's fiber ends at
+once. The fold took 4 µs, not 11, for one message: the times of the first row vary by run more than the others. So the
+owner was not asked again, as step 52 said only if the form cost more than the proxy.
+
+The scripts were not kept. Its program has a state `{ n, saved }`, a message that changes `n`, one that also starts a
 command, answered at once with a third, and `makeModel` as the identity. Its rehearsal is `runAll`, then, for each
 message, `send(() => Opt.some(message))` and `runAll`.
 

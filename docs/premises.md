@@ -17,7 +17,7 @@ The invariants themselves are in [`invariants.md`](invariants.md).
 
 - **`HashMap` calls a key's `Equal` and `Hash` only within the call it is given the key in**, synchronously, and
   never later, so that `reconcile` compares keys all inside `'subscriptions'`, in the thunk that makes a state, and so
-  do `simulate` and `rehearse`, which compare them as it does: "a key whose Equal throws dies in subscriptions"
+  do `simulate` and `rehearse`, which run on the engine: "a key whose Equal throws dies in subscriptions"
   (`run.test.ts`), "… on a key whose Equal throws against the key of the state before" (`contract.test.ts`) and "dies
   in subscriptions when a key's Equal throws, as the run does" (`rehearse.test.ts`) rest on it. `FiberMap` compares its
   keys in a fiber's observer as well, which is why the run keeps its fibers by their start, never by their key. Both are
@@ -50,8 +50,8 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   interruption without the run's mark is the program's: a command or a subscription that interrupts the fiber it sees
   interrupts its own, which then dies, never the fiber of effects or the fiber of whoever runs the program, which would
   end in silence ("A function of the program never interrupts the fiber it runs in", the guide's "Guarantees", is the
-  case left to the program: the functions those fibers call themselves). And how `rehearse` knows the fiber of a
-  command, which an interrupted `run` stops: `answering` in `rehearse.ts` reads it with `Effect.fiber` in the first
+  case left to the program: the functions those fibers call themselves). And how `rehearse` and `simulate` know the fiber of a
+  command, which an interrupted `run` stops: `answering` in `testing/stage.ts` reads it with `Effect.fiber` in the first
   step of that fiber, which `FiberSet.run` runs on the stack of the fiber of effects; seeing the forker, it would stop
   the fiber of effects. Agreed by the owner on 19 November 2026. That
   `Fiber.getCurrent` gives the fiber that runs is documented; that it is the forked one while the fork runs on the stack

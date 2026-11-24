@@ -765,8 +765,8 @@ describe("what the run dies of, and the tools fail on", () => {
     expect(diedIn(exit)).toBe("command")
   })
 
-  // `simulate` runs a command in the fiber it runs in: whoever interrupts it stops the command as itself, and may have
-  // interrupted a fiber before.
+  // A tool that runs a command in the fiber it runs in, as `simulate` did until it ran on the engine in November 2026,
+  // has whoever interrupts it stop the command as itself, which may have interrupted a fiber before.
   const interruptedByTheFiberThatInterrupted = (
     running: (started: Deferred.Deferred<void>, stale: Fiber.Fiber<never>) => Effect.Effect<unknown>
   ) =>
@@ -1508,9 +1508,7 @@ describe("a message whose tag throws as the defect of update is said", () => {
     expect(sites(exit)).toEqual(both)
   })
 
-  // Found by a second opinion on step 19 of `ROADMAP.md`, on 24 November 2026: `simulate` says where its defect is in
-  // `diesIn`, whose details read the tag with no guard, so that it fails with what the tag threw alone.
-  test.failing("simulate fails with both, as the run dies", async () => {
+  test("simulate fails with both, as the run dies", async () => {
     const exit = await Effect.runPromiseExit(simulate(saying)([twice()], saying.init))
     expect(sites(exit)).toEqual(both)
   })
