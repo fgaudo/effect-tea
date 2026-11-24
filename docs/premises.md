@@ -253,7 +253,8 @@ only reasoned:
   the version of the lockfile (`AGENTS.md`, "What belongs here"): an upgrade of Effect runs every such test before it
   raises the peer range, and a daily job of the CI (`.github/workflows/effect-latest.yml`) runs them at the newest
   patch the peer range accepts, which a consumer may already have, and at a later minor, which it does not, with ten
-  runs of the search and an issue that tells the owner of the result. What follows a premise that falls at a version
+  runs of the search and an issue that tells the owner of the result; and at the newest build of Effect's `main`, which
+  the next patch will hold, with an issue for a build that fails. What follows a premise that falls at a version
   the range accepts is in [`upgrade-effect`](../.agents/skills/upgrade-effect/SKILL.md), "A premise that falls inside
   the range". For the JavaScript engine, the test runs on Bun,
   whose engine is JavaScriptCore, and on Node, whose engine is V8 (`bun run test:node`, every test of `src/` and

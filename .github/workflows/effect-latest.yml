@@ -34,6 +34,82 @@ jobs:
       - run: bun run test
       - run: bun run test:node
 
+  # What Effect has merged and not released: a patch of it reaches the range from the day it is published, and the
+  # newest job above learns of it only then. Effect's own `snapshot.yml` publishes a build of each push to its `main`
+  # to pkg.pr.new (one superseded by the next push is cancelled), and its releases are cut from that branch, so the
+  # newest build that succeeded is what the next patch will hold. Its npm tags do not: `snapshot` stopped in 2024, and
+  # `staging` holds a release for the minutes before it is `latest`. The build's version is still the last release, so
+  # its commit names it. One issue for each build that fails, and none for one that passes.
+  unreleased:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: build
+        run: |
+          sha=$(gh run list --repo Effect-TS/effect --workflow snapshot.yml --branch main --event push \
+            --status success --limit 1 --json headSha --jq '.[0].headSha')
+          test -n "$sha"
+          short=${sha::12}
+          if [ -n "$(gh issue list --state all --search "\"Effect main at $short\" in:title" \
+              --json title --jq ".[] | select(.title | startswith(\"Effect main at $short \")) | .title")" ]; then
+            short=
+          fi
+          echo "sha=$short" >> "$GITHUB_OUTPUT"
+      - if: steps.build.outputs.sha != ''
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.5
+      # Node runs the tests' TypeScript as it is, which needs Node 22.18 or newer.
+      - if: steps.build.outputs.sha != ''
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      # The build of `@effect/platform-bun` asks for `effect` as a peer, which would be resolved from npm, as a second
+      # copy beside the build: the override makes the build the only one. The install starts with no `node_modules`,
+      # where the override is applied, and changes in the lockfile only the lines of Effect.
+      - if: steps.build.outputs.sha != ''
+        run: |
+          node -e '
+            const fs = require("fs")
+            const p = JSON.parse(fs.readFileSync("package.json", "utf8"))
+            const at = (name) => `https://pkg.pr.new/Effect-TS/effect/${name}@${process.argv[1]}`
+            p.devDependencies.effect = at("effect")
+            p.devDependencies["@effect/platform-bun"] = at("@effect/platform-bun")
+            p.overrides.effect = at("effect")
+            fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n")
+          ' ${{ steps.build.outputs.sha }}
+          bun install
+          test "$(find node_modules -path '*node_modules/effect/package.json' | wc -l)" = 1
+          bun pm ls | grep effect
+      # The search runs once, a new seed each day, as its own daily job does at the lockfile. Its own timeout, short of
+      # the job's, lets a search that hangs still reach the issue, as a failure.
+      - id: checks
+        if: steps.build.outputs.sha != ''
+        continue-on-error: true
+        timeout-minutes: 30
+        run: |
+          bun run typecheck
+          bun run test
+          bun run test:node
+          bun run interleavings
+      - if: steps.build.outputs.sha != '' && steps.checks.outcome != 'success'
+        run: |
+          sha=${{ steps.build.outputs.sha }}
+          run=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          gh issue create --title "Effect main at $sha fails the tests" --body "The typecheck, \`test\`, \
+          \`test:node\` or \`interleavings\` fails at the build of Effect's \`main\` at \
+          https://github.com/Effect-TS/effect/commit/$sha, which Effect has not released: a premise may fall in the \
+          next patch (\`docs/premises.md\`), and the owner decides whether to tell Effect before it is released \
+          (\`.agents/skills/upgrade-effect/SKILL.md\`). A search that fails prints its seed and path in the run. The \
+          run: $run"
+          exit 1
+
   # A minor of Effect after the one of the lockfile, which the peer range does not accept: its tests are a lead for an
   # upgrade, and an issue tells the owner of the result, green or red, since GitHub mails nobody when a scheduled run
   # passes. One issue per version, and none while the newest is in the range.

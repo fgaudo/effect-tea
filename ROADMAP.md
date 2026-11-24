@@ -86,16 +86,17 @@ range, today. A version of the library that is published keeps its range
 yet lets the patch that leaves a version out ([`upgrade-effect`](.agents/skills/upgrade-effect/SKILL.md), "A premise
 that falls inside the range") come with that version, or before it.
 
-**How.** Read first, and assume nothing: on 23 November 2026 npm had the tags `snapshot` (`0.0.0-snapshot-<commit>`)
-and `staging` for `effect`. Which commits get one, and how long before a release, is not known. Where neither is a
-build of what will be released, the job builds Effect from the `main` of
-[`Effect-TS/effect`](https://github.com/Effect-TS/effect). Then a job that runs the typecheck, `test`, `test:node` and
-the search at that build, and opens an issue once for each build that fails, as `next-minor` does for a version. A
-failure names what Effect has not released: the owner decides whether to tell Effect before it is. The owner is asked
-before the workflow is pushed: it runs on the repository's account, and opens issues.
+**How.** Written on 24 November 2026: the job `unreleased` of `.github/workflows/effect-latest.yml`, and the lines
+that name it in `upgrade-effect` and `docs/premises.md`. What was read: neither npm tag is a build of what will be
+released (`snapshot` stopped in July 2024, and `staging` holds a release only for the minutes before
+`npm-promote.yml` of Effect makes it `latest`), but Effect's `snapshot.yml` publishes each push to its `main` to
+pkg.pr.new, so the job installs that build and builds nothing. A build carries the version of the last release, so the
+job names it by its commit. `@effect/platform-bun`'s build takes `effect` as a peer from npm, a second copy, so the
+job overrides it and checks that one copy is installed. Locally, at the build of `32f8fbe1a598`, the typecheck, the
+lint, `test`, `test:node` and one search passed. What is left: the owner's yes to push the workflow, which runs on the
+repository's account and opens issues, then a run by hand (`workflow_dispatch`).
 
-**Done when** the job has run once, green or red, and `upgrade-effect` and `docs/premises.md` name it beside the daily
-job.
+**Done when** the job has run once on the CI, green or red.
 
 ### 46. The guarantee of an interruption by the program, weighed again by what it rests on
 

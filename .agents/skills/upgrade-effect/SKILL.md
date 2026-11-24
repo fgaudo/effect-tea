@@ -17,7 +17,9 @@ upgrade to it and a release. A patch may still change what Effect does not docum
 a failure there is a lead for an upgrade. The same workflow runs them, and ten runs of the search
 (`bun run interleavings`, a new seed each), at the newest minor of Effect 4 when it is later than the range, once per
 version, and opens an issue with the result, `Effect <version> passes the tests` or `… fails the tests`: a green one is
-the lead for this upgrade, a red one names a premise to read first.
+the lead for this upgrade, a red one names a premise to read first. And it runs them, with one run of the search, at
+what Effect has merged and not released: the newest build of its `main` that Effect publishes to pkg.pr.new, which
+the next patch will hold. A build that fails opens an issue, `Effect main at <commit> fails the tests`, once.
 The oldest TypeScript the package supports is Effect's (5.9 for Effect 4): the README's "Installation" states it,
 and `tools/smoke/smoke.ts` checks it by default. An upgrade that raises Effect's raises both, with a changelog entry.
 
@@ -36,7 +38,9 @@ premise:
 3. Then the fix, by an upgrade (below) to a version the library holds on, which takes it back into the range.
 
 None of the three keeps the broken pair from being installed: they make it loud. What shortens the time before the
-first is an alarm that comes before Effect's release (`ROADMAP.md`).
+first is the alarm on Effect's `main`, which comes before its release: when its issue names a premise's test, the
+owner decides whether to tell Effect before the patch is released, and the patch of the library that leaves that
+version out is prepared, to be released with it.
 
 ## An API of a newer Effect
 
