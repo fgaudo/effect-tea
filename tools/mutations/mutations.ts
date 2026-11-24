@@ -3439,8 +3439,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "drive wakes its waits inside the step",
     file: "src/testing/drive.ts",
-    from: "    latest = app.model()\n    told = true\n  })",
-    to: "    latest = app.model()\n    told = true\n    settled()\n  })",
+    from: "    told = true\n    trim()\n  })",
+    to: "    told = true\n    trim()\n    settled()\n  })",
     killedBy: [
       [
         "src/testing/drive.test.ts",
@@ -3457,6 +3457,42 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/testing/drive.test.ts",
         "returns once update has seen its message, as it promises"
+      ]
+    ]
+  },
+  {
+    name: "a wait of drive reads the latest model alone",
+    file: "src/testing/drive.ts",
+    from: "const model = models[held.at - oldest] as Model",
+    to: "const model = models[models.length - 1] as Model",
+    killedBy: [
+      [
+        "src/testing/drive.test.ts",
+        "a wait looks at the model of the state that woke it, though another wait woken by it sent first"
+      ]
+    ]
+  },
+  {
+    name: "drive keeps every model it reads",
+    file: "src/testing/drive.ts",
+    from: "    told = true\n    trim()\n",
+    to: "    told = true\n",
+    killedBy: [
+      [
+        "src/testing/drive.test.ts",
+        "are let go: of two hundred states made after a wait that ran out of patience, a collection leaves a few at most"
+      ]
+    ]
+  },
+  {
+    name: "a wait of drive that ends keeps its place",
+    file: "src/testing/drive.ts",
+    from: "(at) => Effect.sync(at.release)",
+    to: "() => Effect.void",
+    killedBy: [
+      [
+        "src/testing/drive.test.ts",
+        "are let go: of two hundred states made after a wait that ran out of patience, a collection leaves a few at most"
       ]
     ]
   },

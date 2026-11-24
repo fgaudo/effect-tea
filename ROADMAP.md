@@ -53,8 +53,9 @@ library meets:
 1. the engine, steps 49 to 55, the testing tools on the engine, which the owner put first on 24 November 2026, and
    which change nothing that a user writes (step 19, `rehearse` over the engine, and step 20, the review of the
    premises of steps 18 and 19, were done that day, and step 21 was closed). Among them, by what a test meets today,
-   then by what each rests on: step 49, a wait of `drive` that skips a state, which a test with two waits meets; steps
-   50 and 51, the two parts of `rehearse` still written by hand, small, which step 52 builds on; step 52, `simulate`
+   then by what each rests on: step 49, a wait of `drive` that skipped a state, which a test with two waits met, was
+   done on 24 November 2026; steps 50 and 51, the two parts of `rehearse` still written by hand, small, which step 52
+   builds on; step 52, `simulate`
    over the engine, the largest, which closes a finding by its form; step 53, a rehearsal that waits for ever, which
    only a key whose printing throws meets, written once the code of step 52 is where it stays; step 54, the rule as a
    check, which needs the three before it; and step 55, their review;
@@ -105,15 +106,6 @@ is a lead, "valid, but taken with other types".
   job of a `hearNext` builds `hasEnded(call.key)`, and `openFor` the error of a start `hear` played, in the `done` of
   `Engine.after`; the end's `stoppedWhileWaiting` fails the rehearsal's fiber with the throw. The form is that of the
   item above it, a value of the program printed outside its functions with no guard: step 53 fixes both by that form.
-- **`drive` skips a state for a wait, when another wait woken by that state sends first**: with a `send` that finds
-  its message and a `waitFor` both waiting on a state, the `send` waiting first, `settled` wakes them as the outermost
-  `apply` returns; the `send` dispatches at once, and the `waitFor` then reads `latest()`, the model of the state its
-  message made, and never looks at the model that woke it. The guide's "Testing tools", "drive", promises that it
-  "reads the model of each one" and that a wait "looks at the current model and at later ones". Its `test.failing` is
-  "a wait looks at the model of the state that woke it, though another wait woken by it sent first" (`drive.test.ts`).
-  So since f4cce89, before 0.8.0, which wakes the waits once the call returns. Found by the review of step 20, on 24
-  November 2026, and run. The form: a wake that reads the latest state, not the one that woke it; of the tools, only
-  `first` in `drive.ts` has it, since `rehearse` waits on no model. Step 49 fixes it by that form.
 - **A search that runs, once the run has settled, is not that of the text the field holds**: `bun run interleavings`
   failed on 23 November 2026 in "a search runs for the text of the field while it holds one, and starts once for each
   text it holds", at its second check (no search started twice passes), with `seed: -1335866316` and `path:
@@ -124,35 +116,6 @@ is a lead, "valid, but taken with other types".
   `high`.
 
 ## Next, in order
-
-### 49. A wait of `drive` reads each model, in order
-
-**Model and effort.** Opus 5.5, `high`: a testing tool, and what a wait reads between the state that wakes it and the
-next.
-
-**Depends on** no other step. It is first because a test meets it today, with two waits and nothing else, and has
-since before 0.8.0.
-
-**Why.** The finding of "Open problems": a wait woken by a state reads `latest()`, the model of whatever state is
-current as it runs, so it skips a state when another wait woken by the same one sends first. Its form is a wait that
-reads a variable, where the guide promises a sequence: "reads the model of each one", "looks at the current model and
-at later ones" ("Testing tools", "drive").
-
-**How.** `driven` (`drive.ts`) keeps the models that its listener read, in order, where it keeps `latest`. A wait
-keeps the place it has read to, and `look` selects on each model from there before it waits on `changed`: so no wake
-skips a state, whichever wait runs first. The models are kept from the oldest place that a wait still holds, and the
-last one alone while none waits, so that a long scenario keeps no model that nothing will read. A `send` may then find
-its message on a model that the state has moved past, and sends it all the same, as a tap on a model drawn before: the
-guide says so of `drive` ("a model may be past by the time its message arrives"). `model`, and the `cause` of a wait
-that timed out, stay the latest model. Read "one thunk" of `docs/invariants.md` first, for where the waits are woken
-(`settled`) and what a wait takes before it reads.
-
-**Done when** "a wait looks at the model of the state that woke it, though another wait woken by it sent first"
-(`drive.test.ts`) passes unmarked, and is the killer of a mutation that makes a wait read the latest model alone; a
-test holds what is kept of the models; the item leaves "Open problems"; `docs/invariants.md` says how a wait reads;
-the changelog has the fix, by [`release`](.agents/skills/release/SKILL.md); and the checks of
-[`change-engine`](.agents/skills/change-engine/SKILL.md) pass. The guide changes only if a sentence of "drive" is
-found to say otherwise, and the owner is asked first.
 
 ### 50. What the fiber of a command and that of a start run, written once
 
@@ -198,9 +161,11 @@ behind.
 and gives the engine back with the handle, as it does inside `run.ts` today. `rehearse` takes both: its model is
 `app.model()`, made once for each state, read in a listener of the handle as `drive` reads it, and `send` selects on
 it. An `init` that throws leaves no engine, and the rehearsal fails with the register, as it fails today. Where
-`drive` and `rehearse` then read each state the same way, that is one function. Reasoned, not run: check first, with
-the tests of "a defect of makeModel" (`contract.test.ts`), that a defect of `makeModel` read through the handle is one
-`ProgramDefect` in `'render'`, recorded once, the step going on whole, for the first model and for a later one.
+`drive` and `rehearse` then read each state the same way, that is one function: the read in the listener alone, since
+`drive` keeps, beside it, the models its waits have still to read, each at a place of its own (`place` in `drive.ts`,
+done in step 49), and `rehearse` waits on no model. Reasoned, not run: check first, with the tests of "a defect of
+makeModel" (`contract.test.ts`), that a defect of `makeModel` read through the handle is one `ProgramDefect` in
+`'render'`, recorded once, the step going on whole, for the first model and for a later one.
 
 **Done when** `rehearse.ts` has no `diesIn`, no `startOf` and no call of `makeModel`; `contract.test.ts` and
 `rehearse.test.ts` pass as they are; "rehearse dies with no site for a defect of init", "rehearse dies with no site

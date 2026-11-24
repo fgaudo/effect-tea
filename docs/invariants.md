@@ -464,7 +464,14 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   offered there has one too. `drive` wakes its waits in the same place (`settled` of `Engine.build`, called last in
   that `finally`), having read the model in its listener, so that a `send` a wait makes is applied before it returns:
   "returns once update has seen its message, as it promises" (`drive.test.ts`), with a mutation. It subscribes before
-  its first read, and `waitFor` takes what it waits on before it reads the model. `rehearse` applies each message
+  its first read, and a wait takes what it waits on before it reads. A wait reads each model in order, from the one
+  current as it began, at a place of its own among the models `drive` read (`place` in `drive.ts`), and never only the
+  latest: a wait woken by a state may run after another one woken by it has sent, and so made a later state, and it
+  still looks at the model that woke it ("a wait looks at the model of the state that woke it, though another wait
+  woken by it sent first", with a mutation). The models are kept from the oldest place a wait still holds, and the
+  latest alone while none does: a wait lets go of its place however it ends, patience run out included ("are let go:
+  of two hundred states made after a wait that ran out of patience, a collection leaves a few at most", with a mutation
+  of each). `rehearse` applies each message
   through the engine, whose thunk writes the state, its keys and, in what it tells (`stepped`), the ledger's hearings,
   and makes the model in its listener; each thunk of `rehearse`'s own writes the ledger before it completes a
   `Deferred`, gives a command's fiber its effect or asks a start for a message, so a fiber woken on that stack finds

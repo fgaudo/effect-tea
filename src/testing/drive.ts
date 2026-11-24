@@ -54,12 +54,20 @@ export interface DriveOptions<State, Message, Command = unknown> extends RunOpti
   readonly patience?: Duration.Input
 }
 
-// What `drive` keeps of the program it reads: the model it read last, of the current state, and what the waits wait on until
-// the next state is current.
+// What `drive` keeps of the program it reads: the model it read last, of the current state, a place among the models
+// read for a wait, and what the waits wait on until the next state is current.
 type Shown<Model, Message> = Readonly<{
   app: App<Model, Message>
   latest: () => Model
+  place: () => Place<Model>
   changed: () => Deferred.Deferred<void>
+}>
+
+// A wait's place among the models read, from the current one: `read` gives each in order, then `None` until the next
+// state. A place is let go once its wait ends, however it ends, so that the models it would read are no longer kept.
+type Place<Model> = Readonly<{
+  read: () => Opt.Option<Model>
+  release: () => void
 }>
 
 // Plain code: the program started, the handle there before any fiber, so that the driver's dispatch is the program's
@@ -74,7 +82,36 @@ const driven = <Model, Message, R>(
   // What the program's fibers die of, the defects of `makeModel` a read meets included, as `drive` ends with it.
   const deaths = makeDeaths(() => true)
   const running = Deferred.makeUnsafe<void>()
-  let latest: Model | undefined
+  // The models read, in order, the latest last: `models[0]` is the one at `oldest`, counted from the first. Those
+  // before the latest are kept only while a wait has still to read them: a wait woken by a state may run after another
+  // wait woken by it has sent, and so made a later state, and it still looks at the model that woke it.
+  const models: Array<Model> = []
+  let oldest = 0
+  // Where each wait has read to: the place of the next model it reads.
+  const places = new Set<{ at: number }>()
+  const trim = () => {
+    let kept = oldest + models.length - 1
+    for (const place of places) kept = Math.min(kept, place.at)
+    if (kept <= oldest) return
+    models.splice(0, kept - oldest)
+    oldest = kept
+  }
+  const place = (): Place<Model> => {
+    const held = { at: oldest + models.length - 1 }
+    places.add(held)
+    return {
+      read: () => {
+        if (held.at >= oldest + models.length) return Opt.none()
+        const model = models[held.at - oldest] as Model
+        held.at++
+        return Opt.some(model)
+      },
+      release: () => {
+        places.delete(held)
+        trim()
+      }
+    }
+  }
   let changed = Deferred.makeUnsafe<void>()
   // Whether a state was made since the waits were last woken.
   let told = false
@@ -92,15 +129,21 @@ const driven = <Model, Message, R>(
   }, settled)
   // Subscribed before the first read, so that no state is missed.
   const unsubscribe = app.subscribe(() => {
-    latest = app.model()
+    models.push(app.model())
     told = true
+    trim()
   })
   try {
-    latest = app.model()
+    models.push(app.model())
   } catch {
     // Recorded where the model was read, or by `init`: the run dies of it.
   }
-  const now: Shown<Model, Message> = { app, latest: () => latest as Model, changed: () => changed }
+  const now: Shown<Model, Message> = {
+    app,
+    latest: () => models[models.length - 1] as Model,
+    place,
+    changed: () => changed
+  }
   return { deaths, began: Deferred.await(running), now, run, unsubscribe }
 }
 
@@ -196,14 +239,22 @@ export const drive = Effect.fnUntraced(function*<
       settled
     )
   )
-  // The first model `select` maps to `Some`, the current one or a later one: what the waits wait on is taken before
-  // the model is read, in one step, so that no state made in between is missed.
-  const first = <B>({ latest, changed }: Shown<Model, Message>, select: (model: Model) => Opt.Option<B>) => {
-    const look: Effect.Effect<B> = Effect.suspend(() => {
-      const next = changed()
-      const found = select(latest())
-      return Opt.isSome(found) ? Effect.succeed(found.value) : Effect.andThen(Deferred.await(next), look)
-    })
+  // The first model `select` maps to `Some`, the current one or a later one, each read in order from the wait's place:
+  // what the waits wait on is taken before the models are read, in one step, so that no state made in between is
+  // missed. The place is taken where nothing interrupts, so that a wait that runs out of patience at once still lets
+  // it go.
+  const first = <B>({ latest, place, changed }: Shown<Model, Message>, select: (model: Model) => Opt.Option<B>) => {
+    const look = Effect.acquireUseRelease(Effect.sync(place), (at) => {
+      const scan: Effect.Effect<B> = Effect.suspend(() => {
+        const next = changed()
+        for (let model = at.read(); Opt.isSome(model); model = at.read()) {
+          const found = select(model.value)
+          if (Opt.isSome(found)) return Effect.succeed(found.value)
+        }
+        return Effect.andThen(Deferred.await(next), scan)
+      })
+      return scan
+    }, (at) => Effect.sync(at.release))
     return look.pipe(
       Effect.timeoutOption(patience),
       // Measured with the real clock: under a `TestClock` that nobody adjusts, a wait would never end.

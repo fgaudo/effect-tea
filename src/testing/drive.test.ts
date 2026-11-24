@@ -9,6 +9,7 @@ import * as Fiber from "effect/Fiber"
 import * as Opt from "effect/Option"
 import type * as Scope from "effect/Scope"
 import * as TestClock from "effect/testing/TestClock"
+import { collectGarbage } from "../../test/gc.test_helper.ts"
 import { ProgramDefect } from "../defect.ts"
 import type { Program } from "../program.ts"
 import type { Subscription } from "../subscription.ts"
@@ -691,7 +692,7 @@ describe("drive's waits, woken by one state, the first of which sends", () => {
 
   // Both waits are forked at once, so that both wait on the first state before the scenario dispatches: the one that
   // sends first, then the one that only waits.
-  test.failing("a wait looks at the model of the state that woke it, though another wait woken by it sent first", async () => {
+  test("a wait looks at the model of the state that woke it, though another wait woken by it sent first", async () => {
     const seen = await Effect.runPromise(drive(
       row,
       Effect.fnUntraced(function*(driver) {
@@ -710,5 +711,51 @@ describe("drive's waits, woken by one state, the first of which sends", () => {
       { patience: "300 millis" }
     ))
     expect(seen).toEqual(Exit.succeed(1))
+  })
+})
+
+// `drive` keeps the models a wait has still to read, so that it reads each in order: those that no wait will read
+// are let go, whether a wait ended by finding its model or by running out of patience.
+describe("drive's models, once no wait has still to read them", () => {
+  type Row = Readonly<{ count: number }>
+
+  test("are let go: of two hundred states made after a wait that ran out of patience, a collection leaves a few at most", async () => {
+    const drawn: Array<WeakRef<Row>> = []
+    const row: Program<{ state: Row; model: Row; message: "Up" }> = {
+      init: { state: { count: 0 } },
+      update: () => (state) => ({ state: { count: state.count + 1 } }),
+      subscriptions: () => [],
+      makeModel: (state) => {
+        const model = { count: state.count }
+        drawn.push(new WeakRef(model))
+        return model
+      }
+    }
+    const left = () => drawn.slice(0, -1).filter((ref) => ref.deref() !== undefined).length
+    const kept = await Effect.runPromise(drive(
+      row,
+      Effect.fnUntraced(function*(driver) {
+        yield* driver.waitFor(({ count }) => count === 1 ? Opt.some(count) : Opt.none()).pipe(
+          Effect.forkChild({ startImmediately: true }),
+          Effect.tap(() => Effect.sync(() => driver.dispatch("Up"))),
+          Effect.flatMap(Fiber.join)
+        )
+        yield* Effect.exit(driver.waitFor(() => Opt.none()))
+        yield* Effect.sync(() => {
+          for (let up = 0; up < 200; up++) driver.dispatch("Up")
+        })
+        // A WeakRef keeps its target until the current job ends, and a collection can still find a few in register
+        // or stack slots, which JavaScriptCore scans conservatively: of two hundred, a tool that kept them would keep
+        // all.
+        for (let collection = 0; collection < 10 && left() > 10; collection++) {
+          yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 0)))
+          collectGarbage()
+        }
+        return left()
+      }),
+      { patience: "100 millis" }
+    ))
+    expect(drawn.length).toBeGreaterThan(200)
+    expect(kept).toBeLessThanOrEqual(10)
   })
 })

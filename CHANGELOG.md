@@ -73,6 +73,8 @@ version, and everything else, features included, the patch version.
   needs no service that a program's type names for commands or subscriptions it does not have.
 - `rehearse` fails, as the run dies, with what a message's tag throws while a defect of `update` is said, also when
   the scenario catches the call that sent it.
+- A wait of `drive` looks at the model of each state in order, where it could skip the model of the state that woke
+  it when another wait woken by that state sent first.
 
 ## 0.8.0 (2026-11-21)
 
