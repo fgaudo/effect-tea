@@ -138,7 +138,7 @@ export const scopedIn = (
  * subscription died of. `Channel.runForEach` would run the channel in a scope it makes and closes first, so that a
  * defect would wait for that release, while the loop goes on applying messages.
  */
-export const runSubscription = <Message, R, RS>(
+const runSubscription = <Message, R, RS>(
   subscription: Subscription<Message, R>,
   send: (message: Message) => Effect.Effect<void, never, RS>
 ): Effect.Effect<Message, never, R | RS | Scope.Scope> =>
@@ -149,6 +149,37 @@ export const runSubscription = <Message, R, RS>(
     Effect.flatMap((pull) => Effect.forever(Effect.flatMap(pull, send), { disableYield: true })),
     Pull.catchDone(Effect.succeed)
   )
+
+/**
+ * What the fiber of a start runs, in the run and in a testing tool alike: the subscription `listen` makes, made inside
+ * the fiber, so that what it throws is the subscription's, run in a scope of its own whose defects die in
+ * `'subscription'` with the key (`scopedIn`), each message given to `send` as it comes, and the last to `last` once the
+ * scope has closed. The tool decides only what `listen`, `send` and `last` do besides.
+ */
+export const startFiber = <Message, R, RS, RL>(
+  deaths: Deaths,
+  key: unknown,
+  listen: () => Subscription<Message, R>,
+  send: (message: Message) => Effect.Effect<void, never, RS>,
+  last: (message: Message) => Effect.Effect<void, never, RL>
+): Effect.Effect<void, never, Exclude<R | RS, Scope.Scope> | RL> =>
+  Effect.suspend(() => runSubscription(listen(), send)).pipe(
+    scopedIn(deaths, "subscription", () => ({ key })),
+    Effect.flatMap(last)
+  )
+
+/**
+ * What the fiber of a command runs, in the run and in a testing tool alike, of the effect `runCommand` returned: in a
+ * scope of its own whose defects die in `'command'` (`scopedIn`), and its answer given to `send` once the scope has
+ * closed, so that `update` never learns of a command whose resources are still open. The tool decides only when the
+ * effect is made, and what `send` does besides.
+ */
+export const commandFiber = <Message, R, RS>(
+  deaths: Deaths,
+  effect: Effect.Effect<Opt.Option<Message>, never, R>,
+  send: (message: Message) => Effect.Effect<void, never, RS>
+): Effect.Effect<void, never, Exclude<R, Scope.Scope> | RS> =>
+  effect.pipe(scopedIn(deaths, "command"), Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: send })))
 
 /**
  * Where the fibers of a run, or of a rehearsal, record what they die of, as they end, however they end: nothing is

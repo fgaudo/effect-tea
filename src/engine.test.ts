@@ -1485,10 +1485,8 @@ describe("what a testing tool is given", () => {
       const log = journal()
       const engine = yield* Engine.make<Seen, Order, number, never, string>({
         init: { state: { keys: [], works: 0 } },
-        runCommand: () => Effect.succeedNone,
         update,
         subscriptions: ({ keys }) => keys,
-        listen: () => Channel.never,
         listening: (key, generation, send) => {
           log.push(`listening ${key}:${generation}`)
           return Effect.andThen(send({ _tag: "Heard", from: key }), Effect.never)

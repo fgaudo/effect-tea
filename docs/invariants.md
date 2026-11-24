@@ -502,7 +502,13 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   as the outermost `apply` returns, where `drive` wakes its waits. `listening` and
   `answering` say what the fiber of a start and that of a command run. The job calls each where it forks the fiber, as
   a function of the program is called where the call is decided ("one thunk", below), and the fiber runs what it
-  returns inside its root, in the run's context. `stepped` is told in the thunk as each step stands: what a message came
+  returns inside its root, in the run's context. What such a fiber runs of the program is written once, in `shell.ts`:
+  `startFiber`, the subscription `listen` makes, made inside the fiber, in a scope of its own whose defects die in
+  `'subscription'` with the key, and its last message sent after that scope; `commandFiber`, the effect of a command in
+  a scope of its own whose defects die in `'command'`, and its answer sent after that scope. The run's defaults call
+  them with the program's `listen` and `runCommand`, and a tool's `listening` and `answering` call them too, with what
+  the test decides around them. The config takes `runCommand` and `listen`, or `listening` and `answering`, never both,
+  so that nothing given is left uncalled. `stepped` is told in the thunk as each step stands: what a message came
   to (dropped or dead at once, ignored once `onIgnored` has heard it, applied once `onApplied` has heard it and its
   state is current, and never for a step a defect stopped before), and the keys of each new state once they are the
   active ones, the first state's as the engine is made. `released` is told by the fiber of effects once the stops of a
@@ -526,8 +532,9 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   job of its step: so each call is whole for the test, and one made while a release is held applies at once and waits
   behind it, as in the run. The fiber the engine forks for a command (`answering`) makes the command pending, in the
   job, once what the step stops is released, and waits until a `run` gives it the effect `runCommand` returned, called
-  in the `run`'s thunk; the fiber of a start (`listening`) waits for the first ask of a `hearNext`, and runs the
-  subscription with the services of that call. Its messages are applied by the thunk that finds a call waiting for
+  in the `run`'s thunk, which it runs in `commandFiber`, with the services of that call, in a region that nothing
+  interrupts from the answer to its apply, the rehearsal's alone; the fiber of a start (`listening`) waits for the first
+  ask of a `hearNext`, and runs the subscription in `startFiber` with the services of that call. Its messages are applied by the thunk that finds a call waiting for
   them, never by the engine's `send` as they come ([`rejected.md`](rejected.md), "`rehearse`, owning what the test
   starts, in other forms"). What a start, a command and a call are to the test is the ledger's (`ledger.ts`): a start
   that appears is starting until the job begins its fiber, though its key goes away first, and `hear` waits for that;

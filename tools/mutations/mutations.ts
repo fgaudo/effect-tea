@@ -1239,7 +1239,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse interrupts a command whose answer comes once it has ended",
     file: "src/testing/rehearse.ts",
-    from: "}, Effect.succeed<Effect.Effect<void>>(Effect.void))",
+    from: "}, Effect.void)",
     to: "})",
     killedBy: [
       [
@@ -2359,46 +2359,62 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "a defect of a command of the engine is a subscription's",
+    name: "a defect of the fiber of a command is a subscription's",
     guarantees: ["Nothing ends in silence"],
-    file: "src/engine.ts",
-    from: "scopedIn(deaths, \"command\"),",
-    to: "scopedIn(deaths, \"subscription\"),",
+    file: "src/shell.ts",
+    from: "effect.pipe(scopedIn(deaths, \"command\"),",
+    to: "effect.pipe(scopedIn(deaths, \"subscription\"),",
     killedBy: [
       [
         "src/engine.test.ts",
         "a defect of a command dies in the command, and one of a subscription in the subscription, with its key"
       ],
-      ["src/run.test.ts", "a command that interrupts itself is a defect in the command"]
+      ["src/run.test.ts", "a command that interrupts itself is a defect in the command"],
+      [
+        "src/testing/contract.test.ts",
+        "rehearse fails with a defect, as the run dies, on a command interrupting itself"
+      ]
     ]
   },
   {
-    name: "a defect of a subscription of the engine is a command's",
+    name: "a defect of the fiber of a start is a command's",
     guarantees: ["Nothing ends in silence"],
-    file: "src/engine.ts",
+    file: "src/shell.ts",
     from: "scopedIn(deaths, \"subscription\", () => ({ key })),",
     to: "scopedIn(deaths, \"command\", () => ({ key })),",
     killedBy: [
       [
         "src/engine.test.ts",
         "a defect of a command dies in the command, and one of a subscription in the subscription, with its key"
+      ],
+      [
+        "src/testing/contract.test.ts",
+        "rehearse fails, as the run dies, on a defect of what a subscription releases when the scenario ends"
+      ],
+      [
+        "src/testing/contract.test.ts",
+        "rehearse fails with a defect, as the run dies, on a subscription interrupting itself"
       ]
     ]
   },
   {
-    name: "a listen that throws in the engine is no defect of its subscription",
+    name: "a listen that throws is no defect of its subscription",
     guarantees: ["Nothing ends in silence"],
-    file: "src/engine.ts",
-    from: "Effect.suspend(() => runSubscription(listen(key), send)).pipe(",
-    to: "runSubscription(listen(key), send).pipe(",
+    file: "src/shell.ts",
+    from: "Effect.suspend(() => runSubscription(listen(), send)).pipe(",
+    to: "runSubscription(listen(), send).pipe(",
     killedBy: [
-      ["src/testing/contract.test.ts", "the run dies in the subscription, with its key, of what listen throws"]
+      ["src/testing/contract.test.ts", "the run dies in the subscription, with its key, of what listen throws"],
+      [
+        "src/testing/contract.test.ts",
+        "rehearse fails in the subscription, with its key, as the run dies, of what listen throws"
+      ]
     ]
   },
   {
-    name: "a defect of a subscription of the engine does not say its key",
+    name: "a defect of the fiber of a start does not say its key",
     guarantees: ["Nothing ends in silence"],
-    file: "src/engine.ts",
+    file: "src/shell.ts",
     from: "scopedIn(deaths, \"subscription\", () => ({ key })),",
     to: "scopedIn(deaths, \"subscription\"),",
     killedBy: [
@@ -2406,7 +2422,11 @@ export const mutations: ReadonlyArray<Mutation> = [
         "src/engine.test.ts",
         "a defect of a command dies in the command, and one of a subscription in the subscription, with its key"
       ],
-      ["src/run.test.ts", "a defect in a subscription carries its key"]
+      ["src/run.test.ts", "a defect in a subscription carries its key"],
+      [
+        "src/testing/contract.test.ts",
+        "rehearse fails, as the run dies, in a subscription, with its key, on a subscription that throws"
+      ]
     ]
   },
   {
@@ -2776,22 +2796,10 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "the fiber of a start runs the run's subscription, whatever the tool gives",
+    name: "the fibers of a start and of a command run the program's, whatever the tool gives",
     file: "src/engine.ts",
-    from: "const listenTo = listening ??",
-    to: "const listenTo = undefined ??",
-    killedBy: [
-      [
-        "src/engine.test.ts",
-        "the fiber of each start and of each command runs what listening and answering give, asked by the job of its step, and what they send is of that start or command"
-      ]
-    ]
-  },
-  {
-    name: "the fiber of a command runs runCommand, whatever the tool gives",
-    file: "src/engine.ts",
-    from: "const answer = answering ??",
-    to: "const answer = undefined ??",
+    from: "  if (fibers.runCommand === undefined) return fibers\n",
+    to: "",
     killedBy: [
       [
         "src/engine.test.ts",
@@ -2963,18 +2971,6 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/testing/contract.test.ts",
         "rehearse fails, as the run dies, in a command on a runCommand that throws before its effect"
-      ]
-    ]
-  },
-  {
-    name: "a listen that throws in rehearse is no defect of its subscription",
-    file: "src/testing/rehearse.ts",
-    from: "        Effect.suspend(() =>\n          runSubscription(\n            listenTo(key),",
-    to: "        ((make: () => unknown) => make())(() =>\n          runSubscription(\n            listenTo(key),",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "rehearse fails in the subscription, with its key, as the run dies, of what listen throws"
       ]
     ]
   },
@@ -3210,46 +3206,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "a defect of a subscription in rehearse is a command's",
-    file: "src/testing/rehearse.ts",
-    from: "scopedIn(register, \"subscription\", () => ({ key }))",
-    to: "scopedIn(register, \"command\", () => ({ key }))",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "rehearse fails, as the run dies, on a defect of what a subscription releases when the scenario ends"
-      ],
-      [
-        "src/testing/contract.test.ts",
-        "rehearse fails with a defect, as the run dies, on a subscription interrupting itself"
-      ]
-    ]
-  },
-  {
-    name: "a defect of a subscription in rehearse does not say its key",
-    file: "src/testing/rehearse.ts",
-    from: "scopedIn(register, \"subscription\", () => ({ key }))",
-    to: "scopedIn(register, \"subscription\")",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "rehearse fails, as the run dies, in a subscription, with its key, on a subscription that throws"
-      ]
-    ]
-  },
-  {
-    name: "a defect of a command in rehearse is a subscription's",
-    file: "src/testing/rehearse.ts",
-    from: "scopedIn(register, \"command\")",
-    to: "scopedIn(register, \"subscription\")",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "rehearse fails with a defect, as the run dies, on a command interrupting itself"
-      ]
-    ]
-  },
-  {
     name: "rehearse lets a command whose run was interrupted go",
     file: "src/testing/rehearse.ts",
     from: "    if (cancelled.length > 0) {\n",
@@ -3357,8 +3313,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a subscription hearNext started runs without the services of the call",
     file: "src/testing/rehearse.ts",
-    from: ".pipe(scopedIn(register, \"subscription\", () => ({ key })), Effect.provideContext(context))",
-    to: ".pipe(scopedIn(register, \"subscription\", () => ({ key })))",
+    from: "        ).pipe(Effect.provideContext(context))\n",
+    to: "        )\n",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
@@ -3369,8 +3325,9 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a command run runs without the services of the call",
     file: "src/testing/rehearse.ts",
-    from: "effect.pipe(scopedIn(register, \"command\"), Effect.provideContext(context))",
-    to: "effect.pipe(scopedIn(register, \"command\"))",
+    from:
+      "            Effect.provideContext(context),\n            Effect.andThen(Deferred.succeed(answer, Effect.void)),",
+    to: "            Effect.andThen(Deferred.succeed(answer, Effect.void)),",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",

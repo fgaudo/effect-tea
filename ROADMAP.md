@@ -54,7 +54,8 @@ library meets:
    which change nothing that a user writes (step 19, `rehearse` over the engine, and step 20, the review of the
    premises of steps 18 and 19, were done that day, and step 21 was closed). Among them, by what a test meets today,
    then by what each rests on: step 49, a wait of `drive` that skipped a state, which a test with two waits met, was
-   done on 24 November 2026; steps 50 and 51, the two parts of `rehearse` still written by hand, small, which step 52
+   done on 24 November 2026; step 50, what the fiber of a command and that of a start run, written once in
+   `shell.ts`, was done the same day; step 51, the last part of `rehearse` still written by hand, small, which step 52
    builds on; step 52, `simulate`
    over the engine, the largest, which closes a finding by its form; step 53, a rehearsal that waits for ever, which
    only a key whose printing throws meets, written once the code of step 52 is where it stays; step 54, the rule as a
@@ -117,39 +118,11 @@ is a lead, "valid, but taken with other types".
 
 ## Next, in order
 
-### 50. What the fiber of a command and that of a start run, written once
-
-**Model and effort.** Opus 5.5, `high`: the engine and `rehearse`, code that keeps invariants.
-
-**Depends on** no other step.
-
-**Why.** `rehearse` gives the engine what the fiber of a command and that of a start run (`answering`, `listening`),
-and so writes again what the defaults of `Engine.build` do: a scope of its own, whose defects die in `'command'`, or
-in `'subscription'` with the key (`scopedIn`); the answer applied once the scope has closed; `listen` called inside
-the fiber; and the end value sent after the scope. Mutations of `rehearse.ts` and the contract keep the two in step,
-by hand. And the engine is given a `runCommand` and a `listen` that nothing calls.
-
-**How.** `shell.ts` gets the two bodies, beside `runSubscription`: what a command's fiber runs of the effect that
-`runCommand` returned, given what applies its answer; and what a start's fiber runs of the subscription that `listen`
-makes, given what takes each message and what takes the last. The defaults of `Engine.build` call them, and so do
-`answering` and `listening` of `rehearse.ts`, which keep what the test decides: when the fiber goes on (the `run` that
-gives it its effect, the ask of a `hearNext`), the services of that call, and what applies a message. The region that
-nothing interrupts, between a command's answer and its apply, stays the rehearsal's unless the run is shown to need
-it: the owner is asked before the run gets it. The config of `Engine.build` takes `runCommand` and `listen`, or
-`answering` and `listening`, never both, so the two that are given and never called go. Weighed, and not to be
-written: a seam that says only when ([`tools-on-the-engine.md`](docs/records/tools-on-the-engine.md), "Alternatives").
-
-**Done when** `rehearse.ts` calls neither `scopedIn` nor `runSubscription`; `contract.test.ts` and `rehearse.test.ts`
-pass as they are; each mutation of those two sites of `rehearse.ts` is gone, its killers named by the mutation of
-`shell.ts` or of `engine.ts` that takes out the same check, and seen to fail under it; `docs/invariants.md` ("What the
-engine gives a testing tool", "The testing tools behave like the engine") says where the bodies are; and the checks of
-`change-engine` pass, `bun run mutations` among them. A consumer can notice nothing: no changelog entry.
-
 ### 51. One handle: `rehearse` reads its models as `drive` does
 
 **Model and effort.** Opus 5.5, `high`: the handle of the run, and a testing tool over it.
 
-**Depends on** no other step. It comes after step 50 only so that the two do not rewrite `rehearse.ts` at once.
+**Depends on** no other step.
 
 **Why.** `rehearse` builds the engine itself, and writes again what `partsOf` (`run.ts`) does for the run and for
 `drive`: `init` called with the flags, its defect in `'init'` (by `diesIn`, where the run has `recordThrown`); the
@@ -177,8 +150,10 @@ says it; and the checks of `change-engine` pass. A consumer can notice nothing: 
 
 **Model and effort.** Opus 5.5, `high`. The form is decided: the step measures it, then writes it.
 
-**Depends on** steps 50 and 51: the half of `rehearse.ts` that `simulate` shares is taken out once it calls nothing of
-the shell's and builds no handle.
+**Depends on** step 51: the half of `rehearse.ts` that `simulate` shares is taken out once it builds no handle. Step
+50 left it calling nothing of the shell's but `commandFiber` and `startFiber` (`shell.ts`), the bodies the run's fibers
+run too; the region that nothing interrupts from a command's answer to its apply stayed the rehearsal's, around
+`commandFiber`, since nothing showed the run to need it.
 
 **Why.** `simulate` is the one tool left with a thunk of its own: a fold in the caller's fiber over `Core.arrive` and
 `Core.reconcile`, with its own fork of a command, its own stop and its own end, and 14 mutations, kept in step with
@@ -497,6 +472,13 @@ otherwise.
   `<Activity>` does), and hydration: the guide promises that `Host` and `Draw` draw the first model on a server, run
   under `renderToString`, and nothing of hydration until `hydrateRoot` is run in a browser.
 
+- **The search comes near the bound of the memory guard.** `test/memory-guard.test_worker.ts` says the heaviest file
+  of the suite holds under a gigabyte, but `src/interleaving.test.ts` reached 980 to 1568 MB at its peak on 24 November
+  2026 (six runs before step 50 and six after it, measured from a worker as the guard measures, the peaks before no
+  lower), and the guard ended 2 runs of `bun run interleavings` in 14 after it, at 2050 and 2069 MB, and none of 6
+  before. Whether the search holds what it no longer
+  needs (a history kept by fast-check, a scheduler's log), or the bound is too low for it; never a bound raised without
+  knowing which.
 - **The README says what the library is and for whom, and names Foldkit**, as the owner's decision of 20 November
   2026 asks ([`adoption.md`](docs/records/adoption.md)): one reader starts a new application, the other has one
   already, most often in React.

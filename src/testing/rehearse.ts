@@ -4,7 +4,6 @@
 // end that stops them are the engine's; what is left here is what the test decides (`docs/records/one-engine.md`).
 import * as Arr from "effect/Array"
 import * as Cause from "effect/Cause"
-import * as Channel from "effect/Channel"
 import type * as Context from "effect/Context"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
@@ -18,7 +17,7 @@ import * as Core from "../core.ts"
 import * as Engine from "../engine.ts"
 import { describeByTag } from "../log.ts"
 import { type AnyProgram, type FlagsOption, listenOf, type Program, runCommandOf, startOf } from "../program.ts"
-import { diesIn, makeDeaths, runSubscription, scopedIn, stopping as stopFiber } from "../shell.ts"
+import { commandFiber, diesIn, makeDeaths, startFiber, stopping as stopFiber } from "../shell.ts"
 import * as Ledger from "./ledger.ts"
 
 /**
@@ -437,14 +436,14 @@ const rehearsing = Effect.fnUntraced(function*<
     Deferred.doneUnsafe(start.value.begun, Exit.void)
     return nextAsk(asks).pipe(
       Effect.flatMap((context) =>
-        Effect.suspend(() =>
-          runSubscription(
-            listenTo(key),
-            (message: Message) => sends(key, generation, message, false).pipe(Effect.andThen(nextAsk(asks)))
-          )
-        ).pipe(scopedIn(register, "subscription", () => ({ key })), Effect.provideContext(context))
-      ),
-      Effect.flatMap((last) => sends(key, generation, last, true))
+        startFiber(
+          register,
+          key,
+          () => listenTo(key),
+          (message: Message) => sends(key, generation, message, false).pipe(Effect.andThen(nextAsk(asks))),
+          (last: Message) => sends(key, generation, last, true)
+        ).pipe(Effect.provideContext(context))
+      )
     )
   }
   // Told by the job once its stops have ended: the calls that waited on those starts as their key went away, and those
@@ -472,17 +471,22 @@ const rehearsing = Effect.fnUntraced(function*<
         const settle = () => {
           ledger = Ledger.settle(ledger, ticket)
         }
+        // What the `run` does last is the wait for the job of the answer, once it is applied, and nothing otherwise:
+        // with no answer, or one the end refused. The completion that follows the fiber's body leaves an earlier one as
+        // it is.
         return Effect.uninterruptibleMask((restore) =>
-          restore(effect.pipe(scopedIn(register, "command"), Effect.provideContext(context))).pipe(
-            Effect.flatMap(Opt.match({
-              onNone: () => Effect.succeed<Effect.Effect<void>>(Effect.void),
-              onSome: (message) =>
-                submit(() => {
-                  settle()
-                  return Effect.succeed(outcomeOf(apply(Core.fromCommand, message, "list", Opt.none()), message))
-                }, Effect.succeed<Effect.Effect<void>>(Effect.void))
-            })),
-            Effect.flatMap((then) => Deferred.succeed(answer, then)),
+          commandFiber(
+            register,
+            restore(effect),
+            (message: Message) =>
+              submit(() => {
+                settle()
+                const then = outcomeOf(apply(Core.fromCommand, message, "list", Opt.none()), message)
+                return Effect.asVoid(Deferred.succeed(answer, then))
+              }, Effect.void)
+          ).pipe(
+            Effect.provideContext(context),
+            Effect.andThen(Deferred.succeed(answer, Effect.void)),
             Effect.ensuring(Effect.sync(settle)),
             Effect.asVoid
           )
@@ -498,11 +502,7 @@ const rehearsing = Effect.fnUntraced(function*<
     released,
     init: first,
     update: program.update,
-    subscriptions: program.subscriptions,
-    // Never called: `answering` and `listening` run the commands and the subscriptions, with the services of the call
-    // that runs or hears them.
-    runCommand: () => Effect.never,
-    listen: () => Channel.never
+    subscriptions: program.subscriptions
   })
   // The first model, made whatever the first keys did, as a renderer reads it to draw, and the run dies of both.
   const firstModel = (): Opt.Option<Model> => {
