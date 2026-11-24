@@ -303,6 +303,8 @@ type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = neve
 
 // @public
 export const simulate: <State, Message, Command = never, Event = never, R = never>(program: Readonly<{
+    init?: Step<State, Command> | ((flags: never) => Step<State, Command>);
+}> & Readonly<{
     update: Update<State, Message, Command, Event>;
 }> & Interpreter<Command, NoInfer<Message>, R> & Readonly<{
     subscriptions: Subscriptions<State, unknown>;

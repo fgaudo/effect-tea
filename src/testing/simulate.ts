@@ -63,6 +63,10 @@ export type Simulation<State, Message, Command = never, Event = never> = {
  */
 export const simulate = <State, Message, Command = never, Event = never, R = never>(
   program:
+    // Never called, and read only for the types: the state of a program is the one its `init` names, as in
+    // `Program<…>` and every function that takes a program, and the literal that `update` returns would otherwise be
+    // the state of one spread from a typed program, `{ n: number }` for one that names `Readonly<{ n: number }>`.
+    & Readonly<{ init?: Step<State, Command> | ((flags: never) => Step<State, Command>) }>
     & Readonly<{ update: Update<State, Message, Command, Event> }>
     // Inferred from `update` alone, as in `Program<…>`.
     & Interpreter<Command, NoInfer<Message>, R>

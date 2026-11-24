@@ -12,7 +12,7 @@ import type { RunCommand } from "../command.ts"
 import type { Program } from "../program.ts"
 import type { Subscription } from "../subscription.ts"
 import { reject, type Update } from "../update.ts"
-import { simulate } from "./simulate.ts"
+import { simulate, type Simulation } from "./simulate.ts"
 
 describe("simulate", () => {
   class Storage extends Context.Service<Storage, { readonly save: Effect.Effect<number> }>()("Storage") {}
@@ -168,6 +168,33 @@ describe("simulate", () => {
     }
     const simulating = simulate(counting)
     expectTypeOf<Parameters<typeof simulating>[0]>().toEqualTypeOf<ReadonlyArray<"Increment" | "Decrement">>()
+  })
+
+  test("its state is the one its init names, not the literal its update returns", () => {
+    type Counted = Readonly<{ count: number }>
+    const typed: Program<{ state: Counted; model: number; message: "Increment" }> = {
+      init: { state: { count: 0 } },
+      update: () => (state) => ({ state }),
+      subscriptions: () => [],
+      makeModel: (state) => state.count
+    }
+    const simulating = simulate({
+      ...typed,
+      update: (_: "Increment") => (state: Counted) => ({ state: { count: state.count + 1 } })
+    })
+    expectTypeOf(simulating).returns.toEqualTypeOf<
+      Effect.Effect<Simulation<Counted, "Increment">, never, never>
+    >()
+  })
+
+  test("takes no program whose init names another state than its update", () => {
+    const counting = {
+      init: { state: { count: "0" } },
+      update: () => (state: Readonly<{ count: number }>) => ({ state: { count: state.count + 1 } }),
+      subscriptions: () => []
+    }
+    // @ts-expect-error: the state of `init` is not the one `update` takes.
+    expect(simulate(counting)).toBeDefined()
   })
 
   test("takes only a program that keeps its state in an object", () => {

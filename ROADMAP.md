@@ -75,15 +75,9 @@ Each step names its model and effort, what it depends on, and how to tell that i
 
 A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a deterministic
 test of it. A finding of a review goes here with its `test.failing`, until its fix removes the mark and the item. A
-lead of the types has no `test.failing`: its fix adds the test of the types that holds it. The one below was found by
-the inference matrix on 23 November 2026, with a case that shows it (`bun run inference --filter <case>`), where it
-is a lead, "valid, but taken with other types".
+lead of the types has no `test.failing`: its fix adds the test of the types that holds it, and a lead of the inference
+matrix is shown by its case (`bun run inference --filter <case>`).
 
-- **`simulate` reads the state from what `update` returns**: with no `init` to read, the state of
-  `{ ...typed, update: (message: Own) => (state: SNone) => … }` is `{ n: number }`, the literal of its steps, and not
-  the `SNone` the program names (`object.spread.annotated.state`). Step 21, which was to weigh `simulate` again, was
-  closed on 24 November 2026 with its form alone decided, and step 52 keeps what `simulate` takes: the lead waits for
-  no step. Opus 5.5, `high`, by [`change-api`](.agents/skills/change-api/SKILL.md).
 - **A tag that throws as a tool names its message replaces the tool's error with what it threw**: `doesNothing`
   and `describeAll` (`rehearse.ts`), and `unexpectedRejection` (`unexpected.ts`), which `simulate` fails with on a
   rejection, call `describeByTag` with no guard, in the call's fiber. Found by the review of step 20, on 24 November

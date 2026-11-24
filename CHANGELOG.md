@@ -69,6 +69,8 @@ version, and everything else, features included, the patch version.
 
 - `simulate` takes a program written as an object without commands or events, whose `commands` and `events` it gives
   as `never`.
+- `simulate` gives the state that a program's `init` names, as `start` does, where it gave the type of the steps its
+  `update` returns; so it refuses a program whose `init` names another state than its `update` takes.
 - `start` and `drive` take a program with an `external`, which they refused, and check it as `child` does; their run
   needs no service that a program's type names for commands or subscriptions it does not have.
 - `rehearse` and `simulate` fail, as the run dies, with the defect of `update` and what a message's tag throws while it

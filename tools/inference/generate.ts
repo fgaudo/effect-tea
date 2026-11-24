@@ -404,14 +404,14 @@ const running: ReadonlySet<Piece> = new Set<Piece>([
 // The differences meant between the functions: the pieces each one checks. A program broken in a piece is refused by
 // those that check it, and taken by the others, which never call it: only a parent calls `external` and reads
 // `output`, which `start` and `drive` check all the same, as their row names them, and `rehearse` does not; and
-// `simulate` calls `update`, `subscriptions` and `runCommand` alone, and does not read keys. And `start` and `drive`
-// refuse a program with events, which only a parent hears.
+// `simulate` calls `update`, `subscriptions` and `runCommand` alone, reads its state from `init` where it is given one,
+// and does not read keys. And `start` and `drive` refuse a program with events, which only a parent hears.
 const checks: Readonly<Record<Use, ReadonlySet<Piece>>> = {
   typed: new Set(pieces.filter((piece) => piece !== "onEvent")),
   start: new Set<Piece>([...running, "external", "output"]),
   drive: new Set<Piece>([...running, "external", "output"]),
   rehearse: running,
-  simulate: new Set<Piece>(["state", "update", "subscriptions", "runCommand"]),
+  simulate: new Set<Piece>(["state", "init", "update", "subscriptions", "runCommand"]),
   child: new Set(pieces),
   childById: new Set(pieces)
 }
@@ -1409,11 +1409,13 @@ const generateObject = (o: ObjectCase): ReadonlyArray<Part> => {
     }
     case "call": {
       const entries = objectEntries(o)
-      // `simulate` takes the pieces it calls, and is written them alone, annotated: no `init` gives it the state.
-      const simulated = entries.filter(([piece]) => checks.simulate.has(piece))
+      // `simulate` takes the pieces it calls, and is written them alone, annotated: no `init` gives it the state, and
+      // one broken is not there to break them.
+      const simulated = entries.filter(([piece]) => checks.simulate.has(piece) && piece !== "init")
+      const alone = { ...options, broken: broken === "init" ? undefined : broken }
       return [
         ...usesOf(objectText(entries, "    "), types, uses.filter((use) => use !== "simulate"), options),
-        ...(o.annotate ? usesOf(objectText(simulated, "    "), types, ["simulate"], options) : [])
+        ...(o.annotate ? usesOf(objectText(simulated, "    "), types, ["simulate"], alone) : [])
       ]
     }
     case "spread": {
