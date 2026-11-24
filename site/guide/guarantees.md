@@ -149,13 +149,15 @@ each bridge's to promise (see [view](./view.md#rules)).
     state.
 - **What must stay private is in a service, not in a key.** A key is shown whole: in a defect of its subscription, and
   in the `origin` that `onApplied` and `onIgnored` hear (see [running](./running.md#when-a-defect-happens)).
-- **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and states are never mutated.** So are
+- **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated.** So are
   an `init` that takes flags, the handlers of `onEvent`, the `get`, the `set` and the `store` of an input and an `at`
   that is a function of the id, and the functions that say which children are there and when they listen: `there`,
   `key`, `flags`, `ids` and `listening`. The library calls them when it chooses. A child's `external`, its `init` when
   a step of its parent starts it, its parent's handlers of `onEvent`, and the `get`, the `set` and the `store` of a
-  write run in the parent's `update`. The library reuses a child's model, and the keys of its subscriptions, while the child's state is
-  the same object.
+  write run in the parent's `update`. No value that a program or a test gives the library, or that the library gives
+  back, is mutated once it is made, nested objects included: a state, a message, a command, an event, flags, a key, a
+  model, an output, and what a testing tool returns. The library reuses a child's model, and the keys of its
+  subscriptions, while the child's state is the same object.
 - **A function of the program never interrupts the fiber it runs in.** An `init` that takes flags, and `subscriptions`
   on the first state, run in the call of `start`: in the fiber of whoever starts the program, or in no fiber at all. The
   children of a parent without flags are started in the call of `make`, their `init` with them (see

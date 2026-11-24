@@ -95,8 +95,8 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * - Every program has `subscriptions`. One that `make` makes without them listens to nothing. A test calls
  *   `subscriptions(state)` as the run does, on any state, and `listen(key)` for the subscription of a key.
  * - `update`, `external`, `makeModel`, `subscriptions` and `output` are pure, and so is an `init` that takes flags.
- *   States are never mutated. The library reuses a child's model and the keys of its subscriptions while the
- *   child's state is the same object.
+ *   No value given to the library, or taken from it, is mutated once made, nested objects included. The library
+ *   reuses a child's model and the keys of its subscriptions while the child's state is the same object.
  *
  * @example
  * ```ts
@@ -116,7 +116,7 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * @see The guide, "Events and external messages", "`external` is required exactly when the program names external messages".
  * @see The guide, "Anatomy of a program", "A test makes a model as the run does".
  * @see The guide, "Anatomy of a program", "What a program listens to".
- * @see The guide, "Guarantees", "`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and states are never mutated".
+ * @see The guide, "Guarantees", "`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated".
  */
 export type Program<T extends ProgramTypes> = Shape<
   Field<T, "state">,

@@ -481,7 +481,7 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
      *
      * @see The guide, "Events and external messages", "The parent handles an event in `onEvent`".
      * @see The guide, "Events and external messages", "`onEvent`".
-     * @see The guide, "Guarantees", "`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and states are never mutated".
+     * @see The guide, "Guarantees", "`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated".
      */
     onEvent?: OnEvents<State, C, Command, Event>
   }>
@@ -495,7 +495,7 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
      *
      * @see The guide, "Events and external messages", "The parent handles an event in `onEvent`".
      * @see The guide, "Events and external messages", "`onEvent`".
-     * @see The guide, "Guarantees", "`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and states are never mutated".
+     * @see The guide, "Guarantees", "`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated".
      */
     onEvent: OnEvents<State, C, Command, Event>
   }>

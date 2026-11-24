@@ -93,14 +93,16 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   meant to run, as on a server. Write `const { app, run } = start(program)`, so that a linter can report a `run` left
   unused. The guide, "Guarantees", "Whoever starts a program runs it". The guide, "Running", "A program is started,
   then run".
-- **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and a state is never mutated.** So are
+- **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated.** So are
   an `init` that takes flags, the handlers of `onEvent`, the `get`, the `set` and the `store` of an input and an `at`
   that is a function of the id, and `there`, `key`, `flags`, `ids` and `listening`, which say which children are there
   and when they listen. `update` may be called at any time: never assume it runs once per message. A child's
   `external`, its `init` when a step of its parent starts it, its parent's handlers of `onEvent`, and the `get`, the
-  `set` and the `store` of a write run in the parent's `update`. The library reuses a child's model and the keys of its subscriptions while the child's state is the same object. The
-  guide, "Guarantees", "What is left to you". The guide, "Update",
-  "Keep it pure". The guide, "Update", "It may be called at any time". The guide, "Update", "Never mutate the state".
+  `set` and the `store` of a write run in the parent's `update`. No value given to the library, or taken from it, is
+  mutated once made, nested objects included: a state, a message, a command, an event, flags, a key, a model, an
+  output. The library reuses a child's model and the keys of its subscriptions while the child's state is the same
+  object. The guide, "Guarantees", "What is left to you". The guide, "Update", "Keep it pure". The guide, "Update",
+  "It may be called at any time". The guide, "Update", "Never mutate the state".
   The guide, "Events and external messages", "A child answers its external messages in every state".
 - **One state machine per concern, and no flags.** Each concern is a union with a case per state. Each case holds only
   what exists in it. What follows from the state is computed in `makeModel`, not kept. The guide, "Structuring a

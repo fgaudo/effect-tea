@@ -78,6 +78,8 @@ version, and everything else, features included, the patch version.
   React Native, it reports a run that dies after `Host` unmounts as React reports an error itself ("Writing a bridge").
 - The package's JavaScript is ES2022, as the README now says, without the class `static {}` blocks that some
   toolchains, as Metro for Hermes, need a plugin for.
+- No value given to the library, or taken from it, is to be mutated: the rule of a state now holds of a message, a
+  command, an event, flags, a key, a model and an output too ("Guarantees", "What is left to you").
 
 ### Fixed
 

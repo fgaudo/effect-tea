@@ -1,7 +1,7 @@
 # What the invariants rest on
 
 An invariant of [`invariants.md`](invariants.md) holds only while what it rests on does: the purity of the program's
-code, states never mutated, and what Effect and the JavaScript engine do. What the program must do is the guide's
+code, values never mutated, and what Effect and the JavaScript engine do. What the program must do is the guide's
 ("What is left to you"). What Effect, the JavaScript engine or a bridge's renderer do without promising it is listed
 here, each with its own test, by [the rule](#the-rule) below: what a stable API documents is no premise.
 

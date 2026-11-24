@@ -47,7 +47,7 @@ What is new:
   [what an element reports](./inputs.md#what-an-element-reports)).
 
 What you lose: Elm's compiler keeps `update` pure, and TypeScript's compiler does not. Two things are left to you:
-keeping `update`, `makeModel` and `subscriptions` pure, and never mutating a state (see
+keeping `update`, `makeModel` and `subscriptions` pure, and never mutating a value given to the library (see
 [guarantees](./guarantees.md#what-is-left-to-you)).
 
 ## From React

@@ -32,7 +32,8 @@ changing an invariant, a premise or the API if that is what it takes.
    refusal: one that only exposes users to their own bugs is allowed. A refusal comes from the types or the shape of
    the API first; where they cannot give one, from a defect as the program is made (`make`); last, from a rule that
    nothing checks, listed in "Guarantees", under "What is left to you". Three things are axioms, never checked: the
-   functions of a program are pure, a state is never mutated, and a model holds no function.
+   functions of a program are pure, a user's values are immutable (none that a user gives the library, or takes from
+   it, is mutated once made, nested objects included), and a model holds no function.
 3. **The public API is small, clear and symmetric.** Few concepts. One word for each concept, and one concept for each
    word: the guide's glossary is the dictionary. A name says what the thing is to a user, the same role has the same
    form, and a thing is done one way. Users judge the library by its API first.
