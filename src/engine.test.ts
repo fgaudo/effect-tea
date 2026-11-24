@@ -519,7 +519,7 @@ describe("subscriptions that end", () => {
     })
 
   /** Waits for a state that `done` accepts: the current one, or the first new one. */
-  const until = (engine: Engine.Engine<Heard, Signal>, done: (state: Heard) => boolean) =>
+  const until = (engine: Engine.Engine<Heard, Signal, never, string>, done: (state: Heard) => boolean) =>
     Effect.suspend(() => {
       if (done(engine.current().state)) return Effect.void
       const reached = Deferred.makeUnsafe<void>()
@@ -1341,5 +1341,259 @@ describe("the end of the engine", () => {
       return log
     }))
     expect(log).toEqual(["subscription interrupted"])
+  })
+})
+
+describe("what a testing tool is given", () => {
+  type Seen = Readonly<{ keys: ReadonlyArray<string>; works: number }>
+  type Order =
+    | Readonly<{ _tag: "Listen"; keys: ReadonlyArray<string>; command?: number }>
+    | Readonly<{ _tag: "Work" }>
+    | Readonly<{ _tag: "Same" }>
+    | Readonly<{ _tag: "Refuse" }>
+    | Readonly<{ _tag: "Heard"; from: string }>
+
+  // `Listen` sets the keys, with a command when it names one; `Work` counts, with a command of its count; `Same` and
+  // `Heard` keep the very same state, and `Refuse` is rejected.
+  const update = (order: Order) => (state: Seen) =>
+    order._tag === "Listen"
+      ? { state: { ...state, keys: order.keys }, commands: order.command === undefined ? [] : [order.command] }
+      : order._tag === "Work"
+      ? { state: { ...state, works: state.works + 1 }, commands: [state.works + 1] }
+      : order._tag === "Refuse"
+      ? reject
+      : { state }
+
+  const keysOf = (active: Engine.Engine<Seen, Order, never, string>["active"]) =>
+    Array.from(active().keys, ([key, generation]) => `${key}:${generation}`).sort().join(",")
+
+  const startsOf = (starts: ReadonlyArray<readonly [string, number]>) =>
+    starts.map(([key, generation]) => `${key}:${generation}`).join(",")
+
+  test("stepped hears what each message came to once it stands, and the keys of each new state once they are active, the first state's as the engine is made", async () => {
+    const told = await run(Effect.gen(function*() {
+      const told: Array<string> = []
+      let made: Engine.Engine<Seen, Order, never, string> | undefined
+      const engine = yield* Engine.make<Seen, Order, number, never, string>({
+        init: { state: { keys: ["a"], works: 0 } },
+        runCommand: () => Effect.succeedNone,
+        update,
+        subscriptions: ({ keys }) => keys,
+        listen: () => Channel.never,
+        stepped: (step) => {
+          if (step._tag === "Listened") {
+            const active = made === undefined ? "" : `, active ${keysOf(made.active)}`
+            told.push(`listened -${startsOf(step.gone)} +${startsOf(step.fresh)}${active}`)
+          } else if (step.arrived._tag === "Applied") {
+            told.push(`applied, current: ${step.arrived.next === made?.current()}`)
+          } else {
+            told.push(step.arrived._tag)
+          }
+        }
+      })
+      made = engine
+      engine.dispatch({ _tag: "Listen", keys: ["a", "b"] })
+      engine.dispatch({ _tag: "Same" })
+      engine.dispatch({ _tag: "Refuse" })
+      engine.dispatch({ _tag: "Listen", keys: ["b"] })
+      engine.send({ _tag: "Work" }, { _tag: "Subscription", key: "a", generation: 1 })
+      return told
+    }))
+    expect(told).toEqual([
+      "listened - +a:1",
+      "applied, current: true",
+      "listened - +b:2, active a:1,b:2",
+      "applied, current: true",
+      "Ignored",
+      "applied, current: true",
+      "listened -a:1 +, active b:2",
+      "Dropped"
+    ])
+  })
+
+  // `onApplied` throws on `Work`, and `onIgnored` on `Refuse`, which each engine is sent first.
+  test("stepped hears nothing of a step a defect stopped, and Dead once the engine has died", async () => {
+    const outcome = await Effect.runPromise(
+      Effect.forEach(["onApplied", "onIgnored"] as const, (where) =>
+        Effect.gen(function*() {
+          const told: Array<string> = []
+          const exit = yield* Effect.exit(Effect.scoped(Effect.gen(function*() {
+            const engine = yield* Engine.make<Seen, Order, number, never, string>({
+              init: { state: { keys: [], works: 0 } },
+              runCommand: () => Effect.succeedNone,
+              update,
+              subscriptions: ({ keys }) => keys,
+              listen: () => Channel.never,
+              onApplied: ({ message }) => {
+                if (message._tag === "Work") throw "onApplied threw"
+                return undefined
+              },
+              onIgnored: () => {
+                throw "onIgnored threw"
+              },
+              stepped: (step) => void told.push(step._tag === "Arrived" ? step.arrived._tag : step._tag)
+            })
+            engine.dispatch(where === "onApplied" ? { _tag: "Work" } : { _tag: "Refuse" })
+            engine.dispatch({ _tag: "Same" })
+            yield* engine.died
+          })))
+          return { told, sites: sites(exit) }
+        }))
+    )
+    expect(outcome).toEqual([
+      { told: ["Listened", "Dead"], sites: ["onApplied: onApplied threw"] },
+      { told: ["Listened", "Dead"], sites: ["onIgnored: onIgnored threw"] }
+    ])
+  })
+
+  // The gate's key goes with `Listen`, which starts `b` and a command: the job waits for the gate's release. The job of
+  // the first state starts the gate, and stops nothing.
+  test("released is told once the stops of a job have ended, before its starts and its commands, and only of a job that stops", async () => {
+    const lines = await run(Effect.gen(function*() {
+      const log = journal()
+      const opened = yield* Deferred.make<void>()
+      const engine = yield* Engine.make<Seen, Order, number, never, string>({
+        init: { state: { keys: ["gate"], works: 0 } },
+        runCommand: (n) => Effect.as(Effect.sync(() => log.push(`command ${n}`)), Opt.none()),
+        update,
+        subscriptions: ({ keys }) => keys,
+        listen: (key) => {
+          if (key !== "gate") {
+            log.push(`start ${key}`)
+            return Channel.never
+          }
+          return gate(
+            Effect.sync(() => log.push("releasing")).pipe(
+              Effect.andThen(Deferred.await(opened)),
+              Effect.andThen(Effect.sync(() => log.push("released")))
+            )
+          )
+        },
+        released: (gone) => log.push(`told ${startsOf(gone)}`)
+      })
+      engine.dispatch({ _tag: "Listen", keys: ["b"], command: 1 })
+      yield* log.reached("releasing")
+      yield* Deferred.succeed(opened, undefined)
+      yield* log.reached("command 1")
+      return [...log.lines]
+    }))
+    expect(lines).toEqual(["releasing", "released", "told gate:1", "start b", "command 1"])
+  })
+
+  test("the fiber of each start and of each command runs what listening and answering give, asked by the job of its step, and what they send is of that start or command", async () => {
+    const lines = await run(Effect.gen(function*() {
+      const log = journal()
+      const engine = yield* Engine.make<Seen, Order, number, never, string>({
+        init: { state: { keys: [], works: 0 } },
+        runCommand: () => Effect.succeedNone,
+        update,
+        subscriptions: ({ keys }) => keys,
+        listen: () => Channel.never,
+        listening: (key, generation, send) => {
+          log.push(`listening ${key}:${generation}`)
+          return Effect.andThen(send({ _tag: "Heard", from: key }), Effect.never)
+        },
+        answering: (command, send) => {
+          log.push(`answering ${command}`)
+          return send({ _tag: "Heard", from: `command ${command}` })
+        },
+        onApplied: ({ message, origin }) => {
+          if (message._tag !== "Heard") return undefined
+          log.push(`heard ${message.from} as ${origin._tag === "Subscription" ? String(origin.key) : origin._tag}`)
+          return undefined
+        }
+      })
+      engine.dispatch({ _tag: "Listen", keys: ["a"], command: 1 })
+      yield* log.reached("heard command 1 as Command")
+      return [...log.lines]
+    }))
+    expect(lines).toEqual(["listening a:1", "heard a as a", "answering 1", "heard command 1 as Command"])
+  })
+
+  // The gate's key goes with `Listen`: its release holds the fiber of effects, while the test asks for jobs that only
+  // tell, outside a step, and by a listener in the step of the second `Work`.
+  test("after calls done once every job before it is done, their commands started: outside a step, and in one after its job", async () => {
+    const lines = await run(Effect.gen(function*() {
+      const log = journal()
+      const opened = yield* Deferred.make<void>()
+      const engine = yield* Engine.make<Seen, Order, number, never, string>({
+        init: { state: { keys: ["gate"], works: 0 } },
+        runCommand: (n) => Effect.as(Effect.sync(() => log.push(`command ${n}`)), Opt.none()),
+        update,
+        subscriptions: ({ keys }) => keys,
+        listen: () =>
+          gate(
+            Effect.sync(() => log.push("releasing")).pipe(
+              Effect.andThen(Deferred.await(opened)),
+              Effect.andThen(Effect.sync(() => log.push("released")))
+            )
+          )
+      })
+      engine.subscribe(() => {
+        if (engine.current().state.works === 2) engine.after(() => log.push("done in the step"))
+      })
+      engine.dispatch({ _tag: "Listen", keys: [] })
+      yield* log.reached("releasing")
+      engine.dispatch({ _tag: "Work" })
+      engine.after(() => log.push("done after 1"))
+      engine.dispatch({ _tag: "Work" })
+      engine.after(() => log.push("done last"))
+      yield* Deferred.succeed(opened, undefined)
+      yield* log.reached("done last")
+      return [...log.lines]
+    }))
+    expect(lines).toEqual([
+      "releasing",
+      "released",
+      "command 1",
+      "done after 1",
+      "command 2",
+      "done in the step",
+      "done last"
+    ])
+  })
+
+  test("send applies a message at once as its source sends it, and active gives the keys of the current state, each with its start", async () => {
+    const outcome = await run(Effect.gen(function*() {
+      const heard: Array<string> = []
+      const engine = yield* Engine.make<Seen, Order, number, never, string>({
+        init: { state: { keys: ["a"], works: 0 } },
+        runCommand: () => Effect.succeedNone,
+        update,
+        subscriptions: ({ keys }) => keys,
+        listen: () => Channel.never,
+        onApplied: ({ origin }) =>
+          void heard.push(origin._tag === "Subscription" ? `${origin._tag} ${String(origin.key)}` : origin._tag)
+      })
+      const first = keysOf(engine.active)
+      engine.dispatch({ _tag: "Listen", keys: ["b"] })
+      engine.send({ _tag: "Work" }, { _tag: "Subscription", key: "a", generation: 1 })
+      engine.send({ _tag: "Work" }, { _tag: "Subscription", key: "b", generation: 2 })
+      engine.send({ _tag: "Work" }, { _tag: "Command" })
+      return { first, later: keysOf(engine.active), heard, works: engine.current().state.works }
+    }))
+    expect(outcome).toEqual({ first: "a:1", later: "b:2", heard: ["Dispatch", "Subscription b", "Command"], works: 2 })
+  })
+
+  test("end marks the end at once, with no effect: nothing sent after is applied, and ended says so, as it does once stop has run", async () => {
+    const outcome = await run(Effect.gen(function*() {
+      const made = () =>
+        Engine.make<Seen, Order, number, never, string>({
+          init: { state: { keys: [], works: 0 } },
+          runCommand: () => Effect.succeedNone,
+          update,
+          subscriptions: ({ keys }) => keys,
+          listen: () => Channel.never
+        })
+      const ended = yield* made()
+      const before = ended.ended()
+      ended.dispatch({ _tag: "Work" })
+      ended.end()
+      ended.dispatch({ _tag: "Work" })
+      const stopped = yield* made()
+      yield* stopped.stop
+      return { before, after: ended.ended(), works: ended.current().state.works, stopped: stopped.ended() }
+    }))
+    expect(outcome).toEqual({ before: false, after: true, works: 1, stopped: true })
   })
 })

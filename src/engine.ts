@@ -166,19 +166,37 @@ export interface RunOptions<State, Message, Command = unknown> {
 const originOf = <K>(source: Core.Source<K>): Origin =>
   source._tag === "Subscription" ? { _tag: "Subscription", key: source.key } : source
 
-/** What a step leaves to the fiber of effects, in the order it is done. */
+/**
+ * What a step leaves to the fiber of effects, in the order it is done. A job that only tells (`after`) has `done`, and
+ * nothing else to do.
+ */
 type Job<Command, K> = Readonly<{
   gone: ReadonlyArray<readonly [K, Core.Generation]>
   fresh: ReadonlyArray<readonly [K, Core.Generation]>
   commands: ReadonlyArray<Command>
+  done?: () => void
 }>
+
+/**
+ * What the thunk tells a testing tool of a step, as it stands (`stepped`). `Arrived` for each message: dropped or dead
+ * at once, ignored once `onIgnored` has heard it, applied once `onApplied` has heard it and its state is current; never
+ * for one whose step a defect stopped before. `Listened` once the keys of a new state are the active ones, the first
+ * state's as the engine is made, with the starts that went and those that came.
+ */
+export type Stepped<State, Command, K> =
+  | Readonly<{ _tag: "Arrived"; arrived: Core.Arrived<State, Command, unknown> }>
+  | Readonly<{
+    _tag: "Listened"
+    gone: ReadonlyArray<readonly [K, Core.Generation]>
+    fresh: ReadonlyArray<readonly [K, Core.Generation]>
+  }>
 
 /**
  * The engine applies each message as it is sent, and leaves the effects of its steps to a fiber that `effects` starts.
  * It is made by plain code, outside any fiber: `init`'s step, the first state and its keys. Until `effects` runs, a
  * message is applied all the same, and the jobs wait.
  */
-export interface Engine<State, Message, R = never> {
+export interface Engine<State, Message, R = never, K = never> {
   /** The current state: the one the last message applied made, at once. */
   readonly current: () => Core.Revisioned<State>
   /**
@@ -208,6 +226,20 @@ export interface Engine<State, Message, R = never> {
    * does it first, before whoever runs the engine stops what sends to it.
    */
   readonly stop: Effect.Effect<void>
+  // What a testing tool is given, and the run does not use.
+  /** Applies a message at once, as `source` sends it, as `dispatch` applies one of a dispatch. */
+  readonly send: (message: Message, source: Core.Source<K>) => void
+  /** The keys of the current state, each with its start. */
+  readonly active: () => Core.Active<K>
+  /**
+   * A job that only tells: the fiber of effects calls `done` once it has done every job before it. Asked in a step, it
+   * comes after that step's job, and waits with it until the outermost call returns. `done` throws nothing.
+   */
+  readonly after: (done: () => void) => void
+  /** Marks the end with no effect, as `stop` does first: from now on nothing sent is applied. */
+  readonly end: () => void
+  /** Whether the end is marked. */
+  readonly ended: () => boolean
 }
 
 /**
@@ -252,8 +284,31 @@ type Config<State, Message, Command, R, K> =
      * testing tool wakes what waits on a new state, so that nothing it wakes runs inside a step. It throws nothing.
      */
     settled?: () => void
+    /** Told in the thunk as each step stands, the first keys' as the engine is made (`Stepped`). It throws nothing. */
+    stepped?: (step: Stepped<State, Command, K>) => void
+    /**
+     * What the fiber of a start runs, inside its root and in the run's context, given what sends a message as that
+     * start: called by the job of its step, where the fiber is forked. By default, the subscription `listen` makes of
+     * the key, in a scope of its own, each message sent as it comes, and its end value last.
+     */
+    listening?: (
+      key: K,
+      generation: Core.Generation,
+      send: (message: Message) => Effect.Effect<void>
+    ) => Effect.Effect<void, never, Exclude<R, Scope.Scope>>
+    /**
+     * What the fiber of a command runs, inside its root and in the run's context, given what sends its answer: called
+     * by the job of its step, where the fiber is forked. By default, `runCommand` in a scope of its own, and its answer
+     * sent once the scope has closed.
+     */
+    answering?: (
+      command: Command,
+      send: (message: Message) => Effect.Effect<void>
+    ) => Effect.Effect<void, never, Exclude<R, Scope.Scope>>
+    /** Told by the fiber of effects once the stops of a job have ended, before its starts. It throws nothing. */
+    released?: (gone: ReadonlyArray<readonly [K, Core.Generation]>) => void
     init: Step<State, Command>
-    update: Update<State, Message, Command>
+    update: Update<State, Message, Command, unknown>
     runCommand: RunCommand<Command, Message, R>
     subscriptions: Subscriptions<State, K>
     listen: Listen<K, Message, R>
@@ -268,6 +323,10 @@ export const build = <State, Message, Command, R, K>({
   deaths,
   rendered = () => false,
   settled = () => undefined,
+  stepped = () => undefined,
+  listening,
+  answering,
+  released = () => undefined,
   init: first,
   update,
   runCommand: interpret,
@@ -275,7 +334,7 @@ export const build = <State, Message, Command, R, K>({
   listen,
   onApplied = () => undefined,
   onIgnored = () => undefined
-}: Config<State, Message, Command, R, K>): Engine<State, Message, R> => {
+}: Config<State, Message, Command, R, K>): Engine<State, Message, R, K> => {
   const { recorded, died, report, dead } = deaths
   // What the thunk reads and writes, on the caller's stack: no fiber runs between its operations.
   const started = Core.init(first)
@@ -296,8 +355,11 @@ export const build = <State, Message, Command, R, K>({
   let jobs: Queue.Queue<Job<Command, K>> | undefined
   // Stopped first as the run ends, and awaited: nothing forks a fiber while the end reads those to interrupt.
   let effects: Fiber.Fiber<unknown, never> | undefined
-  const stop = Effect.suspend(() => {
+  const end = () => {
     stopped = true
+  }
+  const stop = Effect.suspend(() => {
+    end()
     return effects === undefined ? Effect.void : stopping(effects)
   })
   // A function of the program, called in the thunk: what it throws is recorded where it happened, and the step stops
@@ -342,11 +404,11 @@ export const build = <State, Message, Command, R, K>({
     switch (step._tag) {
       case "Dead":
       case "Dropped":
-        return
+        return stepped({ _tag: "Arrived", arrived: step })
       case "Ignored": {
         const ignored: Ignored<State, Message> = { message, origin: originOf(source), state: before.state }
-        attempt("onIgnored", () => onIgnored(ignored))
-        return
+        if (Opt.isNone(attempt("onIgnored", () => onIgnored(ignored)))) return
+        return stepped({ _tag: "Arrived", arrived: step })
       }
       case "Applied": {
         const { next, changed, commands } = step
@@ -360,6 +422,7 @@ export const build = <State, Message, Command, R, K>({
         }
         if (Opt.isNone(attempt("onApplied", () => onApplied(applied)))) return
         current = next
+        stepped({ _tag: "Arrived", arrived: step })
         if (!changed) return queue({ gone: [], fresh: [], commands })
         // The keys are the program's, and so are their `Equal` and `Hash`: compared here, in `subscriptions`, and
         // nowhere else in the run.
@@ -367,6 +430,7 @@ export const build = <State, Message, Command, R, K>({
         if (Opt.isNone(reconciled)) return
         const { gone, fresh, active: keys } = reconciled.value
         active = keys
+        stepped({ _tag: "Listened", gone, fresh })
         queue({ gone, fresh, commands })
         return tell()
       }
@@ -413,8 +477,25 @@ export const build = <State, Message, Command, R, K>({
   const firstKeys = attempt("subscriptions", () => Core.reconcile(Core.noneActive, subscriptions(current.state)))
   if (Opt.isSome(firstKeys)) {
     active = firstKeys.value.active
+    stepped({ _tag: "Listened", gone: [], fresh: firstKeys.value.fresh })
     queue({ gone: [], fresh: firstKeys.value.fresh, commands: started.commands })
   }
+  // What the fiber of a start and that of a command run, unless a testing tool gives its own. `listen` and the
+  // interpreter run inside the fiber, so that a defect in them is the subscription's, with its key, or the command's.
+  // A command's scope closes before its answer is applied, so that `update` never learns of a command whose resources
+  // are still open.
+  const listenTo = listening ??
+    ((key: K, _generation: Core.Generation, send: (message: Message) => Effect.Effect<void>) =>
+      Effect.suspend(() => runSubscription(listen(key), send)).pipe(
+        scopedIn(deaths, "subscription", () => ({ key })),
+        Effect.flatMap(send)
+      ))
+  const answer = answering ??
+    ((command: Command, send: (message: Message) => Effect.Effect<void>) =>
+      Effect.suspend(() => interpret(command)).pipe(
+        scopedIn(deaths, "command"),
+        Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: send }))
+      ))
   // Untraced: a span of its own would be the one its fibers log into (see `withExternalSpan`).
   const effectsIn = Effect.gen(function*() {
     // The run's context, its scope included: what a command or a subscription acquires goes into a scope of its own,
@@ -444,12 +525,9 @@ export const build = <State, Message, Command, R, K>({
         })
       )
     )
-    // The interpreter runs inside the command's fiber, so a defect in it is the command's. Its scope closes before its
-    // message is applied, so that `update` never learns of a command whose resources are still open.
+    // What the fiber runs is asked for by the job, where the fiber is forked.
     const runCommand = (command: Command) =>
-      Effect.suspend(() => interpret(command)).pipe(
-        scopedIn(deaths, "command"),
-        Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: sending(Core.fromCommand) })),
+      answer(command, sending(Core.fromCommand)).pipe(
         rootedIn("command"),
         Effect.provideContext(context),
         recorded,
@@ -457,7 +535,7 @@ export const build = <State, Message, Command, R, K>({
       )
     // The stops of a job are awaited together, before any start of that job or a later one: a key that comes back
     // finds its old subscription released. The next message does not wait for them: the effects of the next state do.
-    const perform = Effect.fnUntraced(function*({ gone, fresh, commands }: Job<Command, K>) {
+    const perform = Effect.fnUntraced(function*({ gone, fresh, commands, done }: Job<Command, K>) {
       yield* Effect.forEach(
         gone,
         ([, generation]) =>
@@ -466,13 +544,9 @@ export const build = <State, Message, Command, R, K>({
           ),
         { concurrency: "unbounded", discard: true }
       )
-      // `listen` runs inside the subscription's fiber, as the interpreter runs inside the command's: a defect in it is
-      // the subscription's.
+      if (gone.length > 0) released(gone)
       for (const [key, generation] of fresh) {
-        const send = sending({ _tag: "Subscription", key, generation })
-        yield* Effect.suspend(() => runSubscription(listen(key), send)).pipe(
-          scopedIn(deaths, "subscription", () => ({ key })),
-          Effect.flatMap(send),
+        yield* listenTo(key, generation, sending({ _tag: "Subscription", key, generation })).pipe(
           rootedIn("subscription", () => ({ key })),
           Effect.provideContext(context),
           recorded,
@@ -480,6 +554,7 @@ export const build = <State, Message, Command, R, K>({
         )
       }
       yield* Effect.forEach(commands, runCommand, { discard: true })
+      if (done !== undefined) done()
     })
     // The jobs that waited, the first state's and those of the messages sent before, in the fiber that starts the
     // effects, which records what it dies of here, among what the subscriptions it starts die of meanwhile. A message
@@ -525,7 +600,16 @@ export const build = <State, Message, Command, R, K>({
     effects: effectsIn,
     died,
     report,
-    stop
+    stop,
+    send: apply,
+    active: () => active,
+    after: (done) => {
+      waiting.push({ gone: [], fresh: [], commands: [], done })
+      // In a step, the outermost call offers it as it returns, as it offers the jobs of its steps.
+      if (!applying) offer()
+    },
+    end,
+    ended: () => stopped
   }
 }
 
@@ -535,7 +619,7 @@ export const build = <State, Message, Command, R, K>({
  */
 export const make = <State, Message, Command, R, K>(
   config: Omit<Config<State, Message, Command, R, K>, "deaths"> & Readonly<{ deaths?: Deaths }>
-): Effect.Effect<Engine<State, Message, R>, never, Exclude<R, Scope.Scope> | Scope.Scope> =>
+): Effect.Effect<Engine<State, Message, R, K>, never, Exclude<R, Scope.Scope> | Scope.Scope> =>
   Effect.suspend(() => {
     const engine = build<State, Message, Command, R, K>({ ...config, deaths: config.deaths ?? makeDeaths(() => true) })
     return Effect.as(engine.effects, engine)

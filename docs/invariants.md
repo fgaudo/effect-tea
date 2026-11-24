@@ -490,6 +490,21 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   of `Effect.acquireUseRelease` can be interrupted where its caller can be. The checks beside them (`ended` in
   `loop.ts`, the register, a call that left) each have a mutation with a deterministic killer, and the tests of
   `rehearse.test.ts` under the scheduler of the tests stay as alarms of the search, killing none.
+- **What the engine gives a testing tool, the run takes by its defaults** ("What the engine gets", in
+  [`one-engine.md`](records/one-engine.md)). In the config of `Engine.build`, there are four. `listening` and
+  `answering` say what the fiber of a start and that of a command run. The job calls each where it forks the fiber, as
+  a function of the program is called where the call is decided ("one thunk", below), and the fiber runs what it
+  returns inside its root, in the run's context. `stepped` is told in the thunk as each step stands: what a message came
+  to (dropped or dead at once, ignored once `onIgnored` has heard it, applied once `onApplied` has heard it and its
+  state is current, and never for a step a defect stopped before), and the keys of each new state once they are the
+  active ones, the first state's as the engine is made. `released` is told by the fiber of effects once the stops of a
+  job have ended, before its starts. On the engine, there are five more. `after` is a job that only tells: it is done
+  once every job before it is, and asked in a step, it waits with that step's job until the outermost call returns.
+  `send` applies a message as its source sends it, and `active` gives the keys of the current state. `end` marks the
+  end by plain code, as `stop` marks it first, and `ended` reads it. The defaults are what the run did before them,
+  and the run gives none of them: only the tests of the engine do, and only a testing tool may. They add no premise:
+  the fibers are forked with `FiberSet.run` and `FiberMap.run`, as before. Each has a test in `engine.test.ts` ("what a
+  testing tool is given") and a mutation.
 - **The testing tools behave like the engine** where it is deterministic, with the test as the scheduler
   ("Testing tools" in the guide says what each one runs, fails on and ignores); `rehearse` fails on a command left
   pending, since its answer would arrive, and `drive` acts only as a user can, through `run` and the run's

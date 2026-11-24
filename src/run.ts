@@ -106,9 +106,9 @@ type Made<State, Model> =
 
 // What a handle is made of: the engine is missing when `init` threw, and there is no state. `end` is given the
 // defects of the run's cause, in the thunk where the run reads them from its register.
-type Parts<State, Model, Message, R> = Readonly<{
+type Parts<State, Model, Message, R, Key> = Readonly<{
   app: App<Model, Message>
-  engine: Engine.Engine<State, Message, R> | undefined
+  engine: Engine.Engine<State, Message, R, Key> | undefined
   end: (deaths: ReadonlyArray<Cause.Die>) => void
 }>
 
@@ -127,7 +127,7 @@ const partsOf = <State extends object, Model, Message, Command, RC, RS, Flags, K
   options: RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>,
   deaths: Shell.Deaths,
   settled: () => void
-): Parts<State, Model, Message, RC | RS> => {
+): Parts<State, Model, Message, RC | RS, Key> => {
   const { flags, ...runOptions } = options
   // The defects the handle threw to a reader, recorded where they were thrown: those of `makeModel`, and that of an
   // `init` that threw. A listener's site and `die` take them as they are, so that a defect a renderer gives back is one

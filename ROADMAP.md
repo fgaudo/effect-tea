@@ -47,7 +47,7 @@ Effect-TS/effect#10877 showed how Effect documents what it does not promise
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. the engine, steps 18 to 21, which change nothing that a user writes;
+1. the engine, steps 19 to 21, which change nothing that a user writes;
 2. the strength of what the guide says, step 48, added on 24 November 2026 and put after the engine by the owner the
    same day;
 3. what the library rests on of Effect with no promise, step 47, put last by the owner on 24 November 2026. The peer
@@ -82,37 +82,23 @@ is a lead, "valid, but taken with other types".
 
 ## Next, in order
 
-### 18. The engine's seams, with the run as their only user
-
-**Model and effort.** Opus 5.5, `high`: code that keeps the invariants.
-
-**Depends on** no other step. The engine keeps the mark and the roots of its fibers: step 46, which weighed them, was
-closed on 24 November 2026 with the guarantee kept (`docs/rejected.md`). Since step 38, a job holds the keys alone, and
-the fiber of a subscription calls `listen`, as the fiber of a command calls `runCommand`: what the engine gives that
-fiber is the key. It changes nothing a user writes.
-
-**Why.** `rehearse` is a second engine, kept in step with the first by hand and by the contract's tests
-([`architecture-review.md`](docs/records/architecture-review.md), part 5). The owner took, on 21 November 2026, the
-form that [`one-engine.md`](docs/records/one-engine.md) spiked: the engine is given what the fiber of a command and
-the fiber of a subscription run, and keeps the rest, the thunk, the queue of the jobs, their order, the fibers and the
-end. The code gets no shorter: the checks are then made once.
-
-**How.** The additions of "What the engine gets", in the record, each internal, with what the run does today as its
-default: what a subscription's fiber and a command's fiber run, called by the job, where the fiber is forked; what the
-thunk tells of a message; what the job tells once its stops have ended; a job that only tells; a message applied as a
-source sends it, and the active keys; the end marked by plain code. Written anew from `main`: `de4b7d7` of the branch
-`spike/one-engine` is a guide, and no design. Each addition has a test of `engine.test.ts` and a mutation. What a
-message costs is measured with `tools/bench/writes.ts`, before and after. `docs/invariants.md` says what each is, and
-that only the testing tools give them. The form adds no premise ("Where the rules pulled apart", in the record): one
-that turns up is asked of the owner first. The skill is [`change-engine`](.agents/skills/change-engine/SKILL.md).
-
-**Done when** the checks of `change-engine` pass, `bun run mutations` among them, with no test of the run changed.
-
 ### 19. `rehearse` over the engine
 
 **Model and effort.** Opus 5.5, `high`.
 
-**Depends on** step 18.
+**Depends on** step 18, done on 24 November 2026: the engine has the seams of "What the engine gets", in
+[`one-engine.md`](docs/records/one-engine.md), as `docs/invariants.md` describes them ("What the engine gives a testing
+tool"), each with a test of `engine.test.ts` and a mutation. They differ from the spike's in four points a rehearsal
+reads. `Engine` takes the type of the keys (`Engine<State, Message, R, K>`), so `send` and `active` need no cast.
+`stepped` tells neither the message nor its source, which the caller of `send` has; it tells an ignored message once
+`onIgnored` has heard it, and an applied one once `onApplied` has, and the keys of the first state too, with no
+`Arrived` before them. `listening` is given the key, its start and a `send`, not a subscription: since step 38 the
+fiber calls `listen`, so a rehearsal's `listening` calls it inside the effect it returns, where a defect of it is the
+subscription's. And `after` is a job of its own, not a field of a step's job. The engine does not hand a command's
+fiber to `answering`: how a `run` finds it is still decided here. The two mutations of `rehearse.ts` that tell a call
+once a release has ended rest on where the engine tells `released`, which "a job tells its stops released before they
+have ended" now holds. What a message costs did not move with the seams (`tools/bench/writes.ts`: the dispatch of a long
+text, 564 ns before and 495 ns after).
 
 **How.** As spiked on `de4b7d7`, written anew. The rehearsal builds the engine with a command that waits until a
 `run` takes it and a subscription that waits until a `hearNext` asks it. The ledger holds what the spike keeps in

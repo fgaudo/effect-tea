@@ -2138,8 +2138,11 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "the options hear a message dropped before update",
     guarantees: ["Subscriptions follow their keys"],
     file: "src/engine.ts",
-    from: "      case \"Dead\":\n      case \"Dropped\":\n        return\n      case \"Ignored\": {\n",
-    to: "      case \"Dead\":\n        return\n      case \"Dropped\":\n      case \"Ignored\": {\n",
+    from:
+      "      case \"Dead\":\n      case \"Dropped\":\n        return stepped({ _tag: \"Arrived\", arrived: step })\n"
+      + "      case \"Ignored\": {\n",
+    to: "      case \"Dead\":\n        return stepped({ _tag: \"Arrived\", arrived: step })\n      case \"Dropped\":\n"
+      + "      case \"Ignored\": {\n",
     killedBy: [
       ["src/run.test.ts", "neither onApplied nor onIgnored hears what a subscription sends once its key went away"]
     ]
@@ -2309,8 +2312,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a job starts its commands before it stops its gone keys",
     guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
-    from: "  const perform = Effect.fnUntraced(function*({ gone, fresh, commands }: Job<Command, K>) {\n",
-    to: "  const perform = Effect.fnUntraced(function*({ gone, fresh, commands }: Job<Command, K>) {\n"
+    from: "  const perform = Effect.fnUntraced(function*({ gone, fresh, commands, done }: Job<Command, K>) {\n",
+    to: "  const perform = Effect.fnUntraced(function*({ gone, fresh, commands, done }: Job<Command, K>) {\n"
       + "    yield* Effect.forEach(commands, runCommand, { discard: true })\n",
     killedBy: [
       [
@@ -2372,8 +2375,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a listen that throws in the engine is no defect of its subscription",
     guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
-    from: "yield* Effect.suspend(() => runSubscription(listen(key), send)).pipe(",
-    to: "yield* runSubscription(listen(key), send).pipe(",
+    from: "Effect.suspend(() => runSubscription(listen(key), send)).pipe(",
+    to: "runSubscription(listen(key), send).pipe(",
     killedBy: [
       ["src/testing/contract.test.ts", "the run dies in the subscription, with its key, of what listen throws"]
     ]
@@ -2675,6 +2678,179 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/start.test.ts",
         "what the thunk throws outside every site is recorded as it is, after the defect it was saying, never thrown to the sender, and ends the run"
+      ]
+    ]
+  },
+  // What the engine gives a testing tool, which the run uses only through their defaults (`docs/records/one-engine.md`,
+  // "What the engine gets"): where each is told or called, and what each does.
+  {
+    name: "the thunk tells what a message came to before onApplied has heard it",
+    file: "src/engine.ts",
+    from: "        if (Opt.isNone(attempt(\"onApplied\", () => onApplied(applied)))) return\n        current = next\n"
+      + "        stepped({ _tag: \"Arrived\", arrived: step })\n",
+    to: "        stepped({ _tag: \"Arrived\", arrived: step })\n"
+      + "        if (Opt.isNone(attempt(\"onApplied\", () => onApplied(applied)))) return\n        current = next\n",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "stepped hears what each message came to once it stands, and the keys of each new state once they are active, the first state's as the engine is made"
+      ],
+      ["src/engine.test.ts", "stepped hears nothing of a step a defect stopped, and Dead once the engine has died"]
+    ]
+  },
+  {
+    name: "the thunk tells a message ignored that onIgnored died of",
+    file: "src/engine.ts",
+    from: "        if (Opt.isNone(attempt(\"onIgnored\", () => onIgnored(ignored)))) return\n",
+    to: "        attempt(\"onIgnored\", () => onIgnored(ignored))\n",
+    killedBy: [
+      ["src/engine.test.ts", "stepped hears nothing of a step a defect stopped, and Dead once the engine has died"]
+    ]
+  },
+  {
+    name: "the thunk tells the keys of a state before they are the active ones",
+    file: "src/engine.ts",
+    from: "        active = keys\n        stepped({ _tag: \"Listened\", gone, fresh })\n",
+    to: "        stepped({ _tag: \"Listened\", gone, fresh })\n        active = keys\n",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "stepped hears what each message came to once it stands, and the keys of each new state once they are active, the first state's as the engine is made"
+      ]
+    ]
+  },
+  {
+    name: "a job tells its stops released before they have ended",
+    file: "src/engine.ts",
+    from:
+      "function*({ gone, fresh, commands, done }: Job<Command, K>) {\n      yield* Effect.forEach(\n        gone,\n",
+    to: "function*({ gone, fresh, commands, done }: Job<Command, K>) {\n      if (gone.length > 0) released(gone)\n"
+      + "      yield* Effect.forEach(\n        gone,\n",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "released is told once the stops of a job have ended, before its starts and its commands, and only of a job that stops"
+      ]
+    ]
+  },
+  {
+    name: "a job that stops nothing tells its stops released",
+    file: "src/engine.ts",
+    from: "      if (gone.length > 0) released(gone)\n",
+    to: "      released(gone)\n",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "released is told once the stops of a job have ended, before its starts and its commands, and only of a job that stops"
+      ]
+    ]
+  },
+  {
+    name: "the fiber of a start runs the run's subscription, whatever the tool gives",
+    file: "src/engine.ts",
+    from: "const listenTo = listening ??",
+    to: "const listenTo = undefined ??",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "the fiber of each start and of each command runs what listening and answering give, asked by the job of its step, and what they send is of that start or command"
+      ]
+    ]
+  },
+  {
+    name: "the fiber of a command runs runCommand, whatever the tool gives",
+    file: "src/engine.ts",
+    from: "const answer = answering ??",
+    to: "const answer = undefined ??",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "the fiber of each start and of each command runs what listening and answering give, asked by the job of its step, and what they send is of that start or command"
+      ]
+    ]
+  },
+  {
+    name: "a job that only tells, asked in a step, is done before the job of that step",
+    file: "src/engine.ts",
+    from: "      waiting.push({ gone: [], fresh: [], commands: [], done })\n",
+    to: "      waiting.unshift({ gone: [], fresh: [], commands: [], done })\n",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "after calls done once every job before it is done, their commands started: outside a step, and in one after its job"
+      ]
+    ]
+  },
+  {
+    name: "a job that only tells, asked outside a step, waits for the next call",
+    file: "src/engine.ts",
+    from: "      if (!applying) offer()\n",
+    to: "",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "after calls done once every job before it is done, their commands started: outside a step, and in one after its job"
+      ]
+    ]
+  },
+  {
+    name: "a job that only tells never tells",
+    file: "src/engine.ts",
+    from: "      if (done !== undefined) done()\n",
+    to: "",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "after calls done once every job before it is done, their commands started: outside a step, and in one after its job"
+      ]
+    ]
+  },
+  {
+    name: "send applies a message as a dispatch's",
+    file: "src/engine.ts",
+    from: "    send: apply,\n",
+    to: "    send: (message) => apply(message, Core.fromDispatch),\n",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "send applies a message at once as its source sends it, and active gives the keys of the current state, each with its start"
+      ]
+    ]
+  },
+  {
+    name: "active gives the keys of no state",
+    file: "src/engine.ts",
+    from: "    active: () => active,\n",
+    to: "    active: () => Core.noneActive,\n",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "send applies a message at once as its source sends it, and active gives the keys of the current state, each with its start"
+      ]
+    ]
+  },
+  {
+    name: "the end of the engine marks nothing",
+    file: "src/engine.ts",
+    from: "  const end = () => {\n    stopped = true\n  }\n",
+    to: "  const end = () => {}\n",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "end marks the end at once, with no effect: nothing sent after is applied, and ended says so, as it does once stop has run"
+      ],
+      ["src/engine.test.ts", "once the end has stopped the engine, nothing sent is applied"]
+    ]
+  },
+  {
+    name: "ended never says the end is marked",
+    file: "src/engine.ts",
+    from: "    ended: () => stopped\n",
+    to: "    ended: () => false\n",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "end marks the end at once, with no effect: nothing sent after is applied, and ended says so, as it does once stop has run"
       ]
     ]
   },
