@@ -570,7 +570,7 @@ export const build = <State, Message, Command, R, K, Event = unknown>({
     // The queue, the fork and its assignment are one step nothing interrupts: interrupted between the fork and the
     // assignment, the fiber that starts the effects would close its scope with a fiber of effects `stop` does not know
     // of. The fiber of effects is interruptible all the same, as a fiber forked where nothing interrupts is
-    // (`Effect.forkChild`). A job that came after the last of those that waited is offered first.
+    // (`FiberSet.run`). A job that came after the last of those that waited is offered first.
     yield* Effect.suspend(() => {
       jobs = queued
       offer()

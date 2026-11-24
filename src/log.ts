@@ -3,8 +3,9 @@ import * as Predicate from "effect/Predicate"
 const tagOf = (value: unknown): string | undefined =>
   Predicate.hasProperty(value, "_tag") && typeof value._tag === "string" ? value._tag : undefined
 
-// A parent wraps a child's message as `{ _tag: <child>, message }`, and its command as `{ _tag, command }`. A
-// program's own value may have a field of that name too, holding data: only a tagged value is followed.
+// A parent wraps a child's message as `{ _tag: <child>, instance, message }`, and its command as
+// `{ _tag, instance, command }`, with an `id` too for children by id. A program's own value may have a field of that
+// name too, holding data: only a tagged value is followed.
 const wrappedOf = (value: unknown): unknown =>
   Predicate.hasProperty(value, "message") && tagOf(value.message) !== undefined
     ? value.message

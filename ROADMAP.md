@@ -47,8 +47,8 @@ Effect-TS/effect#10877 showed how Effect documents what it does not promise
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. the engine, steps 20 and 21, which change nothing that a user writes (step 19, `rehearse` over the engine, was
-   done on 24 November 2026);
+1. the engine, step 21, which changes nothing that a user writes (step 19, `rehearse` over the engine, and step 20,
+   the review of the premises of steps 18 and 19, were done on 24 November 2026);
 2. the strength of what the guide says, step 48, added on 24 November 2026 and put after the engine by the owner the
    same day;
 3. what the library rests on of Effect with no promise, step 47, put last by the owner on 24 November 2026. The peer
@@ -79,43 +79,43 @@ is a lead, "valid, but taken with other types".
   first. Its `test.failing` is "simulate fails with both, as the run dies" (`contract.test.ts`, "a message whose tag
   throws as the defect of update is said"). Found by a second opinion of Fable 5.2 on step 19, on 24 November 2026,
   and run. The fix makes `dying` keep the defect when its details throw, as `recordThrown` does, wherever `diesIn`
-  is used, and gives the order a mutation; or step 21 takes it, if `simulate` goes over the engine. Opus 5.5, `high`.
+  is used, and gives the order a mutation; or step 21 takes it, if `simulate` goes over the engine. The review of step
+  20 found the same unguarded `describeByTag` in `outcomeOf` and `describeAll` (`rehearse.ts`), where a tag that throws
+  replaces the tool's error with what it threw: a fix by form checks them too. Opus 5.5, `high`.
+- **`rehearse` waits for ever on a key whose printing throws**: a `hearNext` waits on a key whose `toJSON` and
+  `toString` throw, and a `send` takes the key away. The fiber of effects tells the calls that waited (`released` in
+  `rehearse.ts`) with an error it builds at once, `stoppedWhileWaiting(key)`, whose `Inspectable.toStringUnknown`
+  falls back to `String` and throws, as its JSDoc says: the fiber of effects dies there, before the job's starts and
+  every later job, and the `send`, which waits for a job that tells after its own (`outcomeOf`, not raced with a
+  death), waits for ever, and so does the rehearsal. With a key that prints, it ends at once. It breaks "It throws
+  nothing" of `released` and `Engine.after`, and "The testing tools behave like the engine": the run never prints a
+  key. Its `test.failing` is "a hearNext stopped as its key goes away fails the test, and the rehearsal ends"
+  (`rehearse.test.ts`). Found by the review of step 20, on 24 November 2026, and run. Of the same form, untested: the
+  job of a `hearNext` builds `hasEnded(call.key)`, and `openFor` the error of a start `hear` played, in the `done` of
+  `Engine.after`; the end's `stoppedWhileWaiting` fails the rehearsal's fiber with the throw. The form is that of the
+  item above it, a value of the program printed outside its functions with no guard, and the two are fixed together:
+  print in the fiber of the call that fails, never in the fiber of effects, and race a call's wait for its job with a
+  death, as `orDead` does. Opus 5.5, `high`.
+- **`drive` skips a state for a wait, when another wait woken by that state sends first**: with a `send` that finds
+  its message and a `waitFor` both waiting on a state, the `send` waiting first, `settled` wakes them as the outermost
+  `apply` returns; the `send` dispatches at once, and the `waitFor` then reads `latest()`, the model of the state its
+  message made, and never looks at the model that woke it. The guide's "Testing tools", "drive", promises that it
+  "reads the model of each one" and that a wait "looks at the current model and at later ones". Its `test.failing` is
+  "a wait looks at the model of the state that woke it, though another wait woken by it sent first" (`drive.test.ts`).
+  So since f4cce89, before 0.8.0, which wakes the waits once the call returns. Found by the review of step 20, on 24
+  November 2026, and run. The form: a wake that reads the latest state, not the one that woke it; of the tools, only
+  `first` in `drive.ts` has it, since `rehearse` waits on no model. A fix could complete `changed` with the models
+  read since the waits were last woken, and have `look` select on those before `latest()`. Opus 5.5, `high`.
 - **A search that runs, once the run has settled, is not that of the text the field holds**: `bun run interleavings`
   failed on 23 November 2026 in "a search runs for the text of the field while it holds one, and starts once for each
   text it holds", at its second check (no search started twice passes), with `seed: -1335866316` and `path:
   "21:0:1:1:1:1:1:1:4:4:4:8:6:6:6:16:6:16:16:18:19:21:20:23:18:18:18:21:20:19:19:20:20:22:23:25:24:24:29:26:24:26:26:25:26:24:24:24:24:24:25:25:46:19:19:3:0:16:0"`.
   Given them, the property fails again alone, with nothing else running; the run that found it changed no code that
-  runs. Not yet weighed under the `'inline'` mode of resumption (`change-engine`, "A lead of the search"). Opus 5.5,
+  runs. The review of step 20 met it again, with `seed: -714533539` (its path is in the body of `b6793dc`, on
+  `claude/premise-review-engine-20-badc4f`). Not yet weighed under the `'inline'` mode of resumption (`change-engine`, "A lead of the search"). Opus 5.5,
   `high`.
 
 ## Next, in order
-
-### 20. A review of the premises of the engine and of `rehearse`
-
-**Model and effort.** Opus 5.5, `high`, for each reviewer, which wrote none of steps 18 and 19.
-
-**Depends on** step 19, done on 24 November 2026. It comes before the first release that has the engine of steps 18
-and 19. What step 19 decided and the reviewer weighs: `rehearse` runs on `Engine.build` with the register of the run,
-`makeDeaths(() => true)`, as the owner decided after a second opinion, so that it dies, as the run, of what is thrown
-outside every function of the program ("a message whose tag throws as the defect of update is said",
-`contract.test.ts`); the fiber of a command says what it is in its first step (`Effect.fiber`), and a `run`
-interrupted before that step waits for it, with no change of the engine: the end interrupts that wait once it has
-stopped the fibers, which no deterministic test reaches, so it has no mutation (`docs/invariants.md`, "The testing
-tools behave like the engine"); the asks of a start are a mailbox of `Deferred`s made by plain code (`Asks` in
-`rehearse.ts`), whose completion resumes the subscription's fiber on the stack of the thunk that asks, which writes
-the ledger first; and the report of the engine's end is not read, since the rehearsal reads the same register.
-
-**How.** As [`premise-review`](.agents/skills/premise-review/SKILL.md) says, over the changes of the engine and of
-the testing tools since `v0.8.0`. The review of 21 November 2026, before that tag, has its reports in the bodies of
-`1317333` on `claude/premise-review-engine-080`, `8ffc7a4` on `claude/premise-review-testing-bc87b9` and `6e90b46` on
-`claude/premise-review-bridges-f28572`, which stay unmerged. Step 38 dropped the premise that a channel made by
-`Channel.map` and `Channel.mapDone` runs afresh each time, which held a child's lifted subscription, cached by its
-state: a parent now makes one for each start. What it did not weigh: a `listen` that returns the same channel for
-every start, as `listen: () => ticks` in the examples and the guide, runs one value again at each start, and in two
-runs at once, which the JSDoc of `Channel` does not state. It was so before step 38 too, with no premise listed. The
-review weighs whether it is a premise of the library's, and asks the owner before one is added.
-
-**Done when** each finding is fixed, or listed under "Open problems" with its `test.failing`.
 
 ### 21. `simulate`, weighed again
 
@@ -239,6 +239,24 @@ that none was asked and why. A premise leaves the list by an upgrade to the Effe
 
 Where a step above would answer a point below, the point stays here until the step is done. A point of the seven that
 is gone leaves its number unused.
+
+- **Two points of the review of the premises of step 20** (24 November 2026), whose reports are the bodies of
+  `b6793dc` on `claude/premise-review-engine-20-badc4f` and `2c0862a` on `claude/premise-review-testing-20-d42368`:
+  1. **A `listen` that gives the same channel for every start**, as `listen: () => ticks` in the examples and the
+     guide's "Subscriptions", runs that one value again at each start of its key, and at once for two keys. The
+     library rests on it, and the JSDoc of `Channel` in Effect 4.1.5 does not state it: it is the premise that 04eb7b4
+     dropped, of a channel that `Channel.map` makes, now of the user's value. A test of Effect alone passes (one value
+     of `Channel.fromIterator(…).pipe(Channel.concatWith(…))` drained twice in turn and twice at once through
+     `Channel.toPull`). To decide: list it in `docs/premises.md` with that test, or ask a `listen` to make its channel
+     anew, which changes the guide's form. Opus 5.5, `medium`, once decided.
+  2. **A new state whose `subscriptions` dies is the current one, and no listener is told of it**: `applyOne` sets
+     `current`, then returns on the defect before `tell` (`engine.ts`). The guide promises, outside "Precisely", that
+     "`subscribe(listener)` tells `listener` of each new state, once it is the current one" (`running.md`), and so do
+     the doc comments of `App.subscribe` (`run.ts`) and `Engine.subscribe` (`engine.ts`); "after a defect" there says
+     only that `onApplied` "may have heard a step whose model is never drawn". A renderer that draws in its listener
+     shows the state before, while `model()` gives the new one. To decide: tell the listeners of that state too, leave
+     `current` as it was, as a defect of `onApplied` does, or state the exception in `running.md` and the two doc
+     comments. Opus 5.5, `high`, once decided.
 
 - **Two points of the table of step 27** ([`given-functions.md`](docs/records/given-functions.md), "For the owner"):
   1. **An `Equal` and a `Hash` that keep Effect's laws.** The library compares keys, ids, flags and values written by

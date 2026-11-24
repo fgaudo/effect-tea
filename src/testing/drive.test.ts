@@ -675,3 +675,40 @@ describe("drive's send, made by a wait that a step wakes", () => {
     expect(after).toEqual({ count: 1, went: true })
   })
 })
+
+// Found by the review of the premises of step 20: `drive` wakes its waits once the call that made a state has returned
+// (`settled`), and each wait it wakes reads the model of the moment it runs. So a first wait woken by a state, which
+// sends at once, makes a later state before a second wait woken by the same state looks: the second never looks at the
+// model that woke it.
+describe("drive's waits, woken by one state, the first of which sends", () => {
+  type Row = Readonly<{ count: number }>
+  const row: Program<{ state: Row; model: Row; message: "Up" }> = {
+    init: { state: { count: 0 } },
+    update: () => (state) => ({ state: { count: state.count + 1 } }),
+    subscriptions: () => [],
+    makeModel: (state) => state
+  }
+
+  // Both waits are forked at once, so that both wait on the first state before the scenario dispatches: the one that
+  // sends first, then the one that only waits.
+  test.failing("a wait looks at the model of the state that woke it, though another wait woken by it sent first", async () => {
+    const seen = await Effect.runPromise(drive(
+      row,
+      Effect.fnUntraced(function*(driver) {
+        const sending = yield* Effect.forkChild(
+          driver.send(({ count }) => count === 1 ? Opt.some<"Up">("Up") : Opt.none()),
+          { startImmediately: true }
+        )
+        const waiting = yield* Effect.forkChild(
+          driver.waitFor(({ count }) => count === 1 ? Opt.some(count) : Opt.none()),
+          { startImmediately: true }
+        )
+        yield* Effect.sync(() => driver.dispatch("Up"))
+        yield* Fiber.join(sending)
+        return yield* Effect.exit(Fiber.join(waiting))
+      }),
+      { patience: "300 millis" }
+    ))
+    expect(seen).toEqual(Exit.succeed(1))
+  })
+})

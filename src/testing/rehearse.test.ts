@@ -2758,3 +2758,51 @@ describe("rehearse's send, made by a hearNext that a job wakes", () => {
     expect(after).toEqual({ heard: ["Ping", "Go"] })
   })
 })
+
+// Found by the review of the premises of step 20: the fiber of effects tells the calls that waited on a start once its
+// key's release has ended (`released`), with an error that prints the key (`Inspectable.toStringUnknown`), which falls
+// back to `String` and so throws what a key's `toString` throws. The fiber of effects dies there, before the job's
+// starts and the jobs after it: a call that waits for a job, as the `send` that took the key away, waits for ever.
+describe("rehearse, with a key whose printing throws", () => {
+  type Shown = Readonly<{ on: boolean }>
+  class Unprintable implements Equal.Equal {
+    [Equal.symbol](that: Equal.Equal): boolean {
+      return that instanceof Unprintable
+    }
+    [Hash.symbol](): number {
+      return 0
+    }
+    toJSON(): never {
+      throw new Error("toJSON")
+    }
+    toString(): never {
+      throw new Error("toString")
+    }
+  }
+  const key = new Unprintable()
+  const shown: Program<{ state: Shown; model: Shown; message: "Off"; key: Unprintable }> = {
+    init: { state: { on: true } },
+    update: () => () => ({ state: { on: false } }),
+    subscriptions: ({ on }) => on ? [key] : [],
+    listen: () => Channel.never,
+    makeModel: (state) => state
+  }
+
+  test.failing("a hearNext stopped as its key goes away fails the test, and the rehearsal ends", async () => {
+    const outcome = await Effect.runPromise(Effect.map(
+      Effect.timeoutOption(
+        Effect.exit(rehearse(
+          shown,
+          Effect.fnUntraced(function*(rehearsal) {
+            const waiting = yield* Effect.forkChild(rehearsal.hearNext(key), { startImmediately: true })
+            yield* rehearsal.send(() => Opt.some("Off"))
+            return yield* Effect.exit(Fiber.join(waiting))
+          })
+        )),
+        "1 second"
+      ),
+      Opt.getOrElse(() => "hung" as const)
+    ))
+    expect(outcome !== "hung" && Exit.isSuccess(outcome) && Exit.isFailure(outcome.value)).toBe(true)
+  })
+})

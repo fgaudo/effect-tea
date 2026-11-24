@@ -1645,9 +1645,9 @@ describe("a defect of makeModel", () => {
   }
 
   // Found by the review of the testing tools of November 2026. The run makes the handle though the subscriptions of the
-  // first state die, and a renderer that reads its model, as `drive` does, meets the model's defect too: `rehearse`,
-  // which makes the model "as a renderer told of every state that reads each one", fails on the first and never makes
-  // the model. On a later state neither reads it, since the run tells no listener of a state whose keys died.
+  // first state die, and a renderer that reads its model, as `drive` does, meets the model's defect too, and so does
+  // `rehearse`, which makes the model "as a renderer told of every state that reads each one", whatever the first keys
+  // did. On a later state neither reads it, since the run tells no listener of a state whose keys died.
   const bothFirst: Program<{ state: Count; model: number; message: "Go" }> = {
     ...modeling,
     subscriptions: () => {

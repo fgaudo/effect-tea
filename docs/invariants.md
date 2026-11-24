@@ -187,9 +187,9 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   start: never skip it in the fiber of effects, which would be a check of what the thunk changes, made in another fiber,
   against "one thunk" below. `rehearse` never gives the engine such a message: `hear` fails on a key gone from the current
   state, also after it has waited for the job that starts its start, and its ledger forgets a start in the transition
-  that stops it ("a start whose key went away is stopped and forgotten, and the calls waiting on it are told",
-  `ledger.test.ts`; "hear on a key that goes away while it waits for its start's job fails the test, and reaches no
-  update", `rehearse.test.ts`). The rule rests on nothing of Effect: it is the engine's own, tested where the fibers'
+  that stops it ("a start whose key went away is forgotten, and the calls waiting on it are told once it is
+  released", `ledger.test.ts`; "hear on a key that goes away while it waits for its start's job fails the test, and
+  reaches no update", `rehearse.test.ts`). The rule rests on nothing of Effect: it is the engine's own, tested where the fibers'
   order would otherwise hide it. Keys are the program's, and so are their `Equal` and `Hash`: the run compares them only
   in `'subscriptions'` (`reconcile` in `core.ts`), and keeps its fibers, and tells a message that still applies, by
   their start, which compares no keys.
@@ -491,7 +491,8 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   engine marks, read by `submit`, the register, a call that left) each have a mutation with a deterministic killer, and the tests of
   `rehearse.test.ts` under the scheduler of the tests stay as alarms of the search, killing none.
 - **What the engine gives a testing tool, the run takes by its defaults** ("What the engine gets", in
-  [`one-engine.md`](records/one-engine.md)). In the config of `Engine.build`, there are four. `listening` and
+  [`one-engine.md`](records/one-engine.md)). In the config of `Engine.build`, there are five. `settled` is called last
+  as the outermost `apply` returns, where `drive` wakes its waits. `listening` and
   `answering` say what the fiber of a start and that of a command run. The job calls each where it forks the fiber, as
   a function of the program is called where the call is decided ("one thunk", below), and the fiber runs what it
   returns inside its root, in the run's context. `stepped` is told in the thunk as each step stands: what a message came
@@ -502,8 +503,8 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   once every job before it is, and asked in a step, it waits with that step's job until the outermost call returns.
   `send` applies a message as its source sends it, and `active` gives the keys of the current state. `end` marks the
   end by plain code, as `stop` marks it first, and `ended` reads it. The defaults are what the run did before them,
-  and the run gives none of them: `rehearse` gives them all but `settled`, and only a testing tool may, or the tests
-  of the engine. They add no premise:
+  and the run gives none of them: `drive` gives `settled` alone, through `startWith`, and `rehearse` all but
+  `settled`; only a testing tool may, or the tests of the engine. They add no premise:
   the fibers are forked with `FiberSet.run` and `FiberMap.run`, as before. Each has a test in `engine.test.ts` ("what a
   testing tool is given") and a mutation.
 - **The testing tools behave like the engine** where it is deterministic, with the test as the scheduler

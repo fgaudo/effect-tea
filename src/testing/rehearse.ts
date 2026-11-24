@@ -108,9 +108,9 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
    * - After the subscription's end value, `hear` does not hear the key until the key goes away and comes back.
    * - A message that `update` rejects is listed in `ignored`.
    *
-   * @param key - The subscription's key, as the program lists it. A child's key is under the child's name and the
-   * number of its instance, as its parent lists it: `['Clock', 1, 'ticks']`, and `['Row', id, 1, 'ticks']` for
-   * children by id.
+   * @param key - The subscription's key, as the program lists it. A child's key names the child and its instance, as
+   * its parent lists it: `{ _tag: 'Clock', instance: 1, key: 'ticks' }`, and
+   * `{ _tag: 'Row', id, instance: 1, key: 'ticks' }` for children by id.
    * @param message - What the subscription sends, as a message of the program.
    *
    * @see The guide, "Testing tools", "A subscription's message is one the test says was heard".
