@@ -47,8 +47,9 @@ Effect-TS/effect#10877 showed how Effect documents what it does not promise
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
-1. the strength of what the guide says, step 48, added on 24 November 2026;
-2. the engine, steps 18 to 21, which change nothing that a user writes;
+1. the engine, steps 18 to 21, which change nothing that a user writes;
+2. the strength of what the guide says, step 48, added on 24 November 2026 and put after the engine by the owner the
+   same day;
 3. what the library rests on of Effect with no promise, step 47, put last by the owner on 24 November 2026. The peer
    range, step 8, stayed a tilde on 23 November 2026: a version published keeps its range, so one that a later Effect
    breaks could still be installed.
@@ -80,43 +81,6 @@ is a lead, "valid, but taken with other types".
   `high`.
 
 ## Next, in order
-
-### 48. The guide's descriptions, weighed by what they hold
-
-**Model and effort.** Opus 5.5, `high`: the guide changes a section at a time, each sentence checked against the old
-one, with the mutations and the tests that hold it.
-
-**Depends on** no other step. The record leaves to step 46 the two items of a self-interruption as the run stops it (9
-and 10 of "Unspecified" in [`guide-descriptions.md`](docs/records/guide-descriptions.md), and the third mutation of its
-"Four that do not match"): that step was closed on 24 November 2026 with the guarantee kept, and the mark, the roots
-and the question to the fiber with it (`docs/rejected.md`), so the run does of that case what it did, and the owner
-decides the two items here, with the others.
-
-**Why.** A description is as true as a promise, has a test, and needs a changelog entry where a consumer can notice
-that it changed (`AGENTS.md`, "The guide is a specification"): one that no decision of a user rests on is a constraint
-on the engine with no use. Effect says of such a behaviour only that it is unspecified, as Effect-TS/effect#10878 does.
-The review of 24 November 2026 found ten such descriptions, which would take about 11 lines, up to five mutations and
-the cases of their tests, and four places where the strength of the guide and what checks it do not match.
-
-**How.** The record is a review's reading: check each item against the code before it changes anything.
-
-1. The four that do not match, first, each as the owner decides before it is written:
-   - the four mutations whose `guarantees` names a guarantee for a behaviour the guide describes: for each, the
-     guarantee covers the case, and the description becomes a promise, or the tag goes;
-   - the number of an instance, which `testing.md` promises on the order of the starts that `composition.md` describes:
-     advised, the order promised, since a test written by the guide rests on it;
-   - "What does not compile", under "Precisely" in `anatomy-of-a-program.md` and `composition.md` though checked as a
-     guarantee is: advised, out of "Precisely", since the rules of the types owe each refusal;
-   - the promises said again under "Precisely" need nothing: noted in the record for whoever changes one.
-2. Each of the ten of "Unspecified", as the owner takes it: the description replaced by the record's sentence, its
-   tests and its mutation removed only where nothing else holds them (`change-engine`), the comments that name the
-   section reread (`bun run comments`). A description replaced keeps every promise, so it needs no changelog entry; a
-   promise added follows `release`.
-3. The others of "Promote?" are not in this step: the owner weighs each when a user is seen to rest on it.
-
-**Done when** the owner has decided each of the four and each of the ten, the guide, the mutations and the tests say
-what was decided, and `bun run comments`, `bun run lint`, `bun run test`, `bun run test:node` and `bun run mutations`
-pass. The record says what was decided, at its head.
 
 ### 18. The engine's seams, with the run as their only user
 
@@ -199,6 +163,43 @@ rehearsal that hears nothing. It would cost a fiber of effects and a scope for e
 run thousands: measured before it is decided ([`one-engine.md`](docs/records/one-engine.md), "`simulate`").
 
 **Done when** the owner has decided: `simulate` runs over the engine, or an entry of `docs/rejected.md` says why not.
+
+### 48. The guide's descriptions, weighed by what they hold
+
+**Model and effort.** Opus 5.5, `high`: the guide changes a section at a time, each sentence checked against the old
+one, with the mutations and the tests that hold it.
+
+**Depends on** no other step. The record leaves to step 46 the two items of a self-interruption as the run stops it (9
+and 10 of "Unspecified" in [`guide-descriptions.md`](docs/records/guide-descriptions.md), and the third mutation of its
+"Four that do not match"): that step was closed on 24 November 2026 with the guarantee kept, and the mark, the roots
+and the question to the fiber with it (`docs/rejected.md`), so the run does of that case what it did, and the owner
+decides the two items here, with the others.
+
+**Why.** A description is as true as a promise, has a test, and needs a changelog entry where a consumer can notice
+that it changed (`AGENTS.md`, "The guide is a specification"): one that no decision of a user rests on is a constraint
+on the engine with no use. Effect says of such a behaviour only that it is unspecified, as Effect-TS/effect#10878 does.
+The review of 24 November 2026 found ten such descriptions, which would take about 11 lines, up to five mutations and
+the cases of their tests, and four places where the strength of the guide and what checks it do not match.
+
+**How.** The record is a review's reading: check each item against the code before it changes anything.
+
+1. The four that do not match, first, each as the owner decides before it is written:
+   - the four mutations whose `guarantees` names a guarantee for a behaviour the guide describes: for each, the
+     guarantee covers the case, and the description becomes a promise, or the tag goes;
+   - the number of an instance, which `testing.md` promises on the order of the starts that `composition.md` describes:
+     advised, the order promised, since a test written by the guide rests on it;
+   - "What does not compile", under "Precisely" in `anatomy-of-a-program.md` and `composition.md` though checked as a
+     guarantee is: advised, out of "Precisely", since the rules of the types owe each refusal;
+   - the promises said again under "Precisely" need nothing: noted in the record for whoever changes one.
+2. Each of the ten of "Unspecified", as the owner takes it: the description replaced by the record's sentence, its
+   tests and its mutation removed only where nothing else holds them (`change-engine`), the comments that name the
+   section reread (`bun run comments`). A description replaced keeps every promise, so it needs no changelog entry; a
+   promise added follows `release`.
+3. The others of "Promote?" are not in this step: the owner weighs each when a user is seen to rest on it.
+
+**Done when** the owner has decided each of the four and each of the ten, the guide, the mutations and the tests say
+what was decided, and `bun run comments`, `bun run lint`, `bun run test`, `bun run test:node` and `bun run mutations`
+pass. The record says what was decided, at its head.
 
 ### 47. Ask Effect to document what the library rests on
 
