@@ -53,12 +53,14 @@ export const app = withChildren({
 The parent's own state says only whether About is open, and with what. The clock's state, and the about page's, are
 kept by the library.
 
-## Declaring children
+## Rules
+
+### Declaring children
 
 A parent declares its children by name, in `withChildren`. For each child, and for itself, a parent declares what
 follows. The sections below group it in four parts.
 
-### When a child is there
+#### When a child is there
 
 Each of these is a function of the parent's own state:
 
@@ -76,7 +78,7 @@ Each of these is a function of the parent's own state:
   - A child that leaves, and comes back in a later step, is started again. It does not keep the state it had before
     it left.
   - Telling a child that is not there is a defect, not a rejection (see
-    [events and external messages](./events-and-external-messages.md#precisely)).
+    [events and external messages](./events-and-external-messages.md#external-messages)).
 - **A child with `flags`** is declared with them: `child(About.about, { flags: (state) => state.about })`.
   - `flags` gives `Some` of the flags in the states where the child is there, and `None` in the others. So its model
     is an `Option`, also where its parent always gives flags.
@@ -88,7 +90,7 @@ Each of these is a function of the parent's own state:
   there. In the example above, `listening` stops the clock's subscriptions while About is open. Its state stays as it
   is.
 
-### How a parent and its children start
+#### How a parent and its children start
 
 - **How a child starts.** A parent's `init` is a step of its own state: `init: { state, commands }`. The library starts
   each child that this state lists, from the child's `init`, with the child's first commands. Those commands are now
@@ -101,7 +103,16 @@ Each of these is a function of the parent's own state:
   `program<{ state: State; flags: Flags }>()`. Then the parent's `init` is the function that starts the parent:
   `init: (flags) => ({ state, commands })`. The library starts the children that its state lists.
 
-### The parent's own pieces
+**When the children start.** A parent without flags of its own gives its first step as a value. `make` starts the
+children that this step lists as it makes the program, so a child's `init` that is a function of flags is called by
+`make`. What it throws is thrown by `make`, as it is, and no run records it. Every start of the program begins from that
+state. A parent with flags is started by `start`, or by its own parent, which then starts its children.
+
+**The order of the starts.** The children that one state lists anew are started by the order of their names in
+`withChildren`, then by the order of their ids. Their instances are numbered in that order: each start takes the next
+number, from 1 for the first child that the parent starts.
+
+#### The parent's own pieces
 
 - **What the parent draws: `makeModel`.** The parent's `makeModel` makes the parent's model from its own state and its
   children's models: `makeModel: (state, children) => …`.
@@ -130,7 +141,9 @@ Each of these is a function of the parent's own state:
   [anatomy of a program](./anatomy-of-a-program.md)). Each type names what is the parent's own. What the children and
   the inputs bring is added to that type.
 
-### The parent's inputs
+**`runCommand`** is required exactly when the parent has commands of its own.
+
+#### The parent's inputs
 
 - If the parent has inputs, it declares them in `inputs`: `inputs: { Name: input({ at }) }`. Here `at` is an optic to a
   value of the parent's own state, beside which `store` may declare the form that a value is stored in (see
@@ -140,7 +153,7 @@ Each of these is a function of the parent's own state:
   - A write into an input changes the parent's own state. So a write that changes what the state lists starts or
     drops children, as a step of the parent's own does.
 
-### What the library derives
+#### What the library derives
 
 From these declarations, the library derives the parent's state, messages, commands and subscriptions:
 
@@ -181,23 +194,7 @@ Three more facts hold for children and inputs:
 - **The rule of an input.** A write is stored, in the form that the input declares, wherever the input's place is
   there, and rejected where it is not. Every other step leaves an input as that step wrote it.
 
-### Precisely
-
-**`runCommand`** is required exactly when the parent has commands of its own.
-
-**When the children start.** A parent without flags of its own gives its first step as a value. `make` starts the
-children that this step lists as it makes the program, so a child's `init` that is a function of flags is called by
-`make`. What it throws is thrown by `make`, as it is, and no run records it. Every start of the program begins from that
-state. A parent with flags is started by `start`, or by its own parent, which then starts its children.
-
-**The order of the starts.** The children that one state lists anew are started by the order of their names in
-`withChildren`, then by the order of their ids. Their instances are numbered 1, 2, 3 and on, in that order. This is
-described, not promised.
-
-**When the children are compared.** The library compares what the parent's state lists with the children that are
-there after each step of the parent's own code, and each write into one of its inputs, that changes the parent's own
-state. So a `key` or `flags` that makes a function anew at each call gives other flags each time, since `Equal`
-compares a function by reference: its child starts again at each such step. This is described, not promised.
+#### What does not compile, and what is a defect
 
 **What does not compile:**
 
@@ -229,7 +226,7 @@ of it. Here is what the compiler can check there, and what it cannot.
   - a `runCommand`, when the child has commands.
 - For a type parameter, such as `P` in `<P extends AnyProgram>(p: P) => …`, the compiler cannot decide what the child
   needs. So `child`, `childById` and `withChildren` do not compile there. Nor does `make` for a state that is a type
-  parameter (see [what does not compile](./anatomy-of-a-program.md#precisely)).
+  parameter (see [what does not compile](./anatomy-of-a-program.md#rules)).
 - A wrapper around content, such as a dialog, is better as a child beside the content than as a parent of it. The
   parent of both is then a program like any other.
 - You can still write a function over any program. The function's signature names the types. The function's body makes
@@ -270,13 +267,13 @@ export function inDialog(content: Program<{ state: object; model: unknown; messa
 - the model or the output of a child that is not there: of an id that the parent's state does not list, or of a child
   that is always there, read from a state written by hand that does not hold it;
 - telling a child that is not there once the step is taken (see
-  [events and external messages](./events-and-external-messages.md#precisely));
+  [events and external messages](./events-and-external-messages.md#external-messages));
 - telling a child that has no `external`, which only a cast lets into the program.
 
 Only `program` makes a `CompositionDefect`. A test reads one. The types refuse to build one, with `new` or with a
 class that extends it.
 
-## Children's views
+### Children's views
 
 - **A child's view gets a dispatch of its own.** The child's view sends the child's own messages through it.
   `forwardTo(dispatch, 'Clock')` gives this dispatch: it wraps each message of the child as the parent receives it.
@@ -305,7 +302,7 @@ const view: View<Model, Message> = (model, dispatch) =>
 - **A grandchild's dispatch is made from its parent's**: `forwardTo(forwardTo(dispatch, 'Home'), 'Products')`. A view
   usually writes it in two steps: each view takes the dispatch that its parent's view gave it.
 
-## Children by id
+### Children by id
 
 For children by id, such as the rows of a list, use `childById` instead of `child`:
 
@@ -322,7 +319,7 @@ For children by id, such as the rows of a list, use `childById` instead of `chil
   way. `Equal` compares by value what Effect documents: primitives, arrays, plain objects, `Map`, `Set`, dates,
   regular expressions, and values that implement `Equal`, as `Option` and `Data` do. It compares a function by
   reference.
-- **An id listed twice is a defect** (see [what is a defect](#precisely)).
+- **An id listed twice is a defect** (see [what is a defect](#what-does-not-compile-and-what-is-a-defect)).
 
 See [`list`](../../examples/list/list.ts).
 

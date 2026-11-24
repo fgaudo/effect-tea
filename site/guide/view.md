@@ -50,7 +50,7 @@ the model holds: `on: { click: () => dispatch(model.more) }`.
 - **Each bridge says what it draws beside the model.** The guarantees are of the program (see
   [guarantees](./guarantees.md)). What a bridge adds of the screen is its own promise:
   - The bridge to snabbdom draws the model, and nothing else: what it shows of a controlled element is the value its
-    model gave it (see [a controlled element](./writing-a-bridge.md#a-controlled-element)). It draws each model whole,
+    model gave it (see [the package's bridges](./writing-a-bridge.md#the-packages-bridges)). It draws each model whole,
     never in parts. It draws in a microtask after each new state, and after each message that a handler of the view
     sends, so before the browser handles the next event.
   - The bridge to React is hosted by a React application. The application's components may keep state of their own,

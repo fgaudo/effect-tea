@@ -93,7 +93,7 @@ handler returns, the state holds what was typed, or has rejected it. The element
 the new model, before the next event.
 
 How each bridge keeps the element so, and which elements it draws, is in
-[a controlled element](./writing-a-bridge.md#a-controlled-element): [`form`](../../examples/form) draws its input with
+[the package's bridges](./writing-a-bridge.md#the-packages-bridges): [`form`](../../examples/form) draws its input with
 snabbdom and with React.
 
 ### What an element reports
@@ -105,7 +105,7 @@ point of a press.
   - The rule of an input holds, and nothing is promised of the element. A write is stored where its place is there,
     and rejected where it is not. A value that the program leaves in such a place is not shown: the package's bridges
     give an element back its `value` and its `checked` alone (see
-    [a controlled element](./writing-a-bridge.md#a-controlled-element)).
+    [the package's bridges](./writing-a-bridge.md#the-packages-bridges)).
   - Where a write at each event costs too much, the handler writes the value once, as the scroll ends (see
     [what is left to you](./guarantees.md#what-is-left-to-you)).
 - **What is there whatever is drawn is a subscription.** A value of an element that the view draws comes from its
@@ -140,7 +140,17 @@ point of a press.
   in the call that sends it, so the write is stored before the message is sent. The message comes from a model that
   the write has moved past, and `update` judges it in the new state, as it judges any message.
 
-What a model shows of such a value is in [a value that an element reports](#a-value-that-an-element-reports).
+### A value that an element reports
+
+What a model shows of a value that an element reports, as the offset of a scroll:
+
+- **The model says where the element reports.** It does so by its case: the case in which the view gives the element
+  its handler. So "a view writes only into the inputs that the model shows" holds as it is (see
+  [model](./model.md)). For a fact that comes with a value, that case holds the message without its value.
+- **The model holds the value of an input only where the view draws by it.** A model that holds an offset is a new
+  model at each event of the scroll.
+- **A test writes a value other than the one the state holds**, since the model does not show it. Into a message held
+  without its value, a test fills values that it draws (see [testing](./testing.md#the-reader)).
 
 ### What is typed, in another form
 
@@ -155,8 +165,7 @@ another form has four ways:
   [the element on screen](#the-element-on-screen)).
 - **Change the text as it is stored, with `store`.** The input declares the form that a value is stored in: for
   example, the text in capitals. The form is given the value alone, never the state. The element is then drawn with
-  the value stored, at once, and keeps its focus. Where the caret goes then is the browser's, and is not promised:
-  Chromium puts it at the end of the text.
+  the value stored, at once, and keeps its focus. Where the caret goes then is the browser's, and unspecified.
 
   ```ts
   inputs: { Note: input({ at: Optic.id<State>().key('note'), store: (note) => note.toUpperCase() }) },
@@ -170,7 +179,7 @@ another form has four ways:
   it is outside what this page promises, as any value that an element changes by itself is (see
   [what is left out](./writing-a-bridge.md#what-is-left-out)). The package's bridges show no mask.
 
-## Inputs by id
+### Inputs by id
 
 A value that the user types into each row, such as the count of each item, is an input by id where the program that
 holds the rows uses it (see [splitting a program](./structuring-a-program.md#splitting-a-program)). Use `inputById`
@@ -248,6 +257,12 @@ child instead, with an input of its own, the parent reads only what the row decl
 
 See [`stocktake`](../../examples/stocktake/stocktake.ts).
 
+**A write names a place, not an instance.** So a message drawn for an old instance reaches the new one at the same
+place, and this does not corrupt the state:
+
+- **A write at the id of an input by id whose row was removed is stored**, when another row was added at that id.
+- **A message drawn for an old instance of a child reaches the new one.** There, `update` decides.
+
 ## Do and don't
 
 Each pair sums up a rule of this page. The rule itself is above.
@@ -257,9 +272,7 @@ Each pair sums up a rule of this page. The rule itself is above.
 | Answer in a subscription or a command with a message of the program.     | Write into an input from a subscription or a command.                             |
 | Lock the rows while an operation runs, with a `get` that returns `None`. | Keep the rows' places while the operation runs: their writes can still be stored. |
 
-## Precisely
-
-### Why what the user types is no message
+## Why what the user types is no message
 
 A text field could send a message for each keystroke, with the text in it, and `update` could store the text. The
 model could hold that message without its text, as it holds a fact that comes with a value (see
@@ -278,23 +291,3 @@ So no `update` runs when the user types. A program that must act on what is type
   read it.
 - Work that follows the text, such as a search while the user types, is a subscription with the text in its key. A
   new value of the key starts the subscription anew (see [subscriptions](./subscriptions.md)).
-
-### A value that an element reports
-
-What a model shows of a value that an element reports, as the offset of a scroll:
-
-- **The model says where the element reports.** It does so by its case: the case in which the view gives the element
-  its handler. So "a view writes only into the inputs that the model shows" holds as it is (see
-  [model](./model.md)). For a fact that comes with a value, that case holds the message without its value.
-- **The model holds the value of an input only where the view draws by it.** A model that holds an offset is a new
-  model at each event of the scroll.
-- **A test writes a value other than the one the state holds**, since the model does not show it. Into a message held
-  without its value, a test fills values that it draws (see [testing](./testing.md#the-reader)).
-
-### A limit
-
-A message names a place, not an instance. So a message drawn for an old instance reaches the new one at the same
-place, and this does not corrupt the state:
-
-- **A write at the id of an input by id whose row was removed is stored**, when another row was added at that id.
-- **A message drawn for an old instance of a child reaches the new one.** There, `update` decides.

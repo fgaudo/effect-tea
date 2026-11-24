@@ -30,22 +30,23 @@ This page is a map. It is a summary: the page each line links rules where the li
 
 ## What a page promises
 
-The guide says things with two strengths:
+The guide promises three things, and nothing else:
 
-- **A promise** is what you can build on. The library means to keep it. A change of a promise is a breaking change:
-  before 1.0 it raises the minor version, and the changelog says how to upgrade.
-- **A description** says how this version behaves, so that you can follow a run and debug it. It is true of this
-  version, and the library's tests check it. It may change in any release, and the changelog says so where you could
-  notice.
+- what stands under "Rules", on any page;
+- what stands under "What you can rely on", in [guarantees](./guarantees.md);
+- what the types of the API accept and refuse.
 
-A sentence is a description in three places:
+A promise is what you can build on. The library means to keep it, and its tests check it. A change of a promise is a
+breaking change: before 1.0 it raises the minor version, and the changelog says how to upgrade. Under "Rules", a
+sentence says what the library does, which is a promise, or what your program must do, which is a rule it keeps. The
+rules that nothing checks are listed under "What is left to you", in guarantees.
 
-- under "Precisely", on any page;
-- under "What is left to you", in [guarantees](./guarantees.md): that list promises nothing;
-- where the sentence says that it is described, and not promised.
+The rest of a page explains, and binds nothing: a summary, an example, advice, a reason. Where it seems to say more
+than the rules, the rules rule. What the guide does not promise is unspecified: it may change in any release, and the
+changelog does not say so. Where a page names something unspecified, it says so in a few words.
 
-Every other sentence is a promise. The library is at version 0.x, so its API still changes: a promise holds for the
-version you have installed, until a release that raises the minor version changes it.
+The library is at version 0.x, so its API still changes: a promise holds for the version you have installed, until a
+release that raises the minor version changes it.
 
 ## Where to start
 
@@ -62,9 +63,10 @@ Most pages have the same sections, in this order:
 
 - **In short**: the concept in a few sentences. It is enough for a first reading.
 - **An example**: the concept in code, usually from the examples.
-- **Rules**: what you follow when you write a program.
+- **Rules**: what the library does, and what your program must do. It is all that the page promises.
 - **Do and don't**: on some pages, the rules summed up as pairs. The rules themselves are above it.
-- **Precisely**: the exact details and the edge cases, for when you need them. They are descriptions, not promises.
+
+Some pages end with a section of more examples, or of a reason. It explains, as the first two do.
 
 ## The pages
 

@@ -61,10 +61,22 @@ control sends the message that the program fixed for it.
   of [`pages`](../../examples/pages/clock.ts) picks its format so: each case of its model holds the message that picks
   the other format.
 - Export `Message` as a type only, so that no view calls its constructors. The types do not stop a view from writing
-  a message whole, as a literal: that rule is the view's to keep (see [precisely](#precisely)).
+  a message whole, as a literal: that rule is the view's to keep.
+- The library does not enforce the rules that a view keeps to: a view sends only the messages that the model holds,
+  writes only into the inputs that the model shows, and adds nothing but the values that an element or its event
+  gives (see [what is left to you](./guarantees.md#what-is-left-to-you)). What the library says about a model rests on
+  them. A test reads the messages of a program from its model, and fills a message held without its value with values
+  that it draws (see [testing](./testing.md)). So no test sees a message that a view built itself, nor a value that a
+  view computed.
 
 **A model is data.** A model holds no function. A model compares by value with `Equal`. The models of two equal states
 are equal.
+
+- Data need not be serializable. A plain object, an array, an `Option`, a `Data` class or a `HashMap` is data: `Equal`
+  compares each of them by what it holds.
+- The testing tools compare the messages of a model by value, with `Equal`, and a test checks that the models of two
+  equal states, built apart, are equal (see [testing](./testing.md)). A function made anew by each call of `makeModel`
+  would break both.
 
 What a model shows, and what a view may decide, is in [structuring a program](./structuring-a-program.md).
 
@@ -87,23 +99,3 @@ const withFunction = (state: State) => ({ name: state.name, save: () => Message.
 // Do: the message itself, as a value
 const withMessage = (state: State) => ({ name: state.name, save: Message.SaveClicked() })
 ```
-
-## Precisely
-
-**The rules a view keeps to are not enforced.** A view keeps three rules:
-
-- It sends only the messages that the model holds.
-- It writes only into the inputs that the model shows.
-- It adds nothing to what it sends but the values that an element or its event gives, as given. It never builds a
-  message of the program itself.
-
-The library does not enforce these rules. What the library says about a model rests on them. A test reads the messages
-of a program from its model, and fills a message held without its value with values that it draws (see
-[testing](./testing.md)). So no test has seen a message that a view built itself, nor a value that a view computed.
-
-**Why a model holds no function.** The testing tools compare the messages of a model by value, with `Equal`. A test
-checks this on the models of two equal states, built apart (see [testing](./testing.md)). A function made anew by each
-call of `makeModel` would break this comparison.
-
-**Data does not have to be serializable.** A plain object, an array, an `Option`, a `Data` class or a `HashMap` is
-data: `Equal` compares each of them by what it holds.

@@ -59,13 +59,20 @@ const save = Effect.fn("Save")(
 **A command carries everything it needs.** `runCommand` does not see the state. The services of a command are
 provided around `run`.
 
-**Commands run concurrently.** Their answers reach `update` in the order in which the commands end, not the order in
-which they started. So `update` must handle the answers in any order.
+**Commands run concurrently.** The run starts the commands of a step after the step is applied, in the order of the
+states (see [guarantees](./guarantees.md#what-you-can-rely-on)), and goes on without waiting for them. Their answers
+reach `update` in the order in which the commands end, not the order in which they started. So `update` must handle
+the answers in any order.
+
+**A command has a scope of its own.** What the command acquires (`Effect.acquireRelease`, `Effect.forkScoped`) is
+released when the command ends, before its message reaches `update`. So `run` never asks for a `Scope`. What must
+outlive a command belongs in a service provided around `run`, or in a subscription.
 
 **Commands cannot be cancelled.** Once started, a command runs to its end, and its message arrives, even if the state
 has moved on. No message and no change of state stops a command, and a command that the program interrupts is a
 defect (see [guarantees](./guarantees.md#what-you-can-rely-on)). Only the end of the run stops it: the end of the run
-interrupts the commands under way (see [why a command cannot be cancelled](#why-a-command-cannot-be-cancelled)).
+interrupts the commands under way, whatever brings that end, a defect or an interruption (see
+[running](./running.md#how-the-run-ends)). This keeps commands plain data, and no change of state cuts a save in half.
 
 - So a command must accept being interrupted at any point.
 - When the answer arrives, `update` decides whether the answer still applies (see
@@ -105,31 +112,7 @@ const save = (name: string): Execution<Message, Storage> =>
   )
 ```
 
-## Precisely
-
-### How commands run
-
-Each command runs in a fiber of its own. The run starts the commands of a step after the step is applied, in the
-order of the states (see [guarantees](./guarantees.md#what-you-can-rely-on)). There is no bound on how many commands
-run at once. The run goes on without waiting for the command.
-
-### Why a command cannot be cancelled
-
-This keeps commands plain data. It also means that no change of state cuts a save in half.
-
-The end of the run interrupts the commands under way, whatever brings that end: a defect, or an interruption (see
-[running](./running.md)).
-
-### A command's scope
-
-A command has a scope of its own. What the command acquires (`Effect.acquireRelease`, `Effect.forkScoped`) is released
-when the command ends, before its message reaches `update`. So `run` never asks for a `Scope`.
-
-What must outlive a command belongs in a service provided around `run`, or in a subscription. When it is acquired in
-the service or the subscription, and not in the command's own scope, a defect ends the run before the release, not
-after (see [running](./running.md)).
-
-### Services, handlers and events
+## Services, handlers and events
 
 The services of a command are its operations: `storage.save` in the example above is one. The layer provided around
 `run` holds their handlers: the code that does the save. This is where a program performs effects, and where a handler

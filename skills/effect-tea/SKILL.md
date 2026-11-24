@@ -11,11 +11,11 @@ versions. The paths below are relative to this file.
 ## Where things are
 
 - **The guide**, [`site/guide/`](../../site/guide/index.md): what the library does, one concept a page, at the
-  version installed. It is the specification. What it does not say, the library does not promise. Start with its
-  index. Most pages have the same sections, in this order: "In short", "An example", "Rules", "Do and don't" on some
-  pages, and "Precisely". What stands under "Precisely", and under "What is left to you" in "Guarantees", describes
-  this version and may change in any release. Every other sentence is a promise. The guide, "Guide", "What a page
-  promises".
+  version installed. It is the specification. Start with its index. Most pages have the same sections, in this order:
+  "In short", "An example", "Rules", and "Do and don't" on some pages. The guide promises what stands under "Rules",
+  what stands under "What you can rely on" in "Guarantees", and what the types accept and refuse. The rest explains,
+  and binds nothing. What the guide does not promise is unspecified, and may change in any release. The guide,
+  "Guide", "What a page promises".
 - **The tutorial**, [`site/tutorial/`](../../site/tutorial/index.md): one application, built step by step. A line
   `{@includeCode <file>#<name>}` in a page stands for the code between `// #region <name>` and `// #endregion` in
   that file.
@@ -24,20 +24,18 @@ versions. The paths below are relative to this file.
 - **The bridges**, entries of the package: `@fgaudo/effect-tea/snabbdom`
   ([`bridges/snabbdom.ts`](../../bridges/snabbdom.ts)), with `messagesSentBy` in `@fgaudo/effect-tea/snabbdom/testing`,
   and `@fgaudo/effect-tea/react` ([`bridges/react.ts`](../../bridges/react.ts)). The library draws nothing. A bridge
-  needs its renderer installed beside the package: `snabbdom`, or `react` (the bridge imports nothing else of React). Import a bridge, or write
-  one for another renderer ("Writing a bridge" in the guide). Their tests are
-  [`bridges/snabbdom.test.ts`](../../bridges/snabbdom.test.ts),
-  [`bridges/react.test.ts`](../../bridges/react.test.ts) and the suite both run,
-  [`bridges/bridge.test_suite.ts`](../../bridges/bridge.test_suite.ts). snabbdom reads the global
-  `window` when it loads. So a test file that imports snabbdom before a DOM is registered must first load a file that
-  sets `window` to `undefined`, as [`bridges/snabbdom-preload.ts`](../../bridges/snabbdom-preload.ts) does. This holds
-  for a file that registers a DOM in `beforeAll` too: its imports run first. The preload's comment says how.
+  needs its renderer installed beside the package: `snabbdom`, or `react` (the bridge imports nothing else of React).
+  Import a bridge, or write one for another renderer ("Writing a bridge" in the guide). Their tests are
+  [`bridges/snabbdom.test.ts`](../../bridges/snabbdom.test.ts), [`bridges/react.test.ts`](../../bridges/react.test.ts)
+  and the suite both run, [`bridges/bridge.test_suite.ts`](../../bridges/bridge.test_suite.ts). snabbdom reads the
+  global `window` when it loads. So a test file that imports snabbdom before a DOM is registered must first load a file
+  that sets `window` to `undefined`, as [`bridges/snabbdom-preload.ts`](../../bridges/snabbdom-preload.ts) does. This
+  holds for a file that registers a DOM in `beforeAll` too: its imports run first. The preload's comment says how.
   snabbdom never removes a prop: a view gives a prop it changes in every state, `disabled: false` too. Give an id and
-  classes in the selector: the bridge to snabbdom draws no `class`, `attrs` or `dataset` of a node today. The guide,
-  "Writing a bridge", "The package's bridges". The
-  examples import their own files with the `.ts` extension. If your `tsconfig.json` does not set
-  `allowImportingTsExtensions`, write `.js` instead under `moduleResolution` `nodenext`, or remove the extension under
-  `bundler`.
+  classes in the selector: whether the bridge to snabbdom draws the `class`, the `attrs` or the `dataset` of a node is
+  unspecified. The guide, "Writing a bridge", "The package's bridges". The examples import their own files with the
+  `.ts` extension. If your `tsconfig.json` does not set `allowImportingTsExtensions`, write `.js` instead under
+  `moduleResolution` `nodenext`, or remove the extension under `bundler`.
 - **The API**: the declarations in `dist/`, with their doc comments. A line `@see The guide, "<page>", "<section>".`
   names a page of the guide by its title, and a heading or a bold title in that page.
 
@@ -133,11 +131,11 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   subscription send its messages by batches, as a `Stream` grouped within a time does (`Stream.groupedWithin`). The
   guide, "Guarantees", "A subscription that sends faster than the screen refreshes holds the run back".
 - **With React, the run lives as long as `Host`'s effect.** `<Activity>`, a remount and a new `key` start the program
-  again from `init`. Under StrictMode the commands of `init` start once today, which is described and not promised. For
-  a state that outlives a component, start the program yourself and draw it with `Draw`. A run that dies is thrown to
-  the nearest error boundary, or given to `reportError` when `Host` unmounts, or `<Activity>` hides it, before throwing
-  it. A `makeModel` that throws reaches it once, as the run ends. The guide, "Guarantees", "With the bridge to React,
-  the run lives as long as the effect that starts it". The guide, "Guarantees", "With the bridge to React, a run that
+  again from `init`. Under StrictMode, whether the commands of `init` start once or twice is unspecified. For a state
+  that outlives a component, start the program yourself and draw it with `Draw`. A run that dies is thrown to the
+  nearest error boundary, or given to `reportError` when `Host` unmounts, or `<Activity>` hides it, before throwing it.
+  A `makeModel` that throws reaches it once, as the run ends. The guide, "Guarantees", "With the bridge to React, the
+  run lives as long as the effect that starts it". The guide, "Writing a bridge", "With the bridge to React, a run that
   dies is thrown to the nearest error boundary".
 - **A value that the user writes belongs to the program whose rules use it.** Where the parent changes it, locks it or
   submits it, it is an input of the parent, by id for rows, and a row is no child. Where only a child's rules use it,
@@ -146,8 +144,8 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   program", "A value that the user writes belongs to the program whose rules use it".
 - **Flags and keys are compared with `Equal`.** Other flags, or another key, start a child again, as another
   instance. A function made anew in `flags` or `key` is other flags each time, since `Equal` compares a function by
-  reference: give plain values. The guide, "Composition", "Ids are compared by value". The guide, "Composition",
-  "When the children are compared".
+  reference: give plain values. The guide, "Composition", "Ids are compared by value". The guide, "Guarantees", "What
+  is left to you".
 - **What must stay private is in a service, not in a key.** A key is shown whole, in a defect of its subscription and
   to `onApplied` and `onIgnored`. The guide, "Guarantees", "What must stay private is in a service, not in a key". The
   guide, "Running", "A key is shown whole".
@@ -176,8 +174,8 @@ The run does not check these. A test does, with the tool named.
   "Rules". The guide, "Inputs", "What is typed, in another form". The guide, "Testing tools", "placeViolations".
 - **A view sends only the messages its model holds**: your renderer's tools, as `messagesSentBy` for snabbdom. That
   tool gives a handler the `value` and the `checked` of its element, and what its third argument, `reports`, says the
-  element and the event report. The guide, "Testing", "The view". The guide, "Model", "Precisely". The guide,
-  "Writing a bridge", "Their tests".
+  element and the event report. The guide, "Testing", "The view". The guide, "Model", "Messages live in the model".
+  The guide, "Writing a bridge".
 - **A message held without its value is filled by the reader too**, with values that the test draws, and the values
   at which it means nothing are exempted with `inert`. The guide, "Testing", "The reader".
 - **A rejection is asserted as `reject` itself**, with `toBe(reject)`. The guide, "Testing", "Do and don't".
@@ -190,14 +188,14 @@ A break of these rules does not compile, so they need no remembering. A state is
 string. A program names its types, then is made, and a type it does not name is one it does not have. An execution
 cannot fail: an expected failure becomes a message. A subscription is a `Channel` whose end value is a message, and is
 made from its key alone: `subscriptions(state)` lists keys, as data, and `listen(key)` makes the subscription of one,
-without the state, so the key carries what it needs. A child answers an external message in `external`, in every state, never with `reject`. A parent is given no child's
-state: it reads only what a child declares as its `output`, and tells a child only its external messages, in the
-`tell` of a step. The guide lists the rest:
-The guide, "Anatomy of a program", "What does not compile". The guide, "Composition", "Precisely". The guide, "Anatomy
-of a program", "Its state is always an object". The guide, "Anatomy of a program", "Its types are named first, then it
-is made". The guide, "Commands", "An execution cannot fail". The guide, "Subscriptions", "The type says all of it".
-The guide, "Subscriptions", "A subscription is made from its key alone".
-The guide, "Events and external messages", "A child answers its external messages in every state".
+without the state, so the key carries what it needs. A child answers an external message in `external`, in every state,
+never with `reject`. A parent is given no child's state: it reads only what a child declares as its `output`, and tells
+a child only its external messages, in the `tell` of a step. The guide lists the rest: The guide, "Anatomy of a
+program", "What does not compile". The guide, "Composition", "What does not compile, and what is a defect". The guide,
+"Anatomy of a program", "Its state is always an object". The guide, "Anatomy of a program", "Its types are named first,
+then it is made". The guide, "Commands", "An execution cannot fail". The guide, "Subscriptions", "The type says all of
+it". The guide, "Subscriptions", "A subscription is made from its key alone". The guide, "Events and external messages",
+"A child answers its external messages in every state".
 
 ## Signs that the design went wrong
 

@@ -105,22 +105,18 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
 - **A program that cannot start the same way every time declares `flags`**, as in Elm. For example, a page that shows
   the product it was opened for declares flags.
 
-## Precisely
+**What does not compile.** The compiler refuses three kinds of program. Each is refused before it can run: where it is
+made, where it is typed `Program<…>`, or where a function takes it, as `child`, `start` or a testing tool. Which of
+these refuses it is unspecified.
 
-**What does not compile.** The compiler refuses three kinds of program. Each kind is refused in the places below:
-
-- A state that is a number or a string. It is refused by `Program<…>` and `program`, by `child` and `childById`, by
-  `start`, and by `simulate`, `rehearse` and `drive`.
+- A state that is a number or a string.
 - A state whose type has no fields, such as `{}`. Such a type holds a number too, so name the type of a state without
-  fields `object`. `program` accepts such a state, and `make` refuses it. A program written as an object is refused
-  when it is typed `Program<…>`, and when `child`, `childById`, `start`, `simulate`, `rehearse` or `drive` takes it.
+  fields `object`.
   - A state that is a type parameter, such as `S` in `<S extends object>(state: S) => program<{ state: S }>()`, is
-    refused by `make` too: the compiler cannot decide that `S` holds no number. A type parameter in a field of the
-    state, such as `A` in `{ items: ReadonlyArray<A> }`, compiles.
-- A program written as an object without `subscriptions`. It is refused when it is typed `Program<…>`, and when
-  `child`, `childById`, `start`, `rehearse` or `drive` takes it. `simulate` refuses the pieces of a program without
-  `subscriptions` too. `make` takes no `subscriptions` for a program that names no `key`, and the program it returns
-  has them.
+    refused too: the compiler cannot decide that `S` holds no number. A type parameter in a field of the state, such
+    as `A` in `{ items: ReadonlyArray<A> }`, compiles.
+- A program written as an object without `subscriptions`. `make` takes no `subscriptions` for a program that names no
+  `key`, and the program it returns has them.
 
 **The types need `strict`.** The library's types are checked under the compiler option `strict` alone. Without
 `strictFunctionTypes`, which `strict` turns on, the compiler accepts programs that it should refuse. For example, it
@@ -129,7 +125,7 @@ accepts a program typed with more `external` messages than the program takes.
 **`runCommand` is required exactly when the program has commands.** So every command has a `runCommand` that
 interprets it. `listen` is required exactly when the program has keys, so that every key has a `listen` that makes its
 subscription. In the same way, `external` is required exactly when the program has external messages (see
-[events and external messages](./events-and-external-messages.md#precisely)).
+[events and external messages](./events-and-external-messages.md#what-a-program-must-declare)).
 
 **A test makes a model as the run does.** The run makes the model of a state with `program.makeModel(state)`. A test can
 call `program.makeModel` the same way, on any state. It reads a program's output the same way, as

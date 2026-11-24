@@ -112,9 +112,9 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   is never rejected.
 - **What a screen shows of an input is the bridges', and the library keeps no rule of an element.** A view draws a
   native controlled element from the value its model holds, and writes what the element holds in its handler. What the
-  element then shows is no guarantee of the library's, which knows no renderer: the guide promises it in "Inputs the
-  user types into" and "Writing a bridge", for the elements and the renderers they name, and the bridges' tests check
-  it in a DOM (`bridges/bridge.test_suite.ts`). Since a write names no value it was written over, a key typed on a view
+  element then shows is no guarantee of the library's, which knows no renderer: the guide promises it in "Inputs" and
+  "Writing a bridge", for the elements and the renderers they name, and the bridges' tests check it in a DOM
+  (`bridges/bridge.test_suite.ts`). Since a write names no value it was written over, a key typed on a view
   older than the state would store that view's text over the newer state: so a bridge draws each new state before the
   browser handles the next event. The bridge to React draws the model read with `useSyncExternalStore`, so that a
   controlled element is updated during its own event (`premises.md`, of a controlled input), and React renders a state
@@ -211,16 +211,16 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   model that is the very one it drew last, and has a mutation for it. The bridge to React reads the model in each
   notice, as `useSyncExternalStore` compares the snapshot there, so a model is made for every new state, on the stack
   of whoever sent its message ("a new state's model is made in the notice, on the stack of whoever sent the message,
-  and not again", `react.test.ts`): no page of react.dev says so, and the guide describes it in "What is left to you"
-  and does not promise it. `rehearse` and `drive` read the model of each state through the handle, by one function
-  (`readEach` in `run.ts`): that of each new state in a listener, in the thunk that makes the state, as a renderer told
-  of every state that reads each one makes it, and the first whatever the first keys did, as a renderer reads it to
-  draw ("rehearse fails in subscriptions, then in render, as the run dies, on a first state whose model is a defect
-  too", and its twin of `drive`, `contract.test.ts`, with a mutation), so that a defect of `makeModel` ends each tool as
-  it ends the run, and
-  no scenario meets it; since the run records a model's defect where the model is read, a defect of a later model
-  never cuts that step short in either: its release and its commands go on ("in the run, the message whose model dies
-  is applied whole, with its commands", and its twin of `rehearse`, `contract.test.ts`).
+  and not again", `react.test.ts`): no page of react.dev says so, and the guide says only that it may happen ("What is
+  left to you"), and leaves it unspecified. `rehearse` and `drive` read the model of each state through the handle, by
+  one function (`readEach` in `run.ts`): that of each new state in a listener, in the thunk that makes the state, as a
+  renderer told of every state that reads each one makes it, and the first whatever the first keys did, as a renderer
+  reads it to draw ("rehearse fails in subscriptions, then in render, as the run dies, on a first state whose model is
+  a defect too", and its twin of `drive`, `contract.test.ts`, with a mutation), so that a defect of `makeModel` ends
+  each tool as it ends the run, and no scenario meets it; since the run records a model's defect where the model is
+  read, a defect of a later model never cuts that step short in either: its release and its commands go on ("in the
+  run, the message whose model dies is applied whole, with its commands", and its twin of `rehearse`,
+  `contract.test.ts`).
 - **`onApplied` and `onIgnored` are given no dispatch, and return nothing**: they are functions, called in the thunk
   as `update` is (`attempt` in `applyOne`), and their types refuse a value, which an effect or a promise is too. They
   hear each accepted, or rejected, message in order, with where it came from, before the new state is current and
@@ -322,9 +322,9 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
     `run` of a testing tool, which fails with what its command's fiber ended with: so that join has no mutation, since
     what would kill one is the cause of a `run` that a scenario catches, which nothing promises. What the program wraps around its own code (two `Effect.ensuring`)
     is joined by Effect, and is the effect's own.
-  - The order of the defects is the engine's to keep, and its tests', and no promise of the guide, which describes
-    it: what a user relies on is that every defect is in the cause, each with where. The guide describes two cases of
-    that too, and promises neither, since each rests on half of a premise read only in Effect's source
+  - The order of the defects is the engine's to keep, and its tests', and no promise of the guide, which leaves it
+    unspecified: what a user relies on is that every defect is in the cause, each with where. The guide leaves two
+    cases of that unspecified too, since each rests on half of a premise read only in Effect's source
     (`docs/premises.md`): that two releases of one scope that die of defects equal by `Equal` are two defects, and that
     a command or a subscription that interrupts itself while the run stops it is a defect. No promise of the library's
     rests on what a function of Effect makes of a cause (`Cause.squash` gives the first defect).
@@ -343,8 +343,8 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
     completes `died` only as it returns, once every message sent during it is applied, every listener told and its jobs
     offered (`release`, in its `finally`): "never begins inside a step: a defect a listener throws ends the run once
     every listener of the step is told" (`start.test.ts`), with a mutation. It may begin on the stack of the dispatch,
-    once it has applied, as the guide describes and does not promise: `stopped` is read before each message all the
-    same, since a defect recorded outside a step, by a fiber or by a model read, completes `died` at once.
+    once it has applied, which the guide leaves unspecified: `stopped` is read before each message all the same, since a
+    defect recorded outside a step, by a fiber or by a model read, completes `died` at once.
   - From the first defect recorded on, the run applies no message, until its end stops it: it calls no `update`,
     checked in the thunk that calls it (`arrive` in `core.ts`, called by `applyOne`, which `rehearse` runs too). It is
     the only check. A defect in the thunk stops the step there: one of `update` changes nothing, one of `onApplied`
@@ -421,6 +421,11 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   by less than 100 kB" (`run.test.ts`) sees them, by the objects of the heap after the same rounds read twice, and was
   seen to fail with one entry of a `Map` kept by the engine for each command, on 23 November 2026. It has no mutation,
   for the reason above.
+- **`Host` starts one run under StrictMode** (`bridges/react.ts`): it starts its run in a microtask after its effect,
+  which its cleanup cancels, so that the commands of `init` start once, as the owner chose on 20 November 2026
+  ([`store-and-effects.md`](records/store-and-effects.md), "Decided", 4). The guide leaves it unspecified, since it
+  rests on a premise of React (`premises.md`, of StrictMode): the two tests of StrictMode in `react.test.ts` hold it,
+  each with a mutation.
 - **No span lives as long as the run**: the `run` of a program started and the engine's `effects` are untraced,
   and the run's fibers see the span of whoever runs it as an external one (`withExternalSpan`), since Effect keeps every
   log as an event of the current span until it ends.
@@ -485,12 +490,11 @@ testing tools. Why a dispatch applies its message at once, and what was weighed 
   whoever completes its `Deferred` is a premise of the tests alone (`premises.md`): the killers of the mutations that
   wake inside a step rest on it, in `start.test.ts` and `drive.test.ts`, and so do the killers of the refusal of a
   command's answer and of a subscription's message once a rehearsal has ended, in `rehearse.test.ts`; no guarantee
-  does. That the effects of a step
-  start only once the call that sent its message has returned rests on the queue resuming the fiber of effects in a
-  task of the scheduler, which is no premise either: the guide describes it and does not promise it, and "a dispatch
-  returns before the commands of its step start, while the fiber of effects waits" (`start.test.ts`) is its alarm, the
-  killer of no mutation. Nor has the release of the snabbdom bridge's subscription to the handle a killer: its stop
-  sets `stopped` first, which keeps a notice that comes after from drawing.
+  does. That the effects of a step start only once the call that sent its message has returned rests on the queue
+  resuming the fiber of effects in a task of the scheduler, which is no premise either: the guide leaves it unspecified,
+  and "a dispatch returns before the commands of its step start, while the fiber of effects waits" (`start.test.ts`) is
+  its alarm, the killer of no mutation. Nor has the release of the snabbdom bridge's subscription to the handle a
+  killer: its stop sets `stopped` first, which keeps a notice that comes after from drawing.
 
   A region nothing may interrupt holds no code of the program, so no gate reaches it, and it has no mutation: one that
   took it out would fail only under the scheduler of the tests. It is written in one of three forms: a transition of

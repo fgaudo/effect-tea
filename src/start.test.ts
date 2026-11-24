@@ -116,9 +116,9 @@ describe("a program started", () => {
     expect(wheres(third)).toHaveLength(1)
   })
 
-  // An alarm of what the guide describes and does not promise: the effects of a step start once the call that sent its
-  // message has returned. It rests on the queue of the jobs resuming the fiber of effects in a task of the scheduler,
-  // and is the killer of no mutation.
+  // An alarm of what the guide leaves unspecified: the effects of a step start once the call that sent its message has
+  // returned. It rests on the queue of the jobs resuming the fiber of effects in a task of the scheduler, and is the
+  // killer of no mutation.
   test("a dispatch returns before the commands of its step start, while the fiber of effects waits", async () => {
     const log: Array<string> = []
     const { app, run } = start(loader(log, Deferred.makeUnsafe<void>()))
@@ -261,7 +261,7 @@ describe("a program whose start throws", () => {
   }
 
   // A parent without flags is started as `make` makes it: the children that its first state lists are started then,
-  // so what a function of their places throws, `make` throws as it is ("Composition", "Precisely").
+  // so what a function of their places throws, `make` throws as it is ("Composition", "When the children start").
   test("in a child's place, in a parent with no flags: make throws the defect as it is", () => {
     const Parent = program<{ state: Readonly<{ on: boolean }> }>()
     let thrown: unknown

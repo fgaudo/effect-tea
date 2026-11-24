@@ -74,7 +74,7 @@ decides by is state, and moves by equal steps (see the same section).
 With the package's bridge to React, React hosts the program: `<Host program={counter}>{view}</Host>` runs it while
 `Host` is mounted. The components of the view and of the application may keep state and effects of their own, beside
 the program (see [view](./view.md#rules)). The run lives as long as `Host`'s effect (see
-[what is left to you](./guarantees.md#what-is-left-to-you)). What the bridge leaves out is in
+[the package's bridges](./writing-a-bridge.md#the-packages-bridges)). What the bridge leaves out is in
 [what is left out](./writing-a-bridge.md#what-is-left-out). The bridge is the entry `@fgaudo/effect-tea/react`
 ([`bridges/react.ts`](../../bridges/react.ts)), with `react` installed beside the package. The examples
 [`counter`](../../examples/counter) and [`form`](../../examples/form) are drawn with it, and with the bridge to snabbdom

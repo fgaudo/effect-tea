@@ -50,8 +50,7 @@ export type Subscriptions<State, Key = unknown> = (state: State) => ReadonlyArra
  * `listen` does not see the state, so a key carries everything that its subscription needs, as a command carries
  * everything that `runCommand` needs. `R` is the services the subscriptions need.
  *
- * - Today it is called as the subscription starts, in the subscription's fiber, and what it throws is a defect of
- *   the subscription, with its key. This is described, not promised.
+ * - What it throws is a defect of the subscription, with its key. When it is called is unspecified.
  * - A key is shown whole, in a defect and to `onApplied` and `onIgnored`: what must stay private goes in a service.
  *
  * @example
@@ -62,7 +61,6 @@ export type Subscriptions<State, Key = unknown> = (state: State) => ReadonlyArra
  * ```
  *
  * @see The guide, "Subscriptions", "A subscription is made from its key alone".
- * @see The guide, "Subscriptions", "Where `listen` runs".
  * @see The guide, "Running", "A key is shown whole".
  */
 export type Listen<Key, Message, R = never> = (key: Key) => Subscription<Message, R>

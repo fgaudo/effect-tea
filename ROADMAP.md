@@ -7,7 +7,7 @@ is removed, with the reason in the commit, and leaves its number unused. An item
 the same commit. How an item came to be is in a record of [`docs/records/`](docs/records), or in the commits, not
 here.
 
-A step for Fable 5.2 runs on Opus 5.5, `max`, while Fable is not available.
+A step for Fable 5.2 runs on Opus 5.5, `xhigh`, while Fable is not available.
 
 ## How the steps run
 
@@ -46,55 +46,19 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 56 to 58 make the project cheaper to keep, and steps 59 and 60 then make its API right, when a name changes the
+Steps 57 and 58 make the project cheaper to keep, and steps 59 and 60 then make its API right, when a name changes the
 fewest documents. The steps of the engine, 53 to 55, come after them, since the review of the API may reshape the
 testing tools they change, and step 55 comes before the release that follows them all.
-
-### 56. The guide promises only its rules
-
-**Model and effort.** Fable 5.2, `high`: what the library promises is decided, page by page.
-
-**Depends on** no other step. It takes the place of step 48, which weighed the descriptions one by one.
-
-**Why.** Today every sentence of the guide outside "Precisely" is a promise, and a description is as true as one, with
-a test, and a changelog entry where a user can notice (`AGENTS.md`, "The guide is a specification, of two strengths").
-So a rule lives in several places that must agree, each rewording is checked sentence by sentence, and a change of the
-engine may break a promise or a description that no user rests on. More promises make each upgrade harder for users,
-and each change dearer for the project (values 3 and 7 of "Deciding").
-
-**How.**
-
-1. The guide promises what stands under the "Rules" of a page, under "What you can rely on" in "Guarantees", and in
-   the types. The rest of a page explains, and binds nothing. What is not promised is unspecified, as Effect says of
-   what it does not promise (Effect-TS/effect#10878): it has no test of its own, and no changelog entry when it
-   changes. "What is left to you" keeps the rules that nothing checks.
-2. Each "Precisely", and each sentence that says it is described and not promised, is sorted. What a user rests on
-   (what a testing tool fails on, what a defect reports, what a test written by the guide needs, as the number of an
-   instance) goes under the "Rules" of its page, as a promise. Advice goes under "Do and don't". How the engine does
-   it today goes, or is said in a few words to be unspecified. A page whose rules stand under other headings gets a
-   "Rules". [`guide-descriptions.md`](docs/records/guide-descriptions.md) sorted the 87 descriptions as they stood on
-   24 November 2026: a start, to be checked against the code.
-3. `AGENTS.md` ("The guide is a specification, of two strengths", "A rule of the guide is added last") and the guide's
-   "What a page promises" say the rule of point 1, once each. A rule is stated where it rules, and other places link
-   to it.
-4. A test or a mutation that holds only what is no longer promised goes, unless it holds an invariant of
-   `docs/invariants.md` (`change-engine`). A mutation's `guarantees` names an item of "What you can rely on", and its
-   `refuses` an item of what does not compile, wherever that list then stands (`tools/comments.ts`).
-5. The doc comments and the skill that name a section changed are reread (`bun run comments`).
-6. A promise taken back is `**Breaking**` in the changelog, with how to upgrade, and a promise added is an entry
-   (`release`).
-
-**Done when** the guide promises only under "Rules", in "What you can rely on" and by the types; no page describes how
-the engine works inside but as unspecified; `AGENTS.md` and "What a page promises" say so; the changelog has what a
-user notices; and `bun run comments`, `bun run lint`, `bun run test`, `bun run test:node` and `bun run mutations` pass.
 
 ### 57. The points left for the owner, decided
 
 **Model and effort.** Opus 5.5, `high`: each point is a decision of the engine, of a bridge or of the guide, with its
 change.
 
-**Depends on** step 56: a point that adds to the guide adds a promise under "Rules", or an explanation that binds
-nothing, by the rule that step leaves.
+**Depends on** no other step. A point that adds to the guide adds a promise under the "Rules" of a page, or an
+explanation that binds nothing, as the guide's "What a page promises" and `AGENTS.md` ("The guide promises only its
+rules") say since step 56; a behaviour left out of both is unspecified, and says so in a few words where a reader
+would ask.
 
 **Why.** Each point below was left for the owner, as the rules of the time asked. "Deciding" leaves it to the agent.
 
@@ -113,8 +77,8 @@ where it weighed a design. Points of one form are decided together.
      `Channel.toPull`). To decide: list it in `docs/premises.md` with that test, or ask a `listen` to make its channel
      anew, which changes the guide's form.
   2. **A new state whose `subscriptions` dies is the current one, and no listener is told of it**: `applyOne` sets
-     `current`, then returns on the defect before `tell` (`engine.ts`). The guide promises, outside "Precisely", that
-     "`subscribe(listener)` tells `listener` of each new state, once it is the current one" (`running.md`), and so do
+     `current`, then returns on the defect before `tell` (`engine.ts`). The guide promises, under the "Rules" of
+     "Running", that "`subscribe(listener)` tells `listener` of each new state, once it is the current one", and so do
      the doc comments of `App.subscribe` (`run.ts`) and `Engine.subscribe` (`engine.ts`); "after a defect" there says
      only that `onApplied` "may have heard a step whose model is never drawn". A renderer that draws in its listener
      shows the state before, while `model()` gives the new one. To decide: tell the listeners of that state too, leave
@@ -134,10 +98,11 @@ where it weighed a design. Points of one form are decided together.
   [`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md): two readers that had not seen the code built a
   greenhouse panel, one from the package and one from the guide alone. Each finding changes what a page promises, or
   adds a page, so none was written. A fourth, that `renderInto` replaced `root`, is done: it draws into `root`.
-  1. **What the bridge to snabbdom draws of a vnode's data is said nowhere.** It has snabbdom's modules of props, of
-     style and of listeners: a `class`, an `attrs` or a `dataset` is dropped in silence, and `disabled` is a prop. The
-     examples' views say it in comments. To decide: whether "Writing a bridge" says it, which is a promise of the
-     bridge.
+  1. **What the bridge to snabbdom draws of a vnode's data.** It has snabbdom's modules of props, of style and of
+     listeners: a `class`, an `attrs` or a `dataset` is dropped in silence, and `disabled` is a prop. The examples'
+     views say it in comments. Since step 56, "Writing a bridge", "The package's bridges", promises that it draws a
+     node's props, style and listeners, and says that whether it draws the rest is unspecified, as the doc comment of
+     `drawInto` does. To decide: whether it promises that it draws no `class`, `attrs` or `dataset`, or draws them.
   2. **A subscription from an API of callbacks, with its stop**, is shown only by `examples/volume/main.ts`. Both
      readers needed one: the guide starts every subscription from a `Stream` that a service already has. To decide:
      whether "Subscriptions" gets a section for it, and for a feed that never ends, which promises nothing new of the
@@ -156,15 +121,16 @@ where it weighed a design. Points of one form are decided together.
   that rewrote the guide for the swap, and by point 5 of a review of the design of 20 November 2026, by the session
   that verified the stages of `synchronous-dispatch.md`. A step's commands start in a later job, and the end drops the
   jobs not taken, so a test that ends once the state shows something may end before the commands of that step start.
-  The guide says it ("Guarantees", "Testing tools"), as a description, and so does the doc comment of `drive`. A coding
-  agent that writes a test with `drive` meets it first. The reader's check bears on it: an examiner that had not seen
-  the library wrote 27 acceptance tests from the requirement, and seven of them took the world to be in step with the
-  page; and the reader of the guide alone met the rule as a test that timed out. To decide: whether the skill names it.
+  The guide promises it ("Guarantees", "What you can rely on", and "Testing tools", "drive"), and so does the doc
+  comment of `drive`. A coding agent that writes a test with `drive` meets it first. The reader's check bears on it: an
+  examiner that had not seen the library wrote 27 acceptance tests from the requirement, and seven of them took the
+  world to be in step with the page; and the reader of the guide alone met the rule as a test that timed out. To
+  decide: whether the skill names it.
 - **The whole pure step runs in the event that sends the message**, point 6 of the same review: `update`, `onApplied`,
   `subscriptions` with the lookup of every key, the listeners and, with React, `makeModel`. It was measured for a
-  counter with no key alone. The guide promises that a model is made only when it is read, and describes that React
-  reads one for each state. To do before the release: measure a step with many keys and a model that costs (the
-  benchmark of "Any time"). Reasoned from the code, and not run.
+  counter with no key alone. The guide promises that a model is made only when it is read, and says that React may
+  read one for each state, when React chooses. To do before the release: measure a step with many keys and a model
+  that costs (the benchmark of "Any time"). Reasoned from the code, and not run.
 - **A listener of the `App` that sends on every notice never returns, and no page says so.** Found on 21 November
   2026, from the memory guard of the tests: two helpers of `compose.test.ts` did it under a mutation, and filled the
   memory of the machine. A message that a listener sends is applied right after the step that told it ("View"), in the
@@ -185,7 +151,7 @@ asks for what changed pass.
 **Model and effort.** Opus 5.5, `high`: what the documents that rule say is kept, in fewer words, and the tools that
 check them may change.
 
-**Depends on** steps 56 and 57, which change what the guide, `AGENTS.md` and the skills say.
+**Depends on** step 57, which changes what the guide, `AGENTS.md` and the skills say.
 
 **Why.** About 245,000 words of Markdown, 134,000 of them in the records, stand beside 7,264 lines of source, and a
 change rereads each place that states its rule (value 7 of "Deciding").
@@ -203,6 +169,12 @@ change rereads each place that states its rule (value 7 of "Deciding").
 - A record, from now on, is for a decision on the API or on an invariant, and is a page at most. The records written
   stay as they are: history.
 - What is kept in step by hand between the checks goes where a tool keeps it, or goes.
+- The guide: a rule is stated under the "Rules" of the page where it rules, and other places link to it (`AGENTS.md`,
+  "A rule of the guide is added last"), which step 56 wrote and did not apply to the whole guide. Some rules still
+  stand twice: an item of "What you can rely on" and the rule of its page ("Subscriptions follow their keys" and
+  "Keys are compared by value"), "The very same state makes no new model" in "Update" and the `App` in "Running",
+  the promises of `drawInto` and `Host` in "Writing a bridge" and the walkthrough of its example, "What is left to you"
+  and the rules it sums up. One of each becomes a link.
 
 **Done when** `AGENTS.md` is near 150 lines, each document above is as its line says, no rule is stated twice but by a
 link, and `bun run comments`, `bun run lint` and `bun run test` pass, with `bun run mutations` where `tools/` changed.
@@ -334,11 +306,12 @@ say the rule; each case of the contract is kept or removed, with its line in the
 **Model and effort.** Opus 5.5, `high`, by a reviewer that wrote none of the changes
 ([`premise-review`](.agents/skills/premise-review/SKILL.md)).
 
-**Depends on** steps 56 to 60, 53 and 54, and comes before the release that follows them.
+**Depends on** steps 57 to 60, 53 and 54, and comes before the release that follows them.
 
 **Why.** Steps 49 to 54 move a check from a tool to the engine, or take one away with the code it guarded: a premise
 may leave with it, and no test fail. From step 52 on, `simulate` rests on the engine's premises, and no longer on
-those of a fork of its own. Steps 56 to 60 change what the guide promises, and how the API is written.
+those of a fork of its own. Step 56 made the guide promise only its rules, and steps 57 to 60 change what it
+promises, and how the API is written.
 
 **Done when** the review has read the engine and the testing tools over the changes since the last review; each
 finding is an item of "Open problems" with its `test.failing`; each place where the code or a document says otherwise
@@ -415,8 +388,8 @@ declined; and those of what a `Queue` and the runtime keep, whose fall would be 
 
 **Still to ask**, since step 46 kept the guarantee that rests on them: what `Effect.interruptible` fails with, entered
 by an interrupted fiber where it is uninterruptible (the second half of its premise; the first half holds only what
-the guide describes), and the fiber that code run on the stack of its forker sees as its own. Each is read first
-against what the first answer declined, as the others were.
+the guide leaves unspecified), and the fiber that code run on the stack of its forker sees as its own. Each is read
+first against what the first answer declined, as the others were.
 
 **Done when** each premise on Effect names, in `docs/premises.md`, the request that the owner opened for it, or says
 that none was asked and why. A premise leaves the list by an upgrade to the Effect that documents it
@@ -463,12 +436,13 @@ otherwise.
   `sectionsOf` kept to that list. It ties an item to what the guide says checks it, which the `guarantees` of the
   mutations cannot, since the search kills no mutation. Not tried: a spike first, for whether every property falls
   under one item. It changes the layout of the tests of the engine (`change-engine`).
-- **The reading of the guide's promises against the tests, as a skill run before a release**, once step 56 has left
-  the promises it keeps. The method of [`promises-and-tests.md`](docs/records/promises-and-tests.md), which found 65
-  promises outside "What you can rely on" that no test checks, written in `.agents/skills/` and named by `release`, as
-  `premise-review` is. Fable 5.2, `high`, to write it: it decides what a release weighs. With it, the examples read
-  against the guide, which no check does: each "Don't" of a page is looked for in `examples/`, and a comment of an
-  example that gives a reason is reread when the rule it rests on changes.
+- **The reading of the guide's promises against the tests, as a skill run before a release**: since step 56, the
+  promises are what stands under "Rules", under "What you can rely on" and in the types. The method of
+  [`promises-and-tests.md`](docs/records/promises-and-tests.md), which found 65 promises outside "What you can rely on"
+  that no test checks, written in `.agents/skills/` and named by `release`, as `premise-review` is. Fable 5.2, `high`,
+  to write it: it decides what a release weighs. With it, the examples read against the guide, which no check does:
+  each "Don't" of a page is looked for in `examples/`, and a comment of an example that gives a reason is reread when
+  the rule it rests on changes.
 - **A reader's check that meets what no check has met.** The six requirements of
   [`guide-reader`](.agents/skills/guide-reader/SKILL.md) are each a page of a browser with a value that is typed, and
   those that were drawn are drawn with snabbdom: each was chosen to need the pages that the guide has. The skill

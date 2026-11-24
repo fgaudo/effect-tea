@@ -20,7 +20,7 @@ or the test decides. The result is still an effect, which the test runs. When a 
 of the program, the test provides the services of that command or subscription: see [simulate](#simulate) and
 [rehearse](#rehearse).
 
-[Precisely](#precisely) gives the edge cases of `simulate`, `rehearse` and `drive`.
+The last sections of the rules give the edge cases of `simulate`, `rehearse` and `drive`.
 
 ## Rules
 
@@ -132,7 +132,8 @@ const { state, commands, ignored } = yield * simulate(form)(typedAndSaved, form.
   before the next of the test's messages is applied.
 - Each command has a scope of its own, as when the program runs. The scope is closed before the command's message is
   applied.
-- The program's subscriptions do not run. What `simulate` reads from them is under [precisely](#precisely).
+- The program's subscriptions do not run. What `simulate` reads from them is under
+  [`simulate`, as the run dies](#simulate-as-the-run-dies).
 - `simulate` fails when `update` rejects one of the test's messages.
 - The command answers that `update` rejected are listed in `ignored`. Assert `ignored` when dropping one of those
   answers would be a bug.
@@ -204,7 +205,7 @@ rehearse(
   `cause`.
 - Time in `drive` is real: a model may be past by the time its message arrives. So, as when the program runs, a
   rejected message is ignored, and a scenario checks what it expects to see.
-- How `drive` ends is under [precisely](#precisely).
+- How `drive` ends is under [how `drive` ends](#how-drive-ends).
 
 ### Defects of the program
 
@@ -216,8 +217,6 @@ wherever the tool calls the program: `init`, `update`, `makeModel`, `subscriptio
 **`applyAll` and `dispatchViolations` call `update` without a run**, and fail with the defect itself.
 
 **`placeViolations` calls `get` and `set` without a run**, and fails with what they throw.
-
-## Precisely
 
 ### `simulate`, as the run dies
 

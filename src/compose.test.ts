@@ -1219,6 +1219,29 @@ describe("what a parent reads of its children", () => {
     expect(accepted(room.update({ _tag: "Wall", id: 2, message: "Pressed" })(off)).state.own.seen).toEqual([2, true])
   })
 
+  test("a handler of onEvent reads the outputs as the earlier handlers of the step, with what they told, left them", () => {
+    // A switch whose press raises two events: the handler of the first flips the lamp, and that of the second reads it.
+    const toggle = program<{ state: object; message: "Pressed"; event: "Told" | "Looked" }>().make({
+      init: { state: {} },
+      update: () => (state) => ({ state, events: ["Told", "Looked"] }),
+      makeModel: () => null
+    })
+    const Hall = program<{ state: Readonly<{ seen: ReadonlyArray<boolean> }> }>()
+    const hall = Hall.withChildren({ Lamp: Hall.child(lamp), Toggle: Hall.child(toggle) }).make({
+      init: { state: { seen: [] } },
+      onEvent: {
+        Lamp: () => (state) => ({ state }),
+        Toggle: (event, children) => (state) =>
+          event === "Told"
+            ? { state, tell: [{ _tag: "Lamp", message: flip }] }
+            : { state: { seen: [...state.seen, children.Lamp.output()] } }
+      },
+      makeModel: () => null
+    })
+    const { state } = accepted(hall.update({ _tag: "Toggle", message: "Pressed" })(hall.init.state))
+    expect(state.own.seen).toEqual([true])
+  })
+
   test("an output is read as a model is: a value, an Option for a child that may not be there, by id", () => {
     expect(room.makeModel(lit)).toEqual({
       ceiling: { model: "on", on: true },

@@ -83,30 +83,6 @@ go, and of a screen older than the state.
 **Checking the model is left to your tests.** Whether the model holds only what applies, and all of it, is for the
 tests (see [testing](./testing.md)).
 
-## Do and don't
-
-Each pair sums up a rule of this page. The rule itself is above.
-
-| Do                                                                             | Don't                                                                                   |
-| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| Return `reject` for a message that may arrive and does not apply in the state. | Call `defect` on a message that a fast finger, a slow draw or another device can bring. |
-| Call `defect(reason)` on a message that only a bug can bring.                  | Return `reject` for that message. A rejection would hide the bug.                       |
-| Expect a message of the view in any state, from any model.                     | Call `defect` on a message of the view because the model did not show it.               |
-| Call `defect` in `init`, `update`, `onEvent`, `makeModel` and `subscriptions`. | Call `defect` inside an Effect. There, `Effect.die` stays.                              |
-| Answer `{ state }` in a handler of `onEvent` that does not apply.              | Return `reject` from a handler of `onEvent`. The handler's type has no `reject`.        |
-
-```ts
-// Don't: the type of a handler of `onEvent` has no `reject`, so this does not compile
-Clock: (event) => (state) =>
-  Opt.isSome(state.about) ? reject : { state: { about: Opt.some({ openedAt: event.at }) } },
-
-// Do: a handler that does not apply answers `{ state }`
-Clock: (event) => (state) =>
-  Opt.isSome(state.about) ? { state } : { state: { about: Opt.some({ openedAt: event.at }) } },
-```
-
-## Precisely
-
 ### What "cannot arrive" rests on
 
 "Cannot arrive" is a promise of the program's state, kept by the run:
@@ -135,3 +111,25 @@ Such a message is applied, and its handler adds nothing to it:
 
 A completion promises something about the child's state, not about the parent's state. An event raised for a
 completion rules out a state of the parent only where the parent's own state promises it too.
+
+## Do and don't
+
+Each pair sums up a rule of this page. The rule itself is above.
+
+| Do                                                                             | Don't                                                                                   |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| Return `reject` for a message that may arrive and does not apply in the state. | Call `defect` on a message that a fast finger, a slow draw or another device can bring. |
+| Call `defect(reason)` on a message that only a bug can bring.                  | Return `reject` for that message. A rejection would hide the bug.                       |
+| Expect a message of the view in any state, from any model.                     | Call `defect` on a message of the view because the model did not show it.               |
+| Call `defect` in `init`, `update`, `onEvent`, `makeModel` and `subscriptions`. | Call `defect` inside an Effect. There, `Effect.die` stays.                              |
+| Answer `{ state }` in a handler of `onEvent` that does not apply.              | Return `reject` from a handler of `onEvent`. The handler's type has no `reject`.        |
+
+```ts
+// Don't: the type of a handler of `onEvent` has no `reject`, so this does not compile
+Clock: (event) => (state) =>
+  Opt.isSome(state.about) ? reject : { state: { about: Opt.some({ openedAt: event.at }) } },
+
+// Do: a handler that does not apply answers `{ state }`
+Clock: (event) => (state) =>
+  Opt.isSome(state.about) ? { state } : { state: { about: Opt.some({ openedAt: event.at }) } },
+```

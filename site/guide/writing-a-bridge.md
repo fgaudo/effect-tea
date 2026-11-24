@@ -147,7 +147,9 @@ shows. This holds with a renderer that keeps each element in its place, as snabb
 
 ## Rules
 
-What a bridge does, from the walkthrough above:
+### What a bridge does
+
+Every bridge does what follows. [An example](#an-example) shows how the package's bridge to snabbdom does it.
 
 - **It draws the model of the current state, and says what else it draws.** The bridge to snabbdom draws each model
   whole, in a microtask after each new state. It draws nothing between two draws. The bridge to React draws the model
@@ -162,14 +164,11 @@ What a bridge does, from the walkthrough above:
 - **Each new state is drawn before the browser handles the next event**, as React renders a store. So is each message
   that a handler sends, whether it made a new state or not. Otherwise a handler runs on a view older than the state: a
   key is typed over a value that the program has replaced since, and the write stores the old value back.
-  A renderer that draws after the next event, as one whose elements live in another thread, breaks this rule. What
-  holds then is described, not promised. The state holds every write, the last one typed. A lock by the shape of the
-  state rejects a key typed before the draw, as it rejects any write (see [inputs by id](./inputs.md#inputs-by-id)).
-  But a value that the program leaves in an input's place may be written over by a key typed before its draw.
+  A renderer that draws after the next event, as one whose elements live in another thread, breaks this rule: a value
+  that the program leaves in an input's place may then be written over by a key typed before its draw. A lock by the
+  shape of the state still rejects such a key, as it rejects any write (see [inputs by id](./inputs.md#inputs-by-id)).
 - **The renderer keeps an element drawn in the same place from one draw to the next**, as snabbdom and React do.
   Otherwise the element is made anew, and loses its focus.
-
-## Precisely
 
 ### The package's bridges
 
@@ -190,38 +189,115 @@ bridge:
 - names the type of its views, `View<Model, Message>`;
 - draws a program that was started: `drawInto` with snabbdom; with React, `Host`, which starts a program and runs it
   while it is mounted, and `Draw`, which draws a program that the application starts itself;
-- draws native controlled elements as its renderer's own documentation draws them: an input needs nothing else of the
-  bridge.
+- runs `dispatch` from any event of a native element;
+- draws any native controlled element, a text field, a textarea, a select, a checkbox or a range, as its renderer's
+  own documentation draws it: an input needs nothing else of the bridge.
 
 snabbdom's props module sets the props a view gives, and never removes one. So a view of the bridge to snabbdom gives
 a prop it changes in every state: `disabled: false` where a button is enabled, as the view of
 [`form`](../../examples/form/view-snabbdom.ts) does. Without it, a button once disabled stays disabled.
 
 Give an element's id and classes in its selector, as `h('span.weight')`, and the rest as props, a style or
-listeners. The bridge to snabbdom loads snabbdom's props, style and event listeners modules, and no other: so it draws
-no `class`, `attrs` or `dataset` of a node, and nothing reports it. This is described, not promised: a later bridge may
-load more.
+listeners. The bridge to snabbdom draws a node's props, its style and its event listeners. Whether it draws the
+`class`, the `attrs` or the `dataset` of a node is unspecified.
 
 [`counter`](../../examples/counter) and [`form`](../../examples/form) draw their programs with the bridge to snabbdom
 and with the bridge to React, one under the other. Both bridges draw the `App` of one program, which React draws with
-`Draw`. A bridge to React Native would be written the same way, but the repository has none. The sections above show
-how to write a bridge for any renderer, from the bridge to snabbdom.
+`Draw`. A bridge to React Native would be written the same way, but the repository has none. [An example](#an-example)
+shows how to write a bridge for any renderer, from the bridge to snabbdom.
 
-### What is left out
+**`drawInto(root, { app, view })`, the bridge to snabbdom,** draws the model of the current state, and returns what
+stops it:
+
+- It draws as it is called, then in a microtask after each new state, wherever its message comes from, and after each
+  message that a handler of the view sends, whether it made a new state or not. What a task, or a listener that the
+  browser calls, sends until it returns is drawn once, before the browser handles the next event.
+- As it is called, it empties `root`. Then `root` holds the view's top element and nothing else. `root` keeps its
+  place in the page, and it may have no parent.
+- It draws each model whole. A model that is the very one it drew last is not drawn again.
+- After each draw, it gives an element drawn with a `value` or a `checked` in `props` that prop back, where the element
+  differs from it. The element is not replaced, and keeps its focus, its caret and its selection.
+- What a listener sends while a patch runs, as a `blur` that the patch makes, is drawn after that patch, in a microtask
+  of its own.
+- A view or a `makeModel` that throws as it is drawn ends the run, at the first draw too: the run dies of it, in
+  `'render'`, and the bridge draws nothing more. A draw that comes once the run has ended throws it out of its
+  microtask, as an error of the page.
+- Once it is stopped, a draw that it asked for before is not made. The run does not stop it: whoever started the
+  program does, or does not.
+
+**`Host` and `Draw`, the bridge to React,** give React the `App`: `Host` starts the program and its run, and `Draw`
+draws a program that the application starts itself, as `<Draw app={app} view={view} />`. They read the model with
+`useSyncExternalStore`, and React draws it as React schedules it, but for a part that the application suspends.
+
+- React gives a controlled element the value it was drawn with.
+- A view that throws is an error of the application, for its error boundaries: an error boundary above `Host`
+  unmounts it, and the run is interrupted.
+- A `makeModel` that throws is the run's: under `Host`, React draws the model it drew last until the run has ended,
+  and `Host` then throws the defect to the boundary, once. `Draw` alone throws it as it renders, and the run that the
+  application started dies of it too.
+
+**With the bridge to React, the run lives as long as the effect that starts it.** That is the effect of `Host`. `Host`
+starts the program as it first renders, and starts its run after its effect. It takes the `program`, the `options` and
+the `fork` of that first render, and reads no later ones, also when it starts the program again. A new `key` mounts
+another `Host`, which takes those of its own first render.
+
+- React ends the effect, and `Host` interrupts the run, when it unmounts `Host`, and when `<Activity>` hides it. The
+  next effect starts the program again from `init`. So do a new `key` and a remount. The first run may have started the
+  commands of `init` before it is interrupted.
+- Under StrictMode, which runs every effect twice in development with a cleanup between them, whether the commands of
+  `init` start once or twice is unspecified.
+- For a state that outlives a component, start the program yourself, and draw it with `Draw`.
+
+**With the bridge to React, `Host` and `Draw` draw the first model on a server.** On a server, no effect runs: `Host`
+starts the program and draws its first model, and nothing of `init` starts. Nothing is promised of hydration.
+
+**With the bridge to React, a run that dies is thrown to the nearest error boundary.** `Host` throws it as it renders,
+while its effect runs. One that `Host` has not thrown when the effect ends, as `Host` unmounts or `<Activity>` hides
+it, or that ends after, is given to `reportError` instead, and is not thrown again. Where the platform has no
+`reportError`, as React Native, the bridge reports it as React reports an error itself. A `makeModel` that throws is
+thrown this way too, once: until the run has ended, `Host` draws the model it drew last. A first model that throws
+reaches the boundary as `Host` first renders, and the run never starts. What is thrown is `Cause.squash` of what the
+run ended with, which keeps one defect. To see the whole cause, wrap the run in the `fork` that you give `Host`: what
+the `fork` handles is not thrown or reported again.
+
+### `messagesSentBy`
+
+Beside the snabbdom bridge, `@fgaudo/effect-tea/snabbdom/testing` ([`bridges/snabbdom-testing.ts`][messages]) has
+`messagesSentBy`. It finds what a view sends, without a DOM. Each listener gets an event whose `target` and
+`currentTarget` are its element. The element holds the `value` and the `checked` that the view drew. So it finds the
+writes of controlled elements too, each with the value its model holds.
+
+What else a handler reads, the test gives in a third argument, `reports`. It is a function of the listener's node and
+of the name of its event, and returns the fields of the element and of the event:
+
+```ts
+const reports = (node: VNode, type: string) =>
+  node.sel === "div.track" && type === "pointerdown"
+    ? { element: { getBoundingClientRect: () => ({ left, width }) }, event: { clientX } }
+    : {}
+```
+
+- The fields of `element` are laid over what the view drew. A field may be a method that only reads, as
+  `getBoundingClientRect`.
+- The fields of `event` are the event's own, as `clientX`.
+- A handler that reads a field that neither the view nor `reports` gives gets `undefined`.
+
+The test draws one record of the values, and gives it to its reader and to `reports` alike (see
+[the reader](./testing.md#the-reader)). `messagesSentBy` is one way to check that a view draws what its model holds.
+The library does not ask it of any bridge (see [testing](./testing.md)). The test of each example drawn with snabbdom
+uses `messagesSentBy`.
+
+## What is left out
 
 The package's bridges are minimal, and examples to start from. They show how a native element is connected to the
-library. They handle the base case:
-
-- **They run `dispatch` from any event of a native element.**
-- **They draw any native controlled element**: a text field, a textarea, a select, a checkbox, a range.
-
-They leave out:
+library, and handle the base case that [the package's bridges](#the-packages-bridges) promises. They promise nothing
+of what follows, and say why:
 
 - **A value the element changes by itself**, as when a text field strips the line breaks from what is written into
   it, or when a range narrows its bounds below its value. The element shows the value it made until the next write,
   which is stored over the model's value.
-- **A form's reset**, by a reset button or `form.reset()`, with either bridge. Nothing is promised of it with React. A
-  program may empty a field by leaving `''` in its place.
+- **A form's reset**, by a reset button or `form.reset()`, with either bridge. A program may empty a field by leaving
+  `''` in its place.
 - **With React, a value that a script writes into an element past React's own setter**, and announces with an input
   event. React sends no `onChange` for it, so it is lost.
 - **An event that the program's own code dispatches before a new state is drawn**, with either bridge: a call of
@@ -235,7 +311,7 @@ They leave out:
 
 Any other feature of a renderer is left to the bridge that needs it.
 
-### Their tests
+## Their tests
 
 Both bridges are tested in a DOM, with [happy-dom](https://github.com/capricorn86/happy-dom):
 [`bridges/snabbdom.test.ts`](../../bridges/snabbdom.test.ts) and
@@ -266,30 +342,5 @@ A bridge of your own can start from them. To run them on it:
 The file holds the screen refreshes and Effect's scheduler, with `holdFrames`, `refresh` and `settle`. So the test
 says when a screen refresh comes, for a bridge that draws in one (neither of the package's does), and when the run's
 fibers go on.
-
-Beside the snabbdom bridge, `@fgaudo/effect-tea/snabbdom/testing` ([`bridges/snabbdom-testing.ts`][messages]) has
-`messagesSentBy`. It finds what a view sends, without a DOM. Each listener gets an event whose `target` and
-`currentTarget` are its element. The element holds the `value` and the `checked` that the view drew. So it finds the
-writes of controlled elements too, each with the value its model holds.
-
-What else a handler reads, the test gives in a third argument, `reports`. It is a function of the listener's node and
-of the name of its event, and returns the fields of the element and of the event:
-
-```ts
-const reports = (node: VNode, type: string) =>
-  node.sel === "div.track" && type === "pointerdown"
-    ? { element: { getBoundingClientRect: () => ({ left, width }) }, event: { clientX } }
-    : {}
-```
-
-- The fields of `element` are laid over what the view drew. A field may be a method that only reads, as
-  `getBoundingClientRect`.
-- The fields of `event` are the event's own, as `clientX`.
-- A handler that reads a field that neither the view nor `reports` gives gets `undefined`.
-
-The test draws one record of the values, and gives it to its reader and to `reports` alike (see
-[the reader](./testing.md#the-reader)). `messagesSentBy` is one way to check that a view draws what its model holds.
-The library does not ask it of any bridge (see [testing](./testing.md)). The test of each example drawn with snabbdom
-uses `messagesSentBy`.
 
 [messages]: ../../bridges/snabbdom-testing.ts

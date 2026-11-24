@@ -423,7 +423,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a self-interruption beside one the fiber received is no defect",
-    guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
     from: "interrupters.some(({ fiberId, mark }) => fiberId === reason.fiberId && mark === markOf(reason))",
     to: "interrupters.length > 0",
@@ -779,6 +778,21 @@ export const mutations: ReadonlyArray<Mutation> = [
       + "    for (const event of result.events ?? []) {\n"
       + "      ownStep(gathered, onEventAt(place, event, read)(gathered.own))\n",
     killedBy: [["src/compose.test.ts", "a handler of onEvent reads the outputs as the child's step left them"]]
+  },
+  {
+    name: "a handler of onEvent reads the outputs of before the earlier handlers of the child's step",
+    file: "src/compose.ts",
+    from: "    for (const event of result.events ?? []) {\n"
+      + "      ownStep(gathered, onEventAt(place, event, gathered.children)(gathered.own))\n",
+    to: "    const read = gathered.children\n"
+      + "    for (const event of result.events ?? []) {\n"
+      + "      ownStep(gathered, onEventAt(place, event, read)(gathered.own))\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a handler of onEvent reads the outputs as the earlier handlers of the step, with what they told, left them"
+      ]
+    ]
   },
   {
     name: "a child that an earlier item of the same step started again is told",

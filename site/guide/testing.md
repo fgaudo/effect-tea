@@ -17,7 +17,9 @@ pure, so most tests need no runtime:
 The table under [the tools](#the-tools) says which tool answers which question. [Testing tools](./testing-tools.md)
 says what each tool does.
 
-## How a program is tested
+## Rules
+
+### How a program is tested
 
 The tests of a program follow its shape, in four steps:
 
@@ -82,8 +84,8 @@ parent would read of it: no tool reads the output of a program that has no paren
 
 **The number of an instance.** A child's commands, as its parent's `update` returns them, name the instance that asked:
 `{ _tag: 'About', instance: 2, command }`. A child's keys are listed as `{ _tag: <child>, instance, key }`,
-and `{ _tag: <child>, id, instance, key }` for children by id. The instances are numbered in the order the library starts them,
-from 1 (see [composition](./composition.md#precisely), which describes the order). In
+and `{ _tag: <child>, id, instance, key }` for children by id. The instances are numbered in the order the library
+starts them, from 1 (see [the order of the starts](./composition.md#how-a-parent-and-its-children-start)). In
 [`pages`](../../examples/pages/app.test.ts), the Clock that `init` starts is 1, and the About that a step opens next is
 2. A test that needs only the child reads the key's `_tag`, as `pages` does.
 
@@ -174,8 +176,8 @@ through the right dispatch. You check it with your renderer's tools. For snabbdo
 view sends, without a DOM. A test compares that with what its reader returns. The examples' tests do this, each with a
 reader that lists the messages in the order its view draws them. Where a handler reads what its element or its event
 reports, the test gives `messagesSentBy` the values that it gives its reader (see
-[their tests](./writing-a-bridge.md#their-tests)). `messagesSentBy` is an example, and a bridge does not have to have
-one.
+[`messagesSentBy`](./writing-a-bridge.md#messagessentby)). `messagesSentBy` is an example, and a bridge does not have
+to have one.
 
 **A program run under its renderer, in a DOM,** is run as the app runs it. First, the test file prepares the DOM:
 
@@ -193,9 +195,10 @@ Then the test does these steps:
 2. It acts on the page. Then it waits until the page shows what it expects, because a renderer may draw a new state
    later. The bridge to snabbdom draws in a microtask after each new state, a message of its view's included: so the
    test awaits a microtask after each event it dispatches. React renders as React schedules it. A message of a
-   subscription or the answer of a command comes later, from a fiber of the run, after more than a microtask. So, for
-   what they bring, the test looks at the page again after each turn of the event loop (`setTimeout(resolve, 0)`),
-   with a bound that only a failing test reaches.
+   subscription or the answer of a command may come later than a microtask: when the effects of a step start is
+   unspecified (see [guarantees](./guarantees.md#what-is-left-to-you)). So, for what they bring, the test looks at the
+   page again after each turn of the event loop (`setTimeout(resolve, 0)`), with a bound that only a failing test
+   reaches.
 3. At the end, it stops the bridge, interrupts the run's fiber, and waits for it (see
    [how the run ends](./running.md#how-the-run-ends)).
 

@@ -15,8 +15,8 @@ guide, tutorial and doc comments, for the latest release. `docs/` is for whoever
 users, and the reader never opens it, nor the package's `src/`, which is the implementation.
 
 The guide is the specification ([`AGENTS.md`](../../../AGENTS.md), "What belongs here"): a rule the reader could only
-learn from the code of an example is a gap too, since what the guide does not say it does not promise. So the report
-says, for each thing the reader needed, where it found it.
+learn from the code of an example is a gap too, since what the guide does not say under its rules it does not promise
+("What a page promises", in its index). So the report says, for each thing the reader needed, where it found it.
 
 The reader works in a project of its own outside the repository, so that the code and the documents of the repository
 are out of its reach by where it stands, not only by its rules. A check is of one of two modes, which differ only in
@@ -333,10 +333,11 @@ export const valueOf = (selector: string): string | undefined => {
   [`docs/rejected.md`](../../../docs/rejected.md) is read for it, and a change it calls for is a step of
   [`ROADMAP.md`](../../../ROADMAP.md).
 - Put each gap of (a) and (b), and each rule of (2) to (5) a user relies on, where the reader looked for it. A page of
-  the guide or the tutorial gets it as a specification: a sentence added promises what the code and the tests already
-  keep, and is checked against `src/` and its tests, or with the compiler, before it is committed, since a reader's
-  guess may have passed by luck. A promise that no test keeps yet gets its test first. A changed section of the guide
-  is checked one sentence at a time against the old one (`AGENTS.md`, "What belongs here").
+  the guide gets it under its "Rules", as a specification, and the tutorial an explanation of it: a sentence added
+  promises what the code and the tests already keep, and is checked against `src/` and its tests, or with the
+  compiler, before it is committed, since a reader's guess may have passed by luck. A promise that no test keeps yet
+  gets its test first. A changed section of the guide is checked one sentence at a time against the old one
+  (`AGENTS.md`, "What belongs here").
 - A doc comment gets the rule a caller needs at that point, in short and in plain English, as `change-api` says; a rule
   the guide does not hold yet goes into the guide first. The skill gets a pointer, or a rule in short with the section
   that rules it: it sums up the guide and promises nothing the guide does not. A gap of the README is fixed in the

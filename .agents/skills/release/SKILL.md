@@ -29,9 +29,9 @@ Before a commit, answer these in order:
    defects of the run, the fixes of one testing tool, the programs that no longer compile) are one entry together.
 4. **Which heading?** `Added` for what is new; `Changed` for what behaves or is spelled otherwise; `Fixed` for what
    did not do what the last release promised. A program that compiled and no longer does is `**Breaking**`, under
-   `Changed`, even when the types were wrong before. So is a promise of the guide that no longer holds. A description
-   of the guide that changes is not: it has an entry under `Changed` where a user notices it (`AGENTS.md`, "The guide
-   is a specification, of two strengths").
+   `Changed`, even when the types were wrong before. So is a promise of the guide that no longer holds. What the guide
+   does not promise is unspecified, and has no entry when it changes (`AGENTS.md`, "The guide promises only its
+   rules").
 
 An entry is one line, at most two at 120 columns: what changes, in the user's words, with no why, no list of cases and
 no example, which the guide and the doc comments hold. An entry that groups changes of one kind lists them, a few

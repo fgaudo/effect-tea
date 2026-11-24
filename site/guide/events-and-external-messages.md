@@ -81,6 +81,11 @@ A parent and its children talk only through events, external messages and output
     dropped or started again, through what its parent did with an event, is told nothing. This is no defect.
 - **A parent passes an external message on** to a child in its own `external`:
   `external: (message) => (state) => ({ state, tell: [{ _tag: 'Page', message }] })`.
+- **An external message never writes into an input.** Only what is drawn writes into an input. An external message
+  reaches only `external`, so it is never routed to an input, whatever its `_tag`. To fill an input from its parent, a
+  child takes an external message, such as `{ _tag: 'Filled', name }`, and its `external` writes the input's place.
+- **An external message to a child that is not there is a defect.** A child that is not there once the step is taken
+  is the step's own mistake. It is a `CompositionDefect` that names the child, and names the message by its tags.
 
 ### Outputs
 
@@ -93,7 +98,8 @@ A parent and its children talk only through events, external messages and output
   `output`. It is read as a model is: a value for a child that is always there and for a listed id, and an `Option` for
   a child alone that may not be there.
   - In `update` and `external`, the outputs are of the children as they were before the step.
-  - In a handler of `onEvent`, the outputs are of the children as the child's step that raised the event left them.
+  - In a handler of `onEvent`, the outputs are of the children as the child's step that raised the event left them,
+    and as the handlers of that step's earlier events, with what they told, left them.
   - A parent's own `output` may read its children's outputs. Its own parent reads it as any other.
 - **Read a condition of a child, do not copy it.** A parent that keeps a copy of what a child's state says must change
   the copy at each change of the child. This is derived data in a state (see
@@ -134,6 +140,17 @@ combines the two steps:
 `andThen` also has a form that takes the step last, for a chain written with Effect's `pipe`:
 `pipe({ state }, andThen(leave), andThen(clearRows))`.
 
+### What a program must declare
+
+- **`onEvent`** is required exactly when a child has events.
+- **A parent that raises a child's event as its own** has an `Event` that includes the child's event, or this does not
+  compile.
+- **`external` is required exactly when the program names external messages**, as `runCommand` is when the program
+  has commands. `make` refuses one when the program names none.
+- **`output` is required exactly when the program names an output**, and `make` refuses one when the program names
+  none. A program without children has no outputs to read: its `update`, `external` and `output` take no
+  `children`.
+
 ### A child that must wait for its parent
 
 Sometimes an operation of the parent, such as a payment, must stop the parent's children from acting.
@@ -171,21 +188,3 @@ update: (_: Cleared) => (state) => ({ state: clear(state).state, tell: [{ _tag: 
 update: (_: Cleared) => (state) =>
   andThen(clear(state), (state) => ({ state, tell: [{ _tag: 'Watch', message: Halted() }] })),
 ```
-
-## Precisely
-
-- **`onEvent`** is required exactly when a child has events.
-- **A parent that raises a child's event as its own** has an `Event` that includes the child's event, or this does not
-  compile.
-- **`external` is required exactly when the program names external messages**, as `runCommand` is when the program
-  has commands. `make` refuses one when the program names none.
-- **`output` is required exactly when the program names an output**, and `make` refuses one when the program names
-  none. A program without children has no outputs to read: its `update`, `external` and `output` take no
-  `children`.
-- **The order inside a step.** A handler of `onEvent` reads the outputs after the child's step, and after the handlers
-  of the child's earlier events and what they told. This is described, not promised.
-- **An external message never writes into an input.** Only what is drawn writes into an input. An external message
-  reaches only `external`, so it is never routed to an input, whatever its `_tag`. To fill an input from its parent, a
-  child takes an external message, such as `{ _tag: 'Filled', name }`, and its `external` writes the input's place.
-- **An external message to a child that is not there is a defect.** A child that is not there once the step is taken
-  is the step's own mistake. It is a `CompositionDefect` that names the child, and names the message by its tags.

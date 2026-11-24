@@ -4,8 +4,14 @@
 Effect-TS/effect PR 10878 showed how Effect documents what it does not promise: it says briefly that something "is
 unspecified", and does not describe it. Its four findings that do not match were checked against the code by the
 session that wrote this record, the fourth on one of its cases; the rest is the review's reading, to be checked item
-by item by step 48 of [`ROADMAP.md`](../../ROADMAP.md) before it is applied. Nothing is decided yet. Last read against
-the code at `635fcff`.
+by item by step 48 of [`ROADMAP.md`](../../ROADMAP.md) before it is applied. Last read against the code at `635fcff`.
+Applied on 24 November 2026 by step 56, which took the place of step 48: the guide promises only its rules, and each
+description became a rule, an explanation, or a few words that say it is unspecified. It departed from this sorting
+where a behaviour is kept on purpose by the code and checked by a test: a listener added or throwing during a notice,
+the end that never begins inside a step, and the subscriptions one state stops released together are promises, and so
+is the order of the starts (its second finding). What is unspecified is what falls out of how the engine is built, or
+rests on what Effect makes of a cause, or on what a renderer does not document, as how often StrictMode starts the
+commands of `init`. The commit lists each decision.
 
 ## In short
 

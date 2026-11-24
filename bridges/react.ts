@@ -44,7 +44,7 @@ export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) =
  * again for each new state, and draws the model of the state current when it renders. It draws it on a server too.
  *
  * React may make the model of each new state as it is told of it, in the call that sent the message: a slow
- * `makeModel` then holds up that call. This is described, and not promised.
+ * `makeModel` then holds up that call. When React makes it is unspecified.
  *
  * A `makeModel` that throws is thrown as `Draw` renders, for the nearest error boundary, and the run dies of it too.
  *
@@ -56,7 +56,7 @@ export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) =
  * ```
  *
  * @see The guide, "Writing a bridge", "The handle".
- * @see The guide, "Guarantees", "With the bridge to React, `Host` and `Draw` draw the first model on a server".
+ * @see The guide, "Writing a bridge", "With the bridge to React, `Host` and `Draw` draw the first model on a server".
  * @see The guide, "Guarantees", "With the bridge to React, `makeModel` may run for each new state, in the call that sends its message".
  */
 export const Draw = <Model, Message>({
@@ -73,7 +73,7 @@ export const Draw = <Model, Message>({
  * How the application runs the program: `Effect.runFork` by default, or the `runFork` of a `ManagedRuntime` that gives
  * the program's services.
  *
- * @see The guide, "Guarantees", "With the bridge to React, a run that dies is thrown to the nearest error boundary".
+ * @see The guide, "Writing a bridge", "With the bridge to React, a run that dies is thrown to the nearest error boundary".
  */
 export type Fork<R> = (effect: Effect.Effect<void, never, R>) => Fiber.Fiber<void, unknown>
 
@@ -157,9 +157,8 @@ const report = (error: unknown): void => {
  *   run starts after `Host`'s effect, and is interrupted as `Host` unmounts. Give it a new `key` to start the program
  *   anew.
  * - The run lives as long as `Host`'s effect: React's `<Activity>` ends it, and the program starts again from `init`.
- *   The run starts in a microtask after the effect, so under StrictMode the commands of `init` start once today: this
- *   is described, and not promised. For a state that outlives a component, start the program yourself, and draw it
- *   with `Draw`.
+ *   Under StrictMode, whether the commands of `init` start once or twice is unspecified. For a state that outlives a
+ *   component, start the program yourself, and draw it with `Draw`.
  * - On a server, it draws the first model, and nothing of `init` starts.
  * - A run that fails, or dies, throws what it ended with (`Cause.squash`: a `ProgramDefect` for a defect) as `Host`
  *   renders, for the nearest error boundary. One that `Host` has not thrown when its effect ends, as it unmounts or
@@ -176,9 +175,9 @@ const report = (error: unknown): void => {
  *
  * @see The guide, "View".
  * @see The guide, "Writing a bridge", "A controlled element".
- * @see The guide, "Guarantees", "With the bridge to React, the run lives as long as the effect that starts it".
- * @see The guide, "Guarantees", "With the bridge to React, `Host` and `Draw` draw the first model on a server".
- * @see The guide, "Guarantees", "With the bridge to React, a run that dies is thrown to the nearest error boundary".
+ * @see The guide, "Writing a bridge", "With the bridge to React, the run lives as long as the effect that starts it".
+ * @see The guide, "Writing a bridge", "With the bridge to React, `Host` and `Draw` draw the first model on a server".
+ * @see The guide, "Writing a bridge", "With the bridge to React, a run that dies is thrown to the nearest error boundary".
  */
 export const Host = <
   State extends object,

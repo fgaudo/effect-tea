@@ -41,7 +41,7 @@ type Listener = Extract<NonNullable<On[string]>, (...args: never) => unknown>
  * ```
  *
  * @see The guide, "Testing", "The view".
- * @see The guide, "Writing a bridge", "Their tests".
+ * @see The guide, "Writing a bridge", "`messagesSentBy`".
  */
 export const messagesSentBy = <Model, Message>(
   view: View<Model, Message>,

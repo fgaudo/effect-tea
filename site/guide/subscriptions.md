@@ -54,7 +54,11 @@ listen: ({ dt }) => steps(dt),
 
 A new value of the key starts the subscription anew. Starting anew is cheap for a timer whose interval changes. A key
 is shown whole where a defect or `onApplied` names it, so what must stay private goes in a service, not in a key (see
-[running](./running.md#when-a-defect-happens)).
+[running](./running.md#when-a-defect-happens)). What `listen` throws is a defect of the subscription, with its key.
+
+**What a stopped subscription sent is dropped.** From the moment its key is gone, the run drops the messages that the
+subscription sent and that `update` has not seen, before the subscription has been stopped (see
+[guarantees](./guarantees.md#what-you-can-rely-on)).
 
 **A subscription never ends in silence.** Either it never ends, or it ends with **one last message**, its end value.
 
@@ -122,15 +126,7 @@ Each pair sums up a rule of this page. The rule itself is above.
 | Use a subscription for work that stops when the state no longer wants it.                   | Use a command for that work. A command cannot be cancelled.                                             |
 | Use a command for a one-off effect whose answer must arrive even if the state has moved on. | Use a subscription for that effect. A missing key stops it.                                             |
 
-## Precisely
-
-**Where `listen` runs.** `listen` is called as its subscription starts, in the subscription's fiber, as `runCommand` is
-called in a command's. What it throws is a defect of the subscription, with its key (see
-[running](./running.md#when-a-defect-happens)).
-
-**What a stopped subscription sent.** A missing key stops its subscription. The run also drops the messages that the
-subscription sent and that `update` has not seen, from the moment the key is gone, before the subscription has been
-stopped.
+## More examples
 
 **A `Stream` as a subscription.** A `Stream` becomes a subscription with `Stream.toChannel`, `Channel.flattenArray` and
 `Channel.mapDone`. `Channel.mapDone` is where you say what the end of the stream means. A drag sends each move of the

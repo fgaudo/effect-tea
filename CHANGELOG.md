@@ -17,7 +17,7 @@ version, and everything else, features included, the patch version.
   `set` changes its place and nothing else, and returns each `PlaceViolation` it finds ("Testing tools").
 - `messagesSentBy(view, model, reports)`, in `@fgaudo/effect-tea/snabbdom/testing`: `reports` gives what a handler
   reads of its element and its event, as `scrollTop` or `clientX`, and each event's `currentTarget` is its element too
-  ("Writing a bridge", "Their tests").
+  ("Writing a bridge").
 
 ### Changed
 
@@ -48,10 +48,22 @@ version, and everything else, features included, the patch version.
 - **Breaking**: the messages of a program written as an object are inferred from its `update` alone, by `start`,
   `drive`, `rehearse` and `simulate`: an answer of `runCommand` or a message of `listen` no longer narrows them.
   Upgrade: `{ ...counter, update: (message) => … }` becomes `{ ...counter, update: (message: Message) => … }`.
-- **Breaking**: described, and no longer promised ("Running", "The defects in the cause"): two releases of one scope
-  that die of defects equal by `Equal` are two defects, and a command that interrupts itself as the run stops it is one.
+- **Breaking**: unspecified, and no longer promised ("Running", "The defects in the cause"): whether two releases of one
+  scope that die of defects equal by `Equal` are two defects, and whether a command that interrupts itself as the run
+  stops it is one.
   Upgrade: nothing to change in a program; a test relies on neither.
-
+- The guide promises only what stands under "Rules", under "What you can rely on" and in the types; the rest explains,
+  and what it does not promise is unspecified, with no entry here when it changes ("Guide", "What a page promises").
+  "Precisely" is gone. Now promised, under the "Rules" of its page: all that a page held under "Precisely" or said it
+  described, but what only explains and what is unspecified below; and what "Guarantees" described under "What is
+  left to you", now in "Running" (what the run lets go of, and waits for as it ends) and in "Writing a bridge" (how
+  `Host` lives, draws on a server, and reports a run that dies, where there is no `reportError` too). "What you can
+  rely on" adds that the subscriptions one state stops release together. Now unspecified: the order of the defects,
+  which function refuses a program that does not compile, in which fiber a command runs, when the effects of a step
+  start, on which stack and in what order beyond its rules the run ends, when children are compared, when `listen` is
+  called, when React reads the model, whether the commands of `init` start once or twice under StrictMode, what a
+  renderer that draws after the next event leaves in the state, and whether the bridge to snabbdom draws a node's
+  `class`, `attrs` and `dataset`.
 - The guide's "Inputs the user types into" is now "Inputs": a value an element reports for the program to keep is an
   input too, and a fact with a value, as a scroll's end, is one message that the view fills ("What an element reports").
 - A value that the user writes belongs to the program whose rules use it: the parent's where it changes or locks it,
@@ -61,7 +73,7 @@ version, and everything else, features included, the patch version.
   an input: a wrapper built by a parent's constructor, or a value typed as the whole message, now compiles.
 - The peer dependency on `effect` is `~4.1.5`, where it was `~4.1.4`.
 - `react-dom` is no longer a peer: the bridge to React imports `react` alone. Where there is no `reportError`, as on
-  React Native, it reports a run that dies after `Host` unmounts as React reports an error itself ("Guarantees").
+  React Native, it reports a run that dies after `Host` unmounts as React reports an error itself ("Writing a bridge").
 - The package's JavaScript is ES2022, as the README now says, without the class `static {}` blocks that some
   toolchains, as Metro for Hermes, need a plugin for.
 

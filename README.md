@@ -81,8 +81,8 @@ It probably does not when:
 - you are not on Effect 4.
 
 It is at version 0.x, so the API still changes. [`CHANGELOG.md`](CHANGELOG.md) says how to upgrade over each breaking
-change. The [Guide](https://fgaudo.github.io/effect-tea/documents/Guide.html) tells what it promises from what it only
-describes of the version installed.
+change. The [Guide](https://fgaudo.github.io/effect-tea/documents/Guide.html) promises what its rules say, at the
+version installed, and nothing else.
 
 ## Installation
 

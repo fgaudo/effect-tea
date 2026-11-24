@@ -76,18 +76,18 @@ answer, and saying so in the proposal.
   again. The one premise it saved is documented since Effect 4.1.5, and it would drop neither of the two that are
   left: the flag still needs the question to the fiber, by the spike's own count, and which fiber a command sees as its
   own is the same under a flag as under the mark. Read, not run. What it gave up, a fiber that interrupts itself as the
-  run stops it, is described and no longer promised since 23 November 2026: that changes what the flag would lose, not
-  what it would save. _Reopen if_ a design tells the run's stop from a self-interruption
-  with no question to the fiber, and keeps a self-interruption in a stopped fiber's release a defect.
+  run stops it, is no longer promised since 23 November 2026, and unspecified: that changes what the flag would lose,
+  not what it would save. _Reopen if_ a design tells the run's stop from a self-interruption with no question to the
+  fiber, and keeps a self-interruption in a stopped fiber's release a defect.
 - **Promising the order of the defects.** Reasoned, 13 November 2026. The run keeps the order and its tests check
-  it; the guide describes it as how the run is made today, and promises only that every defect is in the cause,
-  each with where (`858b819`). The reason the owner gave: binding the library's guarantees to a specific API of
-  Effect is not right, even a stable and documented one; the argument for the promise was that `Cause.squash`, which
-  `Effect.runPromise` and `Effect.runSync` use, takes the first defect. The principle is in
-  [`invariants.md`](invariants.md), under "Defects always die". Source: the same session. The narrower form,
-  promising only that the first defect of the cause is the first that happened, was left open in that session's
-  table before the owner's decision, and the decision named no exception; it rests on the same argument. _Reopen
-  if_ the promise can rest on the library's own code, not on what a function of Effect makes of a cause.
+  it; the guide leaves it unspecified, and promises only that every defect is in the cause, each with where (`858b819`).
+  The reason the owner gave: binding the library's guarantees to a specific API of Effect is not right, even a stable
+  and documented one; the argument for the promise was that `Cause.squash`, which `Effect.runPromise` and
+  `Effect.runSync` use, takes the first defect. The principle is in [`invariants.md`](invariants.md), under "Defects
+  always die". Source: the same session. The narrower form, promising only that the first defect of the cause is the
+  first that happened, was left open in that session's table before the owner's decision, and the decision named no
+  exception; it rests on the same argument. _Reopen if_ the promise can rest on the library's own code, not on what a
+  function of Effect makes of a cause.
 - **"A dispatch never runs `update` on the caller's stack", as a guarantee.** Reasoned, 13 and 14 November 2026.
   It became a sentence of the README's "View" instead (a handler returns before `update` has seen its message,
   `c3c2783`), as the owner accepted: it rests on a premise read only in Effect's source (an unbounded `Queue` wakes
@@ -112,9 +112,9 @@ answer, and saying so in the proposal.
   The first goes with a synchronous `record` on `Deaths` (`shell.ts`), since `Core.record` is pure already, and with a
   model's defect recorded where the model is read, its site taking it as it is (E6): no fiber is made for a defect, and
   `model()` asks nothing of the runtime. Nothing rests on the second: the engine is correct either way, and the guide
-  describes, and does not promise, that the end of the run may begin inside a dispatch. The record names no condition
-  to reopen the first. The second was adopted on 21 November 2026, as a premise of the tests alone (`premises.md`):
-  the killers of the mutations that wake a fiber inside a step rest on it, and no guarantee does.
+  leaves unspecified on which stack the end of the run begins. The record names no condition to reopen the first. The
+  second was adopted on 21 November 2026, as a premise of the tests alone (`premises.md`): the killers of the mutations
+  that wake a fiber inside a step rest on it, and no guarantee does.
 - **A bound on how far the effects lag behind the state.** Reasoned, 20 November 2026, in the plan of
   [`synchronous-dispatch.md`](records/synchronous-dispatch.md) (E5), the owner deciding the same day: the effects of
   the states, their subscriptions stopped and started and their commands started, may lag without a bound. A step that
@@ -332,11 +332,11 @@ answer, and saying so in the proposal.
   infers through the conditional of `ObjectState<S>`. Making them hold would rework `Program`, `Shape`, every `*Of`
   reader, `Handles`, `OnEventOf` and `Config`, on how the compiler treats generic types, and risk types that read
   differently by how the code is written, while a rule over a truly generic `P` still could not be decided. Such a
-  function is written as an overload over erased types instead ("Composition", "Precisely"), and a frame is better a
-  child beside its content. The same holds for a state that is a type parameter in `make`, refused since 18 November
-  2026 so that a number cannot reach `run` through a generic function (`MakeProgram` in `compose.ts`): a type
-  parameter in a field of the state compiles. _Reopen if_ a library of components over this one needs such functions
-  often.
+  function is written as an overload over erased types instead ("Composition", "A function that makes a parent of any
+  program"), and a frame is better a child beside its content. The same holds for a state that is a type parameter in
+  `make`, refused since 18 November 2026 so that a number cannot reach `run` through a generic function (`MakeProgram`
+  in `compose.ts`): a type parameter in a field of the state compiles. _Reopen if_ a library of components over this one
+  needs such functions often.
 - **`DeclareChild<State>` in place of `DeclareChild<T>`**, and so for `DeclareChildById`, `DeclareInput` and
   `DeclareInputById`, which use only the state of the types a program declares. Spiked, 18 November 2026, with
   TypeScript 7.0.2, in a review of the exported types. The types are the same once resolved: typecheck, the tests and
@@ -700,9 +700,8 @@ answer, and saying so in the proposal.
   Reversed in part on 20 November 2026 ([`write-without-was.md`](records/write-without-was.md)): a write carries its
   value alone and the rule on `set` is dropped, so a `set` that stores another value than the one written is allowed.
   The probe's second write, sent before any frame, is now stored, and the bridge draws the stored value in its
-  microtask. The guide lists it as the fourth way, with the caret described and not promised: it goes to the end after
-  a key whose value `set` changes ("What is typed, in another form"). Whether `normalize` as an option of `input` earns
-  a place is not reopened, since a `set` does it.
+  microtask. The guide lists it as the fourth way, with where the caret goes left unspecified ("What is typed, in
+  another form"). Whether `normalize` as an option of `input` earns a place is not reopened, since a `set` does it.
 
   Reversed on 22 November 2026 ([`stored-form.md`](records/stored-form.md)), for a reason this entry did not have: a
   `set` that stores another form cannot be told from a `set` that does more, so the rule of a `set` kept an exception
@@ -922,13 +921,14 @@ comments are written by hand since, in plain English, and name the sections of t
   the API: `FlagsOf` reads `unknown` from a thunk, and every read of `program.init.state` changes. Made an accessor, it
   throws where `{ ...program, init: { state } }` spreads it, and a grandparent's handles need accessors too. Such an
   `init` has no input, so it throws on every import or never: no bug of it outlives the first test. The guide says
-  instead that `make` calls it ("Composition", "Precisely"), and the promise of "Running" is of an `init` that takes
-  flags. Since the library keeps a parent's children (22 November 2026,
+  instead that `make` calls it ("Composition", "When the children start"), and the promise of "Running" is of an
+  `init` that takes flags. Since the library keeps a parent's children (22 November 2026,
   [`kept-children.md`](records/kept-children.md)), the config's `init` is one form, a step or a function of the flags,
   with children or without, and `make` calls no `init` of the parent's. What `make` calls is the `init` of each child
   that the step lists, since the made program's `init` is a step that holds their states: so the entry stands for the
   children's starts, by the same three forms (reasoned, 23 November 2026, and not run again). The guide says that
-  `make` starts them ("Composition", "Precisely"). _Reopen if_ a parent's `init` takes an input that `start` gives.
+  `make` starts them ("Composition", "When the children start"). _Reopen if_ a parent's `init` takes an input that
+  `start` gives.
 - **A subscription made from its key alone, in other forms.** Weighed on 23 November 2026 beside the form the owner
   took, the owner deciding ([`subscription-from-key.md`](records/subscription-from-key.md), "For the owner").
   - **The keys listed in a `HashSet`.** Spiked, on `spike/subscription-from-key` at `40d9400`, with every test of the

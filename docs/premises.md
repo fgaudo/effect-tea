@@ -186,7 +186,7 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   which `runSubscription` (`shell.ts`) gives `Channel.toPull`, and which closes once the subscription ends, however it
   ends: by the end of its queue, or interrupted, as a subscription is when its key goes away or the run ends. With the
   premise of `Channel.toPull` above, a release that the callback acquires with `Effect.acquireRelease` stops the source
-  as the subscription ends: the guide's "Subscriptions", "Precisely", "A source of callbacks as a subscription", and
+  as the subscription ends: the guide's "Subscriptions", "A source of callbacks as a subscription", and
   the streams of `examples/volume/main.ts` and `examples/bounce/main.ts`, rest on it. The scope is not one of the
   callback's own, closed as the stream ends: under a run function the two cannot be told apart, since the run closes
   its scope as the stream ends, but under a pull the release waits for the scope of the pull. The JSDoc of
@@ -234,11 +234,12 @@ The invariants themselves are in [`invariants.md`](invariants.md).
   `init` start once. "in StrictMode, one run starts, which no cleanup interrupts, and it is drawn and typed into" and
   "in StrictMode, the commands of init start once" (`react.test.ts`) rest on it, and fail with the run forked in the
   effect itself. Should React run the cleanup later, the first run would start and be interrupted, and `Host` would
-  start the program anew, as it did before: so the guide describes it, and does not promise it. Agreed to by the owner
-  on 20 November 2026 ([`store-and-effects.md`](records/store-and-effects.md), "Decided", 4). react.dev says that
-  StrictMode runs one more setup and cleanup of each effect in development, not in which task. Its test, in
-  `react.test.ts`: "StrictMode runs an effect's cleanup in the task of the effect, before any microtask", which fails
-  with a cleanup run in a microtask.
+  start the program anew, as it did before: so the guide leaves unspecified whether the commands of `init` start once
+  or twice ("Writing a bridge", "The package's bridges"), while the bridge starts them once (`invariants.md`, "`Host`
+  starts one run under StrictMode"). Agreed to by the owner on 20 November 2026
+  ([`store-and-effects.md`](records/store-and-effects.md), "Decided", 4). react.dev says that StrictMode runs one more
+  setup and cleanup of each effect in development, not in which task. Its test, in `react.test.ts`: "StrictMode runs an
+  effect's cleanup in the task of the effect, before any microtask", which fails with a cleanup run in a microtask.
 
 A premise about what code does when it runs is checked before the change that rests on it is written, and never
 only reasoned:
@@ -274,11 +275,11 @@ A guarantee of the guide says what it promises in the library's own terms, never
 Effect makes of a value: the order of the defects in a cause is no promise, since what a user would rely on is what
 `Cause.squash` returns ([`rejected.md`](rejected.md)). What keeps a guarantee may rest on a premise listed here, as
 those of the span and of a self-interruption do: the premise's test, which the daily job runs at the
-newest Effect the peer range accepts, is what tells that it fell. Two cases that half of a premise holds are described
-by the guide, and not promised ("Running", "The defects in the cause"): that a fiber which interrupts itself as the run
-stops it is a defect (the first half of "a fiber that fails as it is interrupted keeps its own reasons"), and that two
-releases of one scope that die of defects equal by `Equal` are two (the second half of "`Scope.close` dies with every
-defect its finalizers die of"). What falls with each premise is sorted in
+newest Effect the peer range accepts, is what tells that it fell. Two cases that half of a premise holds are left
+unspecified by the guide ("Running", "The defects in the cause"), and kept by the engine: that a fiber which interrupts
+itself as the run stops it is a defect (the first half of "a fiber that fails as it is interrupted keeps its own
+reasons"), and that two releases of one scope that die of defects equal by `Equal` are two (the second half of
+"`Scope.close` dies with every defect its finalizers die of"). What falls with each premise is sorted in
 [`premises-and-range.md`](records/premises-and-range.md), as it stood on 23 November 2026.
 
 What the dependencies of development do (fast-check, happy-dom, the renderers of the examples) is no premise of the

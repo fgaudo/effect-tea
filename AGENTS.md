@@ -180,29 +180,28 @@ already describe. Each decision of a step is a line of its commit ("Deciding").
   documents or a rewording with the same promises; a change to what the unreleased section already lists, or to what
   it added, edits that entry instead of adding one; an entry is a line or two. Every entry answers the four questions
   of `release` first.
-- **The guide is a specification, of two strengths.** Its pages ([`site/guide/`](site/guide)), "Guarantees" among
-  them, say what the library does at the version they ship with, and applications cite them as rules. A **promise** is
-  what a user builds on and the library means to keep: a change of one is a breaking change (`release`). A
-  **description** says how the library behaves today, so that a user can follow a run and debug it: it is as true as a
-  promise, and a test checks it, but it may change in any release, with a changelog entry where a consumer can notice.
-  A sentence is a description where it stands under a page's "Precisely", or says that it is described and not
-  promised (the order of the defects); and "What is left to you", in "Guarantees", promises nothing: what it says of
-  how the library behaves is a description. Every other sentence is a promise, and one of another page promises no
-  less for standing outside "Guarantees", the list the guide says the tests check, most of it under the search. A
-  promise says what happens, and when a program can see it: a user would write another program if it were false. How
-  the library does it (in which fiber, in what order inside a step, in which function the compiler refuses a program)
-  is a description, and so is what rests on a renderer or a browser that the library does not control. In doubt, a
-  sentence is a description: one becomes a promise at any time, and a promise taken back breaks its users. Its prose
-  changes one section at a time, each sentence checked against the old one: the same promise or the same description,
-  no weaker and no stronger, as the code and the tests keep it. A word that looks minor ("exactly when", "by `Equal`",
-  "never more") is often the rule.
-- **A rule of the guide is added last, and stated alike wherever it stands.** Before a rule is added, the rule it is a
-  case of is looked for: a case goes under that rule, as an example of it, and how one program does something goes in
-  an example's code, not in a list of rules. A place that states a rule another page has names that page, and states
-  it with the same exceptions and the same strength: a change of a rule rereads every place that states it. A rule
-  that nothing checks (not the compiler, not the run, not a testing tool) is where a person or an AI goes wrong in
-  silence: it is listed in "Guarantees", under "What is left to you", and first in the skill. And an example never
-  brings the rule that allows it: a change of the guide that an example needs comes first, as a change of the guide.
+- **The guide promises only its rules.** Its pages ([`site/guide/`](site/guide)) say what the library does at the
+  version they ship with, and applications cite them as rules. The guide promises what stands under the "Rules" of a
+  page, under "What you can rely on" in "Guarantees", and in the types, as its "What a page promises" says; the rest of
+  a page explains, and binds nothing. A promise is what a user builds on and the library means to keep: a test checks
+  it, and a change of one is a breaking change (`release`). It says what happens, and when a program can see it: a user
+  would write another program if it were false. What is not promised is unspecified, as Effect says of what it does
+  not promise (Effect-TS/effect#10878): it has no test of its own, unless the test holds an invariant of
+  `docs/invariants.md`, and no changelog entry when it changes. So no page says how the engine works inside (in which
+  fiber, in which order its own work is done), nor promises what rests on a renderer or a browser that the library does
+  not control, beyond what their documentation says (when React reads a model, how often StrictMode starts the commands
+  of `init`): where a reader would ask, a few words say that it is unspecified. In doubt, a behaviour is left
+  unspecified: one becomes a promise at any time, and a promise taken back breaks its users. The rules change one
+  section at a time, each sentence checked against the old one: the same promise, no weaker and no stronger, as the
+  code and the tests keep it. A word that looks minor ("exactly when", "by `Equal`", "never more") is often the rule.
+- **A rule of the guide is added last, and stated where it rules.** Before a rule is added, the rule it is a case of is
+  looked for: a case goes under that rule, as an example of it, and how one program does something goes in an
+  example's code, not in a list of rules. A rule is stated once, under the "Rules" of the page where it rules, and
+  other places link to it, saying no more than what follows from it there: a change of a rule rereads every place that
+  links to it. A rule that nothing checks (not the compiler, not the run, not a testing tool) is where a person or an AI
+  goes wrong in silence: it is listed in "Guarantees", under "What is left to you", and first in the skill. And an
+  example never brings the rule that allows it: a change of the guide that an example needs comes first, as a change of
+  the guide.
 - **A doc comment of the API follows the guide, in its own words.** It is written by hand, for whoever meets the
   export in a hover: what the export is and how it is called (a summary, its parameters and result, its fields, an
   example), and the rules of the guide that a caller needs at that point, in short. It promises nothing the guide

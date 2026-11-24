@@ -34,7 +34,9 @@ where the row says less.
 | What a child asks of its parent                                                               | An event                                                             | [events and external messages](./events-and-external-messages.md)                                              |
 | A fact that several children must see as one                                                  | An external message, which the parent sends down                     | [splitting a program](#splitting-a-program), [events and external messages](./events-and-external-messages.md) |
 
-## State and messages
+## Rules
+
+### State and messages
 
 - **Conditions live in `update`.** A question such as "Can the user save now?" is answered once, by rejecting. The
   view never repeats the check.
@@ -57,7 +59,7 @@ where the row says less.
   time is computed in `makeModel` too, from a `now` that a subscription keeps in the state. The clock of
   [`pages`](../../examples/pages/clock.ts) does this.
 
-## Model and view
+### Model and view
 
 - **Show less than `update` accepts, never more.** A test lists, as `withheld`, what the model leaves out on purpose
   (see [testing tools](./testing-tools.md)). Anything else that the model leaves out is a control missing from the
@@ -103,7 +105,7 @@ where the row says less.
   bounds narrow below what the user gives it is drawn by the program. The moves of that control are messages, and
   `update` puts each move within the bounds that the state holds when the move arrives.
 
-## Splitting a program
+### Splitting a program
 
 A program lives in one module until the program is too large. Then the program splits into children. Each child is a
 program of its own. Split a program this way:
