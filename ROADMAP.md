@@ -37,14 +37,18 @@ of its spike the same day, with the conditions of a second opinion
 from step 8, done on 23 November 2026 ([`premises-and-range.md`](docs/records/premises-and-range.md)): the owner kept
 the tilde, refused guards against each premise, and took what lets the library rest on less of Effect, and learn of a
 fall sooner: step 45, the job that tests the build of Effect's `main` before it is released, was done on 24 November
-2026. A step done leaves its number unused.
+2026. Step 48 comes from a review of the guide's descriptions that the owner asked for on 24 November 2026, once
+Effect's answer to Effect-TS/effect#10877 showed how Effect documents what it does not promise
+([`guide-descriptions.md`](docs/records/guide-descriptions.md)). A step done leaves its number unused.
 
 The owner asked on 22 November 2026 for the order to be weighed again, and took this one, by what a user of the
 library meets:
 
 1. what the library rests on of Effect with no promise, steps 46 and 47. The peer range, step 8, stayed a tilde on 23
    November 2026: a version published keeps its range, so one that a later Effect breaks could still be installed;
-2. the engine, steps 18 to 21, which change nothing that a user writes.
+2. the strength of what the guide says, step 48, added on 24 November 2026 after them, since two of its items wait for
+   step 46;
+3. the engine, steps 18 to 21, which change nothing that a user writes.
 
 The checks came first: step 44, of the types by mutations, and step 6, of the bridges in a real browser, are done.
 
@@ -167,6 +171,41 @@ declined; and those of what a `Queue` and the runtime keep, whose fall would be 
 **Done when** each premise on Effect names, in `docs/premises.md`, the request that the owner opened for it, or says
 that none was asked and why. A premise leaves the list by an upgrade to the Effect that documents it
 (`upgrade-effect`).
+
+### 48. The guide's descriptions, weighed by what they hold
+
+**Model and effort.** Opus 5.5, `high`: the guide changes a section at a time, each sentence checked against the old
+one, with the mutations and the tests that hold it.
+
+**Depends on** step 46 for the two items of a self-interruption as the run stops it (9 and 10 of "Unspecified" in
+[`guide-descriptions.md`](docs/records/guide-descriptions.md), and the third mutation of its "Four that do not match"),
+which that step weighs. The rest depends on no step.
+
+**Why.** A description is as true as a promise, has a test, and needs a changelog entry where a consumer can notice
+that it changed (`AGENTS.md`, "The guide is a specification"): one that no decision of a user rests on is a constraint
+on the engine with no use. Effect says of such a behaviour only that it is unspecified, as Effect-TS/effect#10878 does.
+The review of 24 November 2026 found ten such descriptions, which would take about 11 lines, up to five mutations and
+the cases of their tests, and four places where the strength of the guide and what checks it do not match.
+
+**How.** The record is a review's reading: check each item against the code before it changes anything.
+
+1. The four that do not match, first, each as the owner decides before it is written:
+   - the four mutations whose `guarantees` names a guarantee for a behaviour the guide describes: for each, the
+     guarantee covers the case, and the description becomes a promise, or the tag goes;
+   - the number of an instance, which `testing.md` promises on the order of the starts that `composition.md` describes:
+     advised, the order promised, since a test written by the guide rests on it;
+   - "What does not compile", under "Precisely" in `anatomy-of-a-program.md` and `composition.md` though checked as a
+     guarantee is: advised, out of "Precisely", since the rules of the types owe each refusal;
+   - the promises said again under "Precisely" need nothing: noted in the record for whoever changes one.
+2. Each of the ten of "Unspecified", as the owner takes it: the description replaced by the record's sentence, its
+   tests and its mutation removed only where nothing else holds them (`change-engine`), the comments that name the
+   section reread (`bun run comments`). A description replaced keeps every promise, so it needs no changelog entry; a
+   promise added follows `release`.
+3. The others of "Promote?" are not in this step: the owner weighs each when a user is seen to rest on it.
+
+**Done when** the owner has decided each of the four and each of the ten, the guide, the mutations and the tests say
+what was decided, and `bun run comments`, `bun run lint`, `bun run test`, `bun run test:node` and `bun run mutations`
+pass. The record says what was decided, at its head.
 
 ### 18. The engine's seams, with the run as their only user
 

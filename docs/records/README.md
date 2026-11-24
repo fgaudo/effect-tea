@@ -36,3 +36,4 @@ it, is indexed in [`rejected.md`](../rejected.md).
 | [`program-checks.md`](program-checks.md)                 | done: how a program is checked                           |
 | [`program-forms.md`](program-forms.md)                   | done: the forms of a program promised                    |
 | [`premises-and-range.md`](premises-and-range.md)         | done, the tilde kept: what each premise holds            |
+| [`guide-descriptions.md`](guide-descriptions.md)         | sorted, to be decided: what the descriptions hold        |
