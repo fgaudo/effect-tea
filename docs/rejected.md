@@ -305,6 +305,52 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
 - **Other names for `childById` and `inputById`** (`each`, `eachInput`, `eachChild`, one `each` for both). Reasoned,
   17 November 2026: the four names make a grid, the noun what and the suffix how. _Reopen if_ a reader finds `ById`
   misleading.
+- **Other names for `simulate`, `rehearse` and `drive`**, and one form for `Driver` and `Rehearsal`. Reasoned, 24
+  November 2026, in step 59 ([`api-review.md`](records/api-review.md)): `perform` beside `rehearse`, or a name that
+  says the difference (`applyAllAnswered`), trades one metaphor for another, or a word for a phrase, at some 300
+  calls, and `drive` is the word of testing tools for acting on a running application as its user. Their form tells
+  them apart: two fold messages, two play a scenario. `Drive`, for `Driver`, would hide the tool in a scenario that
+  names its parameter so. _Reopen if_ a reader of the guide takes one tool for another by its name.
+- **`onRejected`, for `onIgnored`.** Reasoned, in the same step: `update` rejects, and the run ignores what it
+  rejects, as it applies what `update` accepts, so each option is named by what the run did. In a testing tool the two
+  words part: a rejected message is ignored, or fails the test. And `Rejected` is the type of `reject`. _Reopen if_ a
+  reader looks for the option under `reject`, and the glossary's line on what is ignored does not lead there.
+- **`model` for `makeModel`, and `keys` for `subscriptions`**, so that each piece reads as `output` and `listen` do.
+  Reasoned, in the same step: a model is made, and kept by the identity of its state, where an output is read;
+  `subscriptions` is Elm's word for what a state listens to, and its keys are how it says it; and `makeModel` is in
+  every program, and in 735 lines of the repository. _Reopen if_ a reader takes either piece for something else.
+- **A second entry of the package for the types that only signatures name** (`ProgramMaker`, `DeclareChild` and their
+  kin). Spiked, 24 November 2026, with TypeScript 7.0.2, on a package of two entries, outside git: a declaration that
+  needs such a type, in a file that imports the first entry alone, fails under `bundler` (TS2883), and names a path
+  inside the package under `nodenext`. They stay in `.`, last in the reference, in a group of their own. _Reopen if_
+  TypeScript names a type through an entry that the file does not import.
+- **The types of the functions of `program` written in place**, with no name for `MakeProgram`, `MakeParent` and the
+  five `Declare…`, to leave two exports of nine. Spiked, in the same step and the same way, on a copy of `src/`: a
+  module that exports `child` or `make` then spells out the types of `compose.ts` in its declarations, and the smoke
+  test counted its consumer's state spelled out 80 times with `make` written in place, where it counts 14. _Reopen
+  if_ a declaration comes to print such a function without spelling out its types.
+- **A group of the reference for each concept**, as the comments of `src/index.ts` sort the exports. Reasoned, in the
+  same step: a tag on each of 84 exports, kept by hand with nothing to check it, for a page that a reader reaches
+  after the guide, which sorts the concepts already. One group is kept, for what no program writes. _Reopen if_ a
+  reader cannot find an export in the reference by its kind, or a tool reads the groups from the index.
+- **Another name for `Field`**, the type that reads one name of `program<{ … }>`, since a state has fields too.
+  Reasoned, in the same step: both are the field of an object type, so it is one concept; no program writes it, and
+  the reference lists it among the types of the signatures; and some 100 lines of `src/`, of the reports and of the
+  mutations hold it. _Reopen if_ a user comes to write it, or the guide names a concept of its own a field.
+- **Other names for `run` and `runAll` of a `Rehearsal`**, since the run of the glossary is what `start` gives.
+  Reasoned, in the same step, within value 3 of "Deciding": "one word for each concept" won over "one concept for
+  each word". A command is run, in the guide and in `runCommand`, so `execute` or `perform` would give that concept a
+  second word, and `rehearsal.runCommand` would give the name of the piece to a function of another shape. The two
+  meanings share no object: `rehearse` starts no run, a `Driver` has no `run`, and a `Started` has no command to run
+  by hand. Some 70 lines hold the name. The glossary's row **Rehearsal** says which `run` it is. _Reopen if_ a reader
+  takes `rehearsal.run` for the run of the program, or one tool comes to give both.
+- **Another name for the `key` of an `Instance` and of a `Child`** (`given`, `startedFrom`), which is the flags of a
+  child with flags. Reasoned, in the same step: the member holds what the parent's state gave as the child started,
+  the one value that tells a start from another, and flags do there what `key` does. No common word says both:
+  `startedFrom` would say of what `key` gives what the glossary says of flags alone, and a new word is one more
+  concept, for a member that no program writes and `stateOf` fills. Its doc comment says which of the two it holds.
+  _Reopen if_ a child comes to have a `key` beside its flags (parked below), so that the member holds two values, or
+  a test that reads `instance.key` takes it for a subscription's key.
 - **A link from a doc comment to the site.** Spiked, 16 November 2026: the site keeps no older release, so a hover would
   show the next release's promises; `tools/comments.ts` refuses one. _Reopen if_ the site keeps each release.
 - **A site that keeps each release.** Reasoned: infrastructure the owner declined for a rule of the documentation.
@@ -388,3 +434,11 @@ reopened goes back there; one decided against becomes an entry above.
   drawing it saved, and drawing a thousand rows again about 1 ms. The bridge to snabbdom skips a model that is the very
   one it drew last. _Reopen if_ a browser, or a heavier row, shows drawing an unchanged model to cost more than its
   comparison by `Equal`.
+- **A `key` beside the `flags` of a child**, so that it can start again from equal flags
+  ([`kept-children.md`](records/kept-children.md), "Decided, under the store"). Deferred in step 59, 24 November 2026,
+  reasoned ([`api-review.md`](records/api-review.md)): a child's flags are what it starts from, and other flags start
+  it again, as another value of `key` does, so a `key` beside them adds a field to `Child` and to `Instance`, a test
+  and a mutation, for a use that no program has shown. Added later, it breaks nothing. Until then such a child starts
+  again by other flags, or goes back to its first state on an external message. _Reopen if_ a program must start a
+  child with flags again from equal flags in one step, and an external message cannot say it: the answers of its
+  commands under way must be rejected, as a start rejects them.

@@ -46,77 +46,87 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 59 and 60 make the API right, now that step 58 has made a name change fewer documents. The steps of the engine,
-53 to 55, come after them, since the review of the API may reshape the testing tools they change, and step 55 comes
-before the release that follows them all.
-
-### 59. The API reviewed, by its names and its surface
-
-**Model and effort.** Fable 5.2, `high`: the shape of the API is decided, with constraints that pull apart.
-
-**Depends on** no other step. Step 58, done, stated each rule once: a name changed rereads the place that states its
-rule, and the places that link to it, which `bun run comments` finds for the guide's sections.
-
-**Why.** Users judge the library by its API first (value 3 of "Deciding"). The core exports 63 names, 54 of them
-types, and the testing tools 13. Before 1.0 a break costs little, and the breaking changes of this step go out with
-the release that follows step 55.
-
-**How.** Read each export of the five entries as a user meets it (`api/*.api.md`, the doc comments, the guide and its
-glossary), read "The API" of `docs/rejected.md`, and decide by the values of "Deciding":
-
-- one word for each concept, and one concept for each word, the glossary as the dictionary; a name says what the
-  thing is to a user, not how it is made;
-- the same role in the same form: families named alike, and tools that are alike called alike, with results alike;
-- the surface a user sees: what a user writes first, and the types that only name what the declarations need, kept
-  out of the way where the compiler allows it (`change-api`, "A type for how a consumer's types print", where step 58
-  moved it from `AGENTS.md`).
-
-Leads, seen on 24 November 2026 and not weighed yet:
-
-- `ProgramMaker`, `MakeProgram`, `ParentMaker`, `MakeParent` and `DeclareChildren` name the stages of `program` for
-  the declarations, beside what a user writes.
-- The testing tools: `simulate`, `rehearse` and `drive` are three metaphors whose names do not say how they differ.
-  `simulate(program)(messages, step)` and `applyAll(update)(messages, from)` are called in two steps,
-  `rehearse(program, scenario)` and `dispatchViolations(update, { … })` in one. What a scenario acts with is a
-  `Driver` in `drive` and a `Rehearsal` in `rehearse`, while a `Simulation` is a result.
-- `Interpreter` is the part `runCommand` of a program, and `ExternalHandler` the part `external`: twins, named in two
-  ways.
-- `update` rejects with `reject`, and the option that hears it is `onIgnored`.
-- `ObjectState` on the places of `child` and `childById`: its mutations, on 23 November 2026, changed nothing that
-  compiles, since `CheckedChild` refuses the same states through `ProgramChecked`, and the four were there before it
-  was (`tools/mutations/mutations.ts`, at the head of the mutations of the types). Before it goes: which error a user
-  sees for a child whose state is a number, with it and without, and the smoke test's count.
-- A child with flags has no `key`, so it cannot start again in one step with flags equal to those it has: it starts
-  again by other flags, or by a step in which it is not there ([`kept-children.md`](docs/records/kept-children.md),
-  "Decided, under the store"). Whether a child with flags takes a `key` beside them.
-
-The decisions go in a record, `docs/records/api-review.md`, of a page or two: each export kept or changed, with its
-new spelling, and what was weighed and left. Since step 58 a record is a page at most (`docs/records/README.md`); this
-one may take two, for its table of the exports, and says why at its head.
-
-**Done when** the record gives each export of the five entries its decision, and each lead above is decided.
+Step 60 applies the review of the API that step 59 decided ([`api-review.md`](docs/records/api-review.md)), now
+that step 58 has made a name change fewer documents. The steps of the engine, 53 to 55, come after it, since it
+changes how `simulate` is called, in the modules that step 53 changes, and step 55 comes before the release that
+follows them all.
 
 ### 60. The API as step 59 decided
 
 **Model and effort.** Opus 5.5, `medium`: the changes follow the record, across modules.
 
-**Depends on** step 59.
+**Depends on** no other step. Step 59, done, left its decisions in
+[`api-review.md`](docs/records/api-review.md): "What changes" lists the eight changes, and "Each export" what stays.
+Nothing of the API is decided again here: a change that cannot be made as the record says stops the step, with a
+report.
 
 **How.** Each change of the record, by `change-api`: the code, the tests, the doc comments, the guide, the tutorial,
-the examples, the skill, the reports of the API, the inference matrix and the smoke test. The changelog takes each
-under the unreleased section, a `**Breaking**:` with its `Upgrade:` (`release`), so that one release carries them all.
+the examples, the skill, the reports of the API, the inference matrix and the smoke test. The changelog takes changes 1
+to 4 under the unreleased section, each a `**Breaking**:` with its `Upgrade:` (`release`), so that one release carries
+them all. That section is no history yet, and follows the record where it names what changes: `Listener` (point 2) and
+two sentences on keys (point 5). In this order, since each is checked before the next:
+
+1. **Change 5, alone**: `ObjectState` off the four places, and the line of the mutations' header that names them.
+   `bun run typecheck`, `bun run smoke` and `bun run mutations` pass with nothing else changed, the smoke test's count
+   still 14.
+2. **The names of changes 2 and 3**, each by a search of what follows the code, and of nothing else:
+   `git grep -w -e Simulation -e Interpreter -e ExternalHandler` and `git grep 'Listener<'`, each over
+   `-- src bridges tools test examples site skills README.md`, with the imports and the index that the typecheck then
+   names. `WithExternal` leaves `src/index.ts`. `WithOutput` is new, written as change 3 writes it, on one line: the
+   mutations "a program with an output is typed without it" and "a program's output reads any state" quote its last
+   part, and still find it once. History keeps the old names, and is not edited: the released sections of
+   `CHANGELOG.md` (`Simulation`, under 0.8.0), `docs/records/` and `docs/rejected.md`. The unreleased section of
+   `CHANGELOG.md` is edited: the `Listener` of its entry "a subscription is made from its key alone" becomes
+   `WithListen`, and the breaking entry of change 3 names `Interpreter` and `ExternalHandler` alone, since no release
+   has `Listener`. The reports `api/*.api.md` are not edited: `bun run api` writes them again. `ExternalHandlerOf`, of
+   `compose.ts`, keeps its name, as change 3 says, and so do the `Listener` of `bridges/snabbdom-testing.ts`, which is
+   snabbdom's, and that of `src/testing/contract.test.ts`, a program of the test. A mutation quotes the text it
+   replaces (`from` and `to`): a line renamed is renamed there too. `tools/inference/prelude.ts` reads a `Simulation`.
+3. **Change 1.** `simulate` is written as `drive` is, one `Effect.fnUntraced` of its three parameters. Then the
+   calls, each `applyAll(x)(messages, from)` to `applyAll(x, messages, from)` by one pattern, and the same for
+   `simulate`: some 140 lines, with the tests that keep `simulate(program)` to call it twice, and
+   `tools/inference/play.ts`. In the matrix (`tools/inference/generate.ts` and `prelude.ts`): as a use, `simulate` is
+   called with no messages and a `from` typed `never`, so that the program alone gives the types, and `SimulateRead`
+   reads them from the effect it returns; as takers, `simulate` and `applyAll` are given the messages in the one call,
+   and the line that reads what `applyAll` takes goes, since its messages are `NoInfer` and the uses check `update`.
+   Then `bun run inference` and `bun run inference --run`.
+4. **Change 4**, in `bridges/react.ts` (the `children` of `HostProps`, the `children` of `Host`'s doc comment, and
+   `props.children` in `Host`), in `tools/mutations/mutations.ts` (the `from` and the `to` of "Host gives React the
+   model it read itself", which quote `view: props.children`), in `bridges/react.test.ts` and
+   `tools/smoke/bridges.ts`, and in each file that writes `<Host` (`git grep '<Host' -- bridges README.md site`): the
+   example of its doc comment, the README, and "Coming from Elm or React" of the guide, each as
+   `<Host program={counter} view={view} />`. Only the `children` of `HostProps` changes, with what a test gives
+   `host(…)` or `Host` for it. React's own `children` stays, in `bridges/react.test.ts`: that of `Boundary`
+   (`this.props.children`), of `Toggle`, and of `Activity`, whose `children` is the `host(…)` that takes `view`.
+5. **The documents.** In the guide, beside that line of "Coming from Elm or React", "Testing" and "Testing tools"
+   change their code, and the sentences of change 8: no rule says how a tool is called beyond "takes the program
+   first", which stays true. The rows of change 7 go in the glossary as the record words them. Change 8 is made as the
+   record spells it, one section at a time, each sentence checked against the old one: the sentences of "Guarantees",
+   "Composition", "Testing", "Testing tools" and "Anatomy of a program", the skill's rule, the two sentences of the
+   unreleased section of `CHANGELOG.md` ("a child whose flags or key change", and "a child's key" in the `Upgrade:` of
+   "a subscription is made from its key alone"), and the doc comments. In "Composition", "a child with keys and no
+   `listen`" is written twice, under "What does not compile" and under "What is a defect". In `src/compose.ts` the doc
+   comments are the option `key` of `AlwaysPlace` and of `SometimesPlace`, the type `Child`, `At`, `ChildKeys` and
+   `Lifted`, and the member `key` of `Instance` and of `Child`, which holds the flags of a child with flags, or what
+   its `key` gives: its doc comment says both, never the key alone. In `src/program.ts` it is `KeyOf`, and in
+   `src/testing/rehearse.ts` the `@param key` of `hear`. Then
+   `git grep -n -i -E "child(ren)?'s keys?|another key|flags and keys|keys and flags|with keys"` finds nothing in
+   `site/guide`, `site/tutorial`, `skills` and `README.md`. The README, the tutorial, the skill and the doc comments
+   follow the code (`@returns` of `applyAll` and of `simulate`, the `children` of `HostProps`). Change 6 comes last:
+   the tag goes before the `@see` lines, and its sentence in "Document it" of `change-api`, as the record words it.
 
 **Done when** the API is the record's, and `bun run typecheck`, `bun run lint`, `bun run test`, `bun run test:node`,
-`bun run comments`, `bun run build`, `bun run api --check`, `bun run smoke` and `bun run inference` pass, with
-`bun run mutations` where the types of `program.ts` or `compose.ts`, or the engine, changed.
+`bun run comments`, `bun run build`, `bun run api --check`, `bun run smoke`, `bun run inference` and
+`bun run mutations` pass, `bun run test:browsers` for the bridge to React, and the site builds with no warning
+(`cd site && bun install && bun run build`), with "Types of the signatures" last on the page of the module.
 
 ### 53. In `rehearse`, the fiber of effects tells data, and the call makes the error
 
 **Model and effort.** Opus 5.5, `high`: a fix by its form, in the largest tool.
 
-**Depends on** step 60, which may rename the tools it changes. Step 52 left the code where it stays, what `rehearse`
-and `simulate` share in `src/testing/stage.ts`, and what `rehearse` hears in `rehearse.ts`. It waits because only a
-key whose printing throws, or a message whose tag does, meets it.
+**Depends on** step 60, which renames neither tool, and changes how `simulate` is called (`simulate.ts`). Step 52
+left the code where it stays, what `rehearse` and `simulate` share in `src/testing/stage.ts`, and what `rehearse`
+hears in `rehearse.ts`. It waits because only a key whose printing throws, or a message whose tag does, meets it.
 
 **Why.** Two findings of "Open problems", of one form: a value of the program, or of the test, printed where what it
 throws is not the call's. `released`, the job of a `hearNext` and `openFor` build an `Error` with
@@ -181,7 +191,7 @@ say the rule; each case of the contract is kept or removed, with its line in the
 **Model and effort.** Opus 5.5, `high`, by a reviewer that wrote none of the changes
 ([`premise-review`](.agents/skills/premise-review/SKILL.md)).
 
-**Depends on** steps 59, 60, 53 and 54, and comes before the release that follows them.
+**Depends on** steps 60, 53 and 54, and comes before the release that follows them.
 
 **Why.** Steps 49 to 54 move a check from a tool to the engine, or take one away with the code it guarded: a premise
 may leave with it, and no test fail. From step 52 on, `simulate` rests on the engine's premises, and no longer on
