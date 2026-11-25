@@ -24,9 +24,7 @@ import {
   type Field,
   type FlagsOf,
   type Init,
-  type Interpreter,
   type KeyOf,
-  type Listener,
   type MessageOf,
   type ModelOf,
   type ObjectState,
@@ -34,7 +32,9 @@ import {
   type Program,
   startOf,
   type StateOf,
-  type SubscriptionServicesOf
+  type SubscriptionServicesOf,
+  type WithListen,
+  type WithRunCommand
 } from "./program.ts"
 import type { Listen, Subscription } from "./subscription.ts"
 import { reject, type Rejected, type Step, type Transition } from "./update.ts"
@@ -136,15 +136,15 @@ type ProgramChecked<P> =
     key: KeyOf<P>
   }>
 
-// What a child lacks for that check, `unknown` where it lacks nothing. A child that runs commands has a
-// `runCommand`, a member, for the error that names it; `Interpreter` is `object` for one that runs none, and `unknown`
-// is needed instead: see `CheckedChild`. The rest of the check is held under a key no program has, as `ObjectState`
-// does: as members, its types, read from a `P` not inferred yet, would type the functions of a child written in the
-// call, and its `listen` would make subscriptions of `unknown` messages.
+// What a child lacks for that check, `unknown` where it lacks nothing. A child that runs commands has a `runCommand`, a
+// member, for the error that names it; `WithRunCommand` is `object` for one that runs none, and `unknown` is needed
+// instead: see `CheckedChild`. The rest of the check is held under a key no program has, as `ObjectState` does: as
+// members, its types, read from a `P` not inferred yet, would type the functions of a child written in the call, and
+// its `listen` would make subscriptions of `unknown` messages.
 type Lacking<P> = P extends ProgramChecked<P> ? unknown
   :
-    & ([CommandOf<P>] extends [never] ? unknown : Interpreter<CommandOf<P>, unknown, unknown>)
-    & ([KeyOf<P>] extends [never] ? unknown : Listener<KeyOf<P>, unknown, unknown>)
+    & ([CommandOf<P>] extends [never] ? unknown : WithRunCommand<CommandOf<P>, unknown, unknown>)
+    & ([KeyOf<P>] extends [never] ? unknown : WithListen<KeyOf<P>, unknown, unknown>)
     & { readonly "a child is a program of the types read back from it": ProgramChecked<P> }
 
 // The child's program, with what it lacks for the check above. Inferred from `P & …`, `P` would be the program less
@@ -162,7 +162,10 @@ type CheckedChild<P> = unknown extends Lacking<P> ? P : P & Lacking<P>
 export type Instance<State> = {
   /** The number of this start, among the starts of the parent's children: no other instance of the parent has it. */
   readonly instance: number
-  /** What the parent's state gave as the child started: its flags, or its key. Another one starts another child. */
+  /**
+   * What the parent's state gave as the child started: the child's flags, or what the `key` of its declaration gave.
+   * Another one starts another child.
+   */
   readonly key: unknown
   /** The child's state. */
   readonly state: State
@@ -190,7 +193,7 @@ export type Kept<Own, Children> = {
  *
  * - A child that is always there is there in every state of its parent.
  * - Another child is there in the states its declaration says, and its model is an `Option`.
- * - Another key, or other flags, start the child again, as another instance.
+ * - Another value of `key`, or other flags, start the child again, as another instance.
  *
  * @example
  * ```ts
@@ -207,7 +210,10 @@ export type Child<State, P, There extends "always" | "sometimes"> = {
   readonly program: P
   /** Whether the child is there in every state of its parent. */
   readonly there: There
-  /** What the child starts from in a state, its flags or its key, or `None` where it is not there. */
+  /**
+   * What a state gives the child as it starts: its flags, or what the `key` of its declaration gives. `None` where the
+   * child is not there.
+   */
   readonly key: (state: State) => Opt.Option<unknown>
   /** Whether the child's subscriptions run in a state where it is there. Without it, they always run. */
   readonly listening?: (state: State) => boolean
@@ -355,7 +361,9 @@ type ProgramOf<C> = C extends { readonly program: infer P } ? P : never
 // Told by `kind` and the id `listening` takes, which the type declares whether or not the child has one.
 type ChildByIdOf<Id, P> = Readonly<{ kind: "byId"; program: P; listening?: (state: any, id: Id) => boolean }>
 
-/** Where a child's messages, commands and keys carry its id: only for children by id. */
+/**
+ * Where a child's messages and commands, and the keys of its subscriptions, carry its id: only for children by id.
+ */
 type At<C> = C extends ChildByIdOf<infer Id, any> ? Readonly<{ id: Id }> : unknown
 
 /** Whether a child alone is there in every state of its parent. */
@@ -386,7 +394,10 @@ type ChildCommands<C> = {
     : Readonly<{ _tag: K; instance: number; command: CommandOf<ProgramOf<C[K]>> }> & At<C[K]>
 }[keyof C & string]
 
-/** A child's key, as its parent lists it: it names the instance that listens, as a child's command does. */
+/**
+ * A key of a child's subscriptions, as its parent lists it: it names the instance that listens, as a child's command
+ * does.
+ */
 type ChildKeys<C> = {
   [K in keyof C & string]: [KeyOf<ProgramOf<C[K]>>] extends [never] ? never
     : Readonly<{ _tag: K; instance: number; key: KeyOf<ProgramOf<C[K]>> }> & At<C[K]>
@@ -708,7 +719,10 @@ type Entry = Instance<unknown>
 type Slot = Opt.Option<Entry> | HashMap.HashMap<unknown, Entry>
 type Slots = Readonly<Record<string, Slot>>
 
-/** A child's keys as its parent lists them, `{ _tag: <child>, instance, key }`, with its `id` for a child by id. */
+/**
+ * The keys of a child's subscriptions as its parent lists them, `{ _tag: <child>, instance, key }`, with its `id` for a
+ * child by id.
+ */
 type Lifted = ReadonlyArray<unknown>
 
 // What one call of `update`, `external` or `init` gathers: the parts of the state as they are replaced, and the
@@ -1326,6 +1340,7 @@ type Named<T, K extends "model", Inferred> = T extends { readonly [P in K]: infe
 /**
  * What `program<T>()` returns: the functions that declare a program's children and inputs, and make it.
  *
+ * @group Types of the signatures
  * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
  * @see The guide, "Composition", "In short".
  */
@@ -1471,7 +1486,7 @@ type Listening<State> = Readonly<{ listening?: (state: State) => boolean }>
 type AlwaysPlace<State, P> = [FlagsOf<P>] extends [never] ? [
     place?:
       & Readonly<{
-        /** What the child starts from in a state: another value, by `Equal`, starts it again. */
+        /** A value from the parent's state: another value, by `Equal`, starts the child again. */
         key?: (state: State) => unknown
         there?: never
         flags?: never
@@ -1485,7 +1500,10 @@ type AlwaysPlace<State, P> = [FlagsOf<P>] extends [never] ? [
 type SometimesPlace<State, P> = [FlagsOf<P>] extends [never] ? Readonly<{
     /** Whether the child is there in a state. */
     there: (state: State) => boolean
-    /** What the child starts from in a state where it is there: another value, by `Equal`, starts it again. */
+    /**
+     * A value from the parent's state, in a state where the child is there: another value, by `Equal`, starts the child
+     * again.
+     */
     key?: (state: State) => unknown
     flags?: never
   }>
@@ -1523,6 +1541,7 @@ type FlagsChecked<P, Flagged extends boolean> = [FlagsOf<P>] extends [never]
 /**
  * The function of `program` that declares a child alone: always there, or there in the states its place says.
  *
+ * @group Types of the signatures
  * @see The guide, "Composition", "Declaring children".
  */
 export type DeclareChild<T extends DeclaredTypes> = {
@@ -1539,6 +1558,7 @@ export type DeclareChild<T extends DeclaredTypes> = {
 /**
  * The function of `program` that declares children told apart by an id.
  *
+ * @group Types of the signatures
  * @see The guide, "Composition", "Children by id".
  */
 export type DeclareChildById<T extends DeclaredTypes> = {
@@ -1555,6 +1575,7 @@ export type DeclareChildById<T extends DeclaredTypes> = {
 /**
  * The function of `program` that takes a parent's children, and gives its `make`.
  *
+ * @group Types of the signatures
  * @see The guide, "Composition", "Declaring children".
  */
 export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field<T, "state">>>(
@@ -1564,6 +1585,7 @@ export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field
 /**
  * What `withChildren` returns: the `make` of a parent of these children.
  *
+ * @group Types of the signatures
  * @see The guide, "Composition", "Declaring children".
  */
 export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T, "state">>> {
@@ -1599,6 +1621,7 @@ export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T
 /**
  * The function of `program` that declares an input.
  *
+ * @group Types of the signatures
  * @see The guide, "Composition", "The parent's inputs".
  */
 export type DeclareInput<T extends DeclaredTypes> = <A>(
@@ -1608,6 +1631,7 @@ export type DeclareInput<T extends DeclaredTypes> = <A>(
 /**
  * The function of `program` that declares inputs told apart by an id.
  *
+ * @group Types of the signatures
  * @see The guide, "Inputs", "A write into an input by id names its id".
  */
 export type DeclareInputById<T extends DeclaredTypes> = <Id, A>(
@@ -1620,6 +1644,7 @@ export type DeclareInputById<T extends DeclaredTypes> = <Id, A>(
  * A state whose type has no fields, such as `{}`, does not compile, since such a type holds a number too: name it
  * `object`.
  *
+ * @group Types of the signatures
  * @see The guide, "Composition", "The parent's own messages, commands and subscriptions".
  * @see The guide, "Anatomy of a program", "What does not compile".
  */
@@ -1670,6 +1695,7 @@ export type MakeProgram<T extends DeclaredTypes> = <
 /**
  * The function of `withChildren` that makes a parent from its pieces.
  *
+ * @group Types of the signatures
  * @see The guide, "Composition", "The parent's own messages, commands and subscriptions".
  * @see The guide, "Anatomy of a program", "What does not compile".
  */

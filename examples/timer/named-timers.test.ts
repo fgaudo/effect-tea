@@ -87,15 +87,15 @@ const userMessages = (state: State): ReadonlyArray<Message> =>
 
 describe("named timers", () => {
   test("each timer keeps its own name", () => {
-    const added = applyAll(namedTimers.update)([{ _tag: "AddClicked" }], namedTimers.init.state).state
+    const added = applyAll(namedTimers.update, [{ _tag: "AddClicked" }], namedTimers.init.state).state
     const drawn = namedTimers.makeModel(added)
-    const { state } = applyAll(namedTimers.update)([typing(drawn, 1, "Tea"), typing(drawn, 2, "Pasta")], added)
+    const { state } = applyAll(namedTimers.update, [typing(drawn, 1, "Tea"), typing(drawn, 2, "Pasta")], added)
     expect(namedTimers.makeModel(state).timers.map((entry) => entry.model.name)).toEqual(["Tea", "Pasta"])
   })
 
   test("a name typed into a removed timer is rejected", () => {
     const drawn = namedTimers.makeModel(namedTimers.init.state)
-    const { state } = applyAll(namedTimers.update)([{ _tag: "RemoveClicked", id: 1 }], namedTimers.init.state)
+    const { state } = applyAll(namedTimers.update, [{ _tag: "RemoveClicked", id: 1 }], namedTimers.init.state)
     expect(namedTimers.update(typing(drawn, 1, "Tea"))(state)).toBe(reject)
   })
 

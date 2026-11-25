@@ -1317,8 +1317,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "Host gives React the model it read itself",
     file: "bridges/react.ts",
-    from: "{ app: drawn, view: props.children }",
-    to: "{ app, view: props.children }",
+    from: "{ app: drawn, view: props.view }",
+    to: "{ app, view: props.view }",
     killedBy: [
       [
         "bridges/react.test.ts",
@@ -3744,7 +3744,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a program with keys is typed without listen",
-    refuses: [["Composition", "a child with keys and no `listen`"]],
+    refuses: [["Composition", "a child whose subscriptions list keys, with no `listen`"]],
     file: "src/program.ts",
     from: "  : { readonly listen: Listen<Key, Message, R> }",
     to: "  : { readonly listen?: Listen<Key, Message, R> }",
@@ -4009,7 +4009,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a child is not checked as a program of its types",
     refuses: [["Composition", "a child with commands and no `runCommand`"], [
       "Composition",
-      "a child with keys and no `listen`"
+      "a child whose subscriptions list keys, with no `listen`"
     ]],
     file: "src/compose.ts",
     from: "type Lacking<P> = P extends ProgramChecked<P> ? unknown",
@@ -4049,7 +4049,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a child is taken as it is",
     refuses: [["Composition", "a child with commands and no `runCommand`"], [
       "Composition",
-      "a child with keys and no `listen`"
+      "a child whose subscriptions list keys, with no `listen`"
     ]],
     file: "src/compose.ts",
     from: "type CheckedChild<P> = unknown extends Lacking<P> ? P : P & Lacking<P>",

@@ -59,7 +59,7 @@ describe("form", () => {
   // `update` alone: the rules, without running anything.
   describe("update", () => {
     test("saves a name that is not blank, trimmed", () => {
-      const { state, commands } = applyAll(update)([{ _tag: "SaveClicked" }], editing(" Ada "))
+      const { state, commands } = applyAll(update, [{ _tag: "SaveClicked" }], editing(" Ada "))
       expect(state.draft).toEqual(Draft.Saving({ name: " Ada " }))
       expect(commands).toEqual([Command.Save({ name: "Ada" })])
     })
@@ -85,7 +85,8 @@ describe("form", () => {
 
     // An input keeps nothing of its own: the state stored is the state the form wrote, which a test compares whole.
     test("a completed save leaves the form as it starts, with the name listed", () => {
-      const { state } = applyAll(update)(
+      const { state } = applyAll(
+        update,
         [{ _tag: "SaveClicked" }, { _tag: "SaveSucceeded", name: "Ada" }],
         editing("Ada")
       )
@@ -149,7 +150,7 @@ describe("form", () => {
 
     test("a saved name is listed, trimmed, and the form empties its input", async () => {
       const { state, ignored } = await Effect.runPromise(
-        simulate(form)(typedAndSaved, form.init).pipe(Effect.provideService(Storage, working))
+        simulate(form, typedAndSaved, form.init).pipe(Effect.provideService(Storage, working))
       )
       expect(state).toEqual({ draft: Draft.Editing({ name: "", failed: Opt.none() }), saved: ["Ada"] })
       // The save's completion reached `update`: a rejected one would mean a form stuck saving.
@@ -158,7 +159,7 @@ describe("form", () => {
 
     test("a failure gives the form back, as it was, and says so", async () => {
       const { state } = await Effect.runPromise(
-        simulate(form)(typedAndSaved, form.init).pipe(Effect.provideService(Storage, failing))
+        simulate(form, typedAndSaved, form.init).pipe(Effect.provideService(Storage, failing))
       )
       expect(state).toEqual({ draft: Draft.Editing({ name: " Ada ", failed: Opt.some("Ada") }), saved: [] })
     })

@@ -3,6 +3,9 @@
  *
  * The package holds its documentation, for the version installed: the guide in `site/guide/`, the tutorial in
  * `site/tutorial/` and the examples in `examples/`. A coding agent starts from `skills/effect-tea/SKILL.md`.
+ *
+ * The types under 'Types of the signatures' name what the functions take and return, for a package's declarations:
+ * the code of a program does not write them.
  * @module @fgaudo/effect-tea
  */
 
@@ -32,22 +35,21 @@ export type {
   CommandOf,
   CommandServicesOf,
   EventOf,
-  ExternalHandler,
   ExternalOf,
   Field,
   FlagsOf,
   FlagsOption,
   Init,
-  Interpreter,
   KeyOf,
-  Listener,
   MessageOf,
   ModelOf,
   ObjectState,
   OutputOf,
   Program,
   StateOf,
-  SubscriptionServicesOf
+  SubscriptionServicesOf,
+  WithListen,
+  WithRunCommand
 } from "./program.ts"
 
 // What `update` returns.

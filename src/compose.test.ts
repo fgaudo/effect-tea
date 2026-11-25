@@ -819,7 +819,7 @@ type RowsState = StateOf<typeof rowList>
 type RowsAll = MessageOf<typeof rowList>
 
 const added = (id: number, label = "a"): RowsAll => ({ _tag: "Added", id, label })
-const after = (...messages: ReadonlyArray<RowsAll>) => applyAll(rowList.update)(messages, rowList.init.state)
+const after = (...messages: ReadonlyArray<RowsAll>) => applyAll(rowList.update, messages, rowList.init.state)
 const instanceAt = (state: RowsState, id: number) =>
   Opt.map(HashMap.get(state.children.Row, id), (kept) => kept.instance)
 const countAt = (state: RowsState, id: number) =>
@@ -857,7 +857,7 @@ const single = Single.withChildren({
 })
 
 const singleAfter = (...tags: ReadonlyArray<SingleMessage["_tag"]>) =>
-  applyAll(single.update)(tags.map((_tag) => ({ _tag })), single.init.state)
+  applyAll(single.update, tags.map((_tag) => ({ _tag })), single.init.state)
 const instanceOf = (state: StateOf<typeof single>) => Opt.map(state.children.One, (kept) => kept.instance)
 
 describe("the instance of a child", () => {
@@ -920,7 +920,7 @@ describe("the instance of a child", () => {
     const message = Opt.getOrThrow(Effect.runSync(Channel.runHead(lifted)))
     expect(message).toEqual({ _tag: "Row", id: 1, instance: 1, message: { _tag: "Bumped" } })
     expect(rowList.update(message)(first)).not.toBe(reject)
-    const again = applyAll(rowList.update)([{ _tag: "Removed", id: 1 }, added(1)], first).state
+    const again = applyAll(rowList.update, [{ _tag: "Removed", id: 1 }, added(1)], first).state
     expect(rowList.update(message)(again)).toBe(reject)
   })
 })
@@ -949,7 +949,7 @@ describe("the children that the library keeps", () => {
 
   test("a child that a step lists anew is started, with its first commands lifted with its number", () => {
     const before = after(added(1, "a")).state
-    const { state, commands } = applyAll(rowList.update)([added(2, "b")], before)
+    const { state, commands } = applyAll(rowList.update, [added(2, "b")], before)
     expect(HashMap.get(state.children.Row, 2)).toEqual(
       Opt.some({ instance: 2, key: "b", state: { label: "b", count: 0 } })
     )
@@ -967,7 +967,7 @@ describe("the children that the library keeps", () => {
 
   test("other flags start a child by id again, from them, in one step, under other keys", () => {
     const before = after(added(1, "a"), { _tag: "Row", id: 1, message: { _tag: "Bumped" } }).state
-    const { state, commands } = applyAll(rowList.update)([{ _tag: "Relabeled", id: 1, label: "b" }], before)
+    const { state, commands } = applyAll(rowList.update, [{ _tag: "Relabeled", id: 1, label: "b" }], before)
     expect(instanceAt(state, 1)).toEqual(Opt.some(2))
     expect(countAt(state, 1)).toEqual(Opt.some(0))
     expect(commands).toEqual([{ _tag: "Row", id: 1, instance: 2, command: { _tag: "Load", label: "b" } }])
@@ -977,7 +977,7 @@ describe("the children that the library keeps", () => {
 
   test("equal flags keep the child, and leave the very same children", () => {
     const before = after(added(1, "a"), { _tag: "Row", id: 1, message: { _tag: "Bumped" } }).state
-    const { state } = applyAll(rowList.update)([{ _tag: "Relabeled", id: 1, label: "a" }], before)
+    const { state } = applyAll(rowList.update, [{ _tag: "Relabeled", id: 1, label: "a" }], before)
     expect(state.own).not.toBe(before.own)
     expect(state.children).toBe(before.children)
   })
@@ -997,7 +997,7 @@ describe("the children that the library keeps", () => {
       update: () => (state) => ({ state: { ...state, turn: state.turn + 1 } }),
       makeModel: () => null
     })
-    const { state } = applyAll(seeds.update)([{ _tag: "Turned" }], seeds.init.state)
+    const { state } = applyAll(seeds.update, [{ _tag: "Turned" }], seeds.init.state)
     expect(state.own.turn).toBe(1)
     expect(state.starts).toBe(2)
     expect(state.children).toBe(seeds.init.state.children)
@@ -1015,10 +1015,10 @@ describe("the children that the library keeps", () => {
 
   test("a step that removes an id and lists it again keeps the child, as its flags are the same", () => {
     const before = after(added(1, "a"), added(2, "b")).state
-    const { state } = applyAll(rowList.update)(
-      [{ _tag: "Replaced", rows: [{ id: 2, label: "b" }, { id: 1, label: "a" }] }],
-      before
-    )
+    const { state } = applyAll(rowList.update, [{
+      _tag: "Replaced",
+      rows: [{ id: 2, label: "b" }, { id: 1, label: "a" }]
+    }], before)
     expect([instanceAt(state, 1), instanceAt(state, 2)]).toEqual([Opt.some(1), Opt.some(2)])
   })
 
@@ -1055,7 +1055,7 @@ describe("the children that the library keeps", () => {
     })
     const first = named.init.state
     const write = (value: string) =>
-      applyAll(named.update)([{ _tag: "Name", message: { _tag: "Written", value } }], first)
+      applyAll(named.update, [{ _tag: "Name", message: { _tag: "Written", value } }], first)
     expect(write("a").state).toBe(first)
     const { state, commands } = write("b")
     expect(Opt.map(state.children.Row, (kept) => kept.instance)).toEqual(Opt.some(2))
@@ -1102,7 +1102,7 @@ describe("what a parent tells its children", () => {
 
   test("children are told in order, each to its end: the events of one are handled before the next is told", () => {
     const before = after(added(1, "a"), added(2, "b")).state
-    const { commands } = applyAll(rowList.update)([{ _tag: "DismissedAll", onLeft: "heard" }], before)
+    const { commands } = applyAll(rowList.update, [{ _tag: "DismissedAll", onLeft: "heard" }], before)
     expect(commands).toEqual([
       { _tag: "Row", id: 1, instance: 1, command: { _tag: "Load", label: "a" } },
       { _tag: "Heard", id: 1 },
@@ -1126,7 +1126,7 @@ describe("what a parent tells its children", () => {
   test("a child that an earlier answer of the same step dropped is told nothing, and it is no defect", () => {
     // The first row answers with an event, whose handler drops every row: the second is gone when its turn comes.
     const before = after(added(1, "a"), added(2, "b")).state
-    const { state, commands } = applyAll(rowList.update)([{ _tag: "DismissedAll", onLeft: "dropAll" }], before)
+    const { state, commands } = applyAll(rowList.update, [{ _tag: "DismissedAll", onLeft: "dropAll" }], before)
     expect(HashMap.size(state.children.Row)).toBe(0)
     expect(commands).toEqual([{ _tag: "Row", id: 1, instance: 1, command: { _tag: "Load", label: "a" } }])
   })
@@ -1134,7 +1134,7 @@ describe("what a parent tells its children", () => {
   test("a child that an earlier answer of the same step started again is told nothing", () => {
     // The first row's event relabels every row: both start again, and the second, another instance, is not told.
     const before = after(added(1, "a"), added(2, "b")).state
-    const { state, commands } = applyAll(rowList.update)([{ _tag: "DismissedAll", onLeft: "relabelAll" }], before)
+    const { state, commands } = applyAll(rowList.update, [{ _tag: "DismissedAll", onLeft: "relabelAll" }], before)
     expect([instanceAt(state, 1), instanceAt(state, 2)]).toEqual([Opt.some(3), Opt.some(4)])
     expect(commands).toEqual([
       { _tag: "Row", id: 1, instance: 1, command: { _tag: "Load", label: "a" } },
@@ -1149,7 +1149,7 @@ describe("what a parent tells its children", () => {
       keyText({ _tag: "Row", id: 1, instance: 1, key: "bumps" }),
       keyText({ _tag: "Row", id: 2, instance: 2, key: "bumps" })
     ])
-    expect(rowList.subscriptions(applyAll(rowList.update)([{ _tag: "Quieted" }], listening).state))
+    expect(rowList.subscriptions(applyAll(rowList.update, [{ _tag: "Quieted" }], listening).state))
       .toEqual([])
   })
 })
@@ -1334,7 +1334,7 @@ describe("the very same objects", () => {
 
   test("a child's step leaves its parent's own state, and the other instances, the very same objects", () => {
     const before = after(added(1), added(2)).state
-    const { state } = applyAll(rowList.update)([{ _tag: "Row", id: 2, message: { _tag: "Bumped" } }], before)
+    const { state } = applyAll(rowList.update, [{ _tag: "Row", id: 2, message: { _tag: "Bumped" } }], before)
     expect(state.own).toBe(before.own)
     expect(Opt.getOrThrow(HashMap.get(state.children.Row, 1))).toBe(Opt.getOrThrow(HashMap.get(before.children.Row, 1)))
     expect(rowList.makeModel(state)[0]).toBe(rowList.makeModel(before)[0])
@@ -2095,7 +2095,7 @@ describe("what the types reject", () => {
     // @ts-expect-error: and so is the state of the program that starts.
     expect(() => start(counting)).toBeDefined()
     // @ts-expect-error: or that a testing tool takes.
-    expect(simulate(counting)).toBeDefined()
+    expect(simulate(counting, [], counting.init)).toBeDefined()
     // @ts-expect-error: `rehearse` too.
     expect(rehearse(counting, () => Effect.void)).toBeDefined()
     // @ts-expect-error: and `drive`.
@@ -2159,7 +2159,7 @@ describe("what the types reject", () => {
     // @ts-expect-error: so a program written as an object does not start with it.
     expect(() => start(empty)).toBeDefined()
     // @ts-expect-error: nor does a testing tool take it.
-    expect(simulate(empty)).toBeDefined()
+    expect(simulate(empty, [], empty.init)).toBeDefined()
     // @ts-expect-error: `rehearse` neither.
     expect(rehearse(empty, () => Effect.void)).toBeDefined()
     // @ts-expect-error: nor `drive`.

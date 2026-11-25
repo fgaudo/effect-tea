@@ -71,7 +71,7 @@ Some things stay with the platform. A hover, an animation or the focus that the 
 of the program (see [structuring a program](./structuring-a-program.md#model-and-view)). An animation that the program
 decides by is state, and moves by equal steps (see the same section).
 
-With the package's bridge to React, React hosts the program: `<Host program={counter}>{view}</Host>` runs it while
+With the package's bridge to React, React hosts the program: `<Host program={counter} view={view} />` runs it while
 `Host` is mounted. The components of the view and of the application may keep state and effects of their own, beside
 the program (see [view](./view.md#rules)). The run lives as long as `Host`'s effect (see
 [the package's bridges](./writing-a-bridge.md#the-packages-bridges)). What the bridge leaves out is in

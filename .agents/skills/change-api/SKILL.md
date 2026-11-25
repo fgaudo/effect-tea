@@ -43,7 +43,9 @@ In the same change:
   parameters in a sentence); an `@example` of the common case; then the rules a caller needs at that point, the same
   rule as the guide's in fewer words, never a stronger one; and last its `@see` lines (`AGENTS.md`, "A doc comment of
   the API follows the guide, in its own words"). A comment past a screen says too much. A rule the guide does not hold
-  yet goes into the guide first. A rule of the whole run is on `run`.
+  yet goes into the guide first. A rule of the whole run is on `run`. A type that only names what signatures take and
+  return (`ProgramMaker`, `DeclareChild`, `WithRunCommand`) has `@group Types of the signatures` before its `@see`
+  lines: the reference lists that group last.
 - **The guide** ([`site/guide/`](../../../site/guide)): the page of the concept, and "Testing tools" for a tool. No
   tool checks its code blocks, nor the README's: read every block that mentions what changed. The README's quick start
   must run as it is (it logs 0, 1, 2, 3):

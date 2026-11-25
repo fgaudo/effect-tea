@@ -9,17 +9,18 @@ import type { Step, Update } from "./update.ts"
  *
  * @example
  * ```ts
- * type Saving = Interpreter<'Save', Message, never> // { readonly runCommand: RunCommand<'Save', Message> }
+ * type Saving = WithRunCommand<'Save', Message, never> // { readonly runCommand: RunCommand<'Save', Message> }
  * ```
  *
+ * @group Types of the signatures
  * @see The guide, "Anatomy of a program", "`runCommand` is required exactly when the program has commands".
  */
-export type Interpreter<Command, Message, R> = [Command] extends [never] ? object
+export type WithRunCommand<Command, Message, R> = [Command] extends [never] ? object
   : { readonly runCommand: RunCommand<Command, Message, R> }
 
 // `runCommand` is missing only when `Command` is `never`, so that `absurd` is never called.
 export const runCommandOf = <Command, Message, R>(
-  program: Interpreter<Command, Message, R>
+  program: WithRunCommand<Command, Message, R>
 ): RunCommand<Command, Message, R> =>
   (program as Partial<Readonly<{ runCommand: RunCommand<Command, Message, R> }>>).runCommand
     ?? (absurd as RunCommand<Command, Message, R>)
@@ -29,16 +30,17 @@ export const runCommandOf = <Command, Message, R>(
  *
  * @example
  * ```ts
- * type Ticking = Listener<'ticks', Message, never> // { readonly listen: Listen<'ticks', Message> }
+ * type Ticking = WithListen<'ticks', Message, never> // { readonly listen: Listen<'ticks', Message> }
  * ```
  *
+ * @group Types of the signatures
  * @see The guide, "Anatomy of a program", "`runCommand` is required exactly when the program has commands".
  */
-export type Listener<Key, Message, R> = [Key] extends [never] ? object
+export type WithListen<Key, Message, R> = [Key] extends [never] ? object
   : { readonly listen: Listen<Key, Message, R> }
 
 // `listen` is missing only when `Key` is `never`, so that `absurd` is never called.
-export const listenOf = <Key, Message, R>(program: Listener<Key, Message, R>): Listen<Key, Message, R> =>
+export const listenOf = <Key, Message, R>(program: WithListen<Key, Message, R>): Listen<Key, Message, R> =>
   (program as Partial<Readonly<{ listen: Listen<Key, Message, R> }>>).listen ?? (absurd as Listen<Key, Message, R>)
 
 /** The types of a program, by name: `state`, `model` and `message` always, the others only when it has them. */
@@ -74,6 +76,8 @@ type ProgramTypes = Readonly<{
  * ```ts
  * type Command = Field<{ state: State; command: 'Save' }, 'command'> // 'Save'
  * ```
+ *
+ * @group Types of the signatures
  */
 export type Field<T, K extends string> = T extends { readonly [P in K]: infer V } ? V : never
 
@@ -132,6 +136,9 @@ export type Program<T extends ProgramTypes> = Shape<
   Field<T, "key">
 >
 
+/** A program's `output`, required exactly when `Output` has values: what its parent reads of it. */
+type WithOutput<Output, State> = [Output] extends [never] ? object : { readonly output: (state: State) => Output }
+
 /**
  * A program's `external`, required exactly when `External` has values: how the program answers each message its parent
  * may send it, in every state.
@@ -140,13 +147,13 @@ export type Program<T extends ProgramTypes> = Shape<
  *
  * @example
  * ```ts
- * type Halting = ExternalHandler<Halted, State, never, never>
+ * type Halting = WithExternal<Halted, State, never, never>
  * // { readonly external: (message: Halted) => (state: State) => Step<State, never, never> }
  * ```
  *
  * @see The guide, "Events and external messages", "A child answers its external messages in every state".
  */
-export type ExternalHandler<External, State, Command, Event> = [External] extends [never] ? object
+type WithExternal<External, State, Command, Event> = [External] extends [never] ? object
   : { readonly external: (message: External) => (state: State) => Step<State, Command, Event> }
 
 /**
@@ -172,6 +179,7 @@ export type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, 
  * const options: FlagsOption<number> = { flags: 1 }
  * ```
  *
+ * @group Types of the signatures
  * @see The guide, "Anatomy of a program", "A program with flags".
  */
 export type FlagsOption<Flags> = [Flags] extends [never] ? { readonly flags?: never }
@@ -192,6 +200,7 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? { readonly flags?: ne
  * type Checked = ObjectState<number> // { readonly 'a program keeps its state in an object': number }
  * ```
  *
+ * @group Types of the signatures
  * @see The guide, "Anatomy of a program", "What does not compile".
  * @see The guide, "Anatomy of a program", "Its state is always an object".
  * @see The guide, "Composition", "A child's model is kept".
@@ -218,11 +227,11 @@ type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = neve
   }
   // Inferred from `update` alone: an answer of `runCommand` or a message of `listen` names one message, which would
   // otherwise narrow the messages of a program inferred by the function that takes it.
-  & Interpreter<Command, NoInfer<Message>, RC>
-  & Listener<Key, NoInfer<Message>, RS>
+  & WithRunCommand<Command, NoInfer<Message>, RC>
+  & WithListen<Key, NoInfer<Message>, RS>
   // A parameter: a program may be given a type that names fewer external messages than it takes, never more.
-  & ExternalHandler<External, State, Command, Event>
-  & ([Output] extends [never] ? object : { readonly output: (state: State) => Output })
+  & WithExternal<External, State, Command, Event>
+  & WithOutput<Output, State>
 
 // Only what every program has: `Shape<any, …>` would demand a `runCommand` (`[any] extends [never]` is false).
 /**
@@ -400,8 +409,8 @@ export type SubscriptionServicesOf<P> = P extends { readonly listen: Listen<any,
 /**
  * The keys a program lists: what its `subscriptions` returns, and its `listen` takes.
  *
- * It is `never` for a program that listens to nothing. A parent's keys are its own, and its children's, each as
- * `{ _tag: <child>, instance, key }`, with its `id` for a child by id.
+ * It is `never` for a program that listens to nothing. A parent's keys are its own, and the keys of its children's
+ * subscriptions, each of these as `{ _tag: <child>, instance, key }`, with its `id` for a child by id.
  *
  * @example
  * ```ts

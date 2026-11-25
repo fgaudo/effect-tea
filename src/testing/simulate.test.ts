@@ -12,7 +12,7 @@ import type { RunCommand } from "../command.ts"
 import type { Program } from "../program.ts"
 import type { Subscription } from "../subscription.ts"
 import { reject, type Update } from "../update.ts"
-import { simulate, type Simulation } from "./simulate.ts"
+import { simulate, type Simulated } from "./simulate.ts"
 
 describe("simulate", () => {
   class Storage extends Context.Service<Storage, { readonly save: Effect.Effect<number> }>()("Storage") {}
@@ -46,7 +46,7 @@ describe("simulate", () => {
 
   test("runs each command as soon as its message is applied, and applies its message before the next", async () => {
     const simulation = await Effect.runPromise(withStorage(
-      simulate(saving)([{ _tag: "Save" }, { _tag: "Save" }], {
+      simulate(saving, [{ _tag: "Save" }, { _tag: "Save" }], {
         state: idle
       })
     ))
@@ -61,7 +61,7 @@ describe("simulate", () => {
 
   test("runs the commands of the starting step first", async () => {
     const simulation = await Effect.runPromise(withStorage(
-      simulate(saving)([], { state: { isSaving: true, saved: 0 }, commands: ["Store"] })
+      simulate(saving, [], { state: { isSaving: true, saved: 0 }, commands: ["Store"] })
     ))
     expect(simulation.state).toEqual({ isSaving: false, saved: 7 })
   })
@@ -72,13 +72,13 @@ describe("simulate", () => {
       runCommand: () => Effect.succeedSome<Flow>({ _tag: "Saved", total: 3 }),
       subscriptions: () => []
     }
-    const simulation = await Effect.runPromise(simulate(answered)([{ _tag: "Save" }], { state: idle }))
+    const simulation = await Effect.runPromise(simulate(answered, [{ _tag: "Save" }], { state: idle }))
     expect(simulation.state).toEqual({ isSaving: false, saved: 3 })
   })
 
   test("a command's message that update rejects is ignored, and listed", async () => {
     const simulation = await Effect.runPromise(withStorage(
-      simulate(saving)([], { state: idle, commands: ["Store"] })
+      simulate(saving, [], { state: idle, commands: ["Store"] })
     ))
     expect(simulation).toEqual({
       state: idle,
@@ -103,7 +103,7 @@ describe("simulate", () => {
     const runCommand: RunCommand<"A" | "B", Step, Scope.Scope> = (command) =>
       resource(command).pipe(Effect.as(Opt.some<Step>(command === "A" ? "First" : "Second")))
     const simulation = await Effect.runPromise(
-      simulate({ update: chained, runCommand, subscriptions: () => [] })(["Start"], { state: {} })
+      simulate({ update: chained, runCommand, subscriptions: () => [] }, ["Start"], { state: {} })
     )
     expect(simulation.messages).toEqual(["Start", "First", "Second"])
     expect(log).toEqual(["acquire A", "release A", "acquire B", "release B"])
@@ -132,7 +132,7 @@ describe("simulate", () => {
     }
     // Unlike two `extends`, it tells `any` and `unknown` from the services named.
     type Exactly<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
-    const simulation = simulate(listening)([], listening.init)
+    const simulation = simulate(listening, [], listening.init)
     const commands: Exactly<Effect.Services<typeof simulation>, Storage> = true
     expect(commands).toBe(true)
   })
@@ -140,8 +140,8 @@ describe("simulate", () => {
   test("takes the subscriptions of a program as well as its update", () => {
     const counting: Update<Saving, "Increment"> = () => (state) => ({ state })
     // @ts-expect-error: it reads the subscriptions on each new state.
-    expect(simulate({ update: counting })).toBeDefined()
-    expect(simulate({ update: counting, subscriptions: () => [] })).toBeDefined()
+    expect(simulate({ update: counting }, [], { state: idle })).toBeDefined()
+    expect(simulate({ update: counting, subscriptions: () => [] }, [], { state: idle })).toBeDefined()
   })
 
   test("takes a program without commands or events, written as a plain object", async () => {
@@ -151,7 +151,7 @@ describe("simulate", () => {
       subscriptions: () => [],
       makeModel: (state: Readonly<{ count: number }>) => state.count
     }
-    const simulation = await Effect.runPromise(simulate(counting)([undefined], counting.init))
+    const simulation = await Effect.runPromise(simulate(counting, [undefined], counting.init))
     expectTypeOf(simulation.commands).toEqualTypeOf<ReadonlyArray<never>>()
     expectTypeOf(simulation.events).toEqualTypeOf<ReadonlyArray<never>>()
     expect(simulation.state).toEqual({ count: 1 })
@@ -166,8 +166,10 @@ describe("simulate", () => {
       runCommand: () => Effect.succeedSome("Increment" as const),
       subscriptions: () => []
     }
-    const simulating = simulate(counting)
-    expectTypeOf<Parameters<typeof simulating>[0]>().toEqualTypeOf<ReadonlyArray<"Increment" | "Decrement">>()
+    const simulating = simulate(counting, [], { state: { count: 0 } })
+    expectTypeOf<Effect.Success<typeof simulating>["messages"]>().toEqualTypeOf<
+      ReadonlyArray<"Increment" | "Decrement">
+    >()
   })
 
   test("its state is the one its init names, not the literal its update returns", () => {
@@ -178,13 +180,15 @@ describe("simulate", () => {
       subscriptions: () => [],
       makeModel: (state) => state.count
     }
-    const simulating = simulate({
-      ...typed,
-      update: (_: "Increment") => (state: Counted) => ({ state: { count: state.count + 1 } })
-    })
-    expectTypeOf(simulating).returns.toEqualTypeOf<
-      Effect.Effect<Simulation<Counted, "Increment">, never, never>
-    >()
+    const simulating = simulate(
+      {
+        ...typed,
+        update: (_: "Increment") => (state: Counted) => ({ state: { count: state.count + 1 } })
+      },
+      [],
+      typed.init
+    )
+    expectTypeOf(simulating).toEqualTypeOf<Effect.Effect<Simulated<Counted, "Increment">, never, never>>()
   })
 
   test("takes no program whose init names another state than its update", () => {
@@ -194,18 +198,18 @@ describe("simulate", () => {
       subscriptions: () => []
     }
     // @ts-expect-error: the state of `init` is not the one `update` takes.
-    expect(simulate(counting)).toBeDefined()
+    expect(simulate(counting, [], { state: { count: 0 } })).toBeDefined()
   })
 
   test("takes only a program that keeps its state in an object", () => {
     const counting: Update<number, "Increment"> = () => (count) => ({ state: count + 1 })
     // @ts-expect-error: a number is no object.
-    expect(simulate({ update: counting, subscriptions: () => [] })).toBeDefined()
+    expect(simulate({ update: counting, subscriptions: () => [] }, [], { state: 0 })).toBeDefined()
   })
 
   test("a rejection of one of the messages fails, naming it", async () => {
     const exit = await Effect.runPromiseExit(withStorage(
-      simulate(saving)([{ _tag: "Saved", total: 1 }], {
+      simulate(saving, [{ _tag: "Saved", total: 1 }], {
         state: idle
       })
     ))
@@ -224,7 +228,7 @@ describe("simulate", () => {
         subscriptions: () => [],
         makeModel: ({ n }) => n
       }
-      const simulating = yield* Effect.forkChild(simulate(waiting)(["Go"], { state: { n: 0 } }))
+      const simulating = yield* Effect.forkChild(simulate(waiting, ["Go"], { state: { n: 0 } }))
       yield* Deferred.await(started)
       yield* Fiber.interrupt(simulating)
       return yield* Fiber.await(simulating)

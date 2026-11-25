@@ -79,19 +79,19 @@ const userMessages = (state: State): ReadonlyArray<Message> =>
 describe("timers", () => {
   // #region update
   test("each timer keeps its own state", () => {
-    const { state } = applyAll(timers.update)([added, to(2, { _tag: "StartClicked" })], timers.init.state)
+    const { state } = applyAll(timers.update, [added, to(2, { _tag: "StartClicked" })], timers.init.state)
     expect(kept(state).map((timer) => timer.phase._tag)).toEqual(["Setting", "Running"])
   })
 
   test("a removed timer is gone, and a second click on \"Remove\" is rejected", () => {
-    const { state } = applyAll(timers.update)([added, removed(1)], timers.init.state)
+    const { state } = applyAll(timers.update, [added, removed(1)], timers.init.state)
     expect(state.own.ids).toEqual([2])
     expect(timers.update(removed(1))(state)).toBe(reject)
     expect(timers.update(to(1, { _tag: "StartClicked" }))(state)).toBe(reject)
   })
 
   test("only running timers tick, each under its own key", () => {
-    const { state } = applyAll(timers.update)([added, to(2, { _tag: "StartClicked" })], timers.init.state)
+    const { state } = applyAll(timers.update, [added, to(2, { _tag: "StartClicked" })], timers.init.state)
     expect(timers.subscriptions(state)).toEqual([{ _tag: "Timer", id: 2, instance: 2, key: "ticks" }])
   })
   // #endregion update

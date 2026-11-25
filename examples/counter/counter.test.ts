@@ -16,7 +16,7 @@ const messagesOf = (model: Model): ReadonlyArray<Message> =>
 describe("counter", () => {
   // `update` alone: pure, no runtime.
   test("counts up and down", () => {
-    expect(applyAll(update)(["Increment", "Increment", "Decrement"], { count: 0 }).state).toEqual({ count: 1 })
+    expect(applyAll(update, ["Increment", "Increment", "Decrement"], { count: 0 }).state).toEqual({ count: 1 })
   })
 
   test("rejects going below zero", () => {

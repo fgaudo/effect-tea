@@ -96,7 +96,7 @@ export type HostProps<State extends object, Model, Message, Command, RC, RS, Fla
       key: Key
     }>
     /** Draws its model. */
-    readonly children: View<Model, Message>
+    readonly view: View<Model, Message>
   }
   & ([Flags] extends [never] ? { readonly options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> }
     : {
@@ -151,7 +151,7 @@ const report = (error: unknown): void => {
 
 /**
  * Starts a program as it first renders, runs it while it is mounted, and draws the model of its current state with
- * `children`.
+ * `view`.
  *
  * - The program starts as `Host` first renders, with the `program`, the `options` and the `fork` of that render. Its
  *   run starts after `Host`'s effect, and is interrupted as `Host` unmounts. Give it a new `key` to start the program
@@ -170,7 +170,7 @@ const report = (error: unknown): void => {
  *
  * @example
  * ```tsx
- * createRoot(root).render(<Host program={counter}>{view}</Host>)
+ * createRoot(root).render(<Host program={counter} view={view} />)
  * ```
  *
  * @see The guide, "View".
@@ -247,7 +247,7 @@ export const Host = <
     thrown.current = died
     throw died.error
   }
-  return createElement(Draw<Model, Message>, { app: drawn, view: props.children })
+  return createElement(Draw<Model, Message>, { app: drawn, view: props.view })
 }
 
 // The program `Host` runs, and the handle `Draw` reads of it. The run reports each defect once, as it ends, and `Host`

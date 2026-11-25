@@ -108,7 +108,7 @@ describe("the testing tools and the run, on the same program and inputs", () => 
       )
     )
     const replayed = applied.map((_, index) =>
-      applyAll(edit)(applied.slice(0, index + 1).map(({ message }) => message), empty)
+      applyAll(edit, applied.slice(0, index + 1).map(({ message }) => message), empty)
     )
     expect(replayed.map(({ state }) => state)).toEqual(applied.map(({ after }) => after))
     expect(replayed.at(-1)?.commands).toEqual(applied.flatMap(({ commands }) => commands))
@@ -123,7 +123,7 @@ describe("the testing tools and the run, on the same program and inputs", () => 
       [{ _tag: "Typed", text: "b" }, (draft) => draft.text === "b"],
       [{ _tag: "Save" }, (draft) => draft.saved.length === 2 && !draft.isSaving]
     ]
-    const simulation = await Effect.runPromise(simulate(program)(steps.map(([message]) => message), program.init))
+    const simulation = await Effect.runPromise(simulate(program, steps.map(([message]) => message), program.init))
     const { result, applied } = await Effect.runPromise(recorded(
       program,
       Effect.fnUntraced(function*(driver) {
@@ -221,7 +221,7 @@ describe("the order of the answers of commands started together", () => {
   })
 
   test("simulate, running the oldest started command first, hears them as the run does", async () => {
-    const simulation = await Effect.runPromise(simulate(ordered)([{ _tag: "Go" }], ordered.init))
+    const simulation = await Effect.runPromise(simulate(ordered, [{ _tag: "Go" }], ordered.init))
     expect(simulation.state.heard).toEqual(await inTheRun())
   })
 })
@@ -533,7 +533,7 @@ describe("what the run dies of, and the tools fail on", () => {
   }
 
   test("simulate fails, as the run dies, on a key whose Equal throws against the key of the state before", async () => {
-    const exit = await Effect.runPromiseExit(simulate(renewing)(["Seen"], renewing.init))
+    const exit = await Effect.runPromiseExit(simulate(renewing, ["Seen"], renewing.init))
     expect(diesInSubscriptions(exit)).toBe(true)
   })
 
@@ -558,7 +558,7 @@ describe("what the run dies of, and the tools fail on", () => {
   }
 
   test("simulate fails with a defect, as the run dies, on a command interrupting itself", async () => {
-    const exit = await Effect.runPromiseExit(simulate(quitting)(["Go"], quitting.init))
+    const exit = await Effect.runPromiseExit(simulate(quitting, ["Go"], quitting.init))
     expect(diedIn(exit)).toBe("command")
   })
 
@@ -672,7 +672,7 @@ describe("what the run dies of, and the tools fail on", () => {
   })
 
   test("simulate fails with a defect of a command interrupting itself as whoever runs it interrupts it", async () => {
-    const exit = await interruptedOnce((started) => simulate(lingering(started))(["Go"], quitting.init))
+    const exit = await interruptedOnce((started) => simulate(lingering(started), ["Go"], quitting.init))
     expect(diedIn(exit)).toBe("command")
   })
 
@@ -760,7 +760,7 @@ describe("what the run dies of, and the tools fail on", () => {
 
   test("simulate fails with a defect of a command joining, as it is stopped, a fiber its caller interrupted", async () => {
     const exit = await endedByTheFiberThatInterrupted((started, stale) =>
-      simulate(joinsOnceInterrupted(started, stale))(["Go"], quitting.init)
+      simulate(joinsOnceInterrupted(started, stale), ["Go"], quitting.init)
     )
     expect(diedIn(exit)).toBe("command")
   })
@@ -792,7 +792,7 @@ describe("what the run dies of, and the tools fail on", () => {
 
   test("simulate fails with a defect of a command joining, as it is stopped, a fiber its interrupter interrupted", async () => {
     const exit = await interruptedByTheFiberThatInterrupted((started, stale) =>
-      simulate(joinsOnceInterrupted(started, stale))(["Go"], quitting.init)
+      simulate(joinsOnceInterrupted(started, stale), ["Go"], quitting.init)
     )
     expect(diedIn(exit)).toBe("command")
   })
@@ -1003,7 +1003,7 @@ describe("what the run dies of, and the tools fail on", () => {
   })
 
   test("simulate fails, as the run dies, in update, with its message, on an update that throws", async () => {
-    const exit = await Effect.runPromiseExit(simulate(updating)(["Go"], { state: { seen: 0 } }))
+    const exit = await Effect.runPromiseExit(simulate(updating, ["Go"], { state: { seen: 0 } }))
     expect(said(exit)).toEqual(["update", "Go"])
   })
 
@@ -1105,7 +1105,7 @@ describe("what the run dies of, and the tools fail on", () => {
   )
 
   test("simulate fails, as the run dies, in a command on a command that dies", async () => {
-    const exit = await Effect.runPromiseExit(simulate(exploding)(["Go"], exploding.init))
+    const exit = await Effect.runPromiseExit(simulate(exploding, ["Go"], exploding.init))
     expect(diedIn(exit)).toBe("command")
   })
 
@@ -1134,7 +1134,7 @@ describe("what the run dies of, and the tools fail on", () => {
   })
 
   test("simulate applies, as the run does, the answer of a command that catches the defect of a scope of its own", async () => {
-    const { state } = await Effect.runPromise(simulate(recovering)(["Go"], recovering.init))
+    const { state } = await Effect.runPromise(simulate(recovering, ["Go"], recovering.init))
     expect(state).toEqual({ seen: 1 })
   })
 
@@ -1175,7 +1175,7 @@ describe("what the run dies of, and the tools fail on", () => {
   })
 
   test("simulate fails, as the run dies, in a command on a release of a command that dies", async () => {
-    const exit = await Effect.runPromiseExit(simulate(releasing)(["Go"], releasing.init))
+    const exit = await Effect.runPromiseExit(simulate(releasing, ["Go"], releasing.init))
     expect(diedIn(exit)).toBe("command")
   })
 
@@ -1218,7 +1218,7 @@ describe("what the run dies of, and the tools fail on", () => {
       drive(program, (driver) => Effect.andThen(driver.send(go), driver.waitFor(() => Opt.none()))),
     rehearse: (program: Witness) =>
       rehearse(program, (rehearsal) => Effect.andThen(rehearsal.send(go), rehearsal.runAll)),
-    simulate: (program: Witness) => simulate(program)(["Go"], program.init)
+    simulate: (program: Witness) => simulate(program, ["Go"], program.init)
   }
   // What the release of the command saw, and what the tool ended with: the site of each defect, or the tag of what
   // is none.
@@ -1331,7 +1331,7 @@ describe("what the run dies of, and the tools fail on", () => {
   })
 
   test("simulate fails, as the run dies, in a command on a runCommand that throws before its effect", async () => {
-    const exit = await Effect.runPromiseExit(simulate(raising)(["Go"], raising.init))
+    const exit = await Effect.runPromiseExit(simulate(raising, ["Go"], raising.init))
     expect(diedIn(exit)).toBe("command")
   })
 
@@ -1358,7 +1358,7 @@ describe("what the run dies of, and the tools fail on", () => {
   })
 
   test("simulate fails, as the run dies, in subscriptions on those of the state it starts from", async () => {
-    const exit = await Effect.runPromiseExit(simulate(deaf)([], deaf.init))
+    const exit = await Effect.runPromiseExit(simulate(deaf, [], deaf.init))
     expect(diedIn(exit)).toBe("subscriptions")
   })
 
@@ -1509,7 +1509,7 @@ describe("a message whose tag throws as the defect of update is said", () => {
   })
 
   test("simulate fails with both, as the run dies", async () => {
-    const exit = await Effect.runPromiseExit(simulate(saying)([twice()], saying.init))
+    const exit = await Effect.runPromiseExit(simulate(saying, [twice()], saying.init))
     expect(sites(exit)).toEqual(both)
   })
 })
@@ -1785,7 +1785,7 @@ describe("a command whose runCommand is called as whoever runs the tool interrup
       }
       const fiber = yield* Effect.forkChild(
         tool === "simulate"
-          ? simulate(waiting)(["Go"], waiting.init)
+          ? simulate(waiting, ["Go"], waiting.init)
           : tool === "rehearse"
           ? rehearse(waiting, (rehearsal) =>
             rehearsal.send(() => Opt.some("Go")).pipe(Effect.andThen(rehearsal.run(() => true))))
@@ -1861,7 +1861,7 @@ describe("a command or a subscription that a fiber of the program interrupts", (
     "simulate fails with a defect, as the run dies, of a command a fiber of the program interrupts",
     async () => {
       const exit = await interruptedBy((interrupted) =>
-        simulate(commanding(interrupted))(["Go"], { state: { seen: 0 } })
+        simulate(commanding(interrupted), ["Go"], { state: { seen: 0 } })
       )
       expect(diedIn(exit)).toBe("command")
     }
@@ -2006,7 +2006,7 @@ describe("a command or a subscription that a fiber of the program interrupts", (
       const program = gated(began, gate)
       const fiber = yield* Effect.forkChild(
         tool === "simulate"
-          ? Effect.asVoid(simulate(program)(["Go"], program.init))
+          ? Effect.asVoid(simulate(program, ["Go"], program.init))
           : drive(program, (driver) => driver.send(() => Opt.some("Go")).pipe(Effect.andThen(Effect.never)))
       )
       yield* Deferred.await(began)
@@ -2142,7 +2142,7 @@ describe("a message applied while a release holds the effects of the step before
   test("simulate, given the same messages, ends in the same state", async () => {
     const given = await Effect.runPromise(signals)
     const program = holding(given)
-    const simulation = await Effect.runPromise(simulate(program)(["Stop", "Go"], program.init))
+    const simulation = await Effect.runPromise(simulate(program, ["Stop", "Go"], program.init))
     expect([simulation.state, simulation.commands]).toEqual([{ a: false, b: false, count: 1 }, ["Note"]])
   })
 

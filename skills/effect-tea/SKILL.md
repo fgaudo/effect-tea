@@ -145,12 +145,12 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   it is the child's input, and the parent reads what the child concludes from it, through the child's `output`: a
   valid count, not the text. Nothing checks it: an `output` that gives the text compiles. The guide, "Structuring a
   program", "A value that the user writes belongs to the program whose rules use it".
-- **Flags and keys are compared with `Equal`.** Other flags, or another key, start a child again, as another
-  instance. A function made anew in `flags` or `key` is other flags each time, since `Equal` compares a function by
-  reference: give plain values. An `Equal` and a `Hash` written by hand, for a key, an id, flags or a stored value,
-  keep Effect's rules: equal values have the same `Hash`, and both give the same answer each time. Otherwise what the
-  library does with that value is undefined. The guide, "Composition", "Ids are compared by value". The guide,
-  "Guarantees", "What is left to you".
+- **Flags, and what `key` gives, are compared with `Equal`.** Other flags, or another value of `key`, start a child
+  again, as another instance. A function made anew in `flags` or `key` is other flags each time, since `Equal` compares
+  a function by reference: give plain values. An `Equal` and a `Hash` written by hand, for a key, what `key` gives, an
+  id, flags or a stored value, keep Effect's rules: equal values have the same `Hash`, and both give the same answer
+  each time. Otherwise what the library does with that value is undefined. The guide, "Composition", "Ids are compared
+  by value". The guide, "Guarantees", "What is left to you".
 - **The state is ahead of its effects.** A step's commands, and the subscriptions it starts, start after the step,
   so when a message has been applied they may not have started yet. A test that checks what a command does waits for
   a model that shows its answer, never only for the model that shows the step: with `drive`, a scenario that ends

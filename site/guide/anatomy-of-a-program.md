@@ -133,9 +133,9 @@ call `program.makeModel` the same way, on any state. It reads a program's output
 
 **What a program listens to.** `program.subscriptions(state)` is the keys of what the program listens to in `state`.
 It is what the run reconciles. For a program made without `subscriptions`, it is empty. `program.listen(key)` is the
-subscription of a key, which a test can take without a state that lists it. A parent lists the keys of each child as
-`{ _tag: <child>, instance, key }`. For children by id, the parent lists them as `{ _tag: <child>, id, instance, key }`
-(see [what the library derives](./composition.md#what-the-library-derives)).
+subscription of a key, which a test can take without a state that lists it. A parent lists the keys of each child's
+subscriptions as `{ _tag: <child>, instance, key }`. For children by id, the parent lists them as
+`{ _tag: <child>, id, instance, key }` (see [what the library derives](./composition.md#what-the-library-derives)).
 
 **A program with flags.** Its `init` is a function of the flags: `init: ({ id }) => ({ state, commands })`. It is
 pure, as `update` is: a child's `init` runs in its parent's `update` when a step starts the child (see

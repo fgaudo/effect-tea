@@ -82,7 +82,7 @@ const listening = (state: State) => app.subscriptions(state).map((key) => key._t
 describe("pages", () => {
   describe("navigation", () => {
     test("the Clock asks for About, which opens over it and loads its saying", () => {
-      const { state, commands } = applyAll(app.update)([aboutClicked], app.init.state)
+      const { state, commands } = applyAll(app.update, [aboutClicked], app.init.state)
       expect(Opt.map(state.children.About, (about) => about.state)).toEqual(
         Opt.some(About.about.init({ openedAt: Opt.none() }).state)
       )
@@ -91,14 +91,14 @@ describe("pages", () => {
     })
 
     test("About starts from the time the Clock showed when it was asked for", () => {
-      const { state } = applyAll(app.update)([ticked(0), aboutClicked], app.init.state)
+      const { state } = applyAll(app.update, [ticked(0), aboutClicked], app.init.state)
       expect(Opt.map(state.children.About, (about) => about.state.openedAt)).toEqual(
         Opt.some(Opt.some(DateTime.makeUnsafe(0)))
       )
     })
 
     test("About asks to be left, and the Clock is back as it was", () => {
-      const { state } = applyAll(app.update)([ticked(0), aboutClicked, backClicked], app.init.state)
+      const { state } = applyAll(app.update, [ticked(0), aboutClicked, backClicked], app.init.state)
       expect(state.own).toEqual({ about: Opt.none() })
       expect(state.children.About).toEqual(Opt.none())
       expect(Opt.map(state.children.Clock, (clock) => clock.state)).toEqual(
@@ -108,7 +108,7 @@ describe("pages", () => {
 
     test("the Clock stops ticking while About is over it", () => {
       expect(listening(app.init.state)).toEqual(["Clock"])
-      expect(listening(applyAll(app.update)([aboutClicked], app.init.state).state)).toEqual([])
+      expect(listening(applyAll(app.update, [aboutClicked], app.init.state).state)).toEqual([])
     })
   })
 
@@ -136,7 +136,7 @@ describe("pages", () => {
   })
 
   test("About receives its saying through the parent", async () => {
-    const { state, messages } = await Effect.runPromise(simulate(app)([aboutClicked], app.init))
+    const { state, messages } = await Effect.runPromise(simulate(app, [aboutClicked], app.init))
     expect(messages.map((message) => message._tag)).toEqual(["Clock", "About"])
     expect(Opt.isSome(Opt.flatMap(state.children.About, (about) => about.state.maybeSaying))).toBe(true)
   })

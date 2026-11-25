@@ -4,7 +4,7 @@ import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Opt from "effect/Option"
 import { type MessageOf, program, reject, type Subscription, type Written } from "../../src/index.ts"
-import type { Driver, Rehearsal, Simulation } from "../../src/testing/index.ts"
+import type { Driver, Rehearsal, Simulated } from "../../src/testing/index.ts"
 
 export type { Written }
 
@@ -82,9 +82,8 @@ export type RehearseRead<X> = X extends
     subscriptionServices: RS
   }
   : never
-export type SimulateRead<F> = F extends (
-  ...args: ReadonlyArray<never>
-) => Effect.Effect<Simulation<infer S, infer Message, infer C, infer E>, infer _E, infer R>
+export type SimulateRead<F> = F extends
+  Effect.Effect<Simulated<infer S, infer Message, infer C, infer E>, infer _E, infer R>
   ? { state: S; message: Message; command: C; event: E; commandServices: R }
   : never
 

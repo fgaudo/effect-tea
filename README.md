@@ -18,7 +18,7 @@ enough. Here is a test that the second tap does nothing, adapted from the tests 
 
 ```ts
 test("a second tap while saving does nothing", () => {
-  const { state, commands } = applyAll(update)([{ _tag: "SaveClicked" }], editing(" Ada "))
+  const { state, commands } = applyAll(update, [{ _tag: "SaveClicked" }], editing(" Ada "))
   expect(commands).toEqual([Command.Save({ name: "Ada" })])
   expect(update({ _tag: "SaveClicked" })(state)).toBe(reject)
 })
@@ -177,7 +177,7 @@ const view: View<Model, Message> = (model, dispatch) => (
   </main>
 )
 
-createRoot(root).render(<Host program={counter}>{view}</Host>)
+createRoot(root).render(<Host program={counter} view={view} />)
 ```
 
 `View` and `Host` are the package's bridge to React, `@fgaudo/effect-tea/react`

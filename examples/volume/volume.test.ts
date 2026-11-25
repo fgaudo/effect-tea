@@ -78,64 +78,61 @@ describe("volume", () => {
   describe("update", () => {
     test("a press sets the level where the pointer is along the track, and a drag follows it, within its bounds", () => {
       const at = { _tag: "DragStarted", slider: "Media", clientX: 230, left: 200, width: 60 } as const
-      expect(applyAll(update)([at], start).state.media).toBe(50)
-      const { state } = applyAll(update)([at, { _tag: "Moved", clientX: 248.24 }, { _tag: "DragEnded" }], start)
+      expect(applyAll(update, [at], start).state.media).toBe(50)
+      const { state } = applyAll(update, [at, { _tag: "Moved", clientX: 248.24 }, { _tag: "DragEnded" }], start)
       expect(state).toMatchObject({ media: 80, drag: Drag.Idle() })
-      expect(applyAll(update)([at, { _tag: "Moved", clientX: 300 }], start).state.media).toBe(100)
-      const quiet = applyAll(update)([{ _tag: "QuietClicked" }, press("Ringer", 95)], start).state
+      expect(applyAll(update, [at, { _tag: "Moved", clientX: 300 }], start).state.media).toBe(100)
+      const quiet = applyAll(update, [{ _tag: "QuietClicked" }, press("Ringer", 95)], start).state
       expect(quiet.ringer).toBe(30)
     })
 
     // A track that the browser has not laid out has no point along it: the drag starts, and leaves the level.
     test("a press on a track with no width starts a drag that moves nothing", () => {
       const flat = { _tag: "DragStarted", slider: "Ringer", clientX: 10, left: 0, width: 0 } as const
-      const { state } = applyAll(update)([flat, { _tag: "Moved", clientX: 30 }], start)
+      const { state } = applyAll(update, [flat, { _tag: "Moved", clientX: 30 }], start)
       expect(state).toMatchObject({ ringer: 80, drag: { _tag: "Dragging", slider: "Ringer" } })
     })
 
     test("muting leaves the media's level as it is, and unmuting gives it back", () => {
-      const muted = applyAll(update)([press("Media", 80), { _tag: "DragEnded" }, { _tag: "MuteClicked" }], start).state
+      const muted = applyAll(update, [press("Media", 80), { _tag: "DragEnded" }, { _tag: "MuteClicked" }], start).state
       expect(muted).toMatchObject({ media: 80, sound: Sound.Muted() })
       expect(volume.makeModel(muted).media).toEqual({ level: 0, max: 100, press: Opt.none() })
-      expect(volume.makeModel(applyAll(update)([{ _tag: "UnmuteClicked" }], muted).state).media.level).toBe(80)
+      expect(volume.makeModel(applyAll(update, [{ _tag: "UnmuteClicked" }], muted).state).media.level).toBe(80)
     })
 
     // The track is drawn at 0 with no press: a drag of it would move a level nobody sees.
     test("a mute ends a drag of the media, and a press drawn before it starts none", () => {
-      const muted = applyAll(update)([press("Media", 20), { _tag: "MuteClicked" }], start).state
+      const muted = applyAll(update, [press("Media", 20), { _tag: "MuteClicked" }], start).state
       expect(muted.drag).toEqual(Drag.Idle())
       expect(update(press("Media", 40))(muted)).toBe(reject)
     })
 
     test("quiet hours bring a louder ringer down to their maximum, and full volume leaves it there", () => {
-      const quiet = applyAll(update)([{ _tag: "QuietClicked" }], start).state
+      const quiet = applyAll(update, [{ _tag: "QuietClicked" }], start).state
       expect(quiet).toMatchObject({ ringer: 30, limit: Limit.Quiet() })
-      expect(applyAll(update)([{ _tag: "FullClicked" }], quiet).state.ringer).toBe(30)
+      expect(applyAll(update, [{ _tag: "FullClicked" }], quiet).state.ringer).toBe(30)
     })
 
     // The moves are the program's own messages: each is put within the bounds the state holds when it arrives,
     // whatever they were when the drag began. No recipe is needed for bounds that narrow under a drag.
     test("a move of the ringer is put within the bounds of quiet hours that began during the drag", () => {
-      const { state } = applyAll(update)(
-        [
-          press("Ringer", 50),
-          { _tag: "Moved", clientX: 90 },
-          { _tag: "QuietClicked" },
-          { _tag: "Moved", clientX: 95 },
-          { _tag: "Moved", clientX: 10 }
-        ],
-        start
-      )
+      const { state } = applyAll(update, [
+        press("Ringer", 50),
+        { _tag: "Moved", clientX: 90 },
+        { _tag: "QuietClicked" },
+        { _tag: "Moved", clientX: 95 },
+        { _tag: "Moved", clientX: 10 }
+      ], start)
       expect(state.ringer).toBe(10)
-      const quietened = applyAll(update)(
-        [press("Ringer", 50), { _tag: "QuietClicked" }, { _tag: "Moved", clientX: 95 }],
-        start
-      )
+      const quietened = applyAll(update, [press("Ringer", 50), { _tag: "QuietClicked" }, {
+        _tag: "Moved",
+        clientX: 95
+      }], start)
       expect(quietened.state.ringer).toBe(30)
     })
 
     test("a second press while a slider is dragged starts nothing", () => {
-      const dragging = applyAll(update)([press("Ringer", 50)], start).state
+      const dragging = applyAll(update, [press("Ringer", 50)], start).state
       expect(update(press("Ringer", 60))(dragging)).toBe(reject)
       expect(update(press("Media", 60))(dragging)).toBe(reject)
     })

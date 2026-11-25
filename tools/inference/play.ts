@@ -40,10 +40,10 @@ const play = Effect.fnUntraced(
   function*(played: Played, messages: ReadonlyArray<unknown>) {
     // The case file has checked the types: here a program is any program.
     const program = played.program as Playable
-    const simulated = simulate(program as never) as (
-      messages: ReadonlyArray<unknown>,
-      from: unknown
-    ) => Effect.Effect<Readonly<{ state: unknown }>>
+    const simulated = (messages: ReadonlyArray<unknown>, from: unknown) =>
+      simulate(program as never, messages as ReadonlyArray<never>, from as never) as Effect.Effect<
+        Readonly<{ state: unknown }>
+      >
     const first = yield* Effect.exit(simulated([], played.from))
     if (Exit.isFailure(first)) return died(first.cause)
     let state = first.value.state

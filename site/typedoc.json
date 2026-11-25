@@ -12,6 +12,7 @@
   "out": "dist",
   "includeVersion": true,
   "validation": { "notExported": false },
+  "groupOrder": ["Functions", "Variables", "Classes", "Interfaces", "Type Aliases", "*", "Types of the signatures"],
   "headings": { "readme": false },
   "projectDocuments": [".build/tutorial/index.md", ".build/guide/index.md"],
   "navigationLinks": { "effect-tea-persistent": "https://fgaudo.github.io/effect-tea-persistent/" },

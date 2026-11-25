@@ -46,21 +46,21 @@ describe("timer", () => {
   // #region update
   describe("update", () => {
     test("sets the minutes, never below one", () => {
-      expect(applyAll(update)([{ _tag: "LessClicked" }], { ...setting, minutes: 2 }).state.minutes).toBe(1)
+      expect(applyAll(update, [{ _tag: "LessClicked" }], { ...setting, minutes: 2 }).state.minutes).toBe(1)
       expect(update({ _tag: "LessClicked" })({ ...setting, minutes: 1 })).toBe(reject)
     })
 
     test("starts from the minutes set, and rings once at zero", () => {
-      const { state, commands } = applyAll(update)(
-        [{ _tag: "StartClicked" }, ...Array.from({ length: 60 }, (): Message => ({ _tag: "Ticked" }))],
-        { ...setting, minutes: 1 }
-      )
+      const { state, commands } = applyAll(update, [
+        { _tag: "StartClicked" },
+        ...Array.from({ length: 60 }, (): Message => ({ _tag: "Ticked" }))
+      ], { ...setting, minutes: 1 })
       expect(state.phase).toEqual(Phase.Finished())
       expect(commands).toEqual([Command.Ring()])
     })
 
     test("rejects a second start, and changing the minutes while running", () => {
-      const { state } = applyAll(update)([{ _tag: "StartClicked" }], setting)
+      const { state } = applyAll(update, [{ _tag: "StartClicked" }], setting)
       expect(update({ _tag: "StartClicked" })(state)).toBe(reject)
       expect(update({ _tag: "MoreClicked" })(state)).toBe(reject)
     })

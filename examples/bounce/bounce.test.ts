@@ -65,7 +65,7 @@ const flight = (from: State): ReadonlyArray<State> => {
   const states = [from]
   let current = from
   while (flying(current) && states.length < 10_000) {
-    current = applyAll(update)([stepped], current).state
+    current = applyAll(update, [stepped], current).state
     states.push(current)
   }
   return states
@@ -101,7 +101,7 @@ describe("bounce", () => {
     })
 
     test("a throw sends a resting ball up to the top, from the start of its first step", () => {
-      const thrownUp = applyAll(update)([thrown], { dt, height: 0, ball: Ball.Resting() }).state
+      const thrownUp = applyAll(update, [thrown], { dt, height: 0, ball: Ball.Resting() }).state
       expect(thrownUp.ball).toMatchObject({ _tag: "Flying", previous: 0, alpha: 0 })
       // A step moves by the velocity it ends with, so the ball turns a little below the top.
       const highest = Math.max(...flight(thrownUp).map(({ height }) => height))
@@ -110,8 +110,8 @@ describe("bounce", () => {
     })
 
     test("a throw in flight changes the velocity alone", () => {
-      const before = applyAll(update)([stepped, stepped, advanced(0.5)], start).state
-      const { state } = applyAll(update)([thrown], before)
+      const before = applyAll(update, [stepped, stepped, advanced(0.5)], start).state
+      const { state } = applyAll(update, [thrown], before)
       expect(state.height).toBe(before.height)
       expect(state.ball).toMatchObject({ _tag: "Flying", previous: flight(start)[1]?.height, alpha: 0.5 })
       expect(state.ball).not.toMatchObject({ velocity: before.ball._tag === "Flying" ? before.ball.velocity : 0 })
@@ -120,15 +120,15 @@ describe("bounce", () => {
     // The part of the next step says where the ball is drawn, and nothing else: a step is the same at any part.
     test("a step does not depend on the part of the next step, and starts the next one at 0", () => {
       fc.assert(fc.property(inFlight, alpha, (before, other) => {
-        const after = applyAll(update)([stepped], before).state
-        expect(applyAll(update)([stepped], at(before, other)).state).toEqual(after)
+        const after = applyAll(update, [stepped], before).state
+        expect(applyAll(update, [stepped], at(before, other)).state).toEqual(after)
         if (after.ball._tag === "Flying") expect(after.ball.alpha).toBe(0)
       }))
     })
 
     test("the part of the next step changes nothing but itself", () => {
       fc.assert(fc.property(inFlight, alpha, (before, part) => {
-        expect(applyAll(update)([advanced(part)], before).state).toEqual(at(before, part))
+        expect(applyAll(update, [advanced(part)], before).state).toEqual(at(before, part))
       }))
     })
 

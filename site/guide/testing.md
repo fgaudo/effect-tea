@@ -47,7 +47,7 @@ const messagesOf = (model: Model): ReadonlyArray<Message> =>
   model._tag === "Counting" ? [model.decrement, model.increment] : [model.increment]
 
 test("counts up and down", () => {
-  expect(applyAll(update)(["Increment", "Increment", "Decrement"], { count: 0 }).state).toEqual({ count: 1 })
+  expect(applyAll(update, ["Increment", "Increment", "Decrement"], { count: 0 }).state).toEqual({ count: 1 })
 })
 
 // The model, for any count: every message it holds is accepted, and nothing `update` accepts is missing from
@@ -83,9 +83,10 @@ parent would read of it: no tool reads the output of a program that has no paren
 - A test can also fold messages from `init`, with `applyAll`.
 
 **The number of an instance.** A child's commands, as its parent's `update` returns them, name the instance that asked:
-`{ _tag: 'About', instance: 2, command }`. A child's keys are listed as `{ _tag: <child>, instance, key }`,
-and `{ _tag: <child>, id, instance, key }` for children by id. The instances are numbered in the order the library
-starts them, from 1 (see [the order of the starts](./composition.md#how-a-parent-and-its-children-start)). In
+`{ _tag: 'About', instance: 2, command }`. The keys of a child's subscriptions are listed as
+`{ _tag: <child>, instance, key }`, and `{ _tag: <child>, id, instance, key }` for children by id. The instances are
+numbered in the order the library starts them, from 1 (see
+[the order of the starts](./composition.md#how-a-parent-and-its-children-start)). In
 [`pages`](../../examples/pages/app.test.ts), the Clock that `init` starts is 1, and the About that a step opens next is
 2. A test that needs only the child reads the key's `_tag`, as `pages` does.
 

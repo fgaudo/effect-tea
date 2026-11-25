@@ -81,7 +81,8 @@ const userMessages = (state: State): ReadonlyArray<Message> =>
 describe("list", () => {
   describe("update", () => {
     test("each stopwatch keeps its own state", () => {
-      const { state } = applyAll(list.update)(
+      const { state } = applyAll(
+        list.update,
         [added, added, to(1, { _tag: "Started" }), to(1, { _tag: "Ticked" })],
         list.init.state
       )
@@ -92,17 +93,21 @@ describe("list", () => {
     })
 
     test("a stopwatch that asks to be removed is removed, and its late messages are rejected", () => {
-      const { state } = applyAll(list.update)([added, added, to(1, { _tag: "RemoveClicked" })], list.init.state)
+      const { state } = applyAll(list.update, [added, added, to(1, { _tag: "RemoveClicked" })], list.init.state)
       expect(state.own.ids).toEqual([2])
       expect(HashMap.size(state.children.Stopwatch)).toBe(1)
       expect(list.update(to(1, { _tag: "Stopped" }))(state)).toBe(reject)
     })
 
     test("stopping all stops the running stopwatches and leaves the others as they were", () => {
-      const { state } = applyAll(list.update)(
-        [added, added, added, to(1, { _tag: "Started" }), to(3, { _tag: "Started" }), stoppedAll],
-        list.init.state
-      )
+      const { state } = applyAll(list.update, [
+        added,
+        added,
+        added,
+        to(1, { _tag: "Started" }),
+        to(3, { _tag: "Started" }),
+        stoppedAll
+      ], list.init.state)
       expect(stopwatches(state).map((entry) => entry.stopwatch.watch)).toEqual([
         Stopwatch.Watch.Stopped(),
         Stopwatch.Watch.Stopped(),
@@ -113,15 +118,15 @@ describe("list", () => {
 
     // The list reads from each stopwatch's output whether it runs: "Stop all" is offered, and applies, only then.
     test("stopping all is rejected where no stopwatch runs, and offered exactly where one does", () => {
-      const { state: stopped } = applyAll(list.update)([added, added], list.init.state)
+      const { state: stopped } = applyAll(list.update, [added, added], list.init.state)
       expect(list.update(stoppedAll)(stopped)).toBe(reject)
       expect(list.makeModel(stopped).stopAll).toEqual(Opt.none())
-      const { state: running } = applyAll(list.update)([to(2, { _tag: "Started" })], stopped)
+      const { state: running } = applyAll(list.update, [to(2, { _tag: "Started" })], stopped)
       expect(list.makeModel(running).stopAll).toEqual(Opt.some(stoppedAll))
     })
 
     test("only running stopwatches tick, each under its own key", () => {
-      const { state } = applyAll(list.update)([added, added, to(2, { _tag: "Started" })], list.init.state)
+      const { state } = applyAll(list.update, [added, added, to(2, { _tag: "Started" })], list.init.state)
       expect(list.subscriptions(state)).toEqual([{ _tag: "Stopwatch", id: 2, instance: 2, key: "ticks" }])
     })
   })
@@ -149,8 +154,8 @@ describe("list", () => {
   // What lets the view draw only the stopwatch that changed: the others keep the very same model.
   test("a message to one stopwatch leaves the model of the others as it was", () => {
     const model = list.makeModel
-    const { state: before } = applyAll(list.update)([added, added], list.init.state)
-    const { state: after } = applyAll(list.update)([to(2, { _tag: "Started" })], before)
+    const { state: before } = applyAll(list.update, [added, added], list.init.state)
+    const { state: after } = applyAll(list.update, [to(2, { _tag: "Started" })], before)
     expect(model(after).stopwatches[0]?.model).toBe(model(before).stopwatches[0]?.model)
     expect(model(after).stopwatches[1]?.model).not.toBe(model(before).stopwatches[1]?.model)
   })

@@ -5,7 +5,7 @@ import { reject } from "./update.ts"
 // The description that names a message in the `on` of a defect is also the one a failing test names it with.
 const describedAs = (message: unknown) => {
   try {
-    applyAll<null, unknown, never, never>(() => () => reject)([message], null)
+    applyAll<null, unknown, never, never>(() => () => reject, [message], null)
   } catch (error) {
     return String(error).replace(/^.*\((.*)\)$/s, "$1")
   }

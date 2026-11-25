@@ -380,7 +380,7 @@ const hostNote = (view: View<NoteModel, NoteMessage> = noteView) => {
   const node = host({
     program: note,
     fork: heldFork,
-    children: (model, dispatch) => {
+    view: (model, dispatch) => {
       last = { model, dispatch }
       return view(model, dispatch)
     }
@@ -422,7 +422,7 @@ describe("Host", () => {
         order.push("forked")
         return heldFork(effect)
       },
-      children: (model, dispatch) => {
+      view: (model, dispatch) => {
         order.push(`drawn ${model.count}`)
         return counterView(model, dispatch)
       }
@@ -447,7 +447,7 @@ describe("Host", () => {
     })
     const html = renderToString(host({
       program: loading,
-      children: (model) => createElement("output", null, model.loaded)
+      view: (model) => createElement("output", null, model.loaded)
     }))
     expect(html).toBe("<output>7</output>")
     expect(commands).toEqual([])
@@ -466,7 +466,7 @@ describe("Host", () => {
         program: counter,
         options: { onApplied: ({ message }) => onApplied(message) },
         fork: heldFork,
-        children: counterView
+        view: counterView
       })
     const root = await hostInto(node((message) => void applied.push(message)))
     await started()
@@ -481,7 +481,7 @@ describe("Host", () => {
     const root = await hostInto(host({
       program: counter,
       fork: (effect) => heldFork(effect.pipe(Effect.onInterrupt(() => Effect.sync(() => ended.push("run"))))),
-      children: counterView
+      view: counterView
     }))
     await started()
     expect(ended).toEqual([])
@@ -491,7 +491,7 @@ describe("Host", () => {
   })
 
   test("a new key starts the program anew, from init", async () => {
-    const node = (key: string) => host({ key, program: counter, fork: heldFork, children: counterView })
+    const node = (key: string) => host({ key, program: counter, fork: heldFork, view: counterView })
     const root = await hostInto(node("first"))
     await started()
     button("+").click()
@@ -513,7 +513,7 @@ describe("Host", () => {
         children: host({
           program: counter,
           fork: (effect) => heldFork(effect.pipe(Effect.onInterrupt(() => Effect.sync(() => ended.push("run"))))),
-          children: counterView
+          view: counterView
         })
       })
     const root = await hostInto(node("visible"))
@@ -536,7 +536,7 @@ describe("Host", () => {
       return heldFork(effect)
     }
     const node = (mode: "visible" | "hidden", fork: Fork<never>) =>
-      createElement(Activity, { mode, children: host({ program: counter, fork, children: counterView }) })
+      createElement(Activity, { mode, children: host({ program: counter, fork, view: counterView }) })
     const root = await hostInto(node("visible", forkedBy("first")))
     await started()
     await acting(() => root.render(node("visible", forkedBy("second"))))
@@ -549,7 +549,7 @@ describe("Host", () => {
 
   test("shown again by Activity, starts anew the program of its first render", async () => {
     const node = (mode: "visible" | "hidden", program: typeof counter) =>
-      createElement(Activity, { mode, children: host({ program, fork: heldFork, children: counterView }) })
+      createElement(Activity, { mode, children: host({ program, fork: heldFork, view: counterView }) })
     const later = { ...counter, init: { state: { count: 5 } } }
     const root = await hostInto(node("visible", counter))
     await started()
@@ -570,7 +570,7 @@ describe("Host", () => {
           program: counter,
           options: { onApplied: () => void applied.push(name) },
           fork: heldFork,
-          children: counterView
+          view: counterView
         })
       })
     const root = await hostInto(node("visible", "first"))
@@ -588,9 +588,9 @@ describe("Host", () => {
   // Never called: what the compiler refuses.
   test("the types ask for a fork whenever the run needs services, and for a view of the program's model", () => {
     // @ts-expect-error a run that needs services is given the fork that provides them
-    const unforked = () => host({ program: form, children: formView })
+    const unforked = () => host({ program: form, view: formView })
     // @ts-expect-error a view of another program's model
-    const misdrawn = () => host({ program: counter, children: formView })
+    const misdrawn = () => host({ program: counter, view: formView })
     expect([unforked, misdrawn]).toHaveLength(2)
   })
 
@@ -602,7 +602,7 @@ describe("Host", () => {
     await hostInto(host({
       program: form,
       fork: (effect) => runtime.runFork(effect, { scheduler }),
-      children: formView
+      view: formView
     }))
     await started()
     type(element<HTMLInputElement>("input"), "Ada")
@@ -620,7 +620,7 @@ describe("Host", () => {
     await hostInto(host({
       program: form,
       fork: withStorage(Storage.of({ save: () => Effect.void })),
-      children: (model, dispatch) => {
+      view: (model, dispatch) => {
         dispatches.add(dispatch)
         forwarded.add(forwardTo(dispatch, "Name"))
         return formView(model, dispatch)
@@ -637,7 +637,7 @@ describe("Host", () => {
 
   test("a form typed into and saved, its answer drawn once React renders the notice", async () => {
     await hostInto(
-      host({ program: form, fork: withStorage(Storage.of({ save: () => Effect.void })), children: formView })
+      host({ program: form, fork: withStorage(Storage.of({ save: () => Effect.void })), view: formView })
     )
     await started()
     const input = element<HTMLInputElement>("input")
@@ -663,7 +663,7 @@ describe("Host", () => {
       host({
         program: fragile,
         fork,
-        children: (model, dispatch) => drawButton("Break", () => dispatch(model.broken))
+        view: (model, dispatch) => drawButton("Break", () => dispatch(model.broken))
       })
 
     test("throws its ProgramDefect as Host renders, for the nearest error boundary", async () => {
@@ -763,7 +763,7 @@ describe("Host", () => {
                   ended.push(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause) ? "interrupted" : "other")
                 )
               ))),
-            children: (model, dispatch) => {
+            view: (model, dispatch) => {
               if (model.count > 0) {
                 throw thrown
               }
@@ -802,7 +802,7 @@ describe("Host", () => {
               forked.push(effect)
               return heldFork(effect)
             },
-            children: counterView
+            view: counterView
           })
         ))
       )
@@ -848,7 +848,7 @@ describe("Host", () => {
                 fiber = heldFork(effect)
                 return fiber
               },
-              children: counterView
+              view: counterView
             })
           ))
         )
@@ -880,7 +880,7 @@ describe("Host", () => {
         const root = await hostInto(host({
           program: counter,
           fork: (effect) => heldFork(effect.pipe(Effect.ensuring(Effect.die(released)))),
-          children: counterView
+          view: counterView
         }))
         await started()
         await unmount(root)
@@ -907,7 +907,7 @@ describe("Host", () => {
         const root = await hostInto(host({
           program: counter,
           fork: (effect) => heldFork(effect.pipe(Effect.ensuring(Effect.die(released)))),
-          children: counterView
+          view: counterView
         }))
         await started()
         await unmount(root)
@@ -1025,7 +1025,7 @@ describe("Host", () => {
             Effect.onInterrupt(() => Effect.sync(() => runs.push("interrupted"))),
             Effect.onExit(() => Effect.sync(() => runs.push("ended")))
           )),
-        children: noteView
+        view: noteView
       })
     ))
     await started()
@@ -1065,7 +1065,7 @@ describe("Host", () => {
           runs += 1
           return heldFork(effect)
         },
-        children: (model) => createElement("output", null, model.loaded)
+        view: (model) => createElement("output", null, model.loaded)
       })
     ))
     await started()
@@ -1084,7 +1084,7 @@ describe("Host", () => {
     try {
       await hostInto(host({
         program: counter,
-        children: (model, dispatch) => {
+        view: (model, dispatch) => {
           drew.settled()
           return counterView(model, dispatch)
         }
@@ -1109,7 +1109,7 @@ describe("Host", () => {
     const error = console.error
     console.error = (...args: Array<unknown>) => void errors.push(args)
     try {
-      const root = await hostInto(host({ program: form, fork: withStorage(storage), children: formView }))
+      const root = await hostInto(host({ program: form, fork: withStorage(storage), view: formView }))
       await started()
       type(element<HTMLInputElement>("input"), "Ada")
       button("Save").click()

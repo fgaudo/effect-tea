@@ -37,7 +37,7 @@ const update = stocktake.update
 
 const start = stocktake.init(flags)
 
-const loaded = applyAll(update)([{ _tag: "Loaded", items }], start.state).state
+const loaded = applyAll(update, [{ _tag: "Loaded", items }], start.state).state
 
 /** What the counter types into the field of an item, where the model shows one. */
 const typing = (model: Model, id: string, value: string): Opt.Option<Message> => {
@@ -69,7 +69,7 @@ const textOf = (model: Model, id: string) =>
     : model.items.find((line) => line.id === id)?.model.entry.text
 
 const typed = (state: State, texts: Readonly<Record<string, string>>): State =>
-  Object.entries(texts).reduce((state, [id, value]) => applyAll(update)([write(state, id, value)], state).state, state)
+  Object.entries(texts).reduce((state, [id, value]) => applyAll(update, [write(state, id, value)], state).state, state)
 
 describe("update", () => {
   test("starts loading the aisle", () => {
@@ -78,7 +78,8 @@ describe("update", () => {
   })
 
   test("a failed load shows the error, and Retry loads again", () => {
-    const { state, commands } = applyAll(update)(
+    const { state, commands } = applyAll(
+      update,
       [{ _tag: "LoadFailed", error: "offline" }, { _tag: "RetryClicked" }],
       start.state
     )
@@ -112,36 +113,36 @@ describe("update", () => {
 
   test("a scan adds one to its item, replacing the text", () => {
     const scan: Message = { _tag: "Scanned", code: "C-BOLT" }
-    const once = applyAll(update)([scan], loaded).state
+    const once = applyAll(update, [scan], loaded).state
     expect(textOf(stocktake.makeModel(once), "i1")).toBe("1")
-    const twice = applyAll(update)([scan], typed(once, { i1: "41" })).state
+    const twice = applyAll(update, [scan], typed(once, { i1: "41" })).state
     expect(textOf(stocktake.makeModel(twice), "i1")).toBe("42")
     // A scan over a text that is no whole number starts the count at one.
-    const over = applyAll(update)([scan], typed(loaded, { i1: "abc" })).state
+    const over = applyAll(update, [scan], typed(loaded, { i1: "abc" })).state
     expect(textOf(stocktake.makeModel(over), "i1")).toBe("1")
     expect(counting(stocktake.makeModel(twice)).total).toBe(42)
   })
 
   test("unknown scans are listed newest first, at most five", () => {
     const codes = ["u1", "u2", "u3", "u4", "u5", "u6"]
-    const { state } = applyAll(update)(codes.map((code): Message => ({ _tag: "Scanned", code })), loaded)
+    const { state } = applyAll(update, codes.map((code): Message => ({ _tag: "Scanned", code })), loaded)
     expect(counting(stocktake.makeModel(state)).unknown).toEqual(["u6", "u5", "u4", "u3", "u2"])
   })
 
   test("the scanner is listened to while open, and its end shows Reconnect, which listens again", () => {
     expect(stocktake.subscriptions(start.state)).toEqual([])
     expect(stocktake.subscriptions(loaded)).toEqual(["scanner"])
-    const ended = applyAll(update)([{ _tag: "ScannerDisconnected" }], loaded).state
+    const ended = applyAll(update, [{ _tag: "ScannerDisconnected" }], loaded).state
     expect(stocktake.subscriptions(ended)).toEqual([])
     expect(counting(stocktake.makeModel(ended)).scanner._tag).toBe("Disconnected")
-    const again = applyAll(update)([{ _tag: "ReconnectClicked" }], ended).state
+    const again = applyAll(update, [{ _tag: "ReconnectClicked" }], ended).state
     expect(stocktake.subscriptions(again)).toEqual(["scanner"])
     expect(update({ _tag: "ReconnectClicked" })(again)).toBe(reject)
   })
 
   test("submit sends every count and locks the fields; a second submit and a scan meanwhile are rejected", () => {
     const ready = typed(loaded, { i1: "10", i2: "5" })
-    const { state, commands } = applyAll(update)([{ _tag: "SubmitClicked" }], ready)
+    const { state, commands } = applyAll(update, [{ _tag: "SubmitClicked" }], ready)
     expect(commands).toEqual([
       Command.Submit({ aisle: "A3", counts: [{ id: "i1", counted: 10 }, { id: "i2", counted: 5 }] })
     ])
@@ -156,7 +157,7 @@ describe("update", () => {
 
   test("a failed submit shows the error and gives the fields back", () => {
     const ready = typed(loaded, { i1: "10", i2: "5" })
-    const { state } = applyAll(update)([{ _tag: "SubmitClicked" }, { _tag: "SubmitFailed", error: "refused" }], ready)
+    const { state } = applyAll(update, [{ _tag: "SubmitClicked" }, { _tag: "SubmitFailed", error: "refused" }], ready)
     const model = counting(stocktake.makeModel(state))
     expect(model.error).toEqual(Opt.some("refused"))
     expect(model.items.map(({ model }) => model.entry._tag)).toEqual(["Editable", "Editable"])
@@ -166,7 +167,7 @@ describe("update", () => {
 
   test("a successful submit closes the stock-take, stops the scanner, and counts the items that differ", () => {
     const ready = typed(loaded, { i1: "10", i2: "5" })
-    const { state } = applyAll(update)([{ _tag: "SubmitClicked" }, { _tag: "SubmitSucceeded" }], ready)
+    const { state } = applyAll(update, [{ _tag: "SubmitClicked" }, { _tag: "SubmitSucceeded" }], ready)
     const model = stocktake.makeModel(state)
     expect(model).toMatchObject({ _tag: "Closed", total: 15, differing: 1 })
     expect(stocktake.subscriptions(state)).toEqual([])
@@ -174,14 +175,13 @@ describe("update", () => {
   })
 
   test("dies on an answer or a scan that cannot arrive", () => {
-    const closed = applyAll(update)(
-      [{ _tag: "SubmitClicked" }, { _tag: "SubmitSucceeded" }],
-      typed(loaded, { i1: "1", i2: "1" })
-    ).state
+    const closed =
+      applyAll(update, [{ _tag: "SubmitClicked" }, { _tag: "SubmitSucceeded" }], typed(loaded, { i1: "1", i2: "1" }))
+        .state
     expect(() => update({ _tag: "Scanned", code: "C-BOLT" })(closed)).toThrow(InvariantDefect)
     expect(() => update({ _tag: "Loaded", items })(loaded)).toThrow(InvariantDefect)
     expect(() => update({ _tag: "SubmitSucceeded" })(loaded)).toThrow(InvariantDefect)
-    const ended = applyAll(update)([{ _tag: "ScannerDisconnected" }], loaded).state
+    const ended = applyAll(update, [{ _tag: "ScannerDisconnected" }], loaded).state
     expect(() => update({ _tag: "Scanned", code: "C-BOLT" })(ended)).toThrow(InvariantDefect)
   })
 })
@@ -351,7 +351,7 @@ describe("simulate", () => {
   test("loads, takes the typed counts and submits them", async () => {
     const { server, submitted } = serverOf()
     const { state, ignored, commands } = await Effect.runPromise(
-      simulate(stocktake)([
+      simulate(stocktake, [
         { _tag: "Count", id: "i1", message: { _tag: "Written", value: "10" } },
         { _tag: "Count", id: "i2", message: { _tag: "Written", value: "3" } },
         { _tag: "SubmitClicked" }

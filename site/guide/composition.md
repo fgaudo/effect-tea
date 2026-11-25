@@ -73,8 +73,8 @@ Each of these is a function of the parent's own state:
   - A message for a child that is not there is rejected. This holds for a message of the child's view, sent through
     `forwardTo`, and for the answer of one of the child's commands. For children by id, it holds for a message for an
     id that is not there.
-  - A message of the child's subscriptions does not reach the parent's `update` once its key is gone: the run drops it
-    (see [a message that arrives too late](./rejections-and-defects.md#rules)).
+  - A message of one of the child's subscriptions does not reach the parent's `update` once that subscription's key is
+    gone: the run drops it (see [a message that arrives too late](./rejections-and-defects.md#rules)).
   - A child that leaves, and comes back in a later step, is started again. It does not keep the state it had before
     it left.
   - Telling a child that is not there is a defect, not a rejection (see
@@ -174,11 +174,11 @@ From these declarations, the library derives the parent's state, messages, comma
   child's `runCommand` runs them.
   - **An answer reaches the instance that asked for it, or is rejected.** An answer for an instance that is no longer
     there is rejected, even when another instance of the same child, or at the same id, is there now.
-- **The parent's subscriptions** are the parent's own subscriptions, plus each child's subscriptions. A child's keys
-  are wrapped as its commands are, with `key` in place of `command`, and with the instance that listens:
-  `{ _tag: <child>, instance, key }`, and `{ _tag: <child>, id, instance, key }` for children by id. So a child started
-  again starts its subscriptions again. The parent's `listen` makes the subscription of a child's key with the child's
-  own `listen`.
+- **The parent's subscriptions** are the parent's own subscriptions, plus each child's subscriptions. The keys of a
+  child's subscriptions are wrapped as its commands are, with `key` in place of `command`, and with the instance that
+  listens: `{ _tag: <child>, instance, key }`, and `{ _tag: <child>, id, instance, key }` for children by id. So a child
+  started again starts its subscriptions again. The parent's `listen` makes the subscription of such a key with the
+  child's own `listen`.
 
 `MessageOf<typeof app>` names the parent's messages. More on each is in [commands](./commands.md),
 [subscriptions](./subscriptions.md) and [children's views](#childrens-views).
@@ -211,7 +211,7 @@ Three more facts hold for children and inputs:
 - children by id without `ids` or `flags`;
 - a child with commands and no `runCommand`, those its `external` returns among them (a program written without
   `Program<…>` can be one);
-- a child with keys and no `listen` (a program written without `Program<…>` can be one).
+- a child whose subscriptions list keys, with no `listen` (a program written without `Program<…>` can be one).
 
 The parent's own subscriptions and commands send only the parent's own messages. To tell a child something, a step of
 the parent's `update`, `external` or `onEvent` lists it in `tell` (see
@@ -256,8 +256,8 @@ export function inDialog(content: Program<{ state: object; model: unknown; messa
 
 - a child with commands and no `runCommand` that reaches the program through a cast. The defect comes when one of its
   commands runs;
-- a child with keys and no `listen` that reaches the program through a cast. The defect comes when one of its
-  subscriptions starts;
+- a child whose subscriptions list keys, with no `listen`, that reaches the program through a cast. The defect comes
+  when one of its subscriptions starts;
 - a child with events and no handler in `onEvent` that reaches the program through a cast. The defect comes when the
   child raises an event;
 - a child whose state is not an object, which only a cast lets into the program. The defect comes when the child's model
@@ -315,10 +315,10 @@ For children by id, such as the rows of a list, use `childById` instead of `chil
 - **`children.Row(id)` is a row's model**, and `forwardTo(dispatch, 'Row', id)` is the row's dispatch.
   `children.Row.output(id)` is its output, for a row that declares one.
 - **Ids are compared by value**, with `Equal`, wherever they go: in the list of ids, in subscription keys and in
-  dispatches. An id can be a string, a number, or a tuple or a struct of them. Keys and flags are compared the same
-  way. `Equal` compares by value what Effect documents: primitives, arrays, plain objects, `Map`, `Set`, dates,
-  regular expressions, and values that implement `Equal`, as `Option` and `Data` do. It compares a function by
-  reference.
+  dispatches. An id can be a string, a number, or a tuple or a struct of them. Keys, flags and what `key` gives are
+  compared the same way. `Equal` compares by value what Effect documents: primitives, arrays, plain objects, `Map`,
+  `Set`, dates, regular expressions, and values that implement `Equal`, as `Option` and `Data` do. It compares a
+  function by reference.
 - **An id listed twice is a defect** (see [what is a defect](#what-does-not-compile-and-what-is-a-defect)).
 
 See [`list`](../../examples/list/list.ts).

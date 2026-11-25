@@ -240,11 +240,6 @@ export type EventOf<P> = Returned<P, "events">;
 export type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, never, R>;
 
 // @public
-export type ExternalHandler<External, State, Command, Event> = [External] extends [never] ? object : {
-    readonly external: (message: External) => (state: State) => Step<State, Command, Event>;
-};
-
-// @public
 type ExternalHandlerOf<State, C, External, Command, Event> = [External] extends [never] ? Readonly<{
     external?: never;
 }> : Readonly<{
@@ -397,11 +392,6 @@ export type Instance<State> = {
 };
 
 // @public
-export type Interpreter<Command, Message, R> = [Command] extends [never] ? object : {
-    readonly runCommand: RunCommand<Command, Message, R>;
-};
-
-// @public
 export class InvariantDefect extends InvariantDefect_base<Readonly<{
     reason: string;
     message: string;
@@ -439,7 +429,7 @@ export type KeyOf<P> = P extends {
 } ? K : never;
 
 // @public (undocumented)
-type Lacking<P> = P extends ProgramChecked<P> ? unknown : ([CommandOf<P>] extends [never] ? unknown : Interpreter<CommandOf<P>, unknown, unknown>) & ([KeyOf<P>] extends [never] ? unknown : Listener<KeyOf<P>, unknown, unknown>) & {
+type Lacking<P> = P extends ProgramChecked<P> ? unknown : ([CommandOf<P>] extends [never] ? unknown : WithRunCommand<CommandOf<P>, unknown, unknown>) & ([KeyOf<P>] extends [never] ? unknown : WithListen<KeyOf<P>, unknown, unknown>) & {
     readonly "a child is a program of the types read back from it": ProgramChecked<P>;
 };
 
@@ -450,11 +440,6 @@ type Listed<T, Key extends "commands" | "events"> = T extends {
 
 // @public
 export type Listen<Key, Message, R = never> = (key: Key) => Subscription<Message, R>;
-
-// @public
-export type Listener<Key, Message, R> = [Key] extends [never] ? object : {
-    readonly listen: Listen<Key, Message, R>;
-};
 
 // @public
 type Listening<State> = Readonly<{
@@ -749,9 +734,7 @@ type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = neve
     readonly update: Update<State, Message, Command, Event>;
     readonly subscriptions: Subscriptions<State, Key>;
     readonly makeModel: (state: State) => Model;
-} & Interpreter<Command, NoInfer<Message>, RC> & Listener<Key, NoInfer<Message>, RS> & ExternalHandler<External, State, Command, Event> & ([Output] extends [never] ? object : {
-    readonly output: (state: State) => Output;
-});
+} & WithRunCommand<Command, NoInfer<Message>, RC> & WithListen<Key, NoInfer<Message>, RS> & WithExternal<External, State, Command, Event> & WithOutput<Output, State>;
 
 // @public
 type SometimesPlace<State, P> = [FlagsOf<P>] extends [never] ? Readonly<{
@@ -831,6 +814,26 @@ type UpdateOf<State, C, Own, Command, Event> = [Own] extends [never] ? Readonly<
 }> : Readonly<{
     update: (message: Own, ...children: Reading<C>) => (state: State) => Transition<State, Command, Event, Tells<C>>;
 }>;
+
+// @public
+type WithExternal<External, State, Command, Event> = [External] extends [never] ? object : {
+    readonly external: (message: External) => (state: State) => Step<State, Command, Event>;
+};
+
+// @public
+export type WithListen<Key, Message, R> = [Key] extends [never] ? object : {
+    readonly listen: Listen<Key, Message, R>;
+};
+
+// @public
+type WithOutput<Output, State> = [Output] extends [never] ? object : {
+    readonly output: (state: State) => Output;
+};
+
+// @public
+export type WithRunCommand<Command, Message, R> = [Command] extends [never] ? object : {
+    readonly runCommand: RunCommand<Command, Message, R>;
+};
 
 // @public
 export type Written<A> = {

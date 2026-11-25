@@ -30,7 +30,7 @@ each bridge's to promise (see [view](./view.md#rules)).
   - A child that a step of the parent lists anew is started, with its first commands.
   - A child that the parent's state no longer lists is dropped: its subscriptions stop, and a message for it is
     rejected.
-  - Other flags, or another key, by `Equal`, start a child again, as another instance (see
+  - Other flags, or another value of `key`, by `Equal`, start a child again, as another instance (see
     [composition](./composition.md#when-a-child-is-there)).
 - **An answer reaches the instance that asked for it, or is rejected.** Each start of a child is an instance of its
   own, and the commands of an instance name it.
@@ -138,15 +138,15 @@ each bridge's to promise (see [view](./view.md#rules)).
 - **A `set` changes its place, and nothing else**, as [inputs](./inputs.md#rules) says. The run does not check it.
   - `placeViolations` checks it, in tests, in the states and at the ids that a test gives (see
     [testing tools](./testing-tools.md#placeviolations)).
-- **Flags and keys made of values that `Equal` compares by value.** Other flags, or another key, start a child again.
-  A function made anew in `flags` or `key` is other flags each time, since `Equal` compares a function by reference.
-  Nothing says so: the child starts again, and loses its state (see
+- **Flags, and what `key` gives, made of values that `Equal` compares by value.** Other flags, or another value of
+  `key`, start a child again. A function made anew in `flags` or `key` is other flags each time, since `Equal` compares
+  a function by reference. Nothing says so: the child starts again, and loses its state (see
   [composition](./composition.md#children-by-id)).
-  - An `Equal` and a `Hash` that your program writes, for a key, an id, flags or a value that an input stores, keep
-    Effect's rules: values that `Equal` finds equal have the same `Hash`, and both give the same answer each time.
-    Nothing checks them. Where one breaks them, what the library does with that value is undefined: which
-    subscriptions and children it keeps, which dispatch it gives a child, and whether a write leaves the very same
-    state.
+  - An `Equal` and a `Hash` that your program writes, for a key, what `key` gives, an id, flags or a value that an
+    input stores, keep Effect's rules: values that `Equal` finds equal have the same `Hash`, and both give the same
+    answer each time. Nothing checks them. Where one breaks them, what the library does with that value is undefined:
+    which subscriptions and children it keeps, which dispatch it gives a child, and whether a write leaves the very
+    same state.
 - **What must stay private is in a service, not in a key.** A key is shown whole: in a defect of its subscription, and
   in the `origin` that `onApplied` and `onIgnored` hear (see [running](./running.md#when-a-defect-happens)).
 - **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated.** So are

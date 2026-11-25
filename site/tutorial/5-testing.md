@@ -23,8 +23,8 @@ write down. So the tests start from an arbitrary that produces only valid states
 
 ## `update`
 
-`update` is a function, and is tested as one. `applyAll(update)` applies messages one after the other, and fails the
-test when `update` rejects one of them. Three things to notice in these tests:
+`update` is a function, and is tested as one. `applyAll(update, messages, from)` applies messages one after the other,
+and fails the test when `update` rejects one of them. Three things to notice in these tests:
 
 - a rejection is asserted as `reject` itself;
 - a defect is asserted with `InvariantDefect`;

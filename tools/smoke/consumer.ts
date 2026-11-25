@@ -337,7 +337,7 @@ export const ranBoth: [Ran] extends [Server | Backup] ? [Server | Backup] extend
 export const heardFeed: [Heard] extends [Feed] ? [Feed] extends [Heard] ? true : false : false = true
 
 // `simulate` asks only for what the commands need: the subscriptions do not run.
-export const simulated: Effect.Effect<unknown, never, Server | Backup> = simulate(served)([], served.init)
+export const simulated: Effect.Effect<unknown, never, Server | Backup> = simulate(served, [], served.init)
 
 // A scenario made with `Effect.fnUntraced`, of a program without commands: it keeps its errors and services, and the
 // declarations name the rehearsal it returns.
@@ -388,7 +388,7 @@ const unlistening: Program<{ state: CounterState; model: null; message: Full }> 
 
 // And so do the pieces of a program that `simulate` takes.
 // @ts-expect-error
-simulate({ update: counterUpdate })
+simulate({ update: counterUpdate }, [], counter.init)
 
 // A program may be typed with fewer external messages than it takes, never with more.
 export const sealed: Program<{ state: CounterState; model: CounterState; message: CounterMessage; event: Full }> =
@@ -578,7 +578,7 @@ const increment = (id?: number): Message =>
 
 const countOf = (kept: Opt.Option<Instance<CounterState>>) => Opt.getOrThrow(kept).state.count
 
-const folded = applyAll(app.update)([increment(), increment(), increment(), increment(1)], app.init.state)
+const folded = applyAll(app.update, [increment(), increment(), increment(), increment(1)], app.init.state)
 assert(countOf(folded.state.children.Main) === 3 && folded.state.own.fulls === 1, "applyAll routes to the children")
 const foldedModel = app.makeModel(folded.state)
 assert(foldedModel.rows[0]?.model.count === 1, "makeModel reads the children by id")
@@ -613,12 +613,13 @@ assert(
   "a parent reads its children's outputs"
 )
 
-const relayed = applyAll(outer.update)([{ _tag: "ResetAll" }], outer.init.state)
+const relayed = applyAll(outer.update, [{ _tag: "ResetAll" }], outer.init.state)
 assert(relayed.state.own.heard === 0, "a parent of parents tells its child, which tells its own")
 const told = dialogOfQuiet.update({ _tag: "Content", message: { _tag: "Increment" } })(dialogOfQuiet.init.state)
 assert(told !== reject && countOf(told.state.children.Content) === 1, "a parent made over any program routes to it")
 
-const cleared = applyAll(draft.update)(
+const cleared = applyAll(
+  draft.update,
   [{ _tag: "Title", message: { _tag: "Written", value: "Ada" } }, "Cleared"],
   draft.init.state
 )
@@ -655,7 +656,7 @@ export const library = { ...Library }
 export const testing = { ...Testing }
 
 const main = Effect.gen(function*() {
-  const simulation = yield* simulate(app)([increment(), { _tag: "ResetAll" }], app.init)
+  const simulation = yield* simulate(app, [increment(), { _tag: "ResetAll" }], app.init)
   assert(countOf(simulation.state.children.Main) === 0, "simulate tells the children the external messages")
   const counts: Array<number> = []
   const heard: Array<unknown> = []

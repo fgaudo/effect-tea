@@ -236,7 +236,7 @@ reaches the boundary as `Host` first renders, and the run never starts. What is 
 run ended with, which keeps one defect. To see the whole cause, wrap the run in the `fork` that you give `Host`: what
 the `fork` handles is not thrown or reported again.
 
-### `messagesSentBy`
+### messagesSentBy
 
 Beside the snabbdom bridge, `@fgaudo/effect-tea/snabbdom/testing` ([`bridges/snabbdom-testing.ts`][messages]) has
 `messagesSentBy`. It finds what a view sends, without a DOM. Each listener gets an event whose `target` and

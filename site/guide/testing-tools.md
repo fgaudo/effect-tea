@@ -118,7 +118,7 @@ and `ReachesAnother` the `value` and the `other` id.
 first. Then it takes the test's messages and the step to start from:
 
 ```ts
-const { state, commands, ignored } = yield * simulate(form)(typedAndSaved, form.init).pipe(
+const { state, commands, ignored } = yield * simulate(form, typedAndSaved, form.init).pipe(
   Effect.provideService(Storage, working)
 )
 ```
@@ -250,8 +250,8 @@ wherever the tool calls the program: `init`, `update`, `makeModel`, `subscriptio
 #### How a subscription is heard
 
 - A subscription's message is heard only while its key is in the state. Keys compare by value, as the run compares
-  them. A child's key names its instance, as `{ _tag: 'Clock', instance: 1, key: 'ticks' }` (see
-  [the number of an instance](./testing.md#the-model-of-any-state)).
+  them. A key of a child's subscriptions names the child's instance, as
+  `{ _tag: 'Clock', instance: 1, key: 'ticks' }` (see [the number of an instance](./testing.md#the-model-of-any-state)).
 - `hear` runs nothing. The test answers for what it says was heard, and for whether the subscription had ended.
 - `hear` on a key that has just appeared waits until the key's subscription would have started: once what the message
   before it stopped has released what it held. It then looks the key up again, and fails the test when the key is no

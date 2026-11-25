@@ -13,7 +13,7 @@ const messagesOf = (model: Model): ReadonlyArray<Message> => [...Opt.toArray(mod
 
 describe("duration", () => {
   test("sets the minutes up and down", () => {
-    expect(applyAll(update)(["More", "More", "Less"], { minutes: 1 }).state).toEqual({ minutes: 2 })
+    expect(applyAll(update, ["More", "More", "Less"], { minutes: 1 }).state).toEqual({ minutes: 2 })
   })
 
   test("rejects going below one minute", () => {

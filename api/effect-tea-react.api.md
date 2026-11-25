@@ -42,11 +42,6 @@ export const Draw: <Model, Message>(input: {
 type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, never, R>;
 
 // @public
-type ExternalHandler<External, State, Command, Event> = [External] extends [never] ? object : {
-    readonly external: (message: External) => (state: State) => Step<State, Command, Event>;
-};
-
-// @public
 type Field<T, K extends string> = T extends {
     readonly [P in K]: infer V;
 } ? V : never;
@@ -81,7 +76,7 @@ export type HostProps<State extends object, Model, Message, Command, RC, RS, Fla
         flags: Flags;
         key: Key;
     }>;
-    readonly children: View<Model, Message>;
+    readonly view: View<Model, Message>;
 } & ([Flags] extends [never] ? {
     readonly options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>;
 } : {
@@ -103,17 +98,7 @@ type Ignored<State, Message> = {
 type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, Command> : (flags: Flags) => Step<State, Command>;
 
 // @public
-type Interpreter<Command, Message, R> = [Command] extends [never] ? object : {
-    readonly runCommand: RunCommand<Command, Message, R>;
-};
-
-// @public
 type Listen<Key, Message, R = never> = (key: Key) => Subscription<Message, R>;
-
-// @public
-type Listener<Key, Message, R> = [Key] extends [never] ? object : {
-    readonly listen: Listen<Key, Message, R>;
-};
 
 // @public
 type ObjectState<State> = [State] extends [object] ? Fielded<State> : {
@@ -172,9 +157,7 @@ type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = neve
     readonly update: Update<State, Message, Command, Event>;
     readonly subscriptions: Subscriptions<State, Key>;
     readonly makeModel: (state: State) => Model;
-} & Interpreter<Command, NoInfer<Message>, RC> & Listener<Key, NoInfer<Message>, RS> & ExternalHandler<External, State, Command, Event> & ([Output] extends [never] ? object : {
-    readonly output: (state: State) => Output;
-});
+} & WithRunCommand<Command, NoInfer<Message>, RC> & WithListen<Key, NoInfer<Message>, RS> & WithExternal<External, State, Command, Event> & WithOutput<Output, State>;
 
 // @public
 type Step<State, Command = never, Event = never, Tell = never> = {
@@ -198,6 +181,26 @@ type Update<State, Message, Command = never, Event = never> = (message: Message)
 
 // @public
 export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) => ReactNode;
+
+// @public
+type WithExternal<External, State, Command, Event> = [External] extends [never] ? object : {
+    readonly external: (message: External) => (state: State) => Step<State, Command, Event>;
+};
+
+// @public
+type WithListen<Key, Message, R> = [Key] extends [never] ? object : {
+    readonly listen: Listen<Key, Message, R>;
+};
+
+// @public
+type WithOutput<Output, State> = [Output] extends [never] ? object : {
+    readonly output: (state: State) => Output;
+};
+
+// @public
+type WithRunCommand<Command, Message, R> = [Command] extends [never] ? object : {
+    readonly runCommand: RunCommand<Command, Message, R>;
+};
 
 // (No @packageDocumentation comment for this package)
 

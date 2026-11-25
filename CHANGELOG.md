@@ -29,9 +29,9 @@ version, and everything else, features included, the patch version.
   Upgrade: drop a child's `at`, `get`, `set` and `subscribed` (`listening` is optional), and `children.X.init` from
   `init`; `children.X.external(…)` becomes `{ state, tell: [{ _tag: 'X', message }] }`; `children.X(state)` in
   `makeModel` becomes `children.X()`, an `Option` for a child that may not be there.
-- Under a parent, what a step tells its children arrives after the step, a child whose flags or key change starts
-  again, an answer for a child closed or started again is rejected, and no step can copy a child's state or bring one
-  back.
+- Under a parent, what a step tells its children arrives after the step, a child whose flags, or what its `key` gives,
+  change starts again, an answer for a child closed or started again is rejected, and no step can copy a child's state
+  or bring one back.
 - **Breaking**: `forEach` is removed: a parent lists what it tells its children in `tell`. `andThen` folds `tell` too.
   Upgrade: `forEach(step, ids, (id) => children.Row.external(id, m))` becomes `{ ...step, tell: ids.map(…) }`.
 - **Breaking**: an input's `set` changes its place and nothing else, and stores exactly the value it is given; one
@@ -39,10 +39,12 @@ version, and everything else, features included, the patch version.
   Upgrade: a `set` that changes the form, `set: (state, note) => ({ ...state, note: note.toUpperCase() })`, becomes
   `store: (note) => note.toUpperCase()` beside the place, `at` where the place is a path.
 - **Breaking**: a subscription is made from its key alone: `subscriptions(state)` lists keys in an array, a key listed
-  twice once, and `listen(key)` makes the subscription of one; `key` names their type (`Listen`, `Listener`, `KeyOf`).
+  twice once, and `listen(key)` makes the subscription of one; `key` names their type (`Listen`, `WithListen`,
+  `KeyOf`).
   Upgrade: `subscriptions: () => HashMap.make(['ticks', ticks])` becomes `subscriptions: () => ['ticks']` with
-  `listen: () => ticks` and `key: 'ticks'` among the types; a child's key `[<child>, instance, key]` becomes
-  `{ _tag: <child>, instance, key }`, and `Subscriptions<State, Message>` becomes `Subscriptions<State, Key>`.
+  `listen: () => ticks` and `key: 'ticks'` among the types; the key of a child's subscription,
+  `[<child>, instance, key]`, becomes `{ _tag: <child>, instance, key }`, and `Subscriptions<State, Message>` becomes
+  `Subscriptions<State, Key>`.
 - **Breaking**: `dispatchViolations` reports `Inert`, a message the model holds whose step does nothing, unless the
   new option `inert`, of the message and the state, lists it ("Testing tools", "dispatchViolations").
   Upgrade: leave such a control out of the model, reject it in `update`, or list it in `inert`; a `switch` over a
@@ -54,6 +56,20 @@ version, and everything else, features included, the patch version.
   scope that die of defects equal by `Equal` are two defects, and whether a command that interrupts itself as the run
   stops it is one.
   Upgrade: nothing to change in a program; a test relies on neither.
+- **Breaking**: `applyAll` and `simulate` are called in one step, as every other tool is: the messages and the state,
+  or the step, to start from follow the first parameter. The types still come from `update`, or from the program,
+  alone ("Testing tools").
+  Upgrade: `applyAll(update)(messages, from)` becomes `applyAll(update, messages, from)`, and
+  `simulate(program)(messages, from)` becomes `simulate(program, messages, from)`.
+- **Breaking**: `Simulation`, what `simulate` succeeds with, is `Simulated`, as `Folded` is what `applyAll` returns.
+  Upgrade: `Simulation<State, Message>` becomes `Simulated<State, Message>`.
+- **Breaking**: `Interpreter` is `WithRunCommand`, as `WithListen` names a program's `listen`, and `ExternalHandler` is
+  no longer exported.
+  Upgrade: `Interpreter<Command, Message, R>` becomes `WithRunCommand<Command, Message, R>`, and a type that named
+  `ExternalHandler` names `Pick<typeof program, 'external'>`.
+- **Breaking**: `Host` takes its view as `view`, as `Draw` and `drawInto` do, where it took it as `children`;
+  `HostProps` has `view` in place of `children` ("Writing a bridge").
+  Upgrade: `<Host program={counter}>{view}</Host>` becomes `<Host program={counter} view={view} />`.
 - The guide promises only what stands under "Rules", under "What you can rely on" and in the types; the rest explains,
   and what it does not promise is unspecified, with no entry here when it changes ("Guide", "What a page promises").
   "Precisely" is gone. Now promised, under the "Rules" of its page: all that a page held under "Precisely" or said it

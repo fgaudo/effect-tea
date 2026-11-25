@@ -10,5 +10,5 @@ export { type DispatchViolation, dispatchViolations } from "./dispatch-violation
 export { drive, type DriveOptions, type Driver } from "./drive.ts"
 export { type PlaceViolation, placeViolations } from "./place-violations.ts"
 export { type Rehearsal, rehearse } from "./rehearse.ts"
-export { simulate, type Simulation } from "./simulate.ts"
+export { simulate, type Simulated } from "./simulate.ts"
 export { stateOf } from "./state-of.ts"

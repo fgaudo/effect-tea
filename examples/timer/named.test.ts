@@ -56,7 +56,7 @@ describe("named", () => {
   // An input keeps nothing of its own: the state stored is the state written, which a test compares whole.
   test("a name written is stored", () => {
     const start = named.init.state
-    const { state } = applyAll(named.update)([typing("Tea")], start)
+    const { state } = applyAll(named.update, [typing("Tea")], start)
     expect(state).toEqual({ ...start, own: { name: "Tea" } })
   })
   // #endregion update

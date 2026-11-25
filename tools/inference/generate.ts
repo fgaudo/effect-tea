@@ -563,7 +563,7 @@ const useLines = (use: Use, program: string, types: Types, assert: boolean, onEv
       ]
     case "simulate":
       return [
-        `  const simulated = simulate(${program})`,
+        `  const simulated = simulate(${program}, [], undefined as never)`,
         ...read("SimulateRead", "simulated", {
           state: types.state,
           message: types.message,
@@ -1982,17 +1982,15 @@ const takerLines = (
       ]
     case "simulate":
     case "applyAll": {
-      const made = taker === "simulate" ? `simulate(${program})` : `applyAll(${program}.update)`
       const from = taker === "applyAll"
         ? `savedState<StateOf<typeof ${program}>>()`
         : types.flags === "never"
         ? `${program}.init`
         : `${program}.init(3)`
+      const args = `[${given.messages.join(", ")}], ${from}`
       return [
-        `const taking = ${made}`,
-        takes("Parameters<typeof taking>[0][number]"),
         ...given.lines,
-        `taking([${given.messages.join(", ")}], ${from})`
+        taker === "simulate" ? `simulate(${program}, ${args})` : `applyAll(${program}.update, ${args})`
       ]
     }
   }

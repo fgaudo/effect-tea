@@ -30,7 +30,7 @@ type Applied<State, Message, Command = never> = {
 };
 
 // @public
-export const applyAll: <State, Message, Command, Event>(update: Update<State, Message, Command, Event>) => (messages: ReadonlyArray<Message>, from: State) => Folded<State, Command, Event>;
+export const applyAll: <State, Message, Command, Event>(update: Update<State, Message, Command, Event>, messages: ReadonlyArray<NoInfer<Message>>, from: NoInfer<State>) => Folded<State, Command, Event>;
 
 // @public (undocumented)
 type Commanded<P, T> = P extends {
@@ -85,11 +85,6 @@ export type Driver<Model, Message> = {
 
 // @public
 type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, never, R>;
-
-// @public
-type ExternalHandler<External, State, Command, Event> = [External] extends [never] ? object : {
-    readonly external: (message: External) => (state: State) => Step<State, Command, Event>;
-};
 
 // @public
 type Field<T, K extends string> = T extends {
@@ -150,11 +145,6 @@ type Instance<State> = {
 };
 
 // @public
-type Interpreter<Command, Message, R> = [Command] extends [never] ? object : {
-    readonly runCommand: RunCommand<Command, Message, R>;
-};
-
-// @public
 type Kept<Own, Children> = {
     readonly own: Own;
     readonly starts: number;
@@ -168,11 +158,6 @@ type Listen<Key, Message, R = never> = (key: Key) => Subscription<Message, R>;
 type Listened<P, T> = P extends {
     readonly listen: unknown;
 } ? T : never;
-
-// @public
-type Listener<Key, Message, R> = [Key] extends [never] ? object : {
-    readonly listen: Listen<Key, Message, R>;
-};
 
 // @public (undocumented)
 type Needed<Command, RC, Key, RS> = Exclude<([Command] extends [never] ? never : RC) | ([Key] extends [never] ? never : RS), Scope.Scope>;
@@ -297,21 +282,19 @@ type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = neve
     readonly update: Update<State, Message, Command, Event>;
     readonly subscriptions: Subscriptions<State, Key>;
     readonly makeModel: (state: State) => Model;
-} & Interpreter<Command, NoInfer<Message>, RC> & Listener<Key, NoInfer<Message>, RS> & ExternalHandler<External, State, Command, Event> & ([Output] extends [never] ? object : {
-    readonly output: (state: State) => Output;
-});
+} & WithRunCommand<Command, NoInfer<Message>, RC> & WithListen<Key, NoInfer<Message>, RS> & WithExternal<External, State, Command, Event> & WithOutput<Output, State>;
 
 // @public
 export const simulate: <State, Message, Command = never, Event = never, R = never>(program: Readonly<{
     init?: Step<State, Command> | ((flags: never) => Step<State, Command>);
 }> & Readonly<{
     update: Update<State, Message, Command, Event>;
-}> & Interpreter<Command, NoInfer<Message>, R> & Readonly<{
+}> & WithRunCommand<Command, NoInfer<Message>, R> & Readonly<{
     subscriptions: Subscriptions<State, unknown>;
-}> & ObjectState<State>) => (messages: readonly Message[], from: Step<State, Command>) => Effect.Effect<Simulation<State, Message, Command, Event>, never, Exclude<R, Scope.Scope>>;
+}> & ObjectState<State>, messages: readonly NoInfer<Message>[], from: Step<NoInfer<State>, NoInfer<Command>>) => Effect.Effect<Simulated<State, Message, Command, Event>, never, Exclude<R, Scope.Scope>>;
 
 // @public
-export type Simulation<State, Message, Command = never, Event = never> = {
+export type Simulated<State, Message, Command = never, Event = never> = {
     readonly state: State;
     readonly messages: ReadonlyArray<Message>;
     readonly commands: ReadonlyArray<Command>;
@@ -348,6 +331,26 @@ type Transition<State, Command = never, Event = never, Tell = never> = Step<Stat
 
 // @public
 type Update<State, Message, Command = never, Event = never> = (message: Message) => (state: State) => Transition<State, Command, Event>;
+
+// @public
+type WithExternal<External, State, Command, Event> = [External] extends [never] ? object : {
+    readonly external: (message: External) => (state: State) => Step<State, Command, Event>;
+};
+
+// @public
+type WithListen<Key, Message, R> = [Key] extends [never] ? object : {
+    readonly listen: Listen<Key, Message, R>;
+};
+
+// @public
+type WithOutput<Output, State> = [Output] extends [never] ? object : {
+    readonly output: (state: State) => Output;
+};
+
+// @public
+type WithRunCommand<Command, Message, R> = [Command] extends [never] ? object : {
+    readonly runCommand: RunCommand<Command, Message, R>;
+};
 
 // (No @packageDocumentation comment for this package)
 
