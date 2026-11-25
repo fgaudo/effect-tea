@@ -454,6 +454,15 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   ([`react-native.md`](records/react-native.md), 2): no test without a device reaches the native view, and a premise
   has a test that fails without it. What it shows until the native view takes the model's value is left out. _Reopen
   if_ a test can run React Native's own renderer with no device.
+- **A `messagesSentBy` for a view of React**, in an entry `./react/testing`, as snabbdom has one. Removed on 14
+  November 2026 ([`boundary.md`](records/boundary.md), item 1), and decided against again in step 84, 25 November 2026,
+  after a spike ([`react-view-tests.md`](records/react-view-tests.md)). A walk that calls no component misses in
+  silence what a component sends by a function it was given, and can refuse it only by refusing views that are right.
+  A render by `test-renderer` finds what the view wrote with React DOM alone: on React Native a host element holds
+  what `Pressable` made of `onPress`, and what the view wrote is read from React's fibers. The bridges differ because
+  their renderers do: a view of snabbdom returns its whole tree as data, and React alone calls a component. A test
+  draws `view(model, record)` with its renderer's testing library instead. _Reopen if_ React gives a stable way to
+  read the props of the components it has rendered, or keeps a renderer of tests of its own.
 
 ## The checks
 

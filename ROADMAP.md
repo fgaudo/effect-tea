@@ -26,12 +26,14 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 84 to 90 come before the release of 0.9.0. The owner asked for them on 25 November 2026, with a bridge to React
-Native, which step 83 made: whether a view of React can have a `messagesSentBy` (84, 85), and a reading of the names of
-the API (86, 87). Steps 88 to 90 are the agent's own proposals, which the owner may strike. The owner's fourth point has
-no step: the bridges stay in `bridges/` ([`rejected.md`](docs/rejected.md), "The bridges"). Step 82 decided what the
-bridge to React is on React Native ([`react-native.md`](docs/records/react-native.md)): `./react` as it is, with no
-entry and no peer of its own. `bun run test:react-native` checks it there, a job of the CI.
+Steps 85 to 90 come before the release of 0.9.0. The owner asked for them on 25 November 2026, with a bridge to React
+Native, which step 83 made: whether a view of React can have a `messagesSentBy`, and a reading of the names of the API
+(86, 87). Step 84 decided the first, after a spike ([`react-view-tests.md`](docs/records/react-view-tests.md)): it has
+none, and step 85 shows the check with React's tools. Steps 88 to 90 are the agent's own proposals, which the owner may
+strike. The owner's fourth point has no step: the bridges stay in `bridges/` ([`rejected.md`](docs/rejected.md), "The
+bridges"). Step 82 decided what the bridge to React is on React Native
+([`react-native.md`](docs/records/react-native.md)): `./react` as it is, with no entry and no peer of its own.
+`bun run test:react-native` checks it there, a job of the CI.
 
 Step 73 decided the form of the smaller guide ([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md`
 holds it, under "What belongs here". The owner approved it on 25 November 2026, and steps 74 to 77 wrote every page by
@@ -47,68 +49,43 @@ The next review of the premises ([`premise-review`](.agents/skills/premise-revie
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
 
-### 84. Whether a test can find what a view of React sends
+### 85. The check of a view of React, shown with React's tools
 
-**Model and effort.** Fable 5.2, `high`: a precedent is reopened, and the ways left pull against "Only stable APIs",
-a small API and a new peer.
+**Model and effort.** Opus 5.5, `medium`: tests of an example by a pattern that a record gives, and a sentence of the
+guide under its ceiling.
 
-**Depends on** no open step. Step 83 made `bun run test:react-native` (`tools/react-native/check.ts`): its project
-installs `test-renderer` 1, the renderer of tests that is the second way below, with `@testing-library/react-native` 14,
-and `--keep` leaves the project for a spike. Step 82 kept React Native, its jest preset and `test-renderer` out of the
-lockfile ([`react-native.md`](docs/records/react-native.md), 3): the second way brings `test-renderer` into it, or runs
-in the tool's project alone. Under the jest preset `TextInput` is a mock, whose host element holds the props that the
-view wrote. `Pressable` is not mocked there: what its host element holds of `onPress` was not read.
+**Depends on** no open step. Step 84 decided that a view of React has no `messagesSentBy`
+([`react-view-tests.md`](docs/records/react-view-tests.md), 6): a view is a function, so a test draws
+`view(model, record)` with the testing library of its renderer, acts on each control, and compares what `record`
+received with what its reader returns. It needs no program and no `Host`. The spike ran it on React Native
+(`examples/react-native/spike-tools.test_jest.tsx`, on the branch `spike/react-view-tests`).
 
-**Why.** The owner asked whether React and React Native can have a `messagesSentBy`. Only snabbdom has one, where a
-view returns its whole tree as data; the guide leaves a view of React to "your renderer's tools" ("Testing", "The
-view").
+**How.** By [`add-example`](.agents/skills/add-example/SKILL.md).
 
-**The precedent.** React had one, removed on 14 November 2026 (`8c3f2a1`; [`boundary.md`](docs/records/boundary.md),
-item 1): it called components without React, and told `memo` and `forwardRef` by React's internal symbols. Two facts
-are new. Snabbdom's was kept then as an example, and is an entry of the package now, `./snabbdom/testing`, so the same
-role has a form for one bridge and none for the other (value 3). And a render by a renderer of tests was not tried.
+- [`examples/react-native/views.test_jest.tsx`](examples/react-native/views.test_jest.tsx) gets a test of each view,
+  "the view sends what its model holds": `counterView` in both cases of its model, and `formView` in each case of its
+  editor (`Blank`, `Named`, `Saving`). Each draws `render(<>{view(model, record)}</>)`, presses each control and
+  changes the text, then compares with a reader written in the file, as `counter.test.ts` and `form.test.ts` write
+  theirs. A press of a disabled `Pressable` sends nothing, which the spike ran.
+- [`bridges/react.test.ts`](bridges/react.test.ts) gets the same test of `examples/counter/view-react.tsx` and
+  `examples/form/view-react.tsx`, drawn as that file draws a view, with `createRoot` of `react-dom/client` in
+  happy-dom: `view(model, record)`, a click of each button, and what is typed into the field. Nothing ran on React
+  DOM's own renderer in step 84, so this is the first run of the check there.
+- "Testing", "The view", gets one sentence for React after snabbdom's: what the test draws, that it finds only the
+  controls it acts on, and the example. The page has 1295 words under a ceiling of 1300: cut a sentence, or raise the
+  ceiling and say why in the commit. Read again the places that name the check: "Guarantees" ("What is left to you"),
+  the skill ("A view sends what its model holds"), `add-example` ("A bridge owes no `messagesSentBy`") and
+  [`examples/README.md`](examples/README.md).
+- A changelog entry, by [`release`](.agents/skills/release/SKILL.md), where a consumer can notice the change.
 
-**How.** A spike on `examples/counter/view-react.tsx`, `examples/form/view-react.tsx` and
-`examples/react-native/views.tsx`, and a record, `docs/records/react-view-tests.md`. Three ways:
-
-1. **A walk that calls no component.** The handlers are the function props named `on…` of the elements that the view
-   returns, and of their `children`; a component is a leaf, whose own props are read. It needs React's public API
-   alone, and fits React Native, where every element is a component (`Pressable`, `TextInput`). To weigh: a handler
-   that a component of the application draws inside itself is not found, nor a row drawn by a function prop, as the
-   `renderItem` of a list. Whether that is refused aloud or missed in silence decides it (value 1).
-2. **A render by a renderer of tests**, and a walk of the elements it made. To weigh: a new optional peer, the owner's
-   to accept; a component with hooks then draws as it does in the application; what the props of an element are on
-   React Native, what the view wrote (`onPress`) or what `Pressable` made of it; and a list that draws only its first
-   rows.
-3. **None.** The guide shows the check with the tools that a user of React has, and an entry of
-   [`rejected.md`](docs/rejected.md), "The bridges", says why the two bridges differ.
-
-What a handler is called with differs by renderer: an event whose `target` holds `value` and `checked` for a native
-element, a string for `onChangeText`, a boolean for `onValueChange`. One form of `reports` serves them all, or the
-record says why not. Where the function does what snabbdom's does, it is `messagesSentBy`, in
-`@fgaudo/effect-tea/react/testing`; where it does less, it has another name.
-
-**Done when** the record says which way, with what the spike ran. Then either step 85 is written anew from it, or
-step 85 is removed, and the idea is an entry of `docs/rejected.md` with what would reopen it. A new peer is asked of
-the owner in one question.
-
-### 85. What step 84 decided, for the views of React
-
-**Model and effort.** Opus 5.5, `high`: a testing tool of a bridge, with its mutations.
-
-**Depends on** step 84, which writes this step anew, or removes it.
-
-**How.** By [`change-api`](.agents/skills/change-api/SKILL.md): the entry, its tests, its mutations beside those of
-snabbdom's `messagesSentBy` (`tools/mutations/mutations.ts`), "Testing" and "Writing a bridge" within their ceilings,
-the skill, the API report and the changelog.
-
-**Done when** the checks of `change-api` pass, with `bun run test:browsers` and `bun run mutations`.
+**Done when** `bun run typecheck`, `bun run lint`, `bun run test`, `bun run comments`, `bun run test:browsers` and
+`bun run test:react-native` pass.
 
 ### 86. The names of the API, read whole
 
 **Model and effort.** Fable 5.2, `high`: it decides breaking changes of the API, by value 3.
 
-**Depends on** step 85, whose exports it reads too.
+**Depends on** no open step: step 84 decided that the bridge to React gets no export for tests.
 
 **Why.** The owner asked that every name of the API, of a function, a field or a type, be right and coherent, before
 0.9.0: its breaking changes go out together. [`api-review.md`](docs/records/api-review.md) decided each of the 84
