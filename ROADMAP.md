@@ -26,10 +26,12 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 82 to 90 come before the release of 0.9.0. The owner asked for them on 25 November 2026: a bridge to React
-Native (82, 83), whether a view of React can have a `messagesSentBy` (84, 85), and a reading of the names of the API
+Steps 83 to 90 come before the release of 0.9.0. The owner asked for them on 25 November 2026: a bridge to React
+Native (83), whether a view of React can have a `messagesSentBy` (84, 85), and a reading of the names of the API
 (86, 87). Steps 88 to 90 are the agent's own proposals, which the owner may strike. The owner's fourth point has no
-step: the bridges stay in `bridges/` ([`rejected.md`](docs/rejected.md), "The bridges").
+step: the bridges stay in `bridges/` ([`rejected.md`](docs/rejected.md), "The bridges"). Step 82 decided what the
+bridge to React is on React Native ([`react-native.md`](docs/records/react-native.md)): `./react` as it is, with no
+entry and no peer of its own.
 
 Step 73 decided the form of the smaller guide ([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md`
 holds it, under "What belongs here". The owner approved it on 25 November 2026, and steps 74 to 77 wrote every page by
@@ -45,66 +47,64 @@ The next review of the premises ([`premise-review`](.agents/skills/premise-revie
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
 
-### 82. What the bridge to React is on React Native
+### 83. React Native, named and checked
 
-**Model and effort.** Fable 5.2, `high`: a rule of the guide is questioned, and what a bridge promises is decided.
+**Model and effort.** Opus 5.5, `high`: a tool of the checks, and sentences of the guide that promise.
 
-**Depends on** no other step.
+**Depends on** no other step. [`react-native.md`](docs/records/react-native.md) decides it, point by point, and the
+spike `89217b6` on `spike/react-native` holds the files that it ran, with a README of its commands.
 
-**Why.** The owner asked for a bridge to React Native. `bridges/react.ts` imports `react` alone, so an application on
-React Native draws with `Host` and `Draw` today. Nothing of the library runs them there, and the guide promises
-nothing of it: it says only that a renderer whose elements live in another thread breaks a rule of "What a bridge
-does". [`application-report.md`](docs/records/application-report.md), point 5, left the leads below, reasoned and not
-run, and [`boundary.md`](docs/records/boundary.md) says that no such bridge was attempted.
+**How.** By [`add-example`](.agents/skills/add-example/SKILL.md) and [`release`](.agents/skills/release/SKILL.md). No
+export changes, and no entry or peer is added.
 
-**How.** A spike on React Native 0.88, whose peer is `react ^19.3.0`, so the range of the bridge holds. It ends in a
-record, `docs/records/react-native.md`, which decides:
+- **The tool.** `tools/react-native/check.ts`, run as `bun run test:react-native`, on `tools/cli.ts` as
+  `tools/smoke/smoke.ts` is. It packs the package, and installs it with npm in a project of its own with
+  `react-native` 0.88.1, `@react-native/jest-preset` and `@react-native/metro-config` of that version,
+  `@testing-library/react-native` 14, `test-renderer`, and `jest` 29.7, the version of the `babel-jest` that the preset
+  depends on. `--react-native <version>` installs another. There it typechecks the example, runs its tests with jest,
+  bundles its application with Metro for iOS and for Android, with the default profile and with `hermes-stable`, and
+  compiles each bundle with the `hermesc` of `hermes-compiler`, which has a binary for Linux, macOS and Windows.
+  `hermesc` compiles what React Native's Babel preset made of `dist/`, so it holds only that Hermes takes it: the
+  spike saw it refuse nothing. A job `react-native` of `.github/workflows/ci.yml` runs the tool, and
+  `.github/workflows/renderers-latest.yml` at the newest React Native. The README's "Development" says what it runs,
+  and "Checks" in `AGENTS.md` when.
+- **The example.** `examples/react-native/`: the views of `counter` and of `form`, an `App.tsx` that draws both with
+  `Host`, and their tests, in a file that `bun test` does not take (`views.test_jest.tsx`). `tsc -p examples` and
+  oxlint leave the folder out, each by one glob, with a comment that names the tool. `add-example` and
+  `examples/README.md` say so. The form's field is a `TextInput` with `value` and `onChangeText`, not `editable` while
+  it saves, with no handler.
+- **The tests.** The six of the spike. They are what holds that the bridge draws with a renderer of React other than
+  React DOM, and that a lock by the shape of the state rejects what a handler of an older view sends. Under jest
+  `TextInput` is a mock, which draws a host element with the props that the view wrote: a test there checks nothing of
+  what the native view holds, and none is written as if it did.
+- **The guide**, within the ceilings of its pages. In "Writing a bridge": the rules "After each draw, the element
+  shows the value of its model" and "Each new state is drawn before the browser handles the next event" name React
+  Native as a renderer that keeps neither at once; "The package's bridges" says that the bridge to React draws with
+  React Native, a `TextInput` as its own documentation draws a controlled one; and "What is left out" says that, with
+  React Native, what a `TextInput` shows until the native view takes the model's value is the element's. "Their
+  tests" names the tool. A sentence that promises has a test of the six, or is not written.
+- **The rest.** The module's doc comment in `bridges/react.ts` names React Native; the README says that the package
+  needs nothing under Metro and Hermes, and that under jest `effect` and the package go through
+  `transformIgnorePatterns`; the skill and "Coming from Elm or React" name React Native; the changelog has its entry.
+- **The range of `react`.** Run `bun run test` and `bun run test:browsers` with `react` and `react-dom` at 19.3.0, the
+  React of React Native 0.88.1's renderer. Where they pass, the range starts there, in `peerDependencies` and
+  `devDependencies`, with the opening comment of `bridges/react.ts`, the guide, the README and a changelog entry.
+  Where they fail, a sentence of the README says that the bridge needs 19.3.1.
 
-- **The form.** Either `./react` is the bridge to every renderer of React, and the guide, the README and the skill say
-  so; or an entry `./react-native`, only where React Native needs code that `./react` cannot hold. An entry that
-  exports again what `./react` exports is a second name for one thing, and is not taken. A peer `react-native` is the
-  owner's to accept.
-- **What holds of "What a bridge does".** How React Native delivers an event and commits a draw, read in its sources
-  and its documentation, and then rule by rule: a press on a view older than the state, a key typed into a `TextInput`
-  whose value the program replaced since, a key that the state rejects, and an element kept in its place. Each
-  sentence the guide gets is a promise with a test, or the behaviour stays unspecified.
-- **What runs it.** The tests of React Native that need no device: its jest preset, and
-  `@testing-library/react-native` 14, which renders with `test-renderer`. `react-test-renderer` is not used: React 19
-  deprecated it. Whether they run under `bun:test` or need jest, as which job of the CI, and whether
-  `bridges/bridge.test_suite.ts` can drive them through its `Bridge`. What no such test runs, the two threads first,
-  is a premise ([`premises.md`](docs/premises.md)) or is not promised.
-- **The report of a dead run.** `report`, in `bridges/react.ts`, falls back as React does where `reportError` is
-  missing. Which of its globals React Native has, and whether a dead run reaches what an application there reads its
-  crashes from.
-- **The package under Metro and Hermes.** Whether Metro resolves the `exports` of the packed package, whose conditions
-  are `bun`, `types` and `default`, and whether Hermes runs `dist/` as built, for ES2022: a case of `bun run smoke`,
-  or a sentence of the README.
-- **An example.** The examples run in a browser. A view for React Native of `counter` and of `form`, typechecked and
-  run by the tests above, may be all it takes: a toolchain kept for one example is weighed by value 7.
-
-**Done when** the record gives each decision with its evidence, spiked or reasoned; step 83 is written anew from it,
-with its "Done when"; and a new peer, which is the owner's, is asked in one question.
-
-### 83. The bridge to React Native
-
-**Model and effort.** Opus 5.5, `high`: the boundary of a bridge, and the tests that hold what it promises.
-
-**Depends on** step 82, which writes this step anew.
-
-**How.** As `docs/records/react-native.md` decides, by [`add-example`](.agents/skills/add-example/SKILL.md). Whatever
-the form: the tests that step 82 names run in the CI; "Writing a bridge" and the doc comments of `Host` and `Draw` say
-what holds on React Native, within the ceilings of their pages; the README, the skill and "Coming from Elm or React"
-name React Native; and the changelog has its entry.
-
-**Done when** `bun run typecheck`, `lint`, `test`, `test:browsers`, `comments` and `smoke` pass with the new tests,
-and the checks of [`change-api`](.agents/skills/change-api/SKILL.md) where an export changed.
+**Done when** `bun run typecheck`, `lint`, `test`, `test:browsers`, `comments`, `smoke` and `test:react-native` pass,
+and the tool was seen to fail twice: in jest, on a view that sends nothing on a press, and in Metro, on a `static {}`
+block put into the installed `dist/`, which React Native's Babel preset refuses.
 
 ### 84. Whether a test can find what a view of React sends
 
 **Model and effort.** Fable 5.2, `high`: a precedent is reopened, and the ways left pull against "Only stable APIs",
 a small API and a new peer.
 
-**Depends on** step 83: the renderer of tests that it brings is the second way below.
+**Depends on** step 83: the renderer of tests that its tool installs is the second way below. Step 82 kept React
+Native, its jest preset and `test-renderer` out of the lockfile ([`react-native.md`](docs/records/react-native.md),
+3): the second way brings `test-renderer` into it, or runs in the tool's project alone. Under the jest preset
+`TextInput` is a mock, whose host element holds the props that the view wrote. `Pressable` is not mocked there: what
+its host element holds of `onPress` was not read.
 
 **Why.** The owner asked whether React and React Native can have a `messagesSentBy`. Only snabbdom has one, where a
 view returns its whole tree as data; the guide leaves a view of React to "your renderer's tools" ("Testing", "The
@@ -210,8 +210,8 @@ glossary, the tutorial, the skill and the README. The changelog has one `**Break
 83 on.
 
 **How.** A check of the package with acceptance tests, by the skill. The program is a part of an application in React
-Native, whose user types into a `TextInput`, sets a `Switch` and presses, run by the tests that step 82 named. Keep
-the reader's project beside `D:/Project/effect-tea-readers/booking-react`.
+Native, whose user types into a `TextInput`, sets a `Switch` and presses, run with jest as the tool of step 83 runs its
+example. Keep the reader's project beside `D:/Project/effect-tea-readers/booking-react`.
 
 **Done when** the check has run, what it found is fixed or is a step here, and its entry is in the list of step 3 of
 the skill's "Before it starts".

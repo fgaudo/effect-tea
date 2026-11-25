@@ -440,6 +440,20 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   to start from. A bridge is also read as an example of one, written on the package's name. The move changes no entry
   and nothing that a user imports, for an exception in each of the four. _Reopen if_ a bridge needs a module that
   `src/` keeps to itself, or the package stops shipping the bridges' tests.
+- **An entry `./react-native`.** Decided against in step 82, 25 November 2026
+  ([`react-native.md`](records/react-native.md), 1): the bridge to React imports `react` alone, and `Host` and `Draw`
+  draw with React Native as they are, run under its jest preset. An entry that exports again what `./react` exports
+  is a second name for one thing. _Reopen if_ React Native needs code that `./react` cannot hold, as a testing tool
+  that imports `react-native`.
+- **A dead run reported through React Native's `ErrorUtils`**, so that it reaches a handler which an application sets
+  with `ErrorUtils.setGlobalHandler`. Decided against in step 82, 25 November 2026
+  ([`react-native.md`](records/react-native.md), 4): it is a global of one renderer in the bridge, for a report that
+  React itself gives to `console.error` there, and an application that wants the cause wraps the run in the `fork` it
+  gives `Host`. _Reopen if_ a user's crash reports miss a dead run that `fork` cannot give them.
+- **A premise on what a `TextInput` of React Native shows.** Decided against in step 82, 25 November 2026
+  ([`react-native.md`](records/react-native.md), 2): no test without a device reaches the native view, and a premise
+  has a test that fails without it. What it shows until the native view takes the model's value is left out. _Reopen
+  if_ a test can run React Native's own renderer with no device.
 
 ## The checks
 
