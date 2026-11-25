@@ -26,33 +26,15 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Step 67 comes before the release of 0.9.0 ("For the owner"). Steps 68 to 72 come before the library is made known to
-others ([`adoption.md`](docs/records/adoption.md)), and neither wait for that release nor hold it: what is done before
-it goes out with it. Their order: first what may change a rule of the guide or show a cost of the API, since the
-breaking changes go out together (68); then what a first user meets (69, 70); then the two checks, which read the guide
-as those steps leave it (71, 72).
+Steps 68 to 72 come before the library is made known to others ([`adoption.md`](docs/records/adoption.md)), and
+neither wait for the release of 0.9.0 ("For the owner") nor hold it: what is done before it goes out with it. Their
+order: first what may change a rule of the guide or show a cost of the API, since the breaking changes go out together
+(68); then what a first user meets (69, 70); then the two checks, which read the guide as those steps leave it (71,
+72).
 
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 67. The README says what the library is and for whom
-
-**Model and effort.** Opus 5.5, `medium`.
-
-**Depends on** no other step, and comes before the release of 0.9.0: the README is the page of the package on npm,
-and the home page of the site that the tag deploys.
-
-**Why.** The owner decided on 20 November 2026 that the library is meant to be adopted by others
-([`adoption.md`](docs/records/adoption.md)), by two readers: one starts a new application, the other has one already,
-most often in React, and rewrites none of it. The README says today what the library does, and not whom it is for.
-
-**Done when** the README says, before its first example, what the library is and what each of the two readers does
-with it: the second one learns that the library has no renderer, so it can be the state of a part of an application
-that exists, drawn by `@fgaudo/effect-tea/react`. It names Foldkit, with a link, for a reader who weighs the two: what
-it says of Foldkit is what Foldkit says of itself, and nothing of this library is decided by a reading of it
-(`AGENTS.md`, "What belongs here"). It promises nothing that the guide does not, in the guide's words. The site builds
-with no warnings and `bun run smoke` passes (`release`, which says too whether the change has a changelog entry).
 
 ### 68. A program too large for one module that is not split into children
 
@@ -164,7 +146,7 @@ library's own terms, as the record did.
 What leaves this machine, or decides what the project is ("Deciding" in `AGENTS.md`): an agent prepares it, and the
 owner does it.
 
-- **The release of 0.9.0**, after step 67. Step 65 closed the review of every change since the last release.
+- **The release of 0.9.0**: nothing of "Next, in order" holds it. Step 65 closed the review of every change since the last release.
   An agent prepares its commit and its tag (`release`) when the owner asks for it, and the owner pushes them and
   publishes the package. The checks of point 1 of "Releasing" passed on the commit that closed step 65: commits come
   after it, so the agent runs them again.

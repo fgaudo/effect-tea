@@ -11,6 +11,24 @@ So most of its tests are plain function calls: no runtime, no DOM, nothing to mo
 **[build it](https://fgaudo.github.io/effect-tea/documents/Tutorial.html)** in five short steps, or read the
 **[documentation](https://fgaudo.github.io/effect-tea/)**: the guide, the API in full and every example running.
 
+## Two ways to use it
+
+The library draws nothing: a bridge connects it to a renderer. The package has two, `@fgaudo/effect-tea/react` for
+React and `@fgaudo/effect-tea/snabbdom` for snabbdom. It serves two readers:
+
+- **You start a new application.** Its interface is one program, and a bridge draws it. The
+  [tutorial](https://fgaudo.github.io/effect-tea/documents/Tutorial.html) builds one, a step at a time.
+- **You have an application already, most often in React, and do not want to rewrite it.** Since the library has no
+  renderer, a program can be the state of one part of it. `<Host program={program} view={view} />`, of
+  `@fgaudo/effect-tea/react`, runs the program while it is mounted. The application's components may keep state and
+  effects of their own beside the program ([view](https://fgaudo.github.io/effect-tea/documents/Guide.View.html#rules);
+  [coming from Elm or React](https://fgaudo.github.io/effect-tea/documents/Guide.Coming_from_Elm_or_React.html) maps
+  the rest).
+
+If you are weighing it against [Foldkit](https://foldkit.dev): Foldkit calls itself "a TypeScript frontend framework
+built on Effect". By its own README, it ships a virtual DOM, powered by Snabbdom, for its views, and a program of it can
+own the whole page or run as a widget inside an existing application, React included.
+
 ## A taste
 
 A form saves a name. The user taps "Save" twice, before the screen shows the first tap: a slow draw or a frozen app is
