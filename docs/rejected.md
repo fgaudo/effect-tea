@@ -433,6 +433,13 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   "Smaller points"): what it was for is done otherwise (a dispatch that applies at once, a write of the element's value
   alone, `messagesSentBy`), for a second product to keep that knows a renderer. _Reopen if_ a view shows a message that
   `messagesSentBy` cannot find, or the same dispatch in every draw costs users what `forwardTo` does not answer.
+- **The bridges under `src/`**, since they are entries of the package. Proposed by the owner on 25 November 2026, who
+  left the choice to the agent. Reasoned: `src/` is what is generic and only Effect, and four globs say so with no
+  exception: the root `tsconfig.json`, whose `lib` has no `DOM`; oxlint's refusal of a renderer; `test:node`; and
+  `files` in `package.json`, which packs no test of `src/` and every test of the bridges, for a bridge of a user's own
+  to start from. A bridge is also read as an example of one, written on the package's name. The move changes no entry
+  and nothing that a user imports, for an exception in each of the four. _Reopen if_ a bridge needs a module that
+  `src/` keeps to itself, or the package stops shipping the bridges' tests.
 
 ## The checks
 

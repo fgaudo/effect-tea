@@ -26,10 +26,10 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-No step is open. The next reading of the promises, below, reads the guide as steps 70 and 81 left it: its "Writing a
-bridge" promises what the bridge to React does under hydration and transitions, and the doc comment of `Host` what it
-does under Fast Refresh, each held by a test that runs in the browsers (`bridges/react.test.ts`,
-`bridges/fast-refresh.test.ts`).
+Steps 82 to 90 come before the release of 0.9.0. The owner asked for them on 25 November 2026: a bridge to React
+Native (82, 83), whether a view of React can have a `messagesSentBy` (84, 85), and a reading of the names of the API
+(86, 87). Steps 88 to 90 are the agent's own proposals, which the owner may strike. The owner's fourth point has no
+step: the bridges stay in `bridges/` ([`rejected.md`](docs/rejected.md), "The bridges").
 
 Step 73 decided the form of the smaller guide ([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md`
 holds it, under "What belongs here". The owner approved it on 25 November 2026, and steps 74 to 77 wrote every page by
@@ -45,32 +45,231 @@ The next review of the premises ([`premise-review`](.agents/skills/premise-revie
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
 
-The next reading of the promises against the tests, and of the guide's rules against the examples
-([`promise-reading`](.agents/skills/promise-reading/SKILL.md)), is the first by the skill. It is due before the
-release after 0.9.0 too, and 0.9.0 does not wait for it. It reads everything: the one reading before it
-([`promises-and-tests.md`](docs/records/promises-and-tests.md), at `b6db847`) read the guide alone, which steps 56 and
-73 to 78 wrote again since, and nothing has read a doc comment or an example. Of the API's reports it reads the diff
-since `v0.8.0`. It is a review, for Opus 5.5 at `high`, with its readers as subagents. The readings after it read the
-changes since the commit that ends it. A trial of its two briefs, on "Commands" and on three examples, reported six
-gaps of "Commands", which the session did not check against the tests: the reader's table is not kept, and the
-reading finds them again. A comment of an example that names a section of a page may name one that steps 73 to 78
-took away, as one of `examples/bounce/bounce.ts` did.
+### 82. What the bridge to React is on React Native
 
-The next check of an upgrade ([`guide-reader`](.agents/skills/guide-reader/SKILL.md), "A check of an upgrade") takes the
-application of step 81's reader, kept at `D:/Project/effect-tea-readers/booking-react` with its acceptance tests and the
-package it was written for, packed at `3f86a68` before 0.9.0 was released (`bun install` first): 21 of its own tests and
-35 acceptance tests pass there. Its `main.test.ts` imports `main` once happy-dom is registered, and the acceptance tests
-run alone, as the skill says: run with the reader's tests in one `bun test`, 8 fail, both files registering a DOM.
+**Model and effort.** Fable 5.2, `high`: a rule of the guide is questioned, and what a bridge promises is decided.
+
+**Depends on** no other step.
+
+**Why.** The owner asked for a bridge to React Native. `bridges/react.ts` imports `react` alone, so an application on
+React Native draws with `Host` and `Draw` today. Nothing of the library runs them there, and the guide promises
+nothing of it: it says only that a renderer whose elements live in another thread breaks a rule of "What a bridge
+does". [`application-report.md`](docs/records/application-report.md), point 5, left the leads below, reasoned and not
+run, and [`boundary.md`](docs/records/boundary.md) says that no such bridge was attempted.
+
+**How.** A spike on React Native 0.88, whose peer is `react ^19.3.0`, so the range of the bridge holds. It ends in a
+record, `docs/records/react-native.md`, which decides:
+
+- **The form.** Either `./react` is the bridge to every renderer of React, and the guide, the README and the skill say
+  so; or an entry `./react-native`, only where React Native needs code that `./react` cannot hold. An entry that
+  exports again what `./react` exports is a second name for one thing, and is not taken. A peer `react-native` is the
+  owner's to accept.
+- **What holds of "What a bridge does".** How React Native delivers an event and commits a draw, read in its sources
+  and its documentation, and then rule by rule: a press on a view older than the state, a key typed into a `TextInput`
+  whose value the program replaced since, a key that the state rejects, and an element kept in its place. Each
+  sentence the guide gets is a promise with a test, or the behaviour stays unspecified.
+- **What runs it.** The tests of React Native that need no device: its jest preset, and
+  `@testing-library/react-native` 14, which renders with `test-renderer`. `react-test-renderer` is not used: React 19
+  deprecated it. Whether they run under `bun:test` or need jest, as which job of the CI, and whether
+  `bridges/bridge.test_suite.ts` can drive them through its `Bridge`. What no such test runs, the two threads first,
+  is a premise ([`premises.md`](docs/premises.md)) or is not promised.
+- **The report of a dead run.** `report`, in `bridges/react.ts`, falls back as React does where `reportError` is
+  missing. Which of its globals React Native has, and whether a dead run reaches what an application there reads its
+  crashes from.
+- **The package under Metro and Hermes.** Whether Metro resolves the `exports` of the packed package, whose conditions
+  are `bun`, `types` and `default`, and whether Hermes runs `dist/` as built, for ES2022: a case of `bun run smoke`,
+  or a sentence of the README.
+- **An example.** The examples run in a browser. A view for React Native of `counter` and of `form`, typechecked and
+  run by the tests above, may be all it takes: a toolchain kept for one example is weighed by value 7.
+
+**Done when** the record gives each decision with its evidence, spiked or reasoned; step 83 is written anew from it,
+with its "Done when"; and a new peer, which is the owner's, is asked in one question.
+
+### 83. The bridge to React Native
+
+**Model and effort.** Opus 5.5, `high`: the boundary of a bridge, and the tests that hold what it promises.
+
+**Depends on** step 82, which writes this step anew.
+
+**How.** As `docs/records/react-native.md` decides, by [`add-example`](.agents/skills/add-example/SKILL.md). Whatever
+the form: the tests that step 82 names run in the CI; "Writing a bridge" and the doc comments of `Host` and `Draw` say
+what holds on React Native, within the ceilings of their pages; the README, the skill and "Coming from Elm or React"
+name React Native; and the changelog has its entry.
+
+**Done when** `bun run typecheck`, `lint`, `test`, `test:browsers`, `comments` and `smoke` pass with the new tests,
+and the checks of [`change-api`](.agents/skills/change-api/SKILL.md) where an export changed.
+
+### 84. Whether a test can find what a view of React sends
+
+**Model and effort.** Fable 5.2, `high`: a precedent is reopened, and the ways left pull against "Only stable APIs",
+a small API and a new peer.
+
+**Depends on** step 83: the renderer of tests that it brings is the second way below.
+
+**Why.** The owner asked whether React and React Native can have a `messagesSentBy`. Only snabbdom has one, where a
+view returns its whole tree as data; the guide leaves a view of React to "your renderer's tools" ("Testing", "The
+view").
+
+**The precedent.** React had one, removed on 14 November 2026 (`8c3f2a1`; [`boundary.md`](docs/records/boundary.md),
+item 1): it called components without React, and told `memo` and `forwardRef` by React's internal symbols. Two facts
+are new. Snabbdom's was kept then as an example, and is an entry of the package now, `./snabbdom/testing`, so the same
+role has a form for one bridge and none for the other (value 3). And a render by a renderer of tests was not tried.
+
+**How.** A spike on `examples/counter/view-react.tsx`, `examples/form/view-react.tsx` and the views of step 83, and a
+record, `docs/records/react-view-tests.md`. Three ways:
+
+1. **A walk that calls no component.** The handlers are the function props named `on…` of the elements that the view
+   returns, and of their `children`; a component is a leaf, whose own props are read. It needs React's public API
+   alone, and fits React Native, where every element is a component (`Pressable`, `TextInput`). To weigh: a handler
+   that a component of the application draws inside itself is not found, nor a row drawn by a function prop, as the
+   `renderItem` of a list. Whether that is refused aloud or missed in silence decides it (value 1).
+2. **A render by a renderer of tests**, and a walk of the elements it made. To weigh: a new optional peer, the owner's
+   to accept; a component with hooks then draws as it does in the application; what the props of an element are on
+   React Native, what the view wrote (`onPress`) or what `Pressable` made of it; and a list that draws only its first
+   rows.
+3. **None.** The guide shows the check with the tools that a user of React has, and an entry of
+   [`rejected.md`](docs/rejected.md), "The bridges", says why the two bridges differ.
+
+What a handler is called with differs by renderer: an event whose `target` holds `value` and `checked` for a native
+element, a string for `onChangeText`, a boolean for `onValueChange`. One form of `reports` serves them all, or the
+record says why not. Where the function does what snabbdom's does, it is `messagesSentBy`, in
+`@fgaudo/effect-tea/react/testing`; where it does less, it has another name.
+
+**Done when** the record says which way, with what the spike ran. Then either step 85 is written anew from it, or
+step 85 is removed, and the idea is an entry of `docs/rejected.md` with what would reopen it. A new peer is asked of
+the owner in one question.
+
+### 85. What step 84 decided, for the views of React
+
+**Model and effort.** Opus 5.5, `high`: a testing tool of a bridge, with its mutations.
+
+**Depends on** step 84, which writes this step anew, or removes it.
+
+**How.** By [`change-api`](.agents/skills/change-api/SKILL.md): the entry, its tests, its mutations beside those of
+snabbdom's `messagesSentBy` (`tools/mutations/mutations.ts`), "Testing" and "Writing a bridge" within their ceilings,
+the skill, the API report and the changelog.
+
+**Done when** the checks of `change-api` pass, with `bun run test:browsers` and `bun run mutations`.
+
+### 86. The names of the API, read whole
+
+**Model and effort.** Fable 5.2, `high`: it decides breaking changes of the API, by value 3.
+
+**Depends on** steps 83 and 85, whose exports it reads too.
+
+**Why.** The owner asked that every name of the API, of a function, a field or a type, be right and coherent, before
+0.9.0: its breaking changes go out together. [`api-review.md`](docs/records/api-review.md) decided each of the 84
+exports on 24 November 2026, by the values of "Deciding", and read a field only where a change touched one. So the
+fields, the options, the literal values and the type parameters have not been read as a whole, nor what the steps
+since added.
+
+**How.** Read every name that a user writes, or reads in a hover, from the API reports (`api/*.api.md`), against the
+glossary: is it the glossary's word, has the same role the same form wherever it appears, and does it say what the
+thing is to a user. An export that `api-review.md` kept is changed only by an argument that the record did not weigh,
+which the new record names; the precedents of [`rejected.md`](docs/rejected.md), "The API", bind alike. Leads, which
+are questions and not findings:
+
+- what a declaration takes and what it makes: `ids` and `flags` in `childById`, `listed` and `flagged` in `ChildById`,
+  and `kind: 'one' | 'byId'`;
+- the state in what a run reports: `before` and `after` in `Applied`, `state` in `Ignored` and in `Instance`;
+- the literals of `DefectSite` beside the pieces they name: `'command'` for `runCommand`, `'subscription'` for
+  `listen`, `'render'`; and the fields of the defects, `where`, `cause`, `key`, `on`, `child`, `id`;
+- the type parameters that a hover shows, `RC`, `RS`, `RT`, `Ran`, `Heard`, beside `commandServices` and
+  `subscriptionServices` in `Program<{ … }>`;
+- what a `Rehearsal` and a `Driver` have: `send` and `dispatch`, `hear` and `hearNext`, `run` and `runAll`, and
+  `model`, an effect there and a function in `App`;
+- the options of the tools: `held`, `candidates`, `repeatable`, `inert` and `withheld` of `dispatchViolations`,
+  `patience` of `drive`, `element` and `event` of `reports`.
+
+**Done when** a record, `docs/records/names.md`, lists each name changed, the old and the new, with its reason; a name
+weighed and kept, which a reader would propose again, has an entry in `docs/rejected.md`; and step 87 names every
+change, or is removed where none is made.
+
+### 87. The names that step 86 changed
+
+**Model and effort.** Opus 5.5, `medium`: each change is given word for word, and the compiler finds its places.
+
+**Depends on** step 86, which writes its list.
+
+**How.** By [`change-api`](.agents/skills/change-api/SKILL.md): each name in `src/`, the bridges, the tests, the
+examples, the tools that quote the code (`tools/mutations/mutations.ts`, `tools/inference/`), the guide with its
+glossary, the tutorial, the skill and the README. The changelog has one `**Breaking**:` entry for each, whose
+`Upgrade:` gives the old spelling and the new, as those of step 60 do.
+
+**Done when** the checks of `change-api` pass, with `bun run test:node`, `interleavings`, `test:browsers` and
+`mutations`, and no old name is left but in the changelog and in `docs/records/`.
+
+### 88. A reader's check of an application in React Native
+
+**Model and effort.** Opus 5.5, `medium`, with the reader and the examiner as subagents.
+
+**Depends on** steps 83 and 87: the reader reads the package that 0.9.0 ships. Proposed by the agent.
+
+**Why.** Step 81 met the reader who has an application in React, in a DOM. No check of
+[`guide-reader`](.agents/skills/guide-reader/SKILL.md) has met one on React Native, whom the package names from step
+83 on.
+
+**How.** A check of the package with acceptance tests, by the skill. The program is a part of an application in React
+Native, whose user types into a `TextInput`, sets a `Switch` and presses, run by the tests that step 82 named. Keep
+the reader's project beside `D:/Project/effect-tea-readers/booking-react`.
+
+**Done when** the check has run, what it found is fixed or is a step here, and its entry is in the list of step 3 of
+the skill's "Before it starts".
+
+### 89. A check of an upgrade, across the names of step 87
+
+**Model and effort.** Opus 5.5, `medium`, with the agent that upgrades as a subagent.
+
+**Depends on** step 87. Proposed by the agent. Where step 86 changes no name, this step goes back to a note of "Next,
+in order", for the release after 0.9.0.
+
+**Why.** The `Upgrade:` lines of step 87 are all that a user of the package has to follow its names. An application
+written before them shows whether they are enough.
+
+**How.** By [`guide-reader`](.agents/skills/guide-reader/SKILL.md), "A check of an upgrade", on the application of
+step 81's reader, kept at `D:/Project/effect-tea-readers/booking-react` with its acceptance tests and the package it
+was written for, packed at `3f86a68` (`bun install` first): 21 of its own tests and 35 acceptance tests pass there.
+Its `main.test.ts` imports `main` once happy-dom is registered, and the acceptance tests run alone, as the skill says:
+run with the reader's tests in one `bun test`, 8 fail, both files registering a DOM.
+
+**Done when** the application, brought to the package packed after step 87 from the package and its changelog alone,
+passes its own tests and the acceptance tests, and each gap of the changelog is fixed.
+
+### 90. The first reading of the promises by the skill
+
+**Model and effort.** Opus 5.5, `high`, with its readers as subagents: it is a review.
+
+**Depends on** steps 83, 85 and 87, so that it reads the sentences and the names that 0.9.0 ships. Proposed by the
+agent: until 25 November 2026 it was due before the release after 0.9.0, and 0.9.0 did not wait for it.
+
+**Why.** Two facts are new. 0.9.0 now waits for steps that break the API, and a promise that the reading withdraws is
+a breaking change too: it goes out with them, so that users upgrade once. And it is the first reading of a doc comment
+or of an example, before the library is made known.
+
+**How.** By [`promise-reading`](.agents/skills/promise-reading/SKILL.md): the promises against the tests, and the
+guide's rules against the examples. It reads everything: the one reading before it
+([`promises-and-tests.md`](docs/records/promises-and-tests.md), at `b6db847`) read the guide alone, which steps 56 and
+73 to 78 wrote again since, and nothing has read a doc comment or an example. It reads the guide as steps 70, 81, 83
+and 85 left it: "Writing a bridge" promises what the bridge to React does under hydration and transitions, and the doc
+comment of `Host` what it does under Fast Refresh, each held by a test that runs in the browsers
+(`bridges/react.test.ts`, `bridges/fast-refresh.test.ts`). Of the API's reports it reads the diff since `v0.8.0`. A
+trial of its two briefs, on "Commands" and on three examples, reported six gaps of "Commands", which the session did
+not check against the tests: the reader's table is not kept, and the reading finds them again. A comment of an example
+that names a section of a page may name one that steps 73 to 78 took away, as one of `examples/bounce/bounce.ts` did.
+
+**Done when** the reading has run by the skill, and each finding is fixed, or is an item of "Open problems" with its
+`test.failing`. The readings after it read the changes since the commit that ends it.
 
 ## For the owner
 
 What leaves this machine, or decides what the project is ("Deciding" in `AGENTS.md`): an agent prepares it, and the
 owner does it.
 
-- **The release of 0.9.0**: nothing of "Next, in order" holds it. Step 65 closed the review of every change since the last release.
-  An agent prepares its commit and its tag (`release`) when the owner asks for it, and the owner pushes them and
-  publishes the package. The checks of point 2 of "Releasing" passed on the commit that closed step 65: commits come
-  after it, so the agent runs them again.
+- **The release of 0.9.0** waits for steps 82 to 90 of "Next, in order", as the owner asked on 25 November 2026. Step
+  65 closed the review of every change up to it, and each step since is read by its own reviewer ("How the steps
+  run"). An agent prepares its commit and its tag (`release`) when the owner asks for it, and the owner pushes them
+  and publishes the package. The checks of point 2 of "Releasing" passed on the commit that closed step 65: commits
+  come after it, so the agent runs them again.
 - **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
   decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API. Until then,
   releases stay at 0.x.
