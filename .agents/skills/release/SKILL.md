@@ -44,7 +44,10 @@ indented, `Upgrade:` with the old and the new spelling, in at most three lines. 
    ([`premise-review`](../premise-review/SKILL.md)), then of the promises against the tests, and of the guide's rules
    against the examples ([`promise-reading`](../promise-reading/SKILL.md)), each over the changes since the commit
    that the roadmap names for it. What either found is fixed, or is in `ROADMAP.md`, and is weighed before the
-   release.
+   release. Where the release's section of `CHANGELOG.md` has a `**Breaking**` entry, and the owner has an
+   application on an earlier version, or keeps the project of an earlier reader's check, a check of an upgrade
+   ([`guide-reader`](../guide-reader/SKILL.md)) reads that section first, and what it found is fixed, or is in
+   `ROADMAP.md`.
 2. The checks pass (`bun run typecheck`, `bun run lint`, `bun run test`, `bun run comments`), every mutation is killed
    (`bun run mutations`), and the site builds without warnings. `bun run interleavings` runs too: an order it finds
    goes in `ROADMAP.md`, and is weighed before the release.

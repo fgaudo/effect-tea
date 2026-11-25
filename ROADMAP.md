@@ -26,11 +26,10 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Step 72 comes before the library is made known to others ([`adoption.md`](docs/records/adoption.md)), and neither
-waits for the release of 0.9.0 ("For the owner") nor holds it: what is done before it goes out with it. It reads the
-guide as step 70 left it, and so does the next reading of the promises, below: the guide's "Writing a bridge" promises
-what the bridge to React does under hydration and transitions, and the doc comment of `Host` what it does under Fast
-Refresh, each held by a test that runs in the browsers (`bridges/react.test.ts`, `bridges/fast-refresh.test.ts`).
+Step 81 neither waits for the release of 0.9.0 ("For the owner") nor holds it. It reads the guide as step 70 left it,
+and so does the next reading of the promises, below: the guide's "Writing a bridge" promises what the bridge to React
+does under hydration and transitions, and the doc comment of `Host` what it does under Fast Refresh, each held by a
+test that runs in the browsers (`bridges/react.test.ts`, `bridges/fast-refresh.test.ts`).
 
 Step 73 decided the form of the smaller guide ([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md`
 holds it, under "What belongs here". The owner approved it on 25 November 2026, and steps 74 to 77 wrote every page by
@@ -57,25 +56,24 @@ gaps of "Commands", which the session did not check against the tests: the reade
 reading finds them again. A comment of an example that names a section of a page may name one that steps 73 to 78
 took away, as one of `examples/bounce/bounce.ts` did.
 
-### 72. A reader's check that meets what no check has met
+### 81. A reader's check of an application in React
 
-**Model and effort.** Opus 5.5, `medium`.
+**Model and effort.** Opus 5.5, `medium`, with the reader and the examiner as subagents.
 
-**Depends on** no other step. It comes after steps 69 and 70, so that the next reader reads the guide as they leave
-it.
+**Depends on** no other step.
 
-**Why.** The seven requirements of [`guide-reader`](.agents/skills/guide-reader/SKILL.md) are each a page of a
-browser with a value that is typed, and those that were drawn are drawn with snabbdom: each was chosen to need the
-pages that the guide has. The reader who has an application in React is met by none of them.
+**Why.** The reader who has an application in React ([`adoption.md`](docs/records/adoption.md)) is met by none of the
+seven checks of [`guide-reader`](.agents/skills/guide-reader/SKILL.md), and is to be met before the library is made
+known to others.
 
-**How.** The skill would list what a requirement may vary, and its step 3 would choose one that no earlier check had:
-a program drawn with the bridge to React, a node type with no DOM, a value that an element reports, a control that
-chooses among fixed values, tests that build their messages with constructors. And a third mode, an upgrade: coding
-agents upgrade an application that exists to the new version, from the package and its changelog alone, and report as
-a reader does. `release` would name it, for where the owner has such an application. What it finds is weighed on the
-library's own terms, as the record did.
+**How.** A check of the package with acceptance tests, by the skill. The requirement takes values of step 3 that no
+check took: the program is a part of an application in React that keeps state of its own beside it, and its user
+gives a value that an element reports and a choice among fixed values. The harness types into an element drawn by
+React, chooses in a select and ticks a checkbox: a probe of the session that wrote it ran these with React 19 in
+happy-dom, but no check has run it whole. Keep the reader's project, with its acceptance tests: it is the application
+of the next check of an upgrade.
 
-**Done when** the skill has both.
+**Done when** the check has run, what it found is fixed or is a step here, and its entry is in step 3's list.
 
 ## For the owner
 

@@ -1,6 +1,6 @@
 ---
 name: guide-reader
-description: How a reader's check of the documentation of @fgaudo/effect-tea is done: a subagent that has never seen the code builds a program for a requirement of its own, in a project of its own where the package is installed, from what the package ships alone (in a package check all of it, found as an agent at work finds it, with nothing that names it; in a closed check the guide, the tutorial and the declarations, with only the bridges of the examples), and reports every gap, with where it found each answer; where the check calls for them, acceptance tests the reader never sees, written before it starts by an examiner that never sees the library, are run on its program; then what becomes of its report. Use when the author asks for a reader's check of the guide, or of pages of it, of the tutorial, of the skill, or of the package.
+description: How a reader's check of the documentation of @fgaudo/effect-tea is done: a subagent that has never seen the code builds a program for a requirement of its own, in a project of its own where the package is installed, from what the package ships alone (in a package check all of it, found as an agent at work finds it, with nothing that names it; in a closed check the guide, the tutorial and the declarations, with only the bridges of the examples), and reports every gap, with where it found each answer; where the check calls for them, acceptance tests the reader never sees, written before it starts by an examiner that never sees the library, are run on its program; a check of an upgrade, where an agent brings an application that exists to the new version from the package and its changelog alone; then what becomes of its report. Use when the author asks for a reader's check of the guide, or of pages of it, of the tutorial, of the skill, of the package, or of an upgrade.
 ---
 
 # A reader's check of the documentation
@@ -12,8 +12,8 @@ README and the changelog. What the reader gets wrong is what they lack. The read
 package's `src/`. Since the library promises only what the guide's rules, the doc comments and "Guarantees" say, a
 rule the reader could learn only from an example is a gap too, so the report says where each answer was found.
 
-The reader works in a project of its own outside the repository. A check is of one of two modes, which differ in what
-of `examples/` and `bridges/` it reads:
+The reader works in a project of its own outside the repository. A check that builds a program is of one of two
+modes, which differ in what of `examples/` and `bridges/` it reads:
 
 - **Package**: all of it, found as a user's agent finds it: the brief names no file of the documentation, so the
   reader's path shows whether the README's "For coding agents" and the declarations lead to the skill and the guide.
@@ -23,7 +23,9 @@ of `examples/` and `bridges/` it reads:
   comments specify: a rule a reader of the package would copy from an example shows here as a guess. It is the mode
   for pages of the guide.
 
-The two may run on one requirement: the difference of their reports is what the guide leaves to the examples.
+The two may run on one requirement: the difference of their reports is what the guide leaves to the examples. A third
+mode builds nothing new: [a check of an upgrade](#a-check-of-an-upgrade) brings an application that exists to the new
+version.
 
 ## Before it starts
 
@@ -34,7 +36,20 @@ The two may run on one requirement: the difference of their reports is what the 
    takes the smallest design, as the reader of the loading dock kept its trucks in the parent's state. A design the
    guide allows and does not require, as children by id, is checked by a closed check whose brief names its pages. In
    a check of the package no example may hold the requirement, since a reader would copy it, and in either mode no
-   earlier check's requirement, listed here, may be taken again.
+   earlier check's requirement, listed here, may be taken again. A requirement varies along these, and takes at least
+   one value that no check below took, which its entry names:
+   - the renderer: snabbdom in a DOM; React, the program being a part of an application in React that keeps state of
+     its own beside it; or none, with a node type of the reader's own and no DOM, as the lines of a terminal;
+   - the start: from flags, or from nothing;
+   - the shape: one program, children by id, children in fixed places, or a program split into modules;
+   - the values that the user gives: a text typed and checked by the program, a value that an element reports (a
+     checkbox, a range), or a choice among fixed values (a select, radio buttons);
+   - the outside: a call that may fail, a feed that ends, a timer;
+   - the reader's tests: messages written as literals, or built with constructors.
+
+   The seven below were drawn with snabbdom or with no renderer, and their users gave typed texts; their entries do
+   not say the shape or the tests they took. A requirement that has no DOM has no acceptance tests through the page:
+   the reader's own tests are all it has.
    - a chat room: a connection status from a server feed that ends, a draft refused when blank or offline, sends that
      may fail and are retried, a log and a composer as children, and a reconnect under a new key (2026-11-16, open).
    - a warehouse stock-take: items loaded by a command that may fail and is retried, an item per id with a typed
@@ -84,9 +99,9 @@ The two may run on one requirement: the difference of their reports is what the 
 
    `bun run build` comes first, since the package is packed from `dist/`. The tsconfig includes `**/*.ts`, not `.`:
    the compiler finds no input under `.` in a directory whose name has a dot, as `mktemp` names it. Where a page
-   checked needs a run under a renderer, add `snabbdom` and `@happy-dom/global-registrator` (or `react` and
-   `react-dom`, with their types) to the devDependencies at the repository's versions, and `"DOM"` to `lib`, before
-   `bun install`: the reader installs nothing.
+   checked needs a run under a renderer, add `@happy-dom/global-registrator` and the renderer (`snabbdom`, or
+   `react` and `react-dom` with their types) to the devDependencies at the repository's versions, and `"DOM"` to
+   `lib`, before `bun install`: the reader installs nothing.
 5. Decide, by what the check is for, whether it has acceptance tests, and prepare them before the reader starts, as
    [acceptance tests the reader never sees](#acceptance-tests-the-reader-never-sees) says: they need a run under a
    renderer and a second subagent, so the check costs more.
@@ -175,12 +190,11 @@ The tests and the program meet only in what the requirement fixes, so it fixes a
 - **Where the program starts**: `main.ts` exports `mount: (root: Element, world: World) => () => Promise<void>`. It
   starts the program in `root`, and returns what stops the program and waits for it.
 - **A selector for each control and each thing shown**, made of ids and classes alone: `#submit`, `#lot-<id> .bid`.
-  The bridges of the examples set an element's properties, not its attributes, so a `data-*` is out of a reader's
-  reach. The requirement says the text each thing shows, to the letter.
+  The requirement says the text each thing shows, to the letter.
 - **What cannot be done is a control that is not there, or is disabled.** The requirement does not say which: that is
   the model's business, and the tests take both alike.
 
-Add `snabbdom` and `@happy-dom/global-registrator` to the project (step 4), and `world.ts`. The reader's brief gets
+Add the renderer and `@happy-dom/global-registrator` to the project (step 4), and `world.ts`. The reader's brief gets
 the requirement with its selectors, and these lines:
 
 ```text
@@ -205,8 +219,8 @@ see the program. Your directory is <the examiner's path>.
 RULES, strict:
 - Read and write only inside your directory. Change neither world.ts nor acceptance-harness.ts.
 - The program is reached only through acceptance-harness.ts: `start(world)` starts it in the page, with a World you
-  write for the test (world.ts). Then `click` and `type` act as a user does, and `texts`, `available` and `valueOf`
-  read the page. A test also reads what its World was asked.
+  write for the test (world.ts). Then `click`, `type` and `choose` act as a user does (`click` also ticks a
+  checkbox), and `texts`, `available`, `valueOf` and `ticked` read the page. A test also reads what its World was asked.
 - Wait with `until` for what you expect, after each thing you do: the page is drawn later. Never sleep for an order.
   Where a point says that nothing happens, wait first for something the same step does show, then check.
 - Hold a call of the World with a promise your test settles, so that a test says what the user does meanwhile.
@@ -229,7 +243,12 @@ import type { World } from "./world"
 
 beforeAll(() => GlobalRegistrator.register())
 
-afterAll(() => GlobalRegistrator.unregister())
+// React's scheduler runs the work of the last unmount in a task of its own, which reads the DOM. Nothing can await
+// it: a task of the clock later, it had run in each probe with React 19.
+afterAll(async () => {
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  await GlobalRegistrator.unregister()
+})
 
 let stop: (() => Promise<void>) | undefined
 
@@ -280,17 +299,41 @@ export const click = (selector: string): void => {
   control(selector).dispatchEvent(new MouseEvent("click", { bubbles: true }))
 }
 
+// Through the prototype's setter, as typing does: React keeps the value it gave an element in the element's own
+// `value`, so a write there is no change to React, and calls no `onChange`.
+const setValue = (found: HTMLInputElement | HTMLSelectElement, value: string): void => {
+  const set = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(found), "value")?.set
+  if (set === undefined) throw new Error("The DOM has no setter of value")
+  set.call(found, value)
+}
+
 export const type = (selector: string, value: string): void => {
   const found = control(selector)
   if (!(found instanceof HTMLInputElement)) throw new Error(`${selector} is no input`)
-  found.value = value
+  setValue(found, value)
   found.dispatchEvent(new Event("input", { bubbles: true }))
 }
 
-/** What an input shows. */
+/** Chooses the option of a select whose value is given. */
+export const choose = (selector: string, value: string): void => {
+  const found = control(selector)
+  if (!(found instanceof HTMLSelectElement)) throw new Error(`${selector} is no select`)
+  if (![...found.options].some((option) => option.value === value)) throw new Error(`${selector} has no ${value}`)
+  setValue(found, value)
+  found.dispatchEvent(new Event("input", { bubbles: true }))
+  found.dispatchEvent(new Event("change", { bubbles: true }))
+}
+
+/** What an input or a select holds. */
 export const valueOf = (selector: string): string | undefined => {
   const found = document.querySelector(selector)
-  return found instanceof HTMLInputElement ? found.value : undefined
+  return found instanceof HTMLInputElement || found instanceof HTMLSelectElement ? found.value : undefined
+}
+
+/** Whether a checkbox or a radio button is ticked. */
+export const ticked = (selector: string): boolean | undefined => {
+  const found = document.querySelector(selector)
+  return found instanceof HTMLInputElement ? found.checked : undefined
 }
 ```
 
@@ -309,6 +352,54 @@ export const valueOf = (selector: string): string | undefined => {
      the rule in question. One it guessed, or read in the documentation and took otherwise, is a gap, of (a), (b) or
      (c), and is handled as any other. One the documentation says plainly is the reader's slip: no gap, but it counts.
 
+## A check of an upgrade
+
+An agent at work upgrades an application that exists to the new version, from the package and its changelog alone.
+What it cannot do from them is a gap of the changelog, or of the doc comments it was led to. It is the check of the
+changelog's entries, a breaking one first ("The changelog entry" in [`release`](../release/SKILL.md)).
+
+1. The application is the owner's, where they give one and its path, or the project of an earlier check of this skill,
+   kept with its acceptance tests. It was written for a version before the one checked, and compiles and passes its
+   tests there: note the counts.
+2. Copy it into a new directory outside the repository, never into the owner's own tree, without
+   `acceptance-harness.ts` and `acceptance.test.ts`: the agent never sees them. Pack the version checked into it (step
+   4 of "Before it starts") and point the dependency on `@fgaudo/effect-tea` at the new `.tgz`. Leave `effect` and the
+   renderer as they are: raising them, where the new range asks for it, is the agent's work, and the changelog's to
+   say. Then `bun install`.
+3. Start a `general-purpose` subagent with this brief, the paths and the versions filled in:
+
+   ```text
+   You are checking a library's changelog and documentation by upgrading an application to its new version from them
+   alone, as an agent at work would. Your project is <the copy's path>: an application written for @fgaudo/effect-tea
+   <the old version>, an Elm-style architecture over Effect v4, with its tests. The version <the new version> is
+   installed now, and nothing else has changed.
+
+   RULES, strict:
+   - You may read, list and write only inside your project. Open nothing outside it, by any tool: no other directory of
+     this machine, no web page, no repository of the library.
+   - The package is installed in node_modules/@fgaudo/effect-tea. You may read all of it but its src/ and the .js
+     files of its dist/, which are the implementation.
+   - You may read node_modules/effect and the compiler's messages, as a user would.
+   - You may change the application's code, and its tests only where a change of the library calls for it. You may
+     raise a dependency in package.json, then run `bun install`, where the package asks for it: say where it said so.
+     Check the application with the commands its package.json gives, or `bun test` and `bunx tsc -p .`.
+
+   THE TASK: upgrade the application, so that it compiles, passes its tests and behaves as it did.
+
+   YOUR REPORT, the deliverable: every file of the package you read, in order, each with what led you to it. Then each
+   change you made, with the entry of CHANGELOG.md, or the doc comment, that called for it, or "none" where the
+   compiler or a test alone showed it. Then each entry you could not apply from its text alone, what you guessed, and
+   what the compiler or a test told you. Say whether the application compiles and how many tests pass, list the files
+   you changed, and list any behaviour that changed and that no entry names, as possible bugs. Say too if you read
+   anything the rules forbid.
+   ```
+
+4. Once it has reported, copy the earlier check's acceptance tests back in, where there are some, and run them as
+   "Running them" says. A failure that no entry announced is a change a consumer noticed: a regression, or an entry
+   missing from the changelog. Weigh it with the report, as the next section says.
+
+## What becomes of the report
+
 - In a check of the package, read the reader's path first. A reader that never reached the skill or the guide, or
   reached them late, says what it read instead: where a user's agent looks, and what there could send it on, is a gap
   of the README and of the doc comments, which are what it reads.
@@ -324,6 +415,8 @@ export const valueOf = (selector: string): string | undefined => {
   what the code and the tests keep, checked against `src/`, its tests or the compiler before it is committed, since a
   guess may have passed by luck; a promise no test keeps gets its test first. Then `bun run comments`,
   `bun run typecheck`, `bun run lint`, `bun run test`, and a changelog entry where `release` asks for one.
-- Commit the documents alone. Ask the author before deleting the reader's project.
+- Commit the documents alone. Ask the author before deleting the reader's project, or the copy of an upgrade.
 - Name the requirement in step 3's list of requirements taken, with its date and its mode, in the same commit. Where
-  acceptance tests ran, add how many passed of how many, and how many failures were the program's.
+  acceptance tests ran, add how many passed of how many, and how many failures were the program's. A check of an
+  upgrade adds to the entry of the application it upgraded, or says in its commit which application of the owner's,
+  the two versions, and how many entries the agent applied from their text alone.
