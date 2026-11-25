@@ -23,6 +23,10 @@ version, and everything else, features included, the patch version.
   its parent's state gives"). So where a declaration has `tell`, a first step and `stateOf` run the child's `external`
   and its parent's `onEvent`; a handler that raises an event of the parent's own there is a `CompositionDefect`, and
   one that gives `stateOf` another own state than the one given is an error. The example `cart` shows it.
+- The bridge to React says what it does under hydration and transitions ("Writing a bridge"): `hydrateRoot` keeps the
+  elements that a server drew, and `Host` forks its run once React has hydrated them; a new state is drawn at once, in
+  a transition too. The doc comment of `Host` says what it does under Fast Refresh: an edit keeps its run and its
+  program, or, where it remounts `Host`, starts the edited program from `init`.
 - The example `routing`: pages at addresses of their own, with the History API alone. The address the page is opened
   at is the program's flags, a link a message whose command pushes the new address, and back and forward a
   subscription.

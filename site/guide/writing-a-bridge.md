@@ -116,9 +116,9 @@ The package has two bridges, each an entry of its own, and each small, a start f
   draws a program that the application starts itself, as `<Draw app={app} view={view} />`.
 
 A bridge needs its renderer, which you install beside the package: `snabbdom` 3.6.4 or a newer 3.x, or `react` 19.3.1
-or a newer 19.x. The bridge to React imports `react` alone, and no renderer of React. The package installs no renderer,
-and the rest of it needs none. Each bridge names the type of its views, `View<Model, Message>`, runs `dispatch` from any
-event of a native element, and draws any native controlled element as its renderer's own documentation draws it.
+or a newer 19.x. The bridge to React imports `react` alone, and no renderer of React. Each bridge names the type of its
+views, `View<Model, Message>`, runs `dispatch` from any event of a native element, and draws any native controlled
+element as its renderer's own documentation draws it.
 
 [`counter`](../../examples/counter) and [`form`](../../examples/form) draw their programs with both bridges, one under
 the other.
@@ -138,7 +138,12 @@ the program again from `init`. For a state that outlives a component, start the 
 the run ended with, which keeps one defect. To see the whole cause, wrap the run in the `fork` that you give `Host`.
 
 **With the bridge to React, `Host` and `Draw` draw the first model on a server**, where no effect runs, and nothing of
-`init` starts.
+`init` starts. `hydrateRoot` keeps the elements the server drew, where the client draws the same model. `Host` makes
+its first model as the server did, from `init` and the flags of its first render, and forks its run once React has
+hydrated it. With `Draw`, the program you started must still have the state the server drew.
+
+**With the bridge to React, a new state is drawn at once, in a transition too.** React renders a store's change in no
+transition, even inside `startTransition`.
 
 ### messagesSentBy
 
@@ -156,6 +161,8 @@ The package's bridges promise nothing of what follows:
   or when a range narrows its bounds below its value. The element shows the value it made until the user types again,
   and `update` stores what the element sends then.
 - **A form's reset**, by a reset button or `form.reset()`. A program may empty a field by leaving `''` in its state.
+- **With React, a value typed into what a server drew, before React hydrates it.** React gives the element the value
+  of the first model, and sends no `onChange`.
 - **With React, a value that a script writes into an element past React's own setter**, and announces with an input
   event. React sends no `onChange` for it, so it is lost.
 - **An event that the program's own code dispatches before a new state is drawn**: a call of `element.click()`,
@@ -182,7 +189,3 @@ A bridge of your own can start from them. To run them on it:
 - have a test file register a DOM, as [`bridges/snabbdom.test.ts`](../../bridges/snabbdom.test.ts) does;
 - give `bridgeTests` a `Bridge`: your `drawInto`, the views of their scenarios drawn with your renderer, and
   `drawn`, which a test awaits after each act of the user, so that your bridge has drawn what the act made.
-
-The file holds the screen refreshes and Effect's scheduler, with `holdFrames`, `refresh` and `settle`. So the test
-says when a screen refresh comes, for a bridge that draws in one (neither of the package's does), and when the run's
-fibers go on.

@@ -41,9 +41,10 @@ export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) =
 
 /**
  * Draws the model of the current state of `app` with `view`: for a program the application starts itself. It renders
- * again for each new state, and draws the model of the state current when it renders: React draws it as React
- * schedules it, and a part that the application suspends is shown later, with the model of the state current then. It
- * draws it on a server too, and nothing is promised of hydration.
+ * again for each new state, at once, in a transition too, and draws the model of the state current when it renders. A
+ * part that the application suspends, or draws from `useDeferredValue`, is shown later, with the model of the state
+ * current then. It draws on a server too, and `hydrateRoot` keeps the elements the server drew while the program has
+ * the state the server drew.
  *
  * React may make the model of each new state as it is told of it, in the call that sent the message: a slow
  * `makeModel` then holds up that call. When React makes it is unspecified.
@@ -161,10 +162,14 @@ const report = (error: unknown): void => {
  *   The first run may have started the commands of `init` before it is interrupted. Under StrictMode, whether the
  *   commands of `init` start once or twice is unspecified. For a state that outlives a component, start the program
  *   yourself, and draw it with `Draw`.
+ * - Fast Refresh is the same: an edit that remounts `Host`, as one that changes the hooks of a component above it, ends
+ *   the run, and the edited program starts from `init`. An edit that keeps `Host` mounted keeps the run, and its
+ *   program.
  * - A view that throws is an error of the application, for its error boundaries: one above `Host` unmounts it, and
  *   the run is interrupted.
  * - It draws with `Draw`, as `Draw` draws a program the application starts.
- * - On a server, it draws the first model, and nothing of `init` starts. Nothing is promised of hydration.
+ * - On a server, it draws the first model, and nothing of `init` starts. `hydrateRoot` keeps the elements the server
+ *   drew, where `init` and the flags give the same first model, and the run is forked once React has hydrated them.
  * - A run that fails, or dies, throws what it ended with (`Cause.squash`: a `ProgramDefect` for a defect) as `Host`
  *   renders, for the nearest error boundary. One that `Host` has not thrown when its effect ends, as it unmounts or
  *   `<Activity>` hides it, or that ends so after, is given to `reportError`, and is not thrown again. Where the

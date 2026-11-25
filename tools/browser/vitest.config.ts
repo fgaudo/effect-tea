@@ -21,7 +21,12 @@ export default defineConfig({
     ]
   },
   test: {
-    include: ["bridges/snabbdom.test.ts", "bridges/react.test.ts", "bridges/browser.test.ts"],
+    include: [
+      "bridges/snabbdom.test.ts",
+      "bridges/react.test.ts",
+      "bridges/browser.test.ts",
+      "bridges/fast-refresh.test.ts"
+    ],
     browser: {
       enabled: true,
       headless: true,

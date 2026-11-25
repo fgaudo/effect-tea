@@ -34,12 +34,15 @@ import {
   memo,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  startTransition,
   StrictMode,
   Suspense,
   use,
+  useDeferredValue,
   useEffect,
   useState,
-  useSyncExternalStore
+  useSyncExternalStore,
+  useTransition
 } from "react"
 import type { Root } from "react-dom/client"
 import { renderToString } from "react-dom/server"
@@ -84,6 +87,7 @@ let bridge: typeof import("./react.ts")
 let flushSync: typeof import("react-dom").flushSync
 let createPortal: typeof import("react-dom").createPortal
 let createRoot: typeof import("react-dom/client").createRoot
+let hydrateRoot: typeof import("react-dom/client").hydrateRoot
 
 beforeAll(async () => {
   GlobalRegistrator.register()
@@ -92,7 +96,9 @@ beforeAll(async () => {
   const reactDom = await import("react-dom")
   flushSync = reactDom.flushSync
   createPortal = reactDom.createPortal
-  createRoot = (await import("react-dom/client")).createRoot
+  const client = await import("react-dom/client")
+  createRoot = client.createRoot
+  hydrateRoot = client.hydrateRoot
 })
 
 afterAll(() => GlobalRegistrator.unregister())
@@ -1141,6 +1147,88 @@ describe("Host", () => {
   })
 })
 
+// The page a server drew, and React hydrating it with the same tree: what React could not hydrate it records, and
+// draws anew.
+describe("hydrated by hydrateRoot", () => {
+  type Loading = Readonly<{ note: string; loaded: boolean }>
+  type Typed = Readonly<{ _tag: "NoteTyped"; value: string }>
+  const commands: Array<string> = []
+  const loading = program<{ state: Loading; message: "Loaded" | Typed; command: "Load" }>().make({
+    init: { state: { note: "", loaded: false }, commands: ["Load"] },
+    update: (message) => (held) =>
+      message === "Loaded" ? { state: { ...held, loaded: true } } : { state: { ...held, note: message.value } },
+    runCommand: () =>
+      Effect.sync(() => {
+        commands.push("started")
+        return Opt.some("Loaded" as const)
+      }),
+    makeModel: (held) => ({ ...held, typed: { _tag: "NoteTyped" } as const })
+  })
+  const loadingView: View<ModelOf<typeof loading>, MessageOf<typeof loading>> = (model, dispatch) =>
+    createElement(
+      "main",
+      null,
+      createElement("input", field(model.note, (value) => dispatch({ ...model.typed, value }))),
+      createElement("output", null, model.loaded ? "Loaded" : "Loading")
+    )
+  const hydrate = async (node: () => ReactNode) => {
+    const into = page()
+    into.innerHTML = renderToString(node())
+    const input = element<HTMLInputElement>("input")
+    const recovered: Array<unknown> = []
+    await acting(() =>
+      void roots.push(hydrateRoot(into, node(), { onRecoverableError: (error) => void recovered.push(error) }))
+    )
+    return { input, recovered }
+  }
+
+  test("Host keeps the elements the server drew, and forks its run once React has hydrated them", async () => {
+    commands.length = 0
+    const { input, recovered } = await hydrate(() =>
+      host({
+        program: loading,
+        // Forked on Effect's own scheduler, the run applies at once what `init` starts: forked before the render that
+        // hydrates, that render would draw "Loaded".
+        fork: (effect) => {
+          commands.push("forked")
+          return Effect.runFork(effect)
+        },
+        view: (model, dispatch) => {
+          commands.push(`drawn ${model.loaded ? "Loaded" : "Loading"}`)
+          return loadingView(model, dispatch)
+        }
+      })
+    )
+    expect(element("input")).toBe(input)
+    // Drawn on the server, then by the render that hydrates.
+    expect([recovered.map(String), commands, state()]).toEqual([
+      [],
+      ["drawn Loading", "drawn Loading", "forked", "started", "drawn Loaded"],
+      ["Loaded"]
+    ])
+    await acting(() => type(input, "Ada"))
+    expect(element("input")).toBe(input)
+    expect(input.value).toBe("Ada")
+  })
+
+  test("Draw keeps the elements the server drew of the state current as React hydrates it", async () => {
+    commands.length = 0
+    const { app, run } = start(loading)
+    const { input, recovered } = await hydrate(() =>
+      createElement(bridge.Draw<ModelOf<typeof loading>, MessageOf<typeof loading>>, { app, view: loadingView })
+    )
+    expect(element("input")).toBe(input)
+    expect([recovered.map(String), state()]).toEqual([[], ["Loading"]])
+    forked(run)
+    await acting(() => settle())
+    expect([commands, state()]).toEqual([["started"], ["Loaded"]])
+    type(input, "Ada")
+    drawn()
+    expect(element("input")).toBe(input)
+    expect(app.model().note).toBe("Ada")
+  })
+})
+
 describe("a makeModel that throws under Draw", () => {
   // The application started the program: nothing gives the defect to `die`, and the run records it where it was read.
   test("is thrown as Draw renders, for the nearest error boundary, and the run dies of that one defect", async () => {
@@ -1288,6 +1376,90 @@ describe("what an application does beside the program", () => {
     expect(typedInto.value).toBe("")
     type(typedInto, "Bob")
     expect(app.note()).toBe("Bob")
+  })
+
+  // React renders a store's change in no transition: one made in `startTransition` is drawn as any other.
+  test("a key whose message is sent in startTransition is stored, and drawn before React renders any transition", async () => {
+    const app = hostNote((model, dispatch) =>
+      createElement(
+        "main",
+        null,
+        createElement(
+          "input",
+          field(model.note, (value) => startTransition(() => dispatch({ ...model.typed, value })))
+        ),
+        createElement("output", null, model.note)
+      )
+    )
+    await hostInto(app.node)
+    await started()
+    const input = element<HTMLInputElement>("input")
+    type(input, "Ada")
+    drawn()
+    expect([app.note(), input.value, state()]).toEqual(["Ada", "Ada", ["Ada"]])
+  })
+
+  test("while a transition of the application waits, a new state is drawn, and the transition draws the state current when it ends", async () => {
+    let pending: Promise<void> | undefined
+    let release = () => {}
+    const Gate = (): ReactNode => {
+      if (pending !== undefined) use(pending)
+      return createElement("p", null, "More")
+    }
+    const More = ({ children }: Readonly<{ children: ReactNode }>): ReactNode => {
+      const [shown, setShown] = useState(false)
+      const [waiting, startShowing] = useTransition()
+      return createElement(
+        "div",
+        null,
+        drawButton(waiting ? "Waiting" : "Show", () => startShowing(() => setShown(true))),
+        shown ? createElement(Gate) : null,
+        children
+      )
+    }
+    const app = hostNote((model) => createElement(More, null, createElement("output", null, model.note)))
+    await hostInto(app.node)
+    await started()
+    pending = new Promise((resolve) => {
+      release = () => {
+        pending = undefined
+        resolve()
+      }
+    })
+    await acting(() => button("Show").click())
+    expect(button("Waiting").textContent).toBe("Waiting")
+    expect(document.querySelector("p")).toBeNull()
+    app.send({ _tag: "NoteTyped", value: "Ada" })
+    drawn()
+    expect(state()).toEqual(["Ada"])
+    expect(document.querySelector("p")).toBeNull()
+    await acting(async () => release())
+    expect([element("p").textContent, button("Show").textContent, state()]).toEqual(["More", "Show", ["Ada"]])
+  })
+
+  test("a part drawn from useDeferredValue of the model shows it later, and the field shows the program's value at once", async () => {
+    const Later = ({ note }: Readonly<{ note: string }>): ReactNode =>
+      createElement("output", null, useDeferredValue(note))
+    const app = hostNote((model, dispatch) =>
+      createElement(
+        "main",
+        null,
+        createElement("input", field(model.note, (value) => dispatch({ ...model.typed, value }))),
+        createElement(Later, { note: model.note })
+      )
+    )
+    await hostInto(app.node)
+    await started()
+    const input = element<HTMLInputElement>("input")
+    // `act` renders what React deferred once its callback has returned.
+    let first: ReadonlyArray<unknown> = []
+    await acting(() => {
+      type(input, "Ada")
+      drawn()
+      first = [app.note(), input.value, state()]
+    })
+    expect(first).toEqual(["Ada", "Ada", [""]])
+    expect(state()).toEqual(["Ada"])
   })
 
   test("an input drawn through a portal writes into its run", async () => {

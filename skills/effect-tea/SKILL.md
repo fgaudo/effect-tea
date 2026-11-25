@@ -164,12 +164,15 @@ The library promises these, and a program that forgets them goes wrong.
 - **A defect ends the run, and the run does not log it.** The run dies with a `ProgramDefect`, whose `cause` is the
   defect and whose `where` says where. Reporting it, and what the user sees next, are the job of the app around the
   run. The guide, "Running", "The run never recovers from a defect, and does not log it".
-- **With React, the run lives as long as `Host`'s effect.** An unmount, or `<Activity>` hiding it, ends the run, and
-  the next effect starts the program again from `init`. For a state that outlives a component, start the program
-  yourself and draw it with `Draw`. A run that dies is thrown to the nearest error boundary. The application's
-  components may keep state of their own, which the testing tools do not see. The guide, "Writing a bridge", "With
-  the bridge to React, the run lives as long as the effect that starts it". The guide, "View", "Each bridge says what
-  it draws beside the model".
+- **With React, the run lives as long as `Host`'s effect.** An unmount, or `<Activity>` hiding it, ends the run, and the
+  next effect starts the program again from `init`, as does an edit that Fast Refresh draws by remounting `Host`. For a
+  state that outlives a component, start the program yourself and draw it with `Draw`. A new state is drawn at once, in
+  a transition too: a slow part of the view reads `useDeferredValue`. `hydrateRoot` keeps what `Host` drew on a server,
+  where the client makes the same first model.
+  A run that dies is thrown to the nearest error boundary. The application's components may keep state of their own,
+  which the testing tools do not see. The guide, "Writing a bridge", "With the bridge to React, the run lives as long as
+  the effect that starts it", and the rules after it. The guide, "View", "Each bridge says what it draws beside the
+  model".
 - **snabbdom never removes a prop.** A view of the bridge to snabbdom gives a prop it changes in every state,
   `disabled: false` too. The guide, "Writing a bridge", "snabbdom never removes a prop".
 

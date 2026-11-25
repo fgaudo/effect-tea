@@ -26,10 +26,11 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 70 to 72 come before the library is made known to others ([`adoption.md`](docs/records/adoption.md)), and
-neither wait for the release of 0.9.0 ("For the owner") nor hold it: what is done before it goes out with it. Their
-order: first what a first user meets (70); then the two checks, which read the guide as those steps leave it (71,
-72).
+Steps 71 and 72 come before the library is made known to others ([`adoption.md`](docs/records/adoption.md)), and
+neither wait for the release of 0.9.0 ("For the owner") nor hold it: what is done before it goes out with it. Both
+read the guide as step 70 left it: its "Writing a bridge" promises what the bridge to React does under hydration and
+transitions, and the doc comment of `Host` what it does under Fast Refresh, each held by a test that runs in the
+browsers (`bridges/react.test.ts`, `bridges/fast-refresh.test.ts`).
 
 Step 73 decided the form of the smaller guide ([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md`
 holds it, under "What belongs here". The owner approved it on 25 November 2026, and steps 74 to 77 wrote every page by
@@ -44,27 +45,6 @@ reads each `](…#…)` into its page, before and after.
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 70. React in a real browser: transitions, Fast Refresh and hydration
-
-**Model and effort.** Opus 5.5, `high`: what a test finds is a fix of the bridge, or a promise of the guide.
-
-**Depends on** no other step.
-
-**Why.** The second reader has an application in React, and meets these in its first day. The bridges' tests run in
-Chromium, Firefox and WebKit (`bun run test:browsers`, a job of the CI), and none of them runs: `startTransition` or
-`useDeferredValue` in the application, Fast Refresh (likely to restart the run, as `<Activity>` does), and hydration:
-the guide promises that `Host` and `Draw` draw the first model on a server, run under `renderToString`, and nothing of
-hydration until `hydrateRoot` is run in a browser.
-
-**How.** A test of each among the bridges' tests in a browser. Fast Refresh needs React's refresh runtime in the
-page, which the browsers' setup (`tools/browser/`) may not have: the commit says what the step added to run it.
-Firefox runs in the CI alone ("Any time"), so its result comes after the owner's push.
-
-**Done when** each of the three has a test that runs in the browsers that start here, or a sentence of "Writing a
-bridge" that says it is not promised, with the reason it cannot be run; what a test shows against a rule of the guide
-is fixed, or is an item of "Open problems" with its `test.failing`; what the guide now promises of hydration stands
-under the "Rules" of its page, with its changelog entry; and `bun run test:browsers` passes.
 
 ### 71. The reading of the guide's promises against the tests, as a skill run before a release
 
@@ -194,11 +174,11 @@ None of these waits for the steps above, nor holds them up, and "proceed with th
 owner left them here on 25 November 2026, while the steps of "Next, in order" are done. Each is for Opus 5.5,
 `medium`, but where it says otherwise.
 
-- **What a real browser has not run of the bridges**, beside what step 70 runs. The bridges' tests run in Chromium,
-  Firefox and WebKit (`bun run test:browsers`, a job of the CI). Firefox runs in the CI alone: on the owner's Windows
-  machine, Playwright's Firefox does not start ("side-by-side configuration is incorrect"). An IME is driven in
-  Chromium alone, through its protocol: Playwright drives none in Firefox or WebKit, so a composition there is not
-  run.
+- **What a real browser has not run of the bridges.** The bridges' tests run in Chromium, Firefox and WebKit
+  (`bun run test:browsers`, a job of the CI). Firefox runs in the CI alone: on the owner's Windows machine, Playwright's
+  Firefox does not start ("side-by-side configuration is incorrect"), so the tests of hydration, transitions and Fast Refresh
+  that step 70 added ran in Chromium and WebKit, and run in Firefox after the owner's push. An IME is driven in Chromium
+  alone, through its protocol: Playwright drives none in Firefox or WebKit, so a composition there is not run.
 - **A benchmark that runs in the CI.** Many children, many messages per second, to keep what a message costs the event
   that sends it, and a model made only when it is read, from regressing. `bun run bench`
   (`tools/bench/subscriptions.ts`) measures a parent's subscriptions only, and `tools/bench/writes.ts`, run by hand,

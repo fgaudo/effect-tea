@@ -33,6 +33,8 @@ bridges/
 ├─ snabbdom-testing.test.ts  the tests of messagesSentBy, without a DOM
 ├─ react.test.ts             the React bridge's tests, beside snabbdom over one run, in a DOM
 ├─ browser.test.ts           what only a real browser shows: bun run test:browsers alone
+├─ fast-refresh.test.ts      React under Fast Refresh, in a page of its own: bun run test:browsers alone
+├─ fast-refresh.test_hook.ts React's refresh runtime, hooked into React DOM before React DOM loads
 └─ bridge.test_suite.ts      the tests every bridge passes, given each renderer's Bridge
 ```
 
