@@ -138,20 +138,10 @@ number, from 1 for the first child that the parent starts.
     subscriptions need.
   - Nothing names these services. They are inferred (see [anatomy of a program](./anatomy-of-a-program.md)).
 - **The parent's own types**, like those of any program, are named in `program` (see
-  [anatomy of a program](./anatomy-of-a-program.md)). Each type names what is the parent's own. What the children and
-  the inputs bring is added to that type.
+  [anatomy of a program](./anatomy-of-a-program.md)). Each type names what is the parent's own. What the children bring
+  is added to that type.
 
 **`runCommand`** is required exactly when the parent has commands of its own.
-
-#### The parent's inputs
-
-- If the parent has inputs, it declares them in `inputs`: `inputs: { Name: input({ at }) }`. Here `at` is an optic to a
-  value of the parent's own state, beside which `store` may declare the form that a value is stored in (see
-  [inputs](./inputs.md)). For inputs by id, use `inputById` (see [inputs by id](./inputs.md#inputs-by-id)).
-  - An input is not a child. The input's value is part of the parent's own state. The parent's `update` and
-    `makeModel` read that value like the rest of the state.
-  - A write into an input changes the parent's own state. So a write that changes what the state lists starts or
-    drops children, as a step of the parent's own does.
 
 #### What the library derives
 
@@ -165,9 +155,7 @@ From these declarations, the library derives the parent's state, messages, comma
 - **The parent's messages** are the parent's own messages, plus:
   - `{ _tag: <child>, message }` for each child, and `{ _tag: <child>, id, message }` for children by id. The answer of
     a child's command, and a message of its subscriptions, carry the `instance` too. A message of the child's view
-    names no instance, and reaches the instance that is there;
-  - `{ _tag: <input>, message: { _tag: 'Written', value } }` for each input, and `{ _tag: <input>, id, message }`
-    for inputs by id.
+    names no instance, and reaches the instance that is there.
 - **The parent's commands** are the parent's own commands, plus each child's commands. A child's commands are wrapped
   as its messages are, with `command` in place of `message`, and with the instance that asked:
   `{ _tag: <child>, instance, command }`, and `{ _tag: <child>, id, instance, command }` for children by id. The
@@ -183,7 +171,7 @@ From these declarations, the library derives the parent's state, messages, comma
 `MessageOf<typeof app>` names the parent's messages. More on each is in [commands](./commands.md),
 [subscriptions](./subscriptions.md) and [children's views](#childrens-views).
 
-Three more facts hold for children and inputs:
+Two more facts hold for children:
 
 - **A child's model is kept.** `children.Clock()` in `makeModel` is the child's model. It is the same object while the
   child keeps the very same state: a step that returns the state it was given, and a step of another program, leave it
@@ -191,20 +179,16 @@ Three more facts hold for children and inputs:
   (see `thunk` in [`pages`](../../examples/pages/view.ts)).
 - **A test reads a child's subscriptions by key.** `app.subscriptions(state)` lists
   `{ _tag: 'Clock', instance: 1, key: 'ticks' }` when the Clock of the first start ticks (see [testing](./testing.md)).
-- **The rule of an input.** A write is stored, in the form that the input declares, wherever the input's place is
-  there, and rejected where it is not. Every other step leaves an input as that step wrote it.
 
 #### What does not compile, and what is a defect
 
 **What does not compile:**
 
-- a message or a command of the parent's own that can take the name of a child or of an input, and a key of the
-  parent's own that can take the name of a child: by its tag, which a tag of `string` can be, or as any value, which
-  a message of `unknown` can be;
-- an input that takes the name of a child;
-- an input whose optic, alone or by id, points into a state other than the program's;
+- a message or a command of the parent's own that can take the name of a child, and a key of the parent's own that can
+  take the name of a child: by its tag, which a tag of `string` can be, or as any value, which a message of `unknown`
+  can be;
 - a subscription or a command of the parent's own that sends anything but a message of the parent's own: a message for
-  a child, or a write into an input, the parent's input or a child's input;
+  a child;
 - a `tell` of anything but a child's external message, by the child's name, with its id for children by id;
 - a child's model read outside `makeModel`, and the output of a child that declares none;
 - a child with flags declared without them, or a child without flags declared with them;
@@ -324,12 +308,12 @@ See [`list`](../../examples/list/list.ts).
 while one row is blank. Who holds what is typed depends on whose rules use it (see
 [splitting a program](./structuring-a-program.md#splitting-a-program)):
 
-- Where the parent changes the value, or locks it, the value is the parent's. Make it an
-  [input by id](./inputs.md#inputs-by-id), and keep the rest of the row in the parent's state too. In
-  [`stocktake`](../../examples/stocktake/stocktake.ts), a scan adds to a count, and the sheet locks the counts while
-  it submits them.
-- Where only the row's own rules use the value, the row is a child with an input of its own. The parent reads what the
-  row concludes from it through the row's `output`, such as a valid count, not the text.
+- Where the parent changes the value, or locks it, the value is the parent's. What is typed is a message of the
+  parent's own, with the row's id (see [in each row](./what-an-element-gives.md#in-each-row)), and the rest of the row
+  is in the parent's state too. In [`stocktake`](../../examples/stocktake/stocktake.ts), a scan adds to a count, and
+  the sheet locks the counts while it submits them.
+- Where only the row's own rules use the value, the row is a child, and what is typed is a message of the child's own.
+  The parent reads what the row concludes from it through the row's `output`, such as a valid count, not the text.
 
 **Ids that come back.** A row removed in one step, and listed again at the same id in a later step, is another
 instance. It starts again, from its `init`. The old row's answers are rejected, and its subscriptions do not run on for
@@ -345,7 +329,7 @@ Each pair sums up a rule of this page. The rule itself is above.
 | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | Say in the parent's own state which children are there, and let the library keep them. | Keep a child's state in the parent's state.                       |
 | Give each child's view `forwardTo(dispatch, 'Clock')`.                                 | Wrap the message in a lambda: it is a new function in every draw. |
-| Make a value that the parent changes or locks, in each row, an input by id.            | Make the row a child, and copy the parent's lock into each row.   |
+| Make what is typed into a row that the parent locks a message of the parent, by id.    | Make the row a child, and copy the parent's lock into each row.   |
 | Give a child flags made of values that `Equal` compares by value.                      | Make a function anew in `flags` or `key`: the child starts again. |
 
 ```ts

@@ -14,14 +14,17 @@ view's controls send. The model is data, and it compares by value with `Equal`.
 
 ## An example
 
-In this example, `Message` is a `Data.TaggedEnum`. The name of the draft is an input (see [inputs](./inputs.md)).
-`isBlank` is a helper of the program.
+In this example, `Message` is a `Data.TaggedEnum`. What is typed into the name is a message that the model holds
+without its text, `Typing` (see [what an element gives](./what-an-element-gives.md)). `isBlank` is a helper of the
+program.
 
 ```ts
+type Typing = Readonly<{ _tag: "NameTyped" }>
+
 type Editor = Data.TaggedEnum<{
   Saving: object
-  Blank: object
-  Named: { save: Message }
+  Blank: { typed: Typing }
+  Named: { typed: Typing; save: Message }
 }>
 
 const makeModel = ({ draft }: State): { name: string; editor: Editor } => ({
@@ -29,16 +32,16 @@ const makeModel = ({ draft }: State): { name: string; editor: Editor } => ({
   editor: draft._tag === "Saving"
     ? { _tag: "Saving" }
     : isBlank(draft.name)
-    ? { _tag: "Blank" }
-    : { _tag: "Named", save: Message.SaveClicked() }
+    ? { _tag: "Blank", typed: { _tag: "NameTyped" } }
+    : { _tag: "Named", typed: { _tag: "NameTyped" }, save: Message.SaveClicked() }
 })
 ```
 
 ## Rules
 
 **Its shape says what the view shows.** The model has a case for each state that the view tells apart. Each case holds
-only what makes sense in that case. This includes the messages of the case's controls, and the values of the inputs
-that the view draws in that case.
+only what makes sense in that case. This includes the messages of the case's controls, and the values that the view
+draws in that case.
 
 **Pick the case from the state, as `update` reads it.** Suppose that a model shows "Save" in a state where `update`
 rejects `SaveClicked`. Then the "Save" button does nothing. The run does not check this. A test checks it, with the
@@ -47,15 +50,12 @@ rejects `SaveClicked`. Then the "Save" button does nothing. The run does not che
 **Messages live in the model.** Every message that a view can send is in the model that the view draws, as a value. A
 control sends the message that the program fixed for it.
 
-- What the user types into a text field is not a message, nor is any value that an element holds or that the
-  program keeps. The view writes the value into an input (see [inputs](./inputs.md), and
-  [why what the user types is no message](./inputs.md#why-what-the-user-types-is-no-message)).
-- A fact that comes with a value, as the end of a scroll with its offset, is a message that the model holds without
-  its value: `{ _tag: 'ScrollEnded' } as const`. The view fills each field that is left with one value that the
-  element or its event gives, copied as it is (see [what an element reports](./inputs.md#what-an-element-reports)).
-- A view sends only the messages that the model holds. A view writes only into the inputs that the model shows. A view
-  adds nothing to what it sends but the values that an element or its event gives, as given: it never builds a
-  message of the program itself.
+- Every value that an element holds or reports, the text of a field first, as the offset of a scroll, comes in a
+  message that the model holds without its value: `{ _tag: 'NameTyped' } as const`. The view fills each field that
+  is left with one value that the element or its event gives, copied as it is (see
+  [what an element gives](./what-an-element-gives.md)).
+- A view sends only the messages that the model holds. A view adds nothing to what it sends but the values that an
+  element or its event gives, as given: it never builds a message of the program itself.
 - A control that chooses among fixed values, as the digits of a keypad, holds one message for each value: a list or a
   record of messages. A function `(digit) => Message` would be a function in the model (see the next rule). The clock
   of [`pages`](../../examples/pages/clock.ts) picks its format so: each case of its model holds the message that picks
@@ -83,13 +83,12 @@ What a model shows, and what a view may decide, is in [structuring a program](./
 
 Each pair sums up a rule of this page. The rule itself is above.
 
-| Do                                                                 | Don't                                                         |
-| ------------------------------------------------------------------ | ------------------------------------------------------------- |
-| Put every message that a view can send in the model, as a value.   | Build a message of the program in the view.                   |
-| Pick the case of the model from the state, as `update` reads it.   | Show a control in a state where `update` rejects its message. |
-| Let the view write what an element holds or reports into an input. | Make a message of what the user types into a text field.      |
-| Let the view copy into a held message what the element gives.      | Compute in the view a value that the message carries.         |
-| Keep the model data, compared by value with `Equal`.               | Put a function in the model.                                  |
+| Do                                                               | Don't                                                         |
+| ---------------------------------------------------------------- | ------------------------------------------------------------- |
+| Put every message that a view can send in the model, as a value. | Build a message of the program in the view.                   |
+| Pick the case of the model from the state, as `update` reads it. | Show a control in a state where `update` rejects its message. |
+| Let the view copy into a held message what the element gives.    | Compute in the view a value that the message carries.         |
+| Keep the model data, compared by value with `Equal`.             | Put a function in the model.                                  |
 
 ```ts
 // Don't: a function, made anew by each call of makeModel

@@ -1,6 +1,6 @@
 import { InvariantDefect, reject } from "@fgaudo/effect-tea"
 import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
-import { applyAll, dispatchViolations, drive, placeViolations, rehearse, simulate } from "@fgaudo/effect-tea/testing"
+import { applyAll, dispatchViolations, drive, rehearse, simulate } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
 import * as Effect from "effect/Effect"
 import * as Equal from "effect/Equal"
@@ -11,7 +11,6 @@ import {
   Command,
   type Counted,
   Counts,
-  counts,
   Listening,
   Load,
   type Message,
@@ -44,10 +43,7 @@ const typing = (model: Model, id: string, value: string): Opt.Option<Message> =>
   if (model._tag !== "Counting") return Opt.none()
   return Opt.flatMap(
     Opt.fromNullishOr(model.items.find((line) => line.id === id)),
-    ({ model: item }) =>
-      item.entry._tag === "Editable"
-        ? Opt.some<Message>({ _tag: "Count", id, message: { _tag: "Written", value } })
-        : Opt.none()
+    ({ model: item }) => item.entry._tag === "Editable" ? Opt.some<Message>({ ...item.entry.typed, value }) : Opt.none()
   )
 }
 
@@ -55,7 +51,7 @@ const typing = (model: Model, id: string, value: string): Opt.Option<Message> =>
 const submitOf = (model: Model): Opt.Option<Message> =>
   model._tag === "Counting" && model.submit._tag === "Ready" ? Opt.some(model.submit.submit) : Opt.none()
 
-const write = (state: State, id: string, value: string): Message =>
+const typedAt = (state: State, id: string, value: string): Message =>
   Opt.getOrThrow(typing(stocktake.makeModel(state), id, value))
 
 const counting = (model: Model) => {
@@ -69,7 +65,10 @@ const textOf = (model: Model, id: string) =>
     : model.items.find((line) => line.id === id)?.model.entry.text
 
 const typed = (state: State, texts: Readonly<Record<string, string>>): State =>
-  Object.entries(texts).reduce((state, [id, value]) => applyAll(update, [write(state, id, value)], state).state, state)
+  Object.entries(texts).reduce(
+    (state, [id, value]) => applyAll(update, [typedAt(state, id, value)], state).state,
+    state
+  )
 
 describe("update", () => {
   test("starts loading the aisle", () => {
@@ -91,8 +90,8 @@ describe("update", () => {
   test("the loaded items start empty, and the count cannot be submitted", () => {
     const model = counting(stocktake.makeModel(loaded))
     expect(model.items.map(({ id, model }) => [id, model.name, model.expected, model.entry])).toEqual([
-      ["i1", "Bolts", 10, { _tag: "Editable", text: "" }],
-      ["i2", "Nuts", 4, { _tag: "Editable", text: "" }]
+      ["i1", "Bolts", 10, { _tag: "Editable", text: "", typed: { _tag: "CountTyped", id: "i1" } }],
+      ["i2", "Nuts", 4, { _tag: "Editable", text: "", typed: { _tag: "CountTyped", id: "i2" } }]
     ])
     expect(model.total).toBe(0)
     expect(model.submit._tag).toBe("Blocked")
@@ -151,8 +150,8 @@ describe("update", () => {
     expect(model.items.map(({ model }) => model.entry._tag)).toEqual(["ReadOnly", "ReadOnly"])
     expect(update({ _tag: "SubmitClicked" })(state)).toBe(reject)
     expect(update({ _tag: "Scanned", code: "C-BOLT" })(state)).toBe(reject)
-    // A key typed into the field drawn before the lock finds no place to write into.
-    expect(update(write(ready, "i1", "11"))(state)).toBe(reject)
+    // A key typed into the field drawn before the lock is rejected.
+    expect(update(typedAt(ready, "i1", "11"))(state)).toBe(reject)
   })
 
   test("a failed submit shows the error and gives the fields back", () => {
@@ -171,7 +170,7 @@ describe("update", () => {
     const model = stocktake.makeModel(state)
     expect(model).toMatchObject({ _tag: "Closed", total: 15, differing: 1 })
     expect(stocktake.subscriptions(state)).toEqual([])
-    expect(update(write(ready, "i1", "11"))(state)).toBe(reject)
+    expect(update(typedAt(ready, "i1", "11"))(state)).toBe(reject)
   })
 
   test("dies on an answer or a scan that cannot arrive", () => {
@@ -183,6 +182,10 @@ describe("update", () => {
     expect(() => update({ _tag: "SubmitSucceeded" })(loaded)).toThrow(InvariantDefect)
     const ended = applyAll(update, [{ _tag: "ScannerDisconnected" }], loaded).state
     expect(() => update({ _tag: "Scanned", code: "C-BOLT" })(ended)).toThrow(InvariantDefect)
+  })
+
+  test("rejects what is typed for an item that is not there", () => {
+    expect(update({ _tag: "CountTyped", id: "missing", value: "1" })(loaded)).toBe(reject)
   })
 })
 
@@ -210,107 +213,73 @@ const states = (): fc.Arbitrary<State> => {
   ).map((load) => ({ aisle: "A3", load }))
 }
 
-// What the model holds, a case at a time, in the order the view draws it. What is typed is no message of the model's.
-const messagesOf = (model: Model): ReadonlyArray<Message> => {
+// The text that a test fills into what is typed, from the text that the count shows.
+type Texts = (text: string) => string
+
+// A text other than the one the count shows: typing the text that a count holds changes nothing.
+const over: Texts = (text) => `${text}1`
+
+// What the model holds, a case at a time, in the order the view draws it: the scanner's control, what is typed into
+// each count that can be typed into, filled with a text, and the submit.
+const messagesOf = (model: Model, texts: Texts): ReadonlyArray<Message> => {
   switch (model._tag) {
     case "Loading":
-    case "Closed":
       return []
     case "LoadFailed":
       return [model.retry]
     case "Counting":
+    case "Closed":
       return [
-        ...(model.scanner._tag === "Disconnected" ? [model.scanner.reconnect] : []),
-        ...(model.submit._tag === "Ready" ? [model.submit.submit] : [])
+        ...(model._tag === "Counting" && model.scanner._tag === "Disconnected" ? [model.scanner.reconnect] : []),
+        ...model.items.flatMap(({ model: { entry } }): ReadonlyArray<Message> =>
+          entry._tag === "Editable" ? [{ ...entry.typed, value: texts(entry.text) }] : []
+        ),
+        ...(model._tag === "Counting" && model.submit._tag === "Ready" ? [model.submit.submit] : [])
       ]
   }
 }
 
-// A write over each count the model shows, of a value that differs from it: those of the editable counts are held, so
-// a count drawn editable takes a write, and those of every count are candidates, so a write that has a place where the
-// count is drawn read-only is missing.
-const writeOver = (id: string, text: string): Message => ({
-  _tag: "Count",
-  id,
-  message: { _tag: "Written", value: `${text}1` }
-})
-
-const writesOf = (model: Model, editable: boolean): ReadonlyArray<Message> =>
-  model._tag === "Counting" || model._tag === "Closed"
-    ? model.items.flatMap(({ id, model: { entry } }) =>
-      !editable || entry._tag === "Editable" ? [writeOver(id, entry.text)] : []
-    )
-    : []
-
-const userMessages: ReadonlyArray<Message> = Object.values(
-  {
-    RetryClicked: [{ _tag: "RetryClicked" }],
-    // The answers of the server, to the commands.
-    Loaded: [],
-    LoadFailed: [],
-    // The scanner's feed, a subscription.
-    Scanned: [],
-    ScannerDisconnected: [],
-    ReconnectClicked: [{ _tag: "ReconnectClicked" }],
-    SubmitClicked: [{ _tag: "SubmitClicked" }],
-    SubmitSucceeded: [],
-    SubmitFailed: [],
-    // A write into a count, which the library stores: no message of the model's.
-    Count: []
-  } satisfies { [Tag in Message["_tag"]]: ReadonlyArray<Extract<Message, { _tag: Tag }>> }
-).flat()
+// What a user could ask, a tag at a time. What is typed is a text other than the one each count shows, at every item
+// the model lists, so that a count that takes it where it is drawn read-only is missing.
+const candidatesOf = (model: Model): ReadonlyArray<Message> =>
+  Object.values(
+    {
+      CountTyped: model._tag === "Counting" || model._tag === "Closed"
+        ? model.items.map(({ id, model: { entry } }) => ({ _tag: "CountTyped", id, value: over(entry.text) }) as const)
+        : [],
+      RetryClicked: [{ _tag: "RetryClicked" }],
+      // The answers of the server, to the commands.
+      Loaded: [],
+      LoadFailed: [],
+      // The scanner's feed, a subscription.
+      Scanned: [],
+      ScannerDisconnected: [],
+      ReconnectClicked: [{ _tag: "ReconnectClicked" }],
+      SubmitClicked: [{ _tag: "SubmitClicked" }],
+      SubmitSucceeded: [],
+      SubmitFailed: []
+    } satisfies { [Tag in Message["_tag"]]: ReadonlyArray<Extract<Message, { _tag: Tag }>> }
+  ).flat()
 
 describe("the model", () => {
   test("holds what update accepts, all of it, and each acts once when sent twice", () => {
     fc.assert(fc.property(states(), (state) => {
-      expect(dispatchViolations(update, {
-        state,
-        held: messagesOf(stocktake.makeModel(state)),
-        candidates: userMessages
-      })).toEqual([])
-    }))
-  })
-
-  test("draws a count editable exactly where a write over it is stored, once", () => {
-    fc.assert(fc.property(states(), (state) => {
       const model = stocktake.makeModel(state)
       expect(dispatchViolations(update, {
         state,
-        held: writesOf(model, true),
-        candidates: writesOf(model, false)
+        held: messagesOf(model, over),
+        candidates: candidatesOf(model)
       })).toEqual([])
-    }))
-  })
-
-  // A count is written by its `get` and `set`, not by an optic, so nothing but a test checks that the `set` changes its
-  // place and nothing else. The open sheets drawn have counts at both ids, and an id that is no item's is skipped.
-  test("its counts are a place: a set changes the count at its id, and nothing else", () => {
-    fc.assert(fc.property(fc.array(states(), { minLength: 1 }), fc.array(text, { minLength: 1 }), (drawn, values) => {
-      expect(placeViolations(counts, { states: drawn, ids: ["i1", "i2", "missing"], values })).toEqual([])
     }))
   })
 
   // Beyond what the library asks: that the view draws what its model holds, each control once, and each editable count
-  // with the text the model holds. `messagesSentBy`, beside the snabbdom bridge, is its way to see it without a DOM: a
-  // count's write holds the value its element is drawn with. The counts are drawn between the scanner's control and
-  // the submit.
+  // with the text the model holds. `messagesSentBy`, beside the snabbdom bridge, is its way to see it without a DOM:
+  // what is typed holds the text its element is drawn with.
   test("the view sends what its model holds", () => {
     fc.assert(fc.property(states(), (state) => {
       const model = stocktake.makeModel(state)
-      const counts = model._tag === "Counting" || model._tag === "Closed"
-        ? model.items.flatMap(({ id, model: { entry } }): ReadonlyArray<Message> =>
-          entry._tag === "Editable"
-            ? [{ _tag: "Count", id, message: { _tag: "Written", value: entry.text } }]
-            : []
-        )
-        : []
-      const [reconnect, submit] = model._tag === "Counting"
-        ? [
-          model.scanner._tag === "Disconnected" ? [model.scanner.reconnect] : [],
-          model.submit._tag === "Ready" ? [model.submit.submit] : []
-        ]
-        : [messagesOf(model), []]
-      expect(messagesSentBy<Model, Message>(view, model)).toEqual([...reconnect, ...counts, ...submit])
+      expect(messagesSentBy<Model, Message>(view, model)).toEqual(messagesOf(model, (text) => text))
     }))
   })
 
@@ -352,8 +321,8 @@ describe("simulate", () => {
     const { server, submitted } = serverOf()
     const { state, ignored, commands } = await Effect.runPromise(
       simulate(stocktake, [
-        { _tag: "Count", id: "i1", message: { _tag: "Written", value: "10" } },
-        { _tag: "Count", id: "i2", message: { _tag: "Written", value: "3" } },
+        { _tag: "CountTyped", id: "i1", value: "10" },
+        { _tag: "CountTyped", id: "i2", value: "3" },
         { _tag: "SubmitClicked" }
       ], start).pipe(Effect.provideService(Server, server))
     )

@@ -5,8 +5,8 @@
 // A program is written in each form: made with `make`, typed `Program<…>` by hand, either of them started from another
 // state (`{ ...program, init }`), and as an object not typed `Program<…>`, in a constant, in the call, or spread from a
 // typed one. A program of `make` crosses what it names, its subscriptions, its output, whether its own pieces need
-// services, and its children: none, an input, a child alone or by id, a child beside an input, a child beside one of
-// other types, and a child that lacks one of its pieces; the axes that came last are crossed with the names in pairs
+// services, and its children: none, a child alone or by id, a child beside one of other types, and a child that lacks
+// one of its pieces; the axes that came last are crossed with the names in pairs
 // (`crossings`). Each valid case asserts, with `Exactly`, the state, model, messages, commands, events, external
 // messages, flags, services, keys and output read back from the program, and is given to every function that takes a
 // program:
@@ -18,7 +18,7 @@
 // part that fails where it should compile, but a valid program in a form not typed that a function refuses is a note;
 // or a part that compiles where it should not, or that gives back other types. The run of a program that needs no
 // service compiles with `Effect.runFork`, the parent's of a child too. And each message a program can have, its own,
-// a child's and a write, is given to every function that takes one, the dispatch of a run and of a driver, `forwardTo`,
+// and a child's, is given to every function that takes one, the dispatch of a run and of a driver, `forwardTo`,
 // the `send` of a driver and of a rehearsal, `hear`, `simulate` and `applyAll`, in each form it is written: a literal,
 // built by a constructor of `Data.taggedEnum` over the program's own messages or over its whole message, and a value
 // typed `MessageOf`; each must take it, and name the program's message. A scale of parents with 1 to 64 children
@@ -70,7 +70,7 @@ const names: ReadonlyArray<Name> = ["model", "command", "event", "external", "fl
 // map of before is the special case that is refused.
 type Subs = "none" | "emits" | "silent"
 // `pair` is a child alone beside a child by id of other types, `pal`.
-type Comp = "none" | "child" | "childById" | "input" | "inputById" | "mixed" | "pair"
+type Comp = "none" | "child" | "childById" | "pair"
 // What the child lacks, beside the child of the prelude, which lacks nothing: its commands, its events, its external
 // message, its output, its keys, the services of its commands and subscriptions, or all of them and its messages too.
 type KidShape = "full" | "commands" | "events" | "external" | "output" | "keys" | "services" | "bare"
@@ -114,7 +114,7 @@ type Violation =
   | "tellMissingId"
   | "tellWrongId"
 
-// How wide the tag of a message or command that takes the name of a child or of an input is: the name itself, any
+// How wide the tag of a message or command that takes the name of a child is: the name itself, any
 // string, a template that the name matches, `any`, or the name as an optional tag.
 type Width = "literal" | "string" | "template" | "any" | "optional"
 const widths: ReadonlyArray<Width> = ["literal", "string", "template", "any", "optional"]
@@ -144,10 +144,6 @@ type Case = Readonly<{
   kidFlags: boolean
   // Where the child is: always there, started again on a key, there in some states, or listening in some.
   place: Place
-  // Where an input is: an optic, or `get` and `set`.
-  inputPlace: "at" | "getset"
-  // Whether the input declares the form its value is stored in, `store`, after its place.
-  inputForm: boolean
   // How the parent's steps tell its child an external message.
   tell: Tell
   // The pieces of `make` in the order of the guide, or the reverse.
@@ -161,41 +157,29 @@ type Case = Readonly<{
   violation?: Violation
 }>
 
-const isKid = (comp: Comp) => comp === "child" || comp === "childById" || comp === "mixed" || comp === "pair"
+const isKid = (comp: Comp) => comp !== "none"
 const S: Record<Comp, string> = {
   none: "SNone",
   child: "SChild",
   childById: "SChildById",
-  input: "SInput",
-  inputById: "SInputById",
-  mixed: "SMixed",
   pair: "SPair"
 }
 const M: Record<Comp, string> = {
   none: "MNone",
   child: "MChild",
   childById: "MChildById",
-  input: "MInput",
-  inputById: "MInputById",
-  mixed: "MMixed",
   pair: "MPair"
 }
 const inferredModel: Record<Comp, string> = {
   none: "{ count: number }",
   child: "{ count: number; kid: number }",
   childById: "{ count: number; kids: number[] }",
-  input: "{ count: number; name: string }",
-  inputById: "{ count: number }",
-  mixed: "{ count: number; kid: number; name: string }",
   pair: "{ count: number; kid: number; pals: string[] }"
 }
 const tagOf: Record<Comp, string> = {
   none: "Kid",
   child: "Kid",
   childById: "Kid",
-  input: "Name",
-  inputById: "Count",
-  mixed: "Name",
   pair: "Kid"
 }
 
@@ -627,8 +611,7 @@ const madeOf = (c: Case): Readonly<{ lines: ReadonlyArray<string>; expected: Typ
   if (c.subs !== "none") typeFields.push(`key: ${ownKey}`)
   const T = `{ ${typeFields.join("; ")} }`
   const functions = kidded ? ["withChildren"] : ["make"]
-  if (c.comp === "mixed") functions.push("child", "input")
-  else if (pair) functions.push("child", "childById")
+  if (pair) functions.push("child", "childById")
   else if (c.comp !== "none") functions.push(c.comp)
   const lines: Array<string> = []
   lines.push(`  const { ${functions.join(", ")} } = program<${T}>()`)
@@ -642,37 +625,12 @@ const madeOf = (c: Case): Readonly<{ lines: ReadonlyArray<string>; expected: Typ
     none: `{ n: ${nValue} }`,
     child: `{ n: ${nValue}, open: true }`,
     childById: `{ n: ${nValue}, ids: [1] }`,
-    input: `{ n: ${nValue}, name: '' }`,
-    inputById: `{ n: ${nValue}, counts: {} }`,
-    mixed: `{ n: ${nValue}, open: true, name: '' }`,
     pair: `{ n: ${nValue}, open: true, ids: [1] }`
   }[c.comp]
   const initCommands = ownCommands.length > 0 ? `, commands: [${ownCommands.join(", ")}]` : ""
   const initTell = v === "tellInInit" ? `, tell: [${itemOf(c, "KReset")}]` : ""
   const initStep = `{ state: ${stateValue}${initCommands}${initTell} }`
   entries.push(flagsHere ? `    init: (flags${a("number")}) => (${initStep}),` : `    init: ${initStep},`)
-  // inputs
-  if (c.comp === "input" || c.comp === "mixed") {
-    const form = c.inputForm ? `, store: (name${a("string")}) => name.trim()` : ""
-    entries.push(
-      c.inputPlace === "at"
-        ? `    inputs: { Name: input({ at: Optic.id<${state}>().key('name')${form} }) },`
-        : `    inputs: { Name: input({ get: (state${a(state)}) => Opt.some(state.name), set: (state${a(state)}, name${
-          a("string")
-        }) => ({ ...state, name })${form} }) },`
-    )
-  } else if (c.comp === "inputById") {
-    const form = c.inputForm ? `, store: (count${a("number")}) => Math.round(count)` : ""
-    entries.push(
-      c.inputPlace === "at"
-        ? `    inputs: { Count: inputById({ at: (id: string) => Optic.id<SInputById>().key('counts').at(id)${form} }) },`
-        : `    inputs: { Count: inputById({ get: (state${
-          a(state)
-        }, id: string) => Opt.fromNullishOr(state.counts[id]), set: (state${a(state)}, id${a("string")}, count${
-          a("number")
-        }) => ({ ...state, counts: { ...state.counts, [id]: count } })${form} }) },`
-    )
-  }
   // What the parent's `update` reads of its child's output, and its type, for a step written apart: by id for children
   // by id, an `Option` for a child alone that may not be there.
   const output = c.comp === "childById"
@@ -828,17 +786,10 @@ const madeOf = (c: Case): Readonly<{ lines: ReadonlyArray<string>; expected: Typ
   const kidModel = sometimes(c) ? "Opt.getOrElse(children.Kid(), () => 0)" : "children.Kid()"
   switch (c.comp) {
     case "none":
-    case "inputById":
       entries.push(`    makeModel: (${s}) => ({ count: ${model} }),`)
-      break
-    case "input":
-      entries.push(`    makeModel: (${s}) => ({ count: ${model}, name: state.name }),`)
       break
     case "child":
       entries.push(`    makeModel: (${s}, children) => ({ count: ${model}, kid: ${kidModel} }),`)
-      break
-    case "mixed":
-      entries.push(`    makeModel: (${s}, children) => ({ count: ${model}, kid: ${kidModel}, name: state.name }),`)
       break
     case "childById":
       entries.push(
@@ -870,9 +821,7 @@ const madeOf = (c: Case): Readonly<{ lines: ReadonlyArray<string>; expected: Typ
   const message = [
     own,
     ...(kidded ? [`Readonly<{ _tag: 'Kid'; message: ${kt.message}; instance?: number }>${kidAt}`] : []),
-    ...(pair ? ["Readonly<{ _tag: 'Pal'; message: PalMessage; instance?: number }> & Readonly<{ id: number }>"] : []),
-    ...(c.comp === "input" || c.comp === "mixed" ? ["Readonly<{ _tag: 'Name'; message: Written<string> }>"] : []),
-    ...(c.comp === "inputById" ? ["Readonly<{ _tag: 'Count'; id: string; message: Written<number> }>"] : [])
+    ...(pair ? ["Readonly<{ _tag: 'Pal'; message: PalMessage; instance?: number }> & Readonly<{ id: number }>"] : [])
   ].join(" | ")
   const kidCommands = kidded && kt.command !== "never"
   const command = [
@@ -1027,20 +976,14 @@ const generateHand = (c: HandCase): ReadonlyArray<Part> => {
 const subsets = <A>(items: ReadonlyArray<A>): ReadonlyArray<ReadonlySet<A>> =>
   Array.from({ length: 2 ** items.length }, (_, mask) => new Set(items.filter((_, i) => (mask >> i) & 1)))
 
-// The layouts of a parent: where its child is, whether it starts from flags, where its input is and whether it has a
-// form, and how its steps tell the child. Each place is crossed with a tell written inline, and each other tell with
-// the plain place; a form is crossed with each place of an input, and beside a child with the plain place alone.
-type Layout = Readonly<{ kidFlags: boolean; place: Place; inputPlace: "at" | "getset"; inputForm: boolean; tell: Tell }>
+// The layouts of a parent: where its child is, whether it starts from flags, and how its steps tell the child. Each
+// place is crossed with a tell written inline, and each other tell with the plain place.
+type Layout = Readonly<{ kidFlags: boolean; place: Place; tell: Tell }>
 const layoutsOf = (comp: Comp): ReadonlyArray<Layout> => {
-  const plain = { kidFlags: false, place: "plain", inputPlace: "getset", inputForm: false, tell: "none" } as const
+  const plain = { kidFlags: false, place: "plain", tell: "none" } as const
   switch (comp) {
     case "none":
       return [plain]
-    case "input":
-    case "inputById":
-      return (["at", "getset"] as const).flatMap((inputPlace) =>
-        [false, true].map((inputForm) => ({ ...plain, inputPlace, inputForm }))
-      )
     case "child":
       return [
         ...(["plain", "key", "there", "listening"] as const).map((place) => ({
@@ -1068,13 +1011,6 @@ const layoutsOf = (comp: Comp): ReadonlyArray<Layout> => {
         })),
         { ...plain, kidFlags: true, tell: "mapped" }
       ]
-    case "mixed":
-      return (["at", "getset"] as const).flatMap((inputPlace) => [
-        { ...plain, inputPlace, tell: "inline" as const },
-        { ...plain, inputPlace, place: "there" as const, tell: "inline" as const },
-        { ...plain, inputPlace },
-        { ...plain, inputPlace, inputForm: true }
-      ])
     case "pair":
       return [
         { ...plain, tell: "inline" },
@@ -1101,7 +1037,7 @@ const pairsOf = <A>(items: ReadonlyArray<A>): ReadonlyArray<ReadonlySet<A>> => [
 ]
 type Order = Case["order"]
 const orders: ReadonlyArray<Order> = ["canonical", "reversed"]
-const comps: ReadonlyArray<Comp> = ["none", "child", "childById", "input", "inputById", "mixed", "pair"]
+const comps: ReadonlyArray<Comp> = ["none", "child", "childById", "pair"]
 const crossings: ReadonlyArray<
   Readonly<{
     extra: Extra
@@ -1162,8 +1098,6 @@ for (const { comps: among, extra, named: namesets, orders: ordered } of crossing
                   ...(extra.kid === "full" ? [] : [`kidLacks-${extra.kid}`]),
                   ...(layout.kidFlags ? ["kidFlags"] : []),
                   ...(isKid(comp) ? [layout.place, `tell-${layout.tell}`] : []),
-                  ...(comp === "input" || comp === "inputById" || comp === "mixed" ? [layout.inputPlace] : []),
-                  ...(layout.inputForm ? ["store"] : []),
                   order,
                   ...(annotate ? ["annotated"] : [])
                 ].join(".")
@@ -1228,8 +1162,6 @@ for (const comp of comps) {
         subs: "none",
         kidFlags: false,
         place: "plain",
-        inputPlace: "getset",
-        inputForm: false,
         tell: isKid(comp) ? "inline" : "none",
         order: "canonical",
         annotate: false,
@@ -1635,8 +1567,8 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
   const read: Exactly<ExternalOf<typeof made>, ${type}> = true
   return read`
   })),
-  // Children and inputs given as a record of wide keys: an own message that takes the name of one is broken. One that
-  // takes another name is the control: refused, since the same program can be written with the names as they are.
+  // Children given as a record of wide keys: an own message that takes the name of one is broken. One that takes
+  // another name is the control: refused, since the same program can be written with the names as they are.
   ...([["Kid", false], ["Inc", "refused"]] as const).map(([tag, valid]) => ({
     id: `special.children-wide-names.${tag}`,
     valid,
@@ -1651,22 +1583,7 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
   })
   return parent`
   })),
-  ...([["Name", false], ["Inc", "refused"]] as const).map(([tag, valid]) => ({
-    id: `special.inputs-wide-names.${tag}`,
-    valid,
-    body: `  type Named = Readonly<{ n: number; name: string }>
-  const Parent = program<{ state: Named; message: Readonly<{ _tag: '${tag}' }> }>()
-  const name = Parent.input({ at: Optic.id<Named>().key('name') })
-  const inputs: Readonly<Record<string, typeof name>> = { Name: name }
-  const parent = Parent.make({
-    init: { state: { n: 0, name: '' } },
-    inputs,
-    update: () => (state) => ({ state }),
-    makeModel: () => null,
-  })
-  return parent`
-  })),
-  // A wide type in a place of a program without children or inputs is true, and read back as named.
+  // A wide type in a place of a program without children is true, and read back as named.
   ...(["message", "command", "event"] as const).flatMap((place) =>
     (["any", "unknown"] as const).map((type) => ({
       id: `special.wide-${place}.${type}`,
@@ -1766,7 +1683,7 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
 
 // The messages given to every function that takes one (step 16, point 5), in each form a test or a view writes one: a
 // literal, with a constructor of `Data.taggedEnum` over the own messages of the program that takes it (`own`), or over
-// its whole message, which builds the wrapper of a child's or of an input's (`whole`), and as a value typed `MessageOf`
+// its whole message, which builds the wrapper of a child's (`whole`), and as a value typed `MessageOf`
 // (`typed`). A function takes the message the program names, as the readers of each use assert in every form a program
 // is written, so that a message is taken or refused by its type alone: the messages are given to one program of `make`
 // for each message it can have, alone, and as a child alone and by id, whose parent's messages wrap its own. Each
@@ -1774,8 +1691,8 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
 type MessageForm = "literal" | "own" | "whole" | "typed"
 const messageForms: ReadonlyArray<MessageForm> = ["literal", "own", "whole", "typed"]
 // What a dispatch takes: its type, the constructors over its own messages (`ownType`, none where it has none) and over
-// all of them, and its entries: an own message, with the fields it has but its tag, or the wrapper of a child's or an
-// input's, with the id it is addressed by and whether it carries the `instance` of an answer.
+// all of them, and its entries: an own message, with the fields it has but its tag, or the wrapper of a child's, with
+// the id it is addressed by and whether it carries the `instance` of an answer.
 type Entry =
   | Readonly<{ kind: "own"; tag: string; fields: string }>
   | Readonly<{ kind: "wrap"; tag: string; id?: string; instance: boolean; target: Target }>
@@ -1840,16 +1757,8 @@ const palTarget: Target = {
   whole: "PalWhole",
   entries: [{ kind: "own", tag: "PSet", fields: "text: 'a'" }]
 }
-const writeTarget = (type: string, name: string, value: string): Target => ({
-  type: `Written<${type}>`,
-  ownType: `Written<${type}>`,
-  own: name,
-  whole: name,
-  entries: [{ kind: "own", tag: "Written", fields: `value: ${value}` }]
-})
-
-// What a program of `make` takes, by its composition: its own messages, and the wrappers of its child's and its
-// input's, by the id the case writes.
+// What a program of `make` takes, by its composition: its own messages, and the wrappers of its children's, by the id
+// the case writes.
 const targetOf = (c: Case): Target => ({
   type: "MessageOf<typeof made>",
   ...(ownOf(c) === "Own" ? { ownType: "Own" } : {}),
@@ -1868,18 +1777,6 @@ const targetOf = (c: Case): Target => ({
       : []),
     ...(c.comp === "pair"
       ? [{ kind: "wrap" as const, tag: "Pal", id: "1", instance: true, target: palTarget }]
-      : []),
-    ...(c.comp === "input" || c.comp === "mixed"
-      ? [{ kind: "wrap" as const, tag: "Name", instance: false, target: writeTarget("string", "Text", "' Ada '") }]
-      : []),
-    ...(c.comp === "inputById"
-      ? [{
-        kind: "wrap" as const,
-        tag: "Count",
-        id: "'a'",
-        instance: false,
-        target: writeTarget("number", "Count", "1.5")
-      }]
       : [])
   ]
 })
@@ -2022,8 +1919,7 @@ const messageCases = comps.flatMap((comp) =>
       isValid(c) && representative(c) && c.comp === comp && ownOf(c) === own && c.subs === "none"
       && c.services && c.kid === "full" && !c.named.has("output")
       && c.named.size === (own === "Own" ? 2 : 1) && c.named.has("external") && layout !== undefined
-      && c.kidFlags === layout.kidFlags && c.place === layout.place && c.inputPlace === layout.inputPlace
-      && c.inputForm === layout.inputForm && c.tell === layout.tell
+      && c.kidFlags === layout.kidFlags && c.place === layout.place && c.tell === layout.tell
     )
     return found === undefined ? [] : [found]
   })
@@ -2060,7 +1956,6 @@ const header = `import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
-import * as Optic from 'effect/Optic'
 import {
   andThen, type CommandOf, forwardTo, type CommandServicesOf, type EventOf, type ExternalOf, type FlagsOf, type Instance, type Kept, type KeyOf,
   type MessageOf, type ModelOf, type OutputOf, type Program, program, reject, start, type StateOf,
@@ -2070,10 +1965,10 @@ import { applyAll, drive, rehearse, simulate } from '../src/testing/index.ts'
 import {
   type Cmd, Db, type DriveRead, type Ev, type Exactly, type Ext, type Feed, feed, type Go, held, idle, inc, type Lock,
   kid, type KidCommand, type KidDb, type KidEvent, type KidFeed, type KidMessage, type KidState, kidF, type KReset,
-  type MChild, type MChildById, type MInput, type MInputById, type MMixed, type MNone, type MPair, other,
+  type MChild, type MChildById, type MNone, type MPair, other,
   type OuterOwn, type Own, pal, type PalEvent, type PalMessage, type PalState, type PClear, type RehearseRead,
-  type SChild, type SChildById, type SimulateRead, type SInput, type SInputById, type SMixed, type SPair, save, saved,
-  savedState, type SNone, type StartRead, stray, ticked, type Written,
+  type SChild, type SChildById, type SimulateRead, type SPair, save, saved,
+  savedState, type SNone, type StartRead, stray, ticked,
 } from '../tools/inference/prelude.ts'
 import * as Kids from './kids.ts'
 `
@@ -2094,7 +1989,7 @@ type Runnable = Readonly<{
 const ownMessages = ["{ _tag: 'Inc' }", "{ _tag: 'Reset' }"]
 
 // The messages a program of `make` is given: its own, those its children's views send, by an instance that may be past
-// and an id that may not be there, and a write of its input.
+// and an id that may not be there.
 const messagesOf = (c: Case): ReadonlyArray<string> => [
   ...(ownOf(c) === "Own" ? ownMessages : []),
   ...(isKid(c.comp) && kidTypesOf(c.kid).message !== "never"
@@ -2110,11 +2005,7 @@ const messagesOf = (c: Case): ReadonlyArray<string> => [
         `{ _tag: 'Pal', id: ${id}, message: { _tag: 'PSet', text: 'a' }${instance} }`
       )
     )
-    : []),
-  ...(c.comp === "input" || c.comp === "mixed"
-    ? ["{ _tag: 'Name', message: { _tag: 'Written', value: ' Ada ' } }"]
-    : []),
-  ...(c.comp === "inputById" ? ["{ _tag: 'Count', id: 'a', message: { _tag: 'Written', value: 1.5 } }"] : [])
+    : [])
 ]
 
 const runnables: ReadonlyArray<Runnable> = [

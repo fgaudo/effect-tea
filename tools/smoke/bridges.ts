@@ -2,7 +2,7 @@
 // which `smoke.ts` runs with Node and typechecks once it has installed the renderers, and only then: what `consumer.ts`
 // and the quick start check is checked without them. Node loads `window.ts` first, as a test of a snabbdom view does:
 // snabbdom reads `window` as it loads.
-import { type App, type Dispatch, program, start, type Update, type Written } from "@fgaudo/effect-tea"
+import { type App, type Dispatch, program, start, type Update } from "@fgaudo/effect-tea"
 import { Draw, Host, type View as ReactView } from "@fgaudo/effect-tea/react"
 import { drawInto, type View } from "@fgaudo/effect-tea/snabbdom"
 import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
@@ -37,18 +37,23 @@ export const begin = (root: Element) => {
   return { stop, fiber: Effect.runFork(run) }
 }
 
-// A controlled field: it shows the value, and what is typed is written.
-export const field = (value: string, dispatch: Dispatch<Written<string>>) =>
+/** What is typed into a field, with the text that it holds: the model holds it without the text. */
+type Typed = Readonly<{ _tag: "Typed"; value: string }>
+
+type Field = Readonly<{ text: string; typed: Readonly<{ _tag: "Typed" }> }>
+
+// A controlled field: it shows the text the model holds, and sends what is typed, filled with the text it holds.
+export const field = (model: Field, dispatch: Dispatch<Typed>) =>
   h("input", {
-    props: { value },
+    props: { value: model.text },
     on: {
-      input: (event: Event) => dispatch({ _tag: "Written", value: (event.target as HTMLInputElement).value })
+      input: (event: Event) => dispatch({ ...model.typed, value: (event.target as HTMLInputElement).value })
     }
   })
 
-const written = messagesSentBy(field, "Ada")
-if (JSON.stringify(written) !== JSON.stringify([{ _tag: "Written", value: "Ada" }])) {
-  throw new Error(`messagesSentBy found ${JSON.stringify(written)}, not the write of the field's value`)
+const typed = messagesSentBy(field, { text: "Ada", typed: { _tag: "Typed" } })
+if (JSON.stringify(typed) !== JSON.stringify([{ _tag: "Typed", value: "Ada" }])) {
+  throw new Error(`messagesSentBy found ${JSON.stringify(typed)}, not what is typed, filled with the field's text`)
 }
 
 const reactView: ReactView<Model, Message> = (model) => createElement("output", null, model.count)
@@ -58,10 +63,10 @@ export const hosted = () => createElement(Host<State, Model, Message>, { program
 
 export const drawn = (app: App<Model, Message>) => createElement(Draw<Model, Message>, { app, view: reactView })
 
-export const input = (value: string, dispatch: Dispatch<Written<string>>) =>
+export const input = (model: Field, dispatch: Dispatch<Typed>) =>
   createElement("input", {
-    value,
-    onChange: (event: { target: { value: string } }) => dispatch({ _tag: "Written", value: event.target.value })
+    value: model.text,
+    onChange: (event: { target: { value: string } }) => dispatch({ ...model.typed, value: event.target.value })
   })
 
 console.log("node: the bridges ran")

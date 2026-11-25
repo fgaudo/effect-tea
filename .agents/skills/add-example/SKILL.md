@@ -7,8 +7,8 @@ description: How to add or change an example of @fgaudo/effect-tea under example
 
 The examples are complete programs, checked like the library, that show its concepts and its testing tools; the site
 runs them in the browser. The ones to copy are [`examples/counter`](../../../examples/counter) (one program, the
-cheapest tests, a view for each renderer) and [`examples/pages`](../../../examples/pages) (a parent, children placed
-with optics and started from flags, events, `forwardTo`).
+cheapest tests, a view for each renderer) and [`examples/pages`](../../../examples/pages) (a parent, children there
+by its state and started from flags, events, `forwardTo`).
 
 ## The folder
 
@@ -63,9 +63,10 @@ In `examples/` itself are [`README.md`](../../../examples/README.md), and the sh
   message that may arrive and does not apply, and a thrown error for one that cannot arrive, which the test checks as
   a defect.
 - **The view** follows the guide, drawn with snabbdom (React for `counter` and `form` alone). snabbdom's props module
-  never removes a prop, so a view sets a prop such as `disabled` in every case (`counter/view-snabbdom.ts`). An input is
-  declared in `make`, and drawn as the guide's "Inputs" says: a native controlled element with the value its model
-  holds in `props`, no key, and a handler that sends `{ _tag: 'Written', value }` through `forwardTo(dispatch, 'Name')`.
+  never removes a prop, so a view sets a prop such as `disabled` in every case (`counter/view-snabbdom.ts`). A value
+  that an element holds is drawn as the guide's "What an element gives" says: a native controlled element with the
+  value its model holds in `props`, no key, and a handler that sends the message that its model holds for it, filled
+  with what the element holds.
   What the bridges leave out ("Writing a bridge", "What is left out") is used by no example. A control drawn by the
   program, as a slider, has its press a message of the model, and its drag a subscription (`volume`). A child's view is
   memoized with snabbdom's `thunk`, its dispatch among the arguments (`pages/view.ts`).
@@ -77,8 +78,8 @@ In `examples/` itself are [`README.md`](../../../examples/README.md), and the sh
   (`timer/timer.test_reader.ts`).
 - **A bridge owes no `messagesSentBy`.** The snabbdom bridge has one, and each example drawn with snabbdom checks that
   `messagesSentBy(view, model)` equals `messagesOf(model)`, so the reader lists the messages in the order the view
-  draws them; a view with an input expects its writes beside them, with the values its model holds
-  (`form/form.test.ts`). A change of what both bridges draw is made to both: the shared suite checks it.
+  draws them, each held message filled with the value its model holds (`form/form.test.ts`). A change of what both
+  bridges draw is made to both: the shared suite checks it.
 - **The test** shows the testing tools, from the cheapest that proves the point: `applyAll` and `dispatchViolations`
   always, then `simulate`, `rehearse` or `drive`. The candidates of tagged messages are a record with an entry for each
   tag, checked with `satisfies { [Tag in Message['_tag']]: ReadonlyArray<Extract<Message, { _tag: Tag }>> }` and
@@ -104,6 +105,7 @@ Bun bundles the page, where the package resolves to `dist/`: hence the build fir
 - Nothing to add to the site: `site/build.ts` bundles every `examples/*/index.html`.
 
 [`examples/timer`](../../../examples/timer) is the tutorial's application, one module per step (and `named.ts` and
-`named-timers.ts` for the step of inputs), so that each step's code stays as its page shows it; its `// #region`
-comments are the blocks the tutorial includes, as are those of [`bridges/snabbdom.ts`](../../../bridges/snabbdom.ts).
-A change to either keeps them, and the pages' prose, true ([`release`](../release/SKILL.md)).
+`named-timers.ts` for its fourth step, "What the user types"), so that each step's code stays as its page shows it;
+its `// #region` comments are the blocks the tutorial includes, as are those of
+[`bridges/snabbdom.ts`](../../../bridges/snabbdom.ts). A change to either keeps them, and the pages' prose, true
+([`release`](../release/SKILL.md)).

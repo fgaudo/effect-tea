@@ -11,8 +11,7 @@ import {
   program,
   ProgramDefect,
   start,
-  type Started,
-  type Written
+  type Started
 } from "@fgaudo/effect-tea"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test"
@@ -57,7 +56,7 @@ import {
   bridgeTests,
   button,
   type controls,
-  type desk,
+  desk,
   type Dictation,
   type draft,
   drawing,
@@ -125,9 +124,11 @@ afterEach(async () => {
 const drawn = () => flushSync(() => {})
 
 /** The data of a controlled text field, as React's documentation draws one: `value`, and `onChange`. */
-const field = (value: string, write: Dispatch<Written<string>>) => ({
+// A controlled text field: its value is the model's, and `send` sends what is typed, the message its model holds
+// filled with the text that the element holds.
+const field = (value: string, send: (value: string) => void) => ({
   value,
-  onChange: (event: { target: { value: string } }) => write({ _tag: "Written", value: event.target.value })
+  onChange: (event: { target: { value: string } }) => send(event.target.value)
 })
 
 const drawButton = (text: string, onClick: () => void) => createElement("button", { type: "button", onClick }, text)
@@ -152,7 +153,7 @@ const DraftView = (
   createElement(
     "form",
     null,
-    createElement("input", field(model.text, forwardTo(dispatch, "Text"))),
+    createElement("input", field(model.text, (value) => dispatch({ ...model.typed, value }))),
     drawButton("Send", () => dispatch("SendClicked")),
     drawButton("Discard", () => dispatch("DiscardClicked")),
     drawButton("Keep", () => dispatch("Kept")),
@@ -193,7 +194,7 @@ type NoteModel = ModelOf<typeof note>
 type NoteMessage = MessageOf<typeof note>
 
 const noteView: View<NoteModel, NoteMessage> = (model, dispatch) =>
-  createElement("main", null, createElement("input", field(model, forwardTo(dispatch, "Note"))))
+  createElement("main", null, createElement("input", field(model.note, (value) => dispatch({ ...model.typed, value }))))
 
 // The control listens to the source in an effect, and puts each result into the element as a key is.
 const Dictated = (
@@ -201,7 +202,7 @@ const Dictated = (
 ): ReactNode => {
   const [input, setInput] = useState<HTMLInputElement | null>(null)
   useEffect(() => (input === null ? undefined : source.listen((text) => type(input, text))), [input, source])
-  return createElement("input", { ...field(model, forwardTo(dispatch, "Note")), ref: setInput })
+  return createElement("input", { ...field(model.note, (value) => dispatch({ ...model.typed, value })), ref: setInput })
 }
 
 const dictatedView = (source: Dictation): typeof noteView => (model, dispatch) =>
@@ -212,7 +213,7 @@ const lidView: View<ModelOf<typeof lid>, MessageOf<typeof lid>> = (model, dispat
     ? createElement(
       "main",
       null,
-      createElement("input", field(model.note, forwardTo(dispatch, "Note"))),
+      createElement("input", field(model.note, (value) => dispatch({ ...model.typed, value }))),
       drawButton("Close", () => dispatch(model.close)),
       createElement("output", null, model.note)
     )
@@ -227,10 +228,7 @@ const stepsView: View<ModelOf<typeof steps>, MessageOf<typeof steps>> = (model, 
   createElement(
     "main",
     null,
-    createElement(
-      "input",
-      field(model.text, model._tag === "First" ? forwardTo(dispatch, "First") : forwardTo(dispatch, "Second"))
-    ),
+    createElement("input", field(model.text, (value) => dispatch({ ...model.typed, value }))),
     model._tag === "First" ? drawButton("Next", () => dispatch(model.next)) : null,
     createElement("output", null, model.text)
   )
@@ -239,40 +237,43 @@ const lockView: View<ModelOf<typeof lock>, MessageOf<typeof lock>> = (model, dis
   createElement(
     "main",
     null,
-    createElement("input", field(model.text, forwardTo(dispatch, "Text"))),
+    createElement("input", field(model.text, (value) => dispatch({ ...model.typed, value }))),
     model._tag === "Open" ? drawButton("Lock", () => dispatch(model.lock)) : null,
     createElement("output", null, model.text)
   )
 
-const checkbox = (checked: boolean, write: Dispatch<Written<boolean>>) =>
+const checkbox = (checked: boolean, send: (value: boolean) => void) =>
   createElement("input", {
     type: "checkbox",
     checked,
-    onChange: (event: { target: { checked: boolean } }) => write({ _tag: "Written", value: event.target.checked })
+    onChange: (event: { target: { checked: boolean } }) => send(event.target.checked)
   })
 
 const controlsView: View<ModelOf<typeof controls>, MessageOf<typeof controls>> = (model, dispatch) =>
   createElement(
     "main",
     null,
-    createElement("textarea", field(model.notes, forwardTo(dispatch, "Notes"))),
+    createElement("textarea", field(model.notes, (value) => dispatch({ ...model.notesTyped, value }))),
     createElement(
       "select",
-      field(model.choice, forwardTo(dispatch, "Choice")),
+      field(model.choice, (value) => dispatch({ ...model.choiceChosen, value })),
       createElement("option", { value: "tea" }, "Tea"),
       createElement("option", { value: "coffee" }, "Coffee"),
       createElement("option", { value: "water" }, "Water")
     ),
-    checkbox(model.agreed, forwardTo(dispatch, "Agreed")),
-    createElement("input", { type: "range", ...field(model.level, forwardTo(dispatch, "Level")) })
+    checkbox(model.agreed, (value) => dispatch({ ...model.agreedChecked, value })),
+    createElement("input", {
+      type: "range",
+      ...field(model.level, (value) => dispatch({ ...model.levelMoved, value }))
+    })
   )
 
 const gatedView: View<ModelOf<typeof gated>, MessageOf<typeof gated>> = (model, dispatch) =>
   createElement(
     "main",
     null,
-    createElement("textarea", field(model.notes, forwardTo(dispatch, "Notes"))),
-    checkbox(model.agreed, forwardTo(dispatch, "Agreed")),
+    createElement("textarea", field(model.notes, (value) => dispatch({ ...model.notesTyped, value }))),
+    checkbox(model.agreed, (value) => dispatch({ ...model.agreedChecked, value })),
     model.freeze === undefined ? null : drawButton("Freeze", () => dispatch("Frozen"))
   )
 
@@ -389,7 +390,7 @@ const hostNote = (view: View<NoteModel, NoteMessage> = noteView) => {
     if (last === undefined) throw new Error("Nothing is drawn")
     return last
   }
-  return { node, note: () => current().model, send: (message: NoteMessage) => current().dispatch(message) }
+  return { node, note: () => current().model.note, send: (message: NoteMessage) => current().dispatch(message) }
 }
 
 // A promise, and what settles it: a witness a test awaits.
@@ -618,12 +619,12 @@ describe("Host", () => {
     const dispatches = new Set<unknown>()
     const forwarded = new Set<unknown>()
     await hostInto(host({
-      program: form,
-      fork: withStorage(Storage.of({ save: () => Effect.void })),
+      program: desk,
+      fork: heldFork,
       view: (model, dispatch) => {
         dispatches.add(dispatch)
-        forwarded.add(forwardTo(dispatch, "Name"))
-        return formView(model, dispatch)
+        forwarded.add(forwardTo(dispatch, "Draft"))
+        return deskView(model, dispatch)
       }
     }))
     await started()
@@ -1188,16 +1189,16 @@ describe("what the bridge to React leaves out", () => {
     const input = element<HTMLInputElement>("input")
     type(input, "Ada")
     drawn()
-    expect(app.model()).toBe("Ada")
+    expect(app.model().note).toBe("Ada")
     input.value = "Bob"
     input.dispatchEvent(new Event("input", { bubbles: true }))
     drawn()
-    expect(app.model()).toBe("Ada")
+    expect(app.model().note).toBe("Ada")
   })
 })
 
 describe("what an application does beside the program", () => {
-  test("an input a component mounts from its own state shows the program's value, and what is typed is stored", async () => {
+  test("a field a component mounts from its own state shows the program's value, and what is typed is stored", async () => {
     const Toggle = ({ children }: Readonly<{ children: ReactNode }>): ReactNode => {
       const [shown, setShown] = useState(false)
       return createElement("div", null, drawButton("Show", () => setShown(true)), shown ? children : null)
@@ -1206,12 +1207,16 @@ describe("what an application does beside the program", () => {
       createElement(
         "main",
         null,
-        createElement(Toggle, null, createElement("input", field(model, forwardTo(dispatch, "Note"))))
+        createElement(
+          Toggle,
+          null,
+          createElement("input", field(model.note, (value) => dispatch({ ...model.typed, value })))
+        )
       )
     )
     await hostInto(app.node)
     await started()
-    app.send({ _tag: "Note", message: { _tag: "Written", value: "Ada" } })
+    app.send({ _tag: "NoteTyped", value: "Ada" })
     drawn()
     await acting(() => button("Show").click())
     const input = element<HTMLInputElement>("input")
@@ -1221,16 +1226,18 @@ describe("what an application does beside the program", () => {
   })
 
   // React restores a controlled element to the props it was drawn with once its handler has run, when the render it
-  // scheduled made no change: so a key the state rejects is taken back, though `memo` skips the input.
-  test("a key the state rejects, in an input that memo skips, is taken back", async () => {
-    const Field = memo(({ value, write }: Readonly<{ value: string; write: Dispatch<Written<string>> }>) =>
-      createElement("input", field(value, write))
-    )
+  // scheduled made no change: so a key the state rejects is taken back, though `memo` skips the field.
+  test("a key the state rejects, in a field that memo skips, is taken back", async () => {
+    type Typed = ModelOf<typeof lock>["typed"]
+    // Its props are the same while the state is: the text, what is typed as the model holds it, and the dispatch.
+    const Field = memo((
+      { value, typed, dispatch }: Readonly<{ value: string; typed: Typed; dispatch: Dispatch<MessageOf<typeof lock>> }>
+    ) => createElement("input", field(value, (text) => dispatch({ ...typed, value: text }))))
     const view: View<ModelOf<typeof lock>, MessageOf<typeof lock>> = (model, dispatch) =>
       createElement(
         "main",
         null,
-        createElement(Field, { value: model.text, write: forwardTo(dispatch, "Text") }),
+        createElement(Field, { value: model.text, typed: model.typed, dispatch }),
         model._tag === "Open" ? drawButton("Lock", () => dispatch(model.lock)) : null
       )
     const { app, run } = start(lock)
@@ -1243,7 +1250,7 @@ describe("what an application does beside the program", () => {
     expect([input.value, app.model().text]).toEqual(["Ada", "Ada"])
   })
 
-  test("an input Suspense hides, and shows again, shows the value the program put there meanwhile", async () => {
+  test("a field Suspense hides, and shows again, shows the value the program put there meanwhile", async () => {
     let pending: Promise<void> | undefined
     let release = () => {}
     const Gate = (): ReactNode => {
@@ -1258,9 +1265,9 @@ describe("what an application does beside the program", () => {
           Suspense,
           { fallback: "Loading" },
           createElement(Gate),
-          createElement("input", field(model, forwardTo(dispatch, "Note")))
+          createElement("input", field(model.note, (value) => dispatch({ ...model.typed, value })))
         ),
-        createElement("output", null, model)
+        createElement("output", null, model.note)
       )
     )
     await hostInto(app.node)
@@ -1288,7 +1295,10 @@ describe("what an application does beside the program", () => {
       createElement(
         "main",
         null,
-        createPortal(createElement("input", field(model, forwardTo(dispatch, "Note"))), element("#aside"))
+        createPortal(
+          createElement("input", field(model.note, (value) => dispatch({ ...model.typed, value }))),
+          element("#aside")
+        )
       )
     )
     await hostInto(app.node)
@@ -1319,8 +1329,8 @@ describe("what an application does beside the program", () => {
         "main",
         null,
         createElement(Library, {
-          value: model,
-          onChange: (value: string) => forwardTo(dispatch, "Note")({ _tag: "Written", value })
+          value: model.note,
+          onChange: (value: string) => dispatch({ ...model.typed, value })
         })
       )
     )

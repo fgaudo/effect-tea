@@ -689,24 +689,13 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "a write whose place is not there is applied as a step that keeps the state",
-    guarantees: ["An input stores what is written, where its place is there"],
-    file: "src/compose.ts",
-    from: "    if (Opt.isNone(held)) return reject\n",
-    to: "    if (Opt.isNone(held)) return { state }\n",
-    killedBy: [
-      ["src/input.test.ts", "is rejected where the input is not in the state"],
-      ["src/input.test.ts", "rejects a write at an id the state does not hold"]
-    ]
-  },
-  {
     name: "a child's rejection is applied by its parent as a step that keeps the state",
     guarantees: ["Outdated clicks are harmless"],
     file: "src/compose.ts",
     from: "      if (result === reject) return reject\n      childStep(",
     to: "      if (result === reject) return { state }\n      childStep(",
     killedBy: [
-      ["src/input.test.ts", "a fixed message drawn for the old draft reaches the new one, and update decides"]
+      ["src/compose.test.ts", "a message its child rejects is rejected by the parent"]
     ]
   },
   {
@@ -836,16 +825,6 @@ export const mutations: ReadonlyArray<Mutation> = [
         "src/compose.test.ts",
         "a child that a step lists anew is started, with its first commands lifted with its number"
       ]
-    ]
-  },
-  {
-    name: "a write into the parent's input is not reconciled",
-    guarantees: ["A parent's children are those its own state lists"],
-    file: "src/compose.ts",
-    from: "    reconcile(gathered, Opt.some(own))\n",
-    to: "",
-    killedBy: [
-      ["src/compose.test.ts", "a write into the parent's input that changes what its state lists reconciles too"]
     ]
   },
   {
@@ -987,99 +966,12 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "a write into an input by id goes to its place without its id",
-    guarantees: ["An input stores what is written, where its place is there"],
-    file: "src/compose.ts",
-    from: "inputById: (place: PlacementById<unknown, unknown, unknown>) => ({ kind: \"byId\", ...placedById(place) }),",
-    to: "inputById: (place: PlacementById<unknown, unknown, unknown>) => ({ kind: \"one\", ...placedById(place) }),",
-    killedBy: [
-      ["src/input.test.ts", "stores a write at its id, and leaves the other rows and inputs as they are"],
-      [
-        "src/input.test.ts",
-        "rejects a write at an id that is gone, and stores it into another row that came to the id"
-      ],
-      [
-        "src/input.test.ts",
-        "an input by id stores a write at its id through set, and rejects one at an id get does not find"
-      ]
-    ]
-  },
-  {
-    name: "a write of the value held makes a new state",
-    guarantees: ["An input stores what is written, where its place is there"],
-    file: "src/compose.ts",
-    from: "    if (Object.is(value, held.value)) return { state, commands: [], events: [] }\n",
-    to: "",
-    killedBy: [
-      ["src/input.test.ts", "leaves the very same state when the place holds it already"],
-      ["src/input.test.ts", "equal by Equal to the value held, whatever it is made of, leaves the very value held"]
-    ]
-  },
-  {
-    name: "a write compares the value it stores by ===, which NaN never is of itself",
-    guarantees: ["An input stores what is written, where its place is there"],
-    file: "src/compose.ts",
-    from: "Object.is(value, held.value)",
-    to: "value === held.value",
-    killedBy: [
-      ["src/input.test.ts", "a write of NaN over NaN leaves the very same state"]
-    ]
-  },
-  {
     name: "stateOf leaves each child as it starts",
     file: "src/compose.ts",
     from: "        putAt(gathered, place, { ...entry, state: childState })\n",
     to: "",
     killedBy: [
       ["src/compose.test.ts", "it puts each child in the state given, and the others as they start"]
-    ]
-  },
-  {
-    name: "a write of the value an input holds makes a new state",
-    guarantees: ["An input stores what is written, where its place is there"],
-    file: "src/input.ts",
-    from: "  return Equal.equals(value, held) ? { state: held } : { state: value }",
-    to: "  return { state: value }",
-    // A primitive value equal to the one held is the very same: only a structure tells the two apart.
-    killedBy: [
-      ["src/input.test.ts", "equal by Equal to the value held, whatever it is made of, leaves the very value held"]
-    ]
-  },
-  {
-    name: "a write stores the value written, not the form its input declares",
-    guarantees: ["An input stores what is written, where its place is there"],
-    file: "src/input.ts",
-    from: "store === undefined ? message.value : store(message.value)",
-    to: "message.value",
-    killedBy: [
-      ["src/input.test.ts", "is what a write stores, and the rest of the state is the place's to keep"],
-      ["src/input.test.ts", "is called once a write, with the value written, and set is given exactly what it returns"],
-      [
-        "src/input.test.ts",
-        "of inputs by id is the form of the write at each id, through an optic and through get and set"
-      ],
-      ["src/input.test.ts", "in a parent, a write in its form is a step on the parent's own state"],
-      [
-        "bridges/snabbdom.test.ts",
-        "a value stored in another form than the one typed is shown by the element at once, which keeps the focus"
-      ],
-      [
-        "bridges/react.test.ts",
-        "a value stored in another form than the one typed is shown by the element at once, which keeps the focus"
-      ]
-    ]
-  },
-  {
-    name: "a write compares the value written with the one held, not its stored form",
-    guarantees: ["An input stores what is written, where its place is there"],
-    file: "src/input.ts",
-    from: "  return Equal.equals(value, held) ? { state: held } : { state: value }",
-    to: "  return Equal.equals(message.value, held) ? { state: held } : { state: value }",
-    killedBy: [
-      [
-        "src/input.test.ts",
-        "equal by Equal to the value held, a structure, leaves the very value held, whatever was written"
-      ]
     ]
   },
   {
@@ -1564,105 +1456,6 @@ export const mutations: ReadonlyArray<Mutation> = [
         "src/testing/dispatch-violations.test.ts",
         "ignores what update rejects, and what the model holds, compared by value"
       ]
-    ]
-  },
-  {
-    name: "placeViolations lets a set that changes more than its place pass",
-    file: "src/testing/place-violations.ts",
-    from: "...(Equal.equals(set(state, held.value), state) ? [] : [{ _tag: \"Changes\" as const, state, ...named }]),",
-    to: "",
-    killedBy: [
-      ["src/testing/place-violations.test.ts", "reports Changes for a set that marks the state at each write"],
-      ["src/testing/place-violations.test.ts", "reports Changes and Remembers for a set that counts the writes"]
-    ]
-  },
-  {
-    name: "placeViolations lets a set that stores another value than it is given pass",
-    file: "src/testing/place-violations.ts",
-    from: "Equal.equals(get(after), Opt.some(value))",
-    to: "true",
-    killedBy: [
-      [
-        "src/testing/place-violations.test.ts",
-        "reports StoresAnother for a set that stores another form, on the values that are not their own form"
-      ],
-      [
-        "src/testing/place-violations.test.ts",
-        "reports StoresAnother for a get that reads another place than its set writes"
-      ],
-      ["src/testing/place-violations.test.ts", "reports StoresAnother for a set that writes the row after"]
-    ]
-  },
-  {
-    name: "placeViolations lets a set at an id that changes another id pass",
-    file: "src/testing/place-violations.ts",
-    from: "...reached(state, after, value),",
-    to: "",
-    killedBy: [
-      [
-        "src/testing/place-violations.test.ts",
-        "reports ReachesAnother for a set that writes every row, where the three laws pass on rows that hold one value"
-      ]
-    ]
-  },
-  {
-    name: "placeViolations lets a set that keeps something of an earlier write pass",
-    file: "src/testing/place-violations.ts",
-    from: "Equal.equals(set(after, second), set(state, second))",
-    to: "true",
-    killedBy: [
-      [
-        "src/testing/place-violations.test.ts",
-        "reports Remembers for a set that marks the state only on another value, by the write back of the value held"
-      ],
-      ["src/testing/place-violations.test.ts", "reports Remembers alone for a set that keeps the value that was there"],
-      ["src/testing/place-violations.test.ts", "reports Changes and Remembers for a set that counts the writes"]
-    ]
-  },
-  {
-    name: "placeViolations writes back only the values given, not the value held",
-    file: "src/testing/place-violations.ts",
-    from: "? values : [...values, held.value]",
-    to: "? values : values",
-    killedBy: [
-      [
-        "src/testing/place-violations.test.ts",
-        "reports Remembers for a set that marks the state only on another value, by the write back of the value held"
-      ]
-    ]
-  },
-  {
-    name: "placeViolations checks a state where the place is not there",
-    file: "src/testing/place-violations.ts",
-    from: "if (Opt.isNone(held)) return []",
-    to: "if (false) return []",
-    killedBy: [
-      [
-        "src/testing/place-violations.test.ts",
-        "checks nothing in a state where the place is not there, and returns no violation"
-      ]
-    ]
-  },
-  {
-    name: "placeViolations takes an id equal to the one written for another, by reference",
-    file: "src/testing/place-violations.ts",
-    from: "!Equal.equals(other, id)",
-    to: "other !== id",
-    killedBy: [
-      [
-        "src/testing/place-violations.test.ts",
-        "compares the ids with Equal: an id equal to the one written is no other"
-      ]
-    ]
-  },
-  {
-    name: "placeViolations compares the state a set leaves by reference",
-    file: "src/testing/place-violations.ts",
-    from: "Equal.equals(set(state, held.value), state)",
-    to: "set(state, held.value) === state",
-    killedBy: [
-      ["src/testing/place-violations.test.ts", "compares states and values with Equal, not by reference"],
-      ["src/testing/place-violations.test.ts", "passes a get and a set that change the place alone"]
     ]
   },
   {
@@ -3696,7 +3489,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "bridges/snabbdom-testing.test.ts",
-        "finds the writes of controlled elements, each with the value its model holds"
+        "finds what controlled elements send, each filled with the value its model holds"
       ]
     ]
   },
@@ -3708,7 +3501,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "bridges/snabbdom-testing.test.ts",
-        "finds the writes of controlled elements, each with the value its model holds"
+        "finds what controlled elements send, each filled with the value its model holds"
       ]
     ]
   },
@@ -4066,82 +3859,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "an input alone of another state is taken",
-    refuses: [["Composition", "an input whose optic"]],
-    file: "src/compose.ts",
-    from: "      get: (state: State) => Opt.Option<any>\n      set: (state: State, value: never) => State\n",
-    to: "      get: (state: any) => Opt.Option<any>\n      set: (state: any, value: never) => any\n",
-    killedBy: [
-      [
-        "src/input.test.ts",
-        "an input declared for another state is no input of a program, alone or by id",
-        "typecheck"
-      ]
-    ]
-  },
-  {
-    name: "an input by id of another state is taken",
-    refuses: [["Composition", "an input whose optic"]],
-    file: "src/compose.ts",
-    from: "      get: (state: State, id: never) => Opt.Option<any>\n"
-      + "      set: (state: State, id: never, value: never) => State\n",
-    to:
-      "      get: (state: any, id: never) => Opt.Option<any>\n      set: (state: any, id: never, value: never) => any\n",
-    killedBy: [
-      [
-        "src/input.test.ts",
-        "an input declared for another state is no input of a program, alone or by id",
-        "typecheck"
-      ]
-    ]
-  },
-  {
-    name: "an input is declared with a place of another state",
-    refuses: [["Composition", "an input whose optic"]],
-    file: "src/compose.ts",
-    from: "  place: Placement<Field<T, \"state\">, A>\n",
-    to: "  place: Placement<any, A>\n",
-    killedBy: [
-      [
-        "src/input.test.ts",
-        "an optic into another state than the program's is no input of it, alone or by id",
-        "typecheck"
-      ]
-    ]
-  },
-  {
-    name: "an input by id is declared with a place of another state",
-    refuses: [["Composition", "an input whose optic"]],
-    file: "src/compose.ts",
-    from: "  place: PlacementById<Field<T, \"state\">, Id, A>\n",
-    to: "  place: PlacementById<any, Id, A>\n",
-    killedBy: [
-      [
-        "src/input.test.ts",
-        "an optic into another state than the program's is no input of it, alone or by id",
-        "typecheck"
-      ]
-    ]
-  },
-  {
-    name: "an input is placed by an optic and by get and set",
-    file: "src/compose.ts",
-    from: "    set: (state: State, value: A) => State\n    at?: never\n",
-    to: "    set: (state: State, value: A) => State\n",
-    killedBy: [
-      ["src/input.test.ts", "an input is placed by an optic, or by get and set, never by both", "typecheck"]
-    ]
-  },
-  {
-    name: "an input by id is placed by an optic and by get and set",
-    file: "src/compose.ts",
-    from: "    set: (state: State, id: Id, value: A) => State\n    at?: never\n",
-    to: "    set: (state: State, id: Id, value: A) => State\n",
-    killedBy: [
-      ["src/input.test.ts", "an input is placed by an optic, or by get and set, never by both", "typecheck"]
-    ]
-  },
-  {
     name: "a child alone of another state is taken",
     file: "src/compose.ts",
     from: "      key: (state: State) => Opt.Option<unknown>\n      listening?: (state: State) => boolean\n",
@@ -4361,9 +4078,7 @@ export const mutations: ReadonlyArray<Mutation> = [
         "src/compose.test.ts",
         "one branch of a runCommand, or one subscription of a map, that answers with no message of the parent's",
         "typecheck"
-      ],
-      ["src/input.test.ts", "a command's answer cannot write into an input: it is an own message", "typecheck"],
-      ["src/input.test.ts", "a command's answer cannot write into a child's input either", "typecheck"]
+      ]
     ]
   },
   {
@@ -4414,40 +4129,22 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "an own message takes the name of a child or of an input",
+    name: "an own message takes the name of a child",
     refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
     file: "src/compose.ts",
-    from: "    : { readonly [K in `an own message takes the name of ${Of}`]: TagsTaken<Own, keyof C & string> })\n",
+    from: "    : { readonly \"an own message takes the name of a child\": TagsTaken<Own, keyof C & string> })\n",
     to: "    : unknown)\n",
     killedBy: [
-      ["src/compose.test.ts", "an own message cannot take the name of a child, which would receive it", "typecheck"],
-      ["src/input.test.ts", "an own message that takes the name of an input does not compile", "typecheck"]
+      ["src/compose.test.ts", "an own message cannot take the name of a child, which would receive it", "typecheck"]
     ]
   },
   {
-    name: "an own command takes the name of a child or of an input",
+    name: "an own command takes the name of a child",
     refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
     file: "src/compose.ts",
-    from:
-      "    : { readonly [K in `an own command takes the name of ${Of}`]: TagsTaken<OwnCommand, keyof C & string> })\n",
+    from: "    : { readonly \"an own command takes the name of a child\": TagsTaken<OwnCommand, keyof C & string> })\n",
     to: "    : unknown)\n",
     killedBy: [
-      [
-        "src/compose.test.ts",
-        "an own command cannot take the name of a child, whose interpreter would receive it",
-        "typecheck"
-      ],
-      ["src/compose.test.ts", "an own command cannot take the name of an input", "typecheck"]
-    ]
-  },
-  {
-    name: "an own message or command takes the name of a child",
-    refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
-    file: "src/compose.ts",
-    from: "  & NoClash<Own, OwnCommand, C, \"a child\">\n",
-    to: "",
-    killedBy: [
-      ["src/compose.test.ts", "an own message cannot take the name of a child, which would receive it", "typecheck"],
       [
         "src/compose.test.ts",
         "an own command cannot take the name of a child, whose interpreter would receive it",
@@ -4456,14 +4153,18 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "an own message or command takes the name of an input",
+    name: "an own message or command takes the name of a child",
     refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
     file: "src/compose.ts",
-    from: "  & NoClash<Own, OwnCommand, I, \"an input\">\n",
+    from: "  & NoClash<Own, OwnCommand, C>\n",
     to: "",
     killedBy: [
-      ["src/compose.test.ts", "an own command cannot take the name of an input", "typecheck"],
-      ["src/input.test.ts", "an own message that takes the name of an input does not compile", "typecheck"]
+      ["src/compose.test.ts", "an own message cannot take the name of a child, which would receive it", "typecheck"],
+      [
+        "src/compose.test.ts",
+        "an own command cannot take the name of a child, whose interpreter would receive it",
+        "typecheck"
+      ]
     ]
   },
   {
@@ -4478,16 +4179,6 @@ export const mutations: ReadonlyArray<Mutation> = [
         "an own subscription key that may take the name of a child does not compile, never a silent replacement",
         "typecheck"
       ]
-    ]
-  },
-  {
-    name: "an input takes the name of a child",
-    refuses: [["Composition", "an input that takes the name of a child"]],
-    file: "src/compose.ts",
-    from: "  : Readonly<{ \"an input takes the name of a child\": keyof C & keyof I }>\n",
-    to: "  : unknown\n",
-    killedBy: [
-      ["src/compose.test.ts", "an input cannot take the name of a child, which it would replace", "typecheck"]
     ]
   },
   {
@@ -4534,11 +4225,6 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/compose.test.ts",
         "one branch of a runCommand, or one subscription of a map, that answers with no message of the parent's",
-        "typecheck"
-      ],
-      [
-        "src/input.test.ts",
-        "a subscription of the program's own cannot write into an input: it sends the program's own messages",
         "typecheck"
       ]
     ]

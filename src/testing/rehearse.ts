@@ -567,9 +567,7 @@ const describeAll = (tags: Names["tags"], values: ReadonlyArray<unknown>) =>
  *   form,
  *   Effect.fnUntraced(function*(rehearsal) {
  *     yield* rehearsal.send(({ editor }) =>
- *       editor._tag === 'Saving'
- *         ? Opt.none()
- *         : Opt.some({ _tag: 'Name', message: { _tag: 'Written', value: 'Ada' } })
+ *       editor._tag === 'Saving' ? Opt.none() : Opt.some({ ...editor.typed, value: 'Ada' })
  *     )
  *     yield* rehearsal.send(({ editor }) => (editor._tag === 'Named' ? Opt.some(editor.save) : Opt.none()))
  *     expect((yield* rehearsal.model).editor._tag).toBe('Saving')

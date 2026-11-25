@@ -17,7 +17,6 @@ import {
 import { describe, expect, test } from "bun:test"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
-import * as Optic from "effect/Optic"
 import * as Opt from "effect/Option"
 import * as Scheduler from "effect/Scheduler"
 import * as Stream from "effect/Stream"
@@ -158,8 +157,11 @@ export const type = (input: HTMLInputElement, text: string) => {
 /** What the page says the state holds: the draft's text, then the texts sent. */
 export const state = () => [...document.querySelectorAll("output, li")].map((found) => found.textContent)
 
+/** What an element gives, with the value it holds: each model holds it without the value, and the view fills it. */
+type Typed<Tag extends string, A = string> = Readonly<{ _tag: Tag; value: A }>
+
 // A draft that keeps itself and brings itself back as the very same state, and that its parent starts again once sent.
-type Own = "SendClicked" | "DiscardClicked" | "Kept" | "Undone"
+type Own = "SendClicked" | "DiscardClicked" | "Kept" | "Undone" | Typed<"TextTyped">
 type Sent = Readonly<{ _tag: "Sent"; text: string }>
 type Draft = { readonly text: string; readonly kept: Opt.Option<Draft> }
 type Desk = Readonly<{ sent: ReadonlyArray<string> }>
@@ -167,8 +169,8 @@ const draftOf = program<{ state: Draft; event: Sent; message: Own }>()
 
 export const draft = draftOf.make({
   init: { state: { text: "", kept: Opt.none() } },
-  inputs: { Text: draftOf.input({ at: Optic.id<Draft>().key("text") }) },
   update: (message: Own) => (held) => {
+    if (typeof message !== "string") return { state: { ...held, text: message.value } }
     switch (message) {
       case "DiscardClicked":
         return { state: { ...held, text: "" } }
@@ -180,7 +182,7 @@ export const draft = draftOf.make({
         return held.text === "" ? reject : { state: held, events: [{ _tag: "Sent", text: held.text }] }
     }
   },
-  makeModel: (held) => held
+  makeModel: (held) => ({ text: held.text, typed: { _tag: "TextTyped" } as const })
 })
 
 const deskOf = program<{ state: Desk }>()
@@ -195,92 +197,115 @@ export const desk = deskOf.withChildren({ Draft: deskOf.child(draft, { key: (hel
 // A note the program clears on a message that no control drawn sends, as a source that exists whatever is drawn
 // would.
 type Note = Readonly<{ note: string }>
-const noteOf = program<{ state: Note; message: "Cleared" }>()
+const noteOf = program<{ state: Note; message: "Cleared" | Typed<"NoteTyped"> }>()
 
 export const note = noteOf.make({
   init: { state: { note: "" } },
-  inputs: { Note: noteOf.input({ at: Optic.id<Note>().key("note") }) },
-  update: (_: "Cleared") => () => ({ state: { note: "" } }),
-  makeModel: (state) => state.note
+  update: (message) => () => ({ state: { note: message === "Cleared" ? "" : message.value } }),
+  makeModel: (state) => ({ note: state.note, typed: { _tag: "NoteTyped" } as const })
 })
 
-// The same note, stored in capitals: the form of its value, a function of the value alone.
+// The same note, stored in capitals: `update` stores another form of what is typed, and leaves the very same state
+// where that form is the note held.
 export const shouted = noteOf.make({
   init: { state: { note: "" } },
-  inputs: { Note: noteOf.input({ at: Optic.id<Note>().key("note"), store: (note) => note.toUpperCase() }) },
-  update: (_: "Cleared") => () => ({ state: { note: "" } }),
-  makeModel: (state) => state.note
+  update: (message) => (held) => {
+    const stored = message === "Cleared" ? "" : message.value.toUpperCase()
+    return stored === held.note ? { state: held } : { state: { note: stored } }
+  },
+  makeModel: (state) => ({ note: state.note, typed: { _tag: "NoteTyped" } as const })
 })
 
-// A note behind a lid, which starts open or closed: open, it is drawn by its input; closed, a plain field that is no
-// input of the program stands in the input's place, which a renderer may draw with the same element.
+// A note behind a lid, which starts open or closed: open, it is drawn as a field to type into; closed, a plain field
+// that sends nothing stands in its place, which a renderer may draw with the same element.
 type Lid = Readonly<{ note: string; lid: "Opened" | "Closed" }>
-const lidOf = program<{ state: Lid; flags: Lid["lid"]; message: "Opened" | "Closed" }>()
+const lidOf = program<{ state: Lid; flags: Lid["lid"]; message: "Opened" | "Closed" | Typed<"NoteTyped"> }>()
 
 export const lid = lidOf.make({
   init: (lid) => ({ state: { note: "draft", lid } }),
-  inputs: { Note: lidOf.input({ at: Optic.id<Lid>().key("note") }) },
-  update: (message: "Opened" | "Closed") => (held) => ({ state: { ...held, lid: message } }),
+  update: (message) => (held) =>
+    typeof message === "string" ? { state: { ...held, lid: message } } : { state: { ...held, note: message.value } },
   makeModel: (held) =>
     held.lid === "Opened"
-      ? { _tag: "Opened" as const, note: held.note, close: "Closed" as const }
+      ? { _tag: "Opened" as const, note: held.note, close: "Closed" as const, typed: { _tag: "NoteTyped" } as const }
       : { _tag: "Closed" as const, open: "Opened" as const }
 })
 
-// Two steps, each with an input of its own, empty as it starts: Next leaves the first step, and its input's place, for
-// the second, which a renderer may draw with the same element.
+// Two steps, each with a field of its own, empty as it starts: Next leaves the first step, and what is typed into it,
+// for the second, which a renderer may draw with the same element.
 type Steps = Readonly<{ _tag: "First"; first: string }> | Readonly<{ _tag: "Second"; second: string }>
-const stepsOf = program<{ state: Steps; message: "Next" }>()
+const stepsOf = program<{ state: Steps; message: "Next" | Typed<"FirstTyped"> | Typed<"SecondTyped"> }>()
 
 export const steps = stepsOf.make({
   init: { state: { _tag: "First", first: "" } },
-  inputs: {
-    First: stepsOf.input({ at: Optic.id<Steps>().tag("First").key("first") }),
-    Second: stepsOf.input({ at: Optic.id<Steps>().tag("Second").key("second") })
+  update: (message) => (held) => {
+    if (message === "Next") return held._tag === "First" ? { state: { _tag: "Second", second: "" } } : reject
+    if (message._tag === "FirstTyped") {
+      return held._tag === "First"
+        ? { state: { ...held, first: message.value } }
+        : reject
+    }
+    return held._tag === "Second" ? { state: { ...held, second: message.value } } : reject
   },
-  update: (_: "Next") => (held) => held._tag === "First" ? { state: { _tag: "Second", second: "" } } : reject,
   makeModel: (held) =>
     held._tag === "First"
-      ? { _tag: "First" as const, text: held.first, next: "Next" as const }
-      : { _tag: "Second" as const, text: held.second }
+      ? { _tag: "First" as const, text: held.first, next: "Next" as const, typed: { _tag: "FirstTyped" } as const }
+      : { _tag: "Second" as const, text: held.second, typed: { _tag: "SecondTyped" } as const }
 })
 
-// A note the program locks, whose input's place the locked state no longer holds: the view draws the same input
-// through the same dispatch in both states, as a field drawn while an operation runs.
+// A note the program locks, which `update` no longer stores once locked. The model holds what is typed in both states,
+// as a model that shows what `update` rejects does: the view draws the same field with the same handler in both, as a
+// field drawn while an operation runs.
 type Lock = Readonly<{ _tag: "Open"; text: string }> | Readonly<{ _tag: "Locked"; text: string }>
-const lockOf = program<{ state: Lock; message: "Locked" }>()
+const lockOf = program<{ state: Lock; message: "Locked" | Typed<"TextTyped"> }>()
 
 export const lock = lockOf.make({
   init: { state: { _tag: "Open", text: "" } },
-  inputs: { Text: lockOf.input({ at: Optic.id<Lock>().tag("Open").key("text") }) },
-  update: (_: "Locked") => (held) => held._tag === "Open" ? { state: { _tag: "Locked", text: held.text } } : reject,
+  update: (message) => (held) =>
+    held._tag === "Locked"
+      ? reject
+      : { state: message === "Locked" ? { _tag: "Locked", text: held.text } : { ...held, text: message.value } },
   makeModel: (held) =>
     held._tag === "Open"
-      ? { _tag: "Open" as const, text: held.text, lock: "Locked" as const }
-      : { _tag: "Locked" as const, text: held.text }
+      ? { _tag: "Open" as const, text: held.text, lock: "Locked" as const, typed: { _tag: "TextTyped" } as const }
+      : { _tag: "Locked" as const, text: held.text, typed: { _tag: "TextTyped" } as const }
 })
 
-// A textarea, a select, a checkbox and a range, each an input of the program.
+// A textarea, a select, a checkbox and a range, each of whose values is a message that `update` stores.
 type Controls = Readonly<{ notes: string; choice: string; agreed: boolean; level: string }>
-// Its one message of its own is rejected: what is written is all it hears.
-const controlsOf = program<{ state: Controls; message: "Rejected" }>()
-const at = Optic.id<Controls>()
+type Given = Typed<"NotesTyped"> | Typed<"ChoiceChosen"> | Typed<"AgreedChecked", boolean> | Typed<"LevelMoved">
+const controlsOf = program<{ state: Controls; message: Given }>()
+
+/** What each control gives, held without its value. */
+const given = {
+  notesTyped: { _tag: "NotesTyped" },
+  choiceChosen: { _tag: "ChoiceChosen" },
+  agreedChecked: { _tag: "AgreedChecked" },
+  levelMoved: { _tag: "LevelMoved" }
+} as const
+
+const stored = <S extends Partial<Controls>>(held: S, message: Given): S => {
+  switch (message._tag) {
+    case "NotesTyped":
+      return { ...held, notes: message.value }
+    case "ChoiceChosen":
+      return { ...held, choice: message.value }
+    case "AgreedChecked":
+      return { ...held, agreed: message.value }
+    case "LevelMoved":
+      return { ...held, level: message.value }
+  }
+}
 
 export const controls = controlsOf.make({
   init: { state: { notes: "", choice: "tea", agreed: false, level: "50" } },
-  inputs: {
-    Notes: controlsOf.input({ at: at.key("notes") }),
-    Choice: controlsOf.input({ at: at.key("choice") }),
-    Agreed: controlsOf.input({ at: at.key("agreed") }),
-    Level: controlsOf.input({ at: at.key("level") })
-  },
-  update: (_: "Rejected") => () => reject,
-  makeModel: (held) => held
+  update: (message) => (held) => ({ state: stored(held, message) }),
+  makeModel: (held) => ({ ...held, ...given })
 })
 
 /**
- * The same program, the places of its inputs held only while it is open: a write once frozen is rejected. An input's
- * place is an optic, and an optic through `tag` is one that a state of another tag does not hold.
+ * The same program, whose `update` stores the textarea and the checkbox only while it is open. Its model holds what
+ * they give in both states, as a model that shows what `update` rejects does.
  */
 type Gated =
   | Readonly<{ _tag: "Open"; notes: string; agreed: boolean }>
@@ -289,16 +314,20 @@ type Gated =
     notes: string
     agreed: boolean
   }>
-const gatedOf = program<{ state: Gated; message: "Frozen" }>()
+const gatedOf = program<{ state: Gated; message: "Frozen" | Typed<"NotesTyped"> | Typed<"AgreedChecked", boolean> }>()
 
 export const gated = gatedOf.make({
   init: { state: { _tag: "Open", notes: "", agreed: false } },
-  inputs: {
-    Notes: gatedOf.input({ at: Optic.id<Gated>().tag("Open").key("notes") }),
-    Agreed: gatedOf.input({ at: Optic.id<Gated>().tag("Open").key("agreed") })
-  },
-  update: (_: "Frozen") => (held) => held._tag === "Open" ? { state: { ...held, _tag: "Frozen" } } : reject,
-  makeModel: (held) => ({ ...held, freeze: held._tag === "Open" ? "Frozen" as const : undefined })
+  update: (message) => (held) =>
+    held._tag === "Frozen"
+      ? reject
+      : { state: message === "Frozen" ? { ...held, _tag: "Frozen" } : stored(held, message) },
+  makeModel: (held) => ({
+    ...held,
+    freeze: held._tag === "Open" ? "Frozen" as const : undefined,
+    notesTyped: given.notesTyped,
+    agreedChecked: given.agreedChecked
+  })
 })
 
 /** A source that belongs to the control, as a dictation that streams partial results: the control listens to it. */
@@ -354,7 +383,7 @@ export type Bridge<Node> = Readonly<{
     volume: View<Node, VolumeModel, VolumeMessage>
     /** The note's controlled `<input>`, alone. */
     note: View<Node, ModelOf<typeof note>, MessageOf<typeof note>>
-    /** The note's input, which writes each result of `source` over the model's value, as the element's own write. */
+    /** The note's controlled `<input>`, into which each result of `source` is put as a key is, and sent by it. */
     dictated: (source: Dictation) => View<Node, ModelOf<typeof note>, MessageOf<typeof note>>
     lid: View<Node, ModelOf<typeof lid>, MessageOf<typeof lid>>
     steps: View<Node, ModelOf<typeof steps>, MessageOf<typeof steps>>
@@ -452,7 +481,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
     })
   })
 
-  describe("inputs the user types into, controlled", () => {
+  describe("fields the user types into, controlled", () => {
     const mountForm = async (save: (name: string) => Effect.Effect<void, StorageError> = () => Effect.void) => {
       const saves: Array<string> = []
       const applied: Array<FormMessage["_tag"]> = []
@@ -487,7 +516,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       expect(button("Save").disabled).toBe(false)
     })
 
-    test("a name the program empties once saved is emptied in the input on screen, which stays and keeps the focus", async () => {
+    test("a name the program empties once saved is emptied in the field on screen, which stays and keeps the focus", async () => {
       await mountForm()
       const input = element<HTMLInputElement>("input")
       input.focus()
@@ -511,7 +540,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       await bridge.drawn()
       settle()
       expect(saves).toEqual(["Ada"])
-      expect(applied).toEqual(["Name", "SaveClicked"])
+      expect(applied).toEqual(["NameTyped", "SaveClicked"])
       expect(ignored).toEqual(["SaveClicked"])
     })
 
@@ -525,11 +554,11 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       await paint()
       await paint()
       expect(saves).toEqual(["Ada", "Ada"])
-      expect(applied).toEqual(["Name", "SaveClicked", "SaveFailed", "SaveClicked", "SaveFailed"])
+      expect(applied).toEqual(["NameTyped", "SaveClicked", "SaveFailed", "SaveClicked", "SaveFailed"])
     })
   })
 
-  describe("an input in a draft its parent starts again, and that brings itself back", () => {
+  describe("a field in a draft its parent starts again, and that brings itself back", () => {
     const mountDesk = async () => {
       mount(bridge.drawInto, bridge.views.desk, start(desk))
       settle()
@@ -598,15 +627,15 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
     })
   })
 
-  describe("a value the program puts in an input's place", () => {
+  describe("a value the program puts in a field", () => {
     const mountNote = async (view = bridge.views.note, noted: typeof note = note) => {
       const { app } = mount(bridge.drawInto, view, start(noted))
       settle()
       await bridge.drawn()
-      return { note: app.model, send: app.dispatch }
+      return { note: () => app.model().note, send: app.dispatch }
     }
 
-    test("a text typed in its middle keeps the focus, the caret and the selection of the input", async () => {
+    test("a text typed in its middle keeps the focus, the caret and the selection of the field", async () => {
       await mountNote()
       const typed = element<HTMLInputElement>("input")
       typed.focus()
@@ -635,11 +664,11 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       expect(document.activeElement).toBe(typed)
     })
 
-    test("a write the element did not make is shown by it too, and the next key is written over it", async () => {
+    test("a text typed that the element did not send is shown by it too, and the next key replaces it", async () => {
       const app = await mountNote()
       const typed = element<HTMLInputElement>("input")
       await act(() => type(typed, "Hel"))
-      app.send({ _tag: "Note", message: { _tag: "Written", value: "SCAN" } })
+      app.send({ _tag: "NoteTyped", value: "SCAN" })
       await paint()
       expect(typed.value).toBe("SCAN")
       await act(() => type(typed, "SCANs"))
@@ -660,7 +689,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       expect([app.note(), typed.value]).toEqual(["ADAL", "ADAL"])
     })
 
-    // A bridge draws after each message its view sends, whether or not the state changed, as after a write rejected.
+    // A bridge draws after each message its view sends, whether or not the state changed, as after a message rejected.
     test("a key whose stored form is the value held makes no new state, and the element is given its value back", async () => {
       const { app } = mount(bridge.drawInto, bridge.views.note, start(shouted))
       settle()
@@ -673,19 +702,19 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
         notices += 1
       })
       await act(() => type(typed, "AdA"))
-      expect([app.model(), typed.value]).toEqual(["ADA", "ADA"])
+      expect([app.model().note, typed.value]).toEqual(["ADA", "ADA"])
       expect(notices).toBe(0)
       expect(document.activeElement).toBe(typed)
       stop()
     })
 
     // A value the element changes by itself is left out: an `<input>` strips the line breaks of what it is given (HTML,
-    // the value sanitization algorithm of `type=text`). It shows the stripped value until the next write, which is
+    // the value sanitization algorithm of `type=text`). It shows the stripped value until the next key, which is
     // stored.
     test("a value with a line break, which the field strips, is shown stripped, and the next key is stored", async () => {
       const app = await mountNote()
       const typed = element<HTMLInputElement>("input")
-      app.send({ _tag: "Note", message: { _tag: "Written", value: "a\nb" } })
+      app.send({ _tag: "NoteTyped", value: "a\nb" })
       await paint()
       expect(typed.value).toBe("ab")
       await act(() => type(typed, "abc"))
@@ -693,7 +722,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
     })
 
     describe("a source that belongs to the control, as a dictation that streams partial results", () => {
-      test("each result is shown by the input on screen, which keeps the focus, and is stored", async () => {
+      test("each result is shown by the field on screen, which keeps the focus, and is stored", async () => {
         const source = dictation()
         const app = await mountNote(bridge.views.dictated(source))
         const typed = element<HTMLInputElement>("input")
@@ -709,7 +738,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
         expect(app.note()).toBe("Note: hello!")
       })
 
-      test("after the program empties the input, the results go on into the same element, and are stored", async () => {
+      test("after the program empties the field, the results go on into the same element, and are stored", async () => {
         const source = dictation()
         const app = await mountNote(bridge.views.dictated(source))
         const typed = element<HTMLInputElement>("input")
@@ -725,14 +754,14 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
     })
   })
 
-  describe("an input in the place of a plain field, and back", () => {
+  describe("a field to type into in the place of a plain field, and back", () => {
     const mountLid = async (flags: "Opened" | "Closed") => {
       mount(bridge.drawInto, bridge.views.lid, start(lid, { flags }))
       settle()
       await bridge.drawn()
     }
 
-    test("the input drawn in a plain field's place shows the program's value, and what is typed is stored", async () => {
+    test("the field drawn in a plain field's place shows the program's value, and what is typed is stored", async () => {
       await mountLid("Closed")
       expect(element<HTMLInputElement>("input").value).toBe("Closed")
       await act(() => button("Open").click())
@@ -743,7 +772,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       expect(typedInto.value).toBe("draft!")
     })
 
-    test("the plain field drawn in the place of the input is left as the view draws it", async () => {
+    test("the plain field drawn in the place of the field to type into is left as the view draws it", async () => {
       await mountLid("Opened")
       const typedInto = element<HTMLInputElement>("input")
       await act(() => type(typedInto, "Ada!"))
@@ -756,8 +785,8 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
   })
 
   // Restated: Next is applied and drawn at once, so no key for the first step can reach the run after it.
-  describe("an input in the place of another input", () => {
-    test("after Next, the element is the second step's input, empty, and what is typed is stored there", async () => {
+  describe("a field in the place of another field", () => {
+    test("after Next, the element is the second step's field, empty, and what is typed is stored there", async () => {
       mount(bridge.drawInto, bridge.views.steps, start(steps))
       settle()
       await bridge.drawn()
@@ -771,8 +800,9 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
     })
   })
 
-  // A write the state rejects leaves the very same state: no new state, and the element shows the model's value again.
-  describe("an input whose place the state no longer holds", () => {
+  // What is typed that `update` rejects leaves the very same state: no new state, and the element shows the model's
+  // value again.
+  describe("a field that update no longer stores", () => {
     test("a key typed once it is locked is rejected, and the element shows the program's value again at once", async () => {
       const app = mount(bridge.drawInto, bridge.views.lock, start(lock))
       settle()
@@ -852,7 +882,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
 
   // A gap of 16 November 2026 (`docs/rejected.md`, "The bridges"), closed for both bridges.
   describe("a root in a shadow tree", () => {
-    test("what is typed into an input drawn in a shadow root is stored, and shown", async () => {
+    test("what is typed into a field drawn in a shadow root is stored, and shown", async () => {
       document.body.innerHTML = "<div id=\"host\"></div>"
       const shadow = element("#host").attachShadow({ mode: "open" })
       shadow.innerHTML = "<div id=\"app\"></div>"
@@ -865,7 +895,7 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       const input = root.querySelector("input")
       if (input === null) throw new Error("Nothing is drawn in the shadow root")
       await act(() => type(input, "Ada"))
-      expect([input.value, app.model()]).toEqual(["Ada", "Ada"])
+      expect([input.value, app.model().note]).toEqual(["Ada", "Ada"])
     })
   })
 }

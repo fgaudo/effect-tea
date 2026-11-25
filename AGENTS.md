@@ -8,7 +8,7 @@ rule has one place, and other places link to it.
 
 Read the skill of the task first, in `.agents/skills/`: [`change-api`](.agents/skills/change-api/SKILL.md) for an
 export; [`change-engine`](.agents/skills/change-engine/SKILL.md) for the engine (`src/core.ts`, `shell.ts`,
-`engine.ts`, `run.ts`, `compose.ts`, `dispatch.ts`, `input.ts`, `log.ts`), a testing tool (`src/testing/`), their
+`engine.ts`, `run.ts`, `compose.ts`, `dispatch.ts`, `log.ts`), a testing tool (`src/testing/`), their
 tests, `tools/mutations/` or `test/scheduled.test_scheduler.ts`; [`add-example`](.agents/skills/add-example/SKILL.md)
 for an example or a bridge; [`upgrade-effect`](.agents/skills/upgrade-effect/SKILL.md) for a newer Effect or a
 dependency; [`release`](.agents/skills/release/SKILL.md) for the changelog, the version, a release or the site;
@@ -105,7 +105,8 @@ stay local ("Deciding"). One made with an AI agent ends with an `Assisted-by: <m
   A misspelled name, a form that repeats another and a type empty but true are no gaps (`docs/rejected.md`, "The API").
 - **A function earns its place by doing what Effect alone cannot**, or by being the one place where a rule of the
   library is applied (`reject`, `program`): never a name over Effect's combinators, a documented literal or an operator
-  (`docs/rejected.md`, "The API"). A declaration that takes a standard type of Effect (`at`, an `Optic`) may stay.
+  (`docs/rejected.md`, "The API"). A declaration that takes a standard type of Effect (the `flags` of a child, an
+  `Option`) may stay.
 - **Only stable APIs**: nothing `@stability unstable` of Effect, nor `unstable_` or `experimental_` of React, but what
   `tsconfig.json` lists for `tools/`, outside its files that stand for a user's code; and **nothing deprecated**, of
   any dependency, in the library, its tests or its examples. The typecheck and the lint fail on one.

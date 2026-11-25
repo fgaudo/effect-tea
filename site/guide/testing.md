@@ -10,7 +10,6 @@ This page shows you how to test a program, step by step, and which tool to use a
 pure, so most tests need no runtime:
 
 - `applyAll` and `dispatchViolations` test `update` and the model as plain functions.
-- `placeViolations` tests the place of an input as plain functions.
 - `simulate` and `rehearse` play a flow without running the program.
 - `drive` plays a scenario on the running program.
 
@@ -29,11 +28,10 @@ The tests of a program follow its shape, in four steps:
    - that `update` answers every message with a step or `reject`, the same each time;
    - that the model holds what `update` accepts, and no control that does nothing (`dispatchViolations`);
    - that the model is data;
-   - that the `set` of each input given as `get` and `set` changes its place, and nothing else (`placeViolations`);
    - what the program listens to (`program.subscriptions`).
-3. **Write one test per message.** Assert the next state, the commands and the events by value. The state includes
-   the inputs, which hold what the program wrote. Assert a rejection as `reject` itself, with `toBe(reject)`. Never
-   assert it as "the state did not change": a step that keeps the state would pass that test too.
+3. **Write one test per message.** Assert the next state, the commands and the events by value. Assert a rejection as
+   `reject` itself, with `toBe(reject)`. Never assert it as "the state did not change": a step that keeps the state
+   would pass that test too.
 4. **Check the defects apart.** The invariants rule out some pairs of state and message (see
    [rejections and defects](./rejections-and-defects.md)). The steps above skip those pairs. Check them as defects:
    `expect(() => update(message)(state)).toThrow(InvariantDefect)`.
@@ -101,23 +99,15 @@ holds, because a parent keeps each child's model while the child keeps its state
 (`messagesOf` above). You write it one case of the model at a time. The library cannot write it, because a message in a
 model is a value like any other.
 
-**Inputs.** What the user writes into an input is not one of the messages that the model holds. The library keeps the
-rule for it, and the rule is the same for every input. A test writes into an input as the view does:
-`{ _tag: 'Name', message: { _tag: 'Written', value: 'Ada' } }`. Such writes can be checked with `dispatchViolations`
-too. The reader does not return them: the test lists them, beside the messages of the reader in one call, or in a call
-of their own. The writes into the values the model shows as editable are `held`. The writes into all the values it
-shows are `candidates`. Each write is of a value other than the one the model shows: so its step does something, as
-`Inert` asks, and the same write sent again does nothing. Then `Rejected` finds an editor with no place to write into, and `Missing`
-finds a place that the model shows as read-only. [`stocktake`](../../examples/stocktake/stocktake.test.ts) does this.
-A write into an input that an element reports, as the offset of a scroll, is of a value other than the one the state
-holds, since the model does not show it (see [inputs](./inputs.md#a-value-that-an-element-reports)).
-
 **A message held without its value.** The reader takes the value as a parameter, `messagesOf(model, offset)`, and
 fills it into each message that the model holds without it, as the view does (see
-[what an element reports](./inputs.md#what-an-element-reports)).
+[what an element gives](./what-an-element-gives.md)).
 
-- Draw the value, with fast-check. A test that fills one value, as the one at which the message always acts, also
-  passes an `update` that rejects the other values.
+- For what is typed, fill a text other than the one the model shows, as that text with a letter more: the text that
+  the field holds already changes nothing, which `Inert` finds. [`form`](../../examples/form/form.test.ts) and
+  [`stocktake`](../../examples/stocktake/stocktake.test.ts) do this.
+- Draw a value that the model does not show, with fast-check. A test that fills one value, as the one at which the
+  message always acts, also passes an `update` that rejects the other values.
 - Give the same values to the test of the view, which fills them as the element would report them (see
   [the view](#the-view)).
 - Exempt with `inert` the values at which the message means nothing: there, its step does nothing.
@@ -146,28 +136,6 @@ time. They keep the candidates in a record that the compiler checks against the 
 [`timer`](../../examples/timer/timer.test.ts) does. With such a record, a new message does not compile until the test
 says what a user could ask for with it, even if that is nothing. This is the examples' way to keep the list. The library
 does not ask for it.
-
-### The place of an input
-
-**A `set` changes its place, and nothing else** (see [inputs](./inputs.md#rules)). An input given as `get` and `set`
-needs a test of it, and `placeViolations` is that test:
-
-```ts
-test("its counts are a place: a set changes the count at its id, and nothing else", () => {
-  fc.assert(fc.property(fc.array(states(), { minLength: 1 }), fc.array(text, { minLength: 1 }), (drawn, values) => {
-    expect(placeViolations(counts, { states: drawn, ids: ["i1", "i2", "missing"], values })).toEqual([])
-  }))
-})
-```
-
-- The test is given the input itself. So the program declares it beside `make`, and exports it, as
-  [`stocktake`](../../examples/stocktake/stocktake.ts) exports `counts`.
-- The states are drawn from the arbitrary of the program's states. Among them, give at least one where the place is
-  there: where `get` gives `None`, `placeViolations` checks nothing.
-- For inputs by id, give ids of several rows, and one that no row has. Rows that hold different values find more than
-  rows that hold the same.
-
-What `placeViolations` checks is in [testing tools](./testing-tools.md#placeviolations).
 
 ### The view
 
@@ -240,7 +208,6 @@ From `@fgaudo/effect-tea/testing`:
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | [`applyAll`](./testing-tools.md#applyall)                     | `update`'s rules: apply messages, check the state, commands and events                                              |
 | [`dispatchViolations`](./testing-tools.md#dispatchviolations) | that the model holds what `update` accepts, all of it, that each control does something, and a double tap acts once |
-| [`placeViolations`](./testing-tools.md#placeviolations)       | that an input's `set` changes its place, and nothing else                                                           |
 | [`simulate`](./testing-tools.md#simulate)                     | a flow with its commands answered at once, without running the program                                              |
 | [`rehearse`](./testing-tools.md#rehearse)                     | a user's scenario without running the program, the test deciding when each command runs                             |
 | [`drive`](./testing-tools.md#drive)                           | a user's scenario on the running program, subscriptions included                                                    |

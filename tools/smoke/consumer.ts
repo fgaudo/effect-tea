@@ -1,6 +1,6 @@
 // A consumer of the packed package, run with Node and typechecked by `smoke.ts` under several TypeScript versions
 // and module resolutions. It instantiates the types of `program` (a child, children by id, with a key, flags and
-// `listening`, events and external messages told in a step, an output its parent reads, inputs, a parent of parents,
+// `listening`, events and external messages told in a step, an output its parent reads, a parent of parents,
 // subscriptions made from their keys, a function over programs), checks that what they reject does not compile, and that the declarations of what it
 // exports can be emitted.
 import {
@@ -21,14 +21,13 @@ import {
   type Update
 } from "@fgaudo/effect-tea"
 import * as Library from "@fgaudo/effect-tea"
-import { applyAll, placeViolations, rehearse, simulate, stateOf } from "@fgaudo/effect-tea/testing"
+import { applyAll, rehearse, simulate, stateOf } from "@fgaudo/effect-tea/testing"
 import * as Testing from "@fgaudo/effect-tea/testing"
 import * as Arr from "effect/Array"
 import * as Channel from "effect/Channel"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
-import * as Optic from "effect/Optic"
 import * as Opt from "effect/Option"
 import * as Stream from "effect/Stream"
 
@@ -66,20 +65,17 @@ export const greeter = program<{ state: Greeting; model: number; flags: number }
   makeModel: (state) => state.since
 })
 
-type Label = Readonly<{ id: number; label: string }>
-
 // `fulls` is a field of this state alone: `smoke.ts` counts it in the declarations, to see how often they spell it out.
 type State = Readonly<{
   ids: ReadonlyArray<number>
   fulls: number
   opened: Opt.Option<number>
-  labels: ReadonlyArray<Label>
 }>
 
 type ResetAll = Readonly<{ _tag: "ResetAll" }>
 
 // Exported, as a module that declares a program for others: its declarations name the types of `program`.
-export const { child, childById, input, inputById, make, withChildren } = program<{ state: State; message: ResetAll }>()
+export const { child, childById, make, withChildren } = program<{ state: State; message: ResetAll }>()
 
 // A child that names no external message, which `nodenext` checks without `exactOptionalPropertyTypes`.
 export const quiet = program<{ state: CounterState; model: CounterState; message: Readonly<{ _tag: "Increment" }> }>()
@@ -99,25 +95,11 @@ export const children = {
   Greeter: child(greeter, { flags: (state) => state.opened })
 }
 
-// Exported, as a package that publishes a program would: its declarations name what `input` and `inputById` give.
-export const inputs = {
-  Fulls: input({ at: Optic.id<State>().key("fulls") }),
-  Label: inputById({
-    get: (state, id: number) => Opt.map(Arr.findFirst(state.labels, (row) => row.id === id), (row) => row.label),
-    set: (state, id, label) => ({
-      ...state,
-      labels: Arr.map(state.labels, (row) => row.id === id ? { id, label } : row)
-    }),
-    store: (label) => label.trim()
-  })
-}
-
-const first: State = { ids: [1], fulls: 0, opened: Opt.none(), labels: [{ id: 1, label: "" }] }
+const first: State = { ids: [1], fulls: 0, opened: Opt.none() }
 
 // What a parent tells its children is data of its step, typed by their external messages.
 export const app = withChildren(children).make({
   init: { state: first },
-  inputs,
   update: () => (state) =>
     andThen(
       { state, tell: [{ _tag: "Main", message: { _tag: "Reset" } }] },
@@ -359,16 +341,6 @@ program<{ state: State; message: Readonly<{ _tag: "Main" }> }>().withChildren(ch
   makeModel: () => null
 })
 
-// Nor does an input that takes a child's name.
-// @ts-expect-error
-withChildren(children).make({
-  init: { state: first },
-  update: () => (state) => ({ state }),
-  inputs: { Main: input({ at: Optic.id<State>().key("fulls") }) },
-  onEvent: handled,
-  makeModel: () => null
-})
-
 // A program with external messages has an `external`, which answers them.
 // @ts-expect-error
 const deaf: Program<{ state: CounterState; model: null; message: Full; external: Reset }> = {
@@ -442,27 +414,6 @@ start({ ...steady, external: (_: Reset) => (state: CounterState) => state.count 
 export const steadyStarted = start({ ...steady, external: (_: Reset) => () => ({ state: { count: 0 } }) })
 export const lampStarted = start(lamp)
 
-// An input and no children: the title is the program's own state, which the outside writes over.
-type Draft = Readonly<{ title: string }>
-
-const drafting = program<{ state: Draft; command: "Load"; message: "Cleared" }>()
-
-const draft = drafting.make({
-  init: { state: { title: "" } },
-  inputs: { Title: drafting.input({ at: Optic.id<Draft>().key("title") }) },
-  update: (_: "Cleared") => (state: Draft) => ({
-    state: { title: "" },
-    commands: state.title === "" ? [] : ["Load" as const]
-  }),
-  runCommand: () => Effect.succeedNone,
-  makeModel: (state) => state.title
-})
-
-// A write is of the type of the value the place holds; an own message that takes an input's name does not compile, nor does a
-// command's answer that writes into an input.
-// @ts-expect-error
-const wrong: MessageOf<typeof draft> = { _tag: "Title", message: { _tag: "Written", value: 1 } }
-
 // A defect is read, never built: only the library makes one.
 export const crashed = (error: unknown) =>
   error instanceof InvariantDefect
@@ -480,60 +431,6 @@ export const built = () => [
   // @ts-expect-error
   new CompositionDefect({ message: "Broken", child: "Page" })
 ]
-
-// @ts-expect-error
-program<{ state: Draft; command: "Load"; message: Readonly<{ _tag: "Title" }> }>().make({
-  init: { state: { title: "" } },
-  inputs: { Title: drafting.input({ at: Optic.id<Draft>().key("title") }) },
-  update: () => (state) => ({ state }),
-  runCommand: () => Effect.succeedNone,
-  makeModel: () => null
-})
-
-drafting.make({
-  init: { state: { title: "" } },
-  inputs: { Title: drafting.input({ at: Optic.id<Draft>().key("title") }) },
-  update: (_: "Cleared") => (state: Draft) => ({ state, commands: ["Load" as const] }),
-  // @ts-expect-error
-  runCommand: () => Effect.succeedSome({ _tag: "Title" as const, message: { _tag: "Written", value: "a" } }),
-  makeModel: () => null
-})
-
-type TitleWrite = Readonly<{ _tag: "Title"; message: Readonly<{ _tag: "Written"; value: string }> }>
-
-// An external message tagged like an input is no write: the program answers it in its `external`.
-export const filled = program<{ state: Draft; external: TitleWrite }>().make({
-  init: { state: { title: "" } },
-  inputs: { Title: drafting.input({ at: Optic.id<Draft>().key("title") }) },
-  external: (write: TitleWrite) => () => ({ state: { title: write.message.value } }),
-  makeModel: () => null
-})
-
-// Inputs by id, at an optic of the id and at `get` and `set`, which take it: a write names its id.
-type Sheet = Readonly<{
-  counts: Readonly<Record<string, string>>
-  rows: ReadonlyArray<Readonly<{ id: number; note: string }>>
-}>
-
-const sheets = program<{ state: Sheet }>()
-
-const sheet = sheets.make({
-  init: { state: { counts: { a: "" }, rows: [{ id: 1, note: "" }] } },
-  inputs: {
-    Count: sheets.inputById({
-      at: (id: string) => Optic.id<Sheet>().key("counts").at(id),
-      store: (count) => count.trim()
-    }),
-    Note: sheets.inputById({
-      get: (state, id: number) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.note),
-      set: (state, id, note) => ({ ...state, rows: Arr.map(state.rows, (row) => row.id === id ? { id, note } : row) })
-    })
-  },
-  makeModel: (state) => state.counts
-})
-
-// @ts-expect-error
-const unnamed: MessageOf<typeof sheet> = { _tag: "Count", message: { _tag: "Written", value: "1" } }
 
 // A state is any value: a number, alone, as a child and by id, a state without fields, and a type parameter.
 export const numbered = program<{ state: number; message: "Increment" }>().make({
@@ -594,8 +491,6 @@ assert(
   Opt.getOrThrow(foldedModel.greeter) === 1 && Opt.isSome(foldedModel.shown),
   "a child is there where its state says"
 )
-const written = app.update({ _tag: "Label", id: 1, message: { _tag: "Written", value: "Ada" } })(folded.state)
-assert(written !== reject && written.state.own.labels[0]?.label === "Ada", "a parent stores a write into its own state")
 
 // A whole state for a test, from the own state and the states of the children it lists.
 const placed = stateOf(app, { ...first, ids: [1, 2] }, { Main: { count: 2 }, Row: [[2, { count: 1 }]] })
@@ -603,15 +498,6 @@ const placedModel = app.makeModel(placed)
 assert(placedModel.main.count === 2 && placedModel.rows[1]?.model.count === 1, "stateOf puts the children in place")
 // @ts-expect-error
 stateOf(app, first, { Main: { count: "2" } })
-
-// The laws of an input's place, with the types of the input exported beside the program.
-assert(
-  placeViolations(inputs.Fulls, { states: [first], values: [0, 2] }).length === 0
-    && placeViolations(inputs.Label, { states: [first], ids: [1, 2], values: ["", "Ada"] }).length === 0,
-  "placeViolations passes a set that changes its place alone"
-)
-// @ts-expect-error
-placeViolations(inputs.Label, { states: [first], values: [""] })
 
 const lampsLit = stateOf(lamps, { ids: [1, 2], lit: 0 }, { Lamp: [[2, { on: true }]] })
 const read = lamps.update({ _tag: "ResetAll" })(lampsLit)
@@ -625,30 +511,6 @@ const relayed = applyAll(outer.update, [{ _tag: "ResetAll" }], outer.init.state)
 assert(relayed.state.own.heard === 0, "a parent of parents tells its child, which tells its own")
 const told = dialogOfQuiet.update({ _tag: "Content", message: { _tag: "Increment" } })(dialogOfQuiet.init.state)
 assert(told !== reject && countOf(told.state.children.Content) === 1, "a parent made over any program routes to it")
-
-const cleared = applyAll(
-  draft.update,
-  [{ _tag: "Title", message: { _tag: "Written", value: "Ada" } }, "Cleared"],
-  draft.init.state
-)
-assert(cleared.state.title === "" && cleared.commands.length === 1, "a write is stored, and the step sees it")
-const late = draft.update({ _tag: "Title", message: { _tag: "Written", value: "Ada L" } })(cleared.state)
-assert(
-  late !== reject && late.state.title === "Ada L" && wrong !== undefined,
-  "a write is stored whatever its place held"
-)
-
-const counted = sheet.update({ _tag: "Count", id: "a", message: { _tag: "Written", value: " 1 " } })(
-  sheet.init.state
-)
-assert(
-  counted !== reject && counted.state.counts.a === "1",
-  "a write into an input by id is stored at its id, in the form its input declares"
-)
-const nowhere = sheet.update({ _tag: "Count", id: "b", message: { _tag: "Written", value: "1" } })(
-  sheet.init.state
-)
-assert(nowhere === reject && unnamed !== undefined, "a write at an id the state does not hold is rejected")
 
 assert(deaf.update({ _tag: "Full" })(deaf.init.state) !== reject, "a program typed past its types runs")
 assert(!("subscriptions" in unlistening), "a program typed past its types has only the pieces written")

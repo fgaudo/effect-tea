@@ -67,7 +67,7 @@ it. A click calls `dispatch`, and when it returns, `update` has seen the click.
 
 This program has no effects yet, and it is run all the same: once it has some, they start with `run` alone. In a
 browser, `run` is forked with `Effect.runFork`, with a `tapCause` that reports a run that dies.
-[Step 4](./4-inputs.md) shows it for the finished application (see [running](../guide/running.md)).
+[Step 4](./4-what-the-user-types.md) shows it for the finished application (see [running](../guide/running.md)).
 
 ## What you have
 

@@ -81,15 +81,14 @@ export const view: View<Timers.Model, Timers.Message> = (model, dispatch) =>
 // #endregion timers
 
 // #region named
-// A controlled element, the same one throughout, with no key: it shows the name the model holds, and what is typed is
-// written over that name.
+// A controlled element, the same one throughout, with no key: it shows the name the model holds, and sends what is
+// typed, filled with the text that it holds.
 export const namedView: View<Named.Model, Named.Message> = (model, dispatch) =>
   h("div.named", [
     h("input", {
       props: { value: model.name, placeholder: "A name" },
       on: {
-        input: (event: Event) =>
-          forwardTo(dispatch, "Name")({ _tag: "Written", value: (event.target as HTMLInputElement).value })
+        input: (event: Event) => dispatch({ ...model.typed, value: (event.target as HTMLInputElement).value })
       }
     }),
     thunk("div.timer", "timer", timerView, [model.timer, forwardTo(dispatch, "Timer")])

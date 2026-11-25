@@ -72,4 +72,4 @@ changed, and ten timers ticking do not redraw each other (see
 A list of independent timers, each ticking only while it runs, and a parent of some fifty lines that knows nothing of
 phases, ticks or bells.
 
-Next, [a name for each timer](./4-inputs.md).
+Next, [a name for each timer](./4-what-the-user-types.md).

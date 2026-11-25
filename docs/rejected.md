@@ -128,10 +128,10 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
 - **Every tool starting from `from` or `flags`.** Reasoned, 15 November 2026: `simulate` folds pieces from a step, as
   `applyAll` does, and `drive` and `rehearse` start as `run` does (`rehearse`'s `from` went in 0.8.0). _Reopen if_ a
   defect of an `init` with flags goes untested under `simulate`.
-- **`hear` refusing a write into an input.** By a type parameter of `Shape` (reasoned, 16 November 2026): invariant in
-  `Rehearsal`, so every annotation by hand breaks, for one method. By shape (shipped in 0.8.0, removed on 22 November
-  2026): it refused right tests with an error that named no rule
-  ([`application-report.md`](records/application-report.md), point 4), and a heard write is applied as the run applies
+- **`hear` refusing a write into an input**, while the library had inputs. By a type parameter of `Shape` (reasoned, 16
+  November 2026): invariant in `Rehearsal`, so every annotation by hand breaks, for one method. By shape (shipped in
+  0.8.0, removed on 22 November 2026): it refused right tests with an error that named no rule
+  ([`application-report.md`](records/application-report.md), point 4), and a heard write was applied as the run applied
   it. _Reopen if_ `Shape` gains a type of what its subscriptions send for another reason.
 - **`rehearse` and `simulate` taking the options of `drive`** (`RunOptions`). Reasoned, 16 November 2026, with a second
   opinion: options are how a program runs, `onApplied` and `onIgnored` cannot change what a test checks, and in
@@ -254,56 +254,35 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   holds nothing the held message does not, for a third way to send. _Reopen if_ a model cannot hold such a message as
   data, or a view cannot fill it without building the rest.
 - **A write, then a message, as the advised way for a fact that comes with a value.** Advised from 22 November 2026,
-  dropped on the 23rd for a message the model holds without its value
-  ([`value-in-message.md`](records/value-in-message.md), "Decided"): two steps per fact, and a view that forgets the
-  write compiles. It stays the way for a message that is a class. _Reopen if_ a held message cannot be filled with what
-  the element gives.
-- **An input as a `Field`, `{ value, revision }`.** Implemented on 14 November 2026, replaced unreleased by the plain
-  input ([`registers.md`](records/registers.md)): composition split the ownership of a revision. Since 20 November a
-  write carries its value alone ([`write-without-was.md`](records/write-without-was.md)). _Reopen if_ such a write fails
-  where a revision would not.
-- **Whoever steps replaces what is below, and the channel of a replacement, declared.** Spiked, 15 November 2026
-  (`2d2e77b`, `45da546`): the owner judged it too complex ([`registers.md`](records/registers.md)). _Reopen if_ the
-  plain input is dropped and an input must keep a history between writes.
+  while the library had inputs, dropped on the 23rd for a message the model holds without its value
+  ([`value-in-message.md`](records/value-in-message.md), "Decided"): two steps per fact, and a view that forgot the
+  write compiled. _Reopen if_ a held message cannot be filled with what the element gives.
+- **An input declared in `make`, whose writes the library stores**, with its forms: a `Field` with a revision, the
+  replacements of whoever steps declared, a bare optic, an exported `byId` optic, a value changed as it is stored, a
+  condition on the declaration, handles of the inputs in `makeModel`, a lock derived from the model, a `set` free to
+  change the state, a place as an optic alone, and the form's place kept while it saves with its writes `withheld`
+  (14 to 22 November 2026: [`registers.md`](records/registers.md), [`stored-form.md`](records/stored-form.md),
+  [`application-report.md`](records/application-report.md)). Shipped in 0.8.0, removed on 25 November 2026, as step 61
+  decided ([`decisions-weighed.md`](records/decisions-weighed.md), point 4): it did by a second concept what a message
+  that the model holds without its value does, with a place declared in `make`, a write that no model held, a rule of
+  `set` that nothing checked, and a tool for that rule. What is typed is a message of the program, as a click is, and
+  `update` decides what it does. _Reopen if_ a value of an element is found that a held message cannot carry, or
+  programs lose what is typed where their tests with `dispatchViolations` pass.
 - **A parent that reads its children's inputs; a parent's `update` given its children's models; a write into a child's
-  input that raises an event.** Reasoned, 16 November 2026, and weighed again on 22 November when `output` was taken
-  ([`kept-children.md`](records/kept-children.md), "A value that a parent reads"): a parent gets no child's state, a
-  model has one reader, and a parent keeps no copy. A value the user writes belongs to the program whose rules use it
-  ("Structuring a program"); what a parent must read of a child is its `output`. _Reopen if_ a value the parent must
-  read can be neither an input of its own, by id or not, nor a child's `output`.
-- **An input declared as a bare optic, and an input by id as a function of the id.** Committed on 16 November 2026
-  (`38b3ac6`), replaced the next day, unreleased, by `input` and `inputById`: a bare `{ get, set }` is not typed, and an
-  element found by a predicate needs `Optic.makeOptional`. _Reopen if_ either comes to be written as easily.
-- **An exported `byId` optic.** Reasoned, 16 November 2026: a name over `Optic.makeOptional` and `Arr.findFirst`, and
-  `inputById` takes `get` and `set`. _Reopen if_ it must do what Effect cannot.
-- **A value changed as the library stores it** (`input({ at, normalize })`). Probed on 18 November 2026, reversed in
-  part on the 20th, and replaced on the 22nd by `store`, a field of the input, a function of the value alone
-  ([`stored-form.md`](records/stored-form.md)): a `set` stores exactly what it is given.
-- **A condition on an input's declaration** (`input({ at, when })`). Reasoned, 18 November 2026: a `get` that returns
-  `None` under another name; a lock is a case of the state (`examples/stocktake`). _Reopen if_ a lock cannot be a case
-  of the state.
-- **Handles of the inputs in `makeModel`.** Reasoned, with a second opinion, 20 November 2026: a second name over the
-  `get` of the place. _Reopen if_ a program cannot name the `get` of its own place.
-- **An entry of each input in the model, which a view writes through.** Spiked on 20 November 2026 (`17534ff` on
-  `claude/spike-input-in-model`), rejected by the owner ([`input-in-the-model.md`](records/input-in-the-model.md)): it
-  buys what the tests find already, costs a type of the library's in every model, and closes neither a write built by
-  hand nor the route above the program. Weighed again in step 61, 24 November 2026, as plain data, the write without
-  its value, given to `makeModel`: left, since a message of the program held without its value is that data with no
-  declaration, which step 64 of `ROADMAP.md` takes ([`decisions-weighed.md`](records/decisions-weighed.md)). _Reopen
-  if_ a view writes over a value its model does not hold, or into another input, where its program's tests pass.
-- **A lock derived from the model.** Reasoned, 18 November 2026: the library would need a mark on an input's value in
-  the model, and to check at run time what a view sends. _Reopen if_ the library comes to know which value of a model
-  is an input's without a mark.
-- **A `set` free to change the state, promised as the code calls it.** Reasoned, refused by the owner on 22 November
-  2026 ([`application-report.md`](records/application-report.md), point 2): an `update` under another name that cannot
-  reject, whose effect follows some writes and not others. A `set` changes its place and nothing else. _Reopen if_ a
-  program must decide on a write, and no message after it, or carrying the value, can say it.
-- **A place as an optic alone.** Reasoned, 22 November 2026: Effect has no optic for an element an array's predicate
-  picks, so the hole would move into `Optic.makeOptional`. `store` and `placeViolations` were taken instead
-  ([`stored-form.md`](records/stored-form.md)). _Reopen if_ Effect gives such an optic.
-- **The form's place kept while it saves, with its writes `withheld`.** Refused by the owner on 22 November 2026, for
-  the lock by the shape of the state, which holds with any renderer. _Reopen if_ a program must keep a place its model
-  shows read-only, for a reason no shape of its state can say.
+  input that raises an event**, the first and the last while the library had inputs. Reasoned, 16 November 2026, and
+  weighed again on 22 November when `output` was taken ([`kept-children.md`](records/kept-children.md), "A value that a
+  parent reads"): a parent gets no child's state, a model has one reader, and a parent keeps no copy. A value the user
+  writes belongs to the program whose rules use it ("Structuring a program"); what a parent must read of a child is its
+  `output`. _Reopen if_ a value the parent must read can be neither a message of its own, by id or not, that `update`
+  stores in its state, nor a child's `output`.
+- **An entry of each input in the model, which a view wrote through**, while the library had inputs. Spiked on 20
+  November 2026 (`17534ff` on `claude/spike-input-in-model`), rejected by the owner
+  ([`input-in-the-model.md`](records/input-in-the-model.md)): it bought what the tests found already, cost a type of
+  the library's in every model, and closed neither a write built by hand nor the route above the program. Weighed again
+  in step 61, 24 November 2026, as plain data, the write without its value, given to `makeModel`: left, since a message
+  of the program held without its value is that data with no declaration, which took the inputs' place on 25 November
+  ([`decisions-weighed.md`](records/decisions-weighed.md)). _Reopen if_ a view sends a value its model does not hold
+  for that element, where its program's tests pass.
 - **The wrapping of a child's message as a public, or an internal, function.** Reasoned with a probe of `tsc`, 15
   November 2026 ([`boundary.md`](records/boundary.md), "A question"): the compiler already refuses a wrong name, id or
   message in a literal; the one check it adds is a stray `id` on a literal that is not fresh. _Reopen if_ a tool must

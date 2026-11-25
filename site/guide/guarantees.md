@@ -72,12 +72,6 @@ each bridge's to promise (see [view](./view.md#rules)).
   times it is read. So every read gives the very same model, and a bridge need not draw it again.
   - A model that throws is a defect in `'render'`, recorded where the model is read, once while its state is the
     current one.
-- **An input stores what is written, where its place is there.** A write is stored, in the form that its input
-  declares, when its place is there, and rejected otherwise.
-  - This holds whatever the value is, and whatever else the state says.
-  - A value whose stored form is equal, by `Equal`, to the one the place holds leaves the very same state.
-  - How a view writes into an input is in [inputs](./inputs.md). Which elements the package's bridges draw is in
-    [the package's bridges](./writing-a-bridge.md#the-packages-bridges).
 
 ## What is left to you
 
@@ -109,8 +103,8 @@ each bridge's to promise (see [view](./view.md#rules)).
   A slow one holds up the event that sent the message, and nothing bounds it.
   - The effects of the step, its subscriptions and the start of its commands, follow in the run (see
     [what you can rely on](#what-you-can-rely-on)). When they start is unspecified.
-  - A write is applied as a message is. So an element that reports at each of its events, as a scroll does, runs a
-    step at each, in its handler (see [what an element reports](./inputs.md#what-an-element-reports)).
+  - An element that reports at each of its events, as a scroll does, runs a step at each, in its handler (see
+    [what an element reports](./what-an-element-gives.md#what-an-element-reports)).
 - **A renderer is told of every new state**, in the call that made it. One that draws later reads the latest model
   when it draws (see [running](./running.md#rules)).
 - **A subscription that sends faster than the screen refreshes holds the run back.** The bridge to snabbdom draws once
@@ -125,8 +119,8 @@ each bridge's to promise (see [view](./view.md#rules)).
   - `dispatchViolations` checks it, in tests, on the messages a test reads from the model (see
     [testing tools](./testing-tools.md)).
   - That the view draws what its model holds is checked with your renderer's tools.
-- **A view sends only what its model holds**, writes only into the inputs its model shows, and never builds a message
-  itself, as [model](./model.md#rules) says. The library does not enforce it.
+- **A view sends only what its model holds**, and never builds a message itself, as [model](./model.md#rules) says. The
+  library does not enforce it.
 - **What the screen shows beside the program's model.** The guarantees are of the program. Each bridge says what it
   draws beside the model (see [view](./view.md#rules)).
 - **With the bridge to React, the run lives as long as the effect that starts it**, as
@@ -135,26 +129,21 @@ each bridge's to promise (see [view](./view.md#rules)).
 - **The rules of [structuring a program](./structuring-a-program.md).** The library does not enforce them: the shape
   of the state, a view that draws and never decides, a value that the user writes held by the program whose rules use
   it. The one it enforces is that a parent never reads a child's state: a parent is given none.
-- **A `set` changes its place, and nothing else**, as [inputs](./inputs.md#rules) says. The run does not check it.
-  - `placeViolations` checks it, in tests, in the states and at the ids that a test gives (see
-    [testing tools](./testing-tools.md#placeviolations)).
 - **Flags, and what `key` gives, made of values that `Equal` compares by value.** Other flags, or another value of
   `key`, start a child again. A function made anew in `flags` or `key` is other flags each time, since `Equal` compares
   a function by reference. Nothing says so: the child starts again, and loses its state (see
   [composition](./composition.md#children-by-id)).
-  - An `Equal` and a `Hash` that your program writes, for a key, what `key` gives, an id, flags or a value that an
-    input stores, keep Effect's rules: values that `Equal` finds equal have the same `Hash`, and both give the same
-    answer each time. Nothing checks them. Where one breaks them, what the library does with that value is undefined:
-    which subscriptions and children it keeps, which dispatch it gives a child, and whether a write leaves the very
-    same state.
+  - An `Equal` and a `Hash` that your program writes, for a key, what `key` gives, an id or flags, keep Effect's rules:
+    values that `Equal` finds equal have the same `Hash`, and both give the same answer each time. Nothing checks
+    them. Where one breaks them, what the library does with that value is undefined: which subscriptions and children
+    it keeps, and which dispatch it gives a child.
 - **What must stay private is in a service, not in a key.** A key is shown whole: in a defect of its subscription, and
   in the `origin` that `onApplied` and `onIgnored` hear (see [running](./running.md#when-a-defect-happens)).
 - **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated.** So are
-  an `init` that takes flags, the handlers of `onEvent`, the `get`, the `set` and the `store` of an input and an `at`
-  that is a function of the id, and the functions that say which children are there and when they listen: `there`,
-  `key`, `flags`, `ids` and `listening`. The library calls them when it chooses. A child's `external`, its `init` when
-  a step of its parent starts it, its parent's handlers of `onEvent`, and the `get`, the `set` and the `store` of a
-  write run in the parent's `update`. No value that a program or a test gives the library, or that the library gives
+  an `init` that takes flags, the handlers of `onEvent`, and the functions that say which children are there and when
+  they listen: `there`, `key`, `flags`, `ids` and `listening`. The library calls them when it chooses. A child's
+  `external`, its `init` when a step of its parent starts it, and its parent's handlers of `onEvent` run in the
+  parent's `update`. No value that a program or a test gives the library, or that the library gives
   back, is mutated once it is made, nested objects included: a state, a message, a command, an event, flags, a key, a
   model, an output, and what a testing tool returns. The library reuses a child's model, and the keys of its
   subscriptions, while the child keeps the very same state: a child started again makes its own.
@@ -173,8 +162,8 @@ each bridge's to promise (see [view](./view.md#rules)).
 The library's tests check each guarantee. The tests of the run check the guarantee of the order.
 
 [`src/interleaving.test.ts`][interleaving] checks it too, with most of the others. It runs them under random orders of
-clicks, writes into an input (current and stale), command answers, subscription messages and ends, releases, defects,
-and interruptions by the program. It checks:
+clicks, texts typed into a controlled element (current and stale), command answers, subscription messages and ends,
+releases, defects, and interruptions by the program. It checks:
 
 - that messages are applied one at a time, each when the call that sends it returns, and that a message a listener
   sends is the next one applied;
@@ -188,13 +177,13 @@ and interruptions by the program. It checks:
 - that nothing ends in silence;
 - that a model is made only when it is read, once for each state that is read, and that a model read after a notice
   is of the latest state;
-- that what is written into an input is stored exactly when its place is there, whatever it is (see
-  [inputs](./inputs.md)).
+- that what is typed into a controlled element is never rejected, since the element sends what the current model
+  holds.
 
 It also checks that the run dies with each defect, and that from the first one on it applies no message (see
 [running](./running.md)).
 
-What a screen then shows of an input is the business of the bridges, and their tests check it in a DOM (see
-[their tests](./writing-a-bridge.md#their-tests)).
+What a screen then shows of a controlled element is the business of the bridges, and their tests check it in a DOM
+(see [their tests](./writing-a-bridge.md#their-tests)).
 
 [interleaving]: https://github.com/fgaudo/effect-tea/tree/main/src/interleaving.test.ts

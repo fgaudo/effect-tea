@@ -39,21 +39,18 @@ type Routed<Message> = Message extends Readonly<{ _tag: string; message: unknown
 
 type ChildOf<Message, Name> = Extract<Routed<Message>, Readonly<{ _tag: Name }>>
 
-/**
- * The id a child or an input by id is addressed with; nothing for one that is alone, or for a name that is neither a
- * child's nor an input's.
- */
+/** The id a child by id is addressed with; nothing for a child alone, or for a name that is no child's. */
 type IdOf<Message, Name> = [ChildOf<Message, Name>] extends [never] ? []
   : ChildOf<Message, Name> extends Readonly<{ id: infer Id }> ? [id: Id]
   : []
 
 /**
- * The dispatch of a child or of an input, or, for a name that is neither a child's nor an input's, or that is any
- * string, a value that cannot be called and says why.
+ * The dispatch of a child, or, for a name that is no child's, or that is any string, a value that cannot be called and
+ * says why.
  */
 type ChildDispatch<Message, Name extends string> = string extends Name
-  ? Readonly<{ "is not the literal name of a child or of an input": Name }>
-  : [ChildOf<Message, Name>] extends [never] ? Readonly<{ "is not a child or an input": Name }>
+  ? Readonly<{ "is not the literal name of a child": Name }>
+  : [ChildOf<Message, Name>] extends [never] ? Readonly<{ "is not a child": Name }>
   : Dispatch<ChildOf<Message, Name>["message"]>
 
 /**
@@ -106,20 +103,19 @@ export const entriesOf = (dispatch: object, name: string): number => {
 }
 
 /**
- * The dispatch of a child, or of an input, for its view: it forwards each message to `dispatch`, wrapped.
+ * The dispatch of a child, for its view: it forwards each message to `dispatch`, wrapped.
  *
  * - It is the same function every time it is asked for with the same dispatch, name and id. So a view memoized on its
  *   model and its dispatch is drawn again only when its model changes.
  * - Ids are compared by value, with `Equal`.
  * - A grandchild's dispatch is made from its parent's: `forwardTo(forwardTo(dispatch, 'Home'), 'Products')`.
- * - An input's view sends a `Written` through it, with the value its element holds.
  *
- * @param dispatch - The dispatch of the program that declares the child or the input.
- * @param name - The child's or the input's name, as a literal.
- * @param id - The id, for children and inputs by id, and nothing otherwise.
- * @returns A dispatch of the child's own messages, or of what is written into the input, which wraps each as the
- * program receives it. A name that is neither a child's nor an input's, or that is not a literal, gives a value that
- * cannot be called and says why, unless a message of the program's own has the shape `{ _tag: name, message }`.
+ * @param dispatch - The dispatch of the program that declares the child.
+ * @param name - The child's name, as a literal.
+ * @param id - The id, for children by id, and nothing otherwise.
+ * @returns A dispatch of the child's own messages, which wraps each as the program receives it. A name that is no
+ * child's, or that is not a literal, gives a value that cannot be called and says why, unless a message of the
+ * program's own has the shape `{ _tag: name, message }`.
  *
  * @example
  * ```ts
@@ -131,7 +127,6 @@ export const entriesOf = (dispatch: object, name: string): number => {
  * @see The guide, "Composition", "A grandchild's dispatch is made from its parent's".
  * @see The guide, "Composition", "`children.Row(id)` is a row's model".
  * @see The guide, "Composition", "Ids are compared by value".
- * @see The guide, "Inputs", "The view writes what the element holds".
  */
 // `Name` is checked by the result rather than by a constraint on `Message`: with such a constraint, a dispatch that
 // is itself a call of `forwardTo` (a grandchild's) would make `Message` be inferred as `unknown`.

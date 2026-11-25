@@ -81,9 +81,6 @@ A parent and its children talk only through events, external messages and output
     dropped or started again, through what its parent did with an event, is told nothing. This is no defect.
 - **A parent passes an external message on** to a child in its own `external`:
   `external: (message) => (state) => ({ state, tell: [{ _tag: 'Page', message }] })`.
-- **An external message never writes into an input.** Only what is drawn writes into an input. An external message
-  reaches only `external`, so it is never routed to an input, whatever its `_tag`. To fill an input from its parent, a
-  child takes an external message, such as `{ _tag: 'Filled', name }`, and its `external` writes the input's place.
 - **An external message to a child that is not there is a defect.** A child that is not there once the step is taken
   is the step's own mistake. It is a `CompositionDefect` that names the child, and names the message by its tags.
 
@@ -166,8 +163,7 @@ If the parts are children, the operation is a fact that all the children see as 
 - The child keeps the fact in its state.
 - While the fact holds, the child's `update` rejects what the child's view sends. The child's `update` still takes the
   answers of the child's commands.
-- While the fact holds, the `get` of the child's inputs returns `None`, so their writes are rejected. The child's model
-  shows no controls.
+- While the fact holds, the child's model shows no controls.
 
 ## Do and don't
 

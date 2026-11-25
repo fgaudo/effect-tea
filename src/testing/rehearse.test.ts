@@ -9,7 +9,6 @@ import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import * as Hash from "effect/Hash"
 import * as Metric from "effect/Metric"
-import * as Optic from "effect/Optic"
 import * as Opt from "effect/Option"
 import type * as Scope from "effect/Scope"
 import { prioritizedSchedules, scheduled } from "../../test/scheduled.test_scheduler.ts"
@@ -59,7 +58,7 @@ describe("rehearse", () => {
   type NoteModel =
     | Readonly<{ _tag: "Saving"; note: Note }>
     | Readonly<{ _tag: "Empty"; note: Note; changeText: (text: string) => Edit }>
-    | Readonly<{ _tag: "Written"; note: Note; changeText: (text: string) => Edit; save: Edit }>
+    | Readonly<{ _tag: "Drafted"; note: Note; changeText: (text: string) => Edit; save: Edit }>
 
   const announced: Array<string> = []
 
@@ -92,14 +91,14 @@ describe("rehearse", () => {
       const changeText = (text: string): Edit => ({ _tag: "Typed", text })
       return note.text === ""
         ? { _tag: "Empty", note, changeText }
-        : { _tag: "Written", note, changeText, save: { _tag: "Save" } }
+        : { _tag: "Drafted", note, changeText, save: { _tag: "Save" } }
     }
   }
 
   const typing = (text: string) => (model: NoteModel) =>
     model._tag === "Saving" ? Opt.none() : Opt.some(model.changeText(text))
 
-  const saving = (model: NoteModel) => model._tag === "Written" ? Opt.some(model.save) : Opt.none()
+  const saving = (model: NoteModel) => model._tag === "Drafted" ? Opt.some(model.save) : Opt.none()
 
   const isStore = (command: NoteCommand) => command._tag === "Store"
 
@@ -337,37 +336,36 @@ describe("rehearse", () => {
     expect(String(unheard)).toContain("Nothing listens under [\"Row\",\"1n\"] in the current state")
   })
 
-  test("hear takes any message of the program, typed as the whole message, a write into an input too", async () => {
+  test("hear takes any message of the program, typed as the whole message, a child's too", async () => {
+    type Typed = Readonly<{ _tag: "Typed"; value: string }>
     type Field = Readonly<{ text: string; pings: number }>
-    const Field = program<{ state: Field; message: "Pinged"; key: "ping" }>()
+    const Field = program<{ state: Field; message: "Pinged" | Typed; key: "ping" }>()
     const field = Field.make({
       init: { state: { text: "", pings: 0 } },
-      inputs: { Text: Field.input({ at: Optic.id<Field>().key("text") }) },
-      update: (_: "Pinged") => (state) => ({ state: { ...state, pings: state.pings + 1 } }),
+      update: (message) => (state) => ({
+        state: message === "Pinged" ? { ...state, pings: state.pings + 1 } : { ...state, text: message.value }
+      }),
       subscriptions: () => ["ping" as const],
       listen: () => Channel.never,
       makeModel: (state) => state
     })
-    type Form = Readonly<{ name: string; notes: Readonly<Record<string, string>>; pings: number }>
-    const Form = program<{ state: Form; message: "Pinged"; key: "ping" }>()
+    type Form = Readonly<{ name: string; pings: number }>
+    const Form = program<{ state: Form; message: "Pinged" | Typed; key: "ping" }>()
     const form = Form.withChildren({ Field: Form.child(field) }).make({
-      init: { state: { name: "", notes: { a: "" }, pings: 0 } },
-      inputs: {
-        Name: Form.input({ at: Optic.id<Form>().key("name") }),
-        Note: Form.inputById({ at: (id: string) => Optic.id<Form>().key("notes").at(id) })
-      },
-      update: (_: "Pinged") => (state) => ({ state: { ...state, pings: state.pings + 1 } }),
+      init: { state: { name: "", pings: 0 } },
+      update: (message) => (state) => ({
+        state: message === "Pinged" ? { ...state, pings: state.pings + 1 } : { ...state, name: message.value }
+      }),
       subscriptions: () => ["ping" as const],
       listen: () => Channel.never,
       makeModel: (state) => state
     })
-    const written = { _tag: "Written", value: "Ada" } as const
+    const typed = { _tag: "Typed", value: "Ada" } as const
     const heard: ReadonlyArray<MessageOf<typeof form>> = [
       "Pinged",
       { _tag: "Field", message: "Pinged" },
-      { _tag: "Name", message: written },
-      { _tag: "Note", id: "a", message: written },
-      { _tag: "Field", message: { _tag: "Text", message: written } }
+      typed,
+      { _tag: "Field", message: typed }
     ]
     const state = await Effect.runPromise(rehearse(
       form,
@@ -384,7 +382,7 @@ describe("rehearse", () => {
         return yield* rehearsal.state
       })
     ))
-    expect(state.own).toEqual({ name: "Ada", notes: { a: "Ada" }, pings: 1 })
+    expect(state.own).toEqual({ name: "Ada", pings: 1 })
     expect(Opt.map(state.children.Field, (kept) => kept.state)).toEqual(Opt.some({ text: "Ada", pings: 1 }))
   })
 

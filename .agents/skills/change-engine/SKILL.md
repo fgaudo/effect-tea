@@ -1,11 +1,11 @@
 ---
 name: change-engine
-description: How a change of the engine of @fgaudo/effect-tea or of a testing tool is made: the invariants and the premises to read first, what to list before writing it, the deterministic test and the mutation a check leaves, how a lead of the search of interleavings is weighed, and the checks to run. Use before changing src/core.ts, shell.ts, engine.ts, run.ts, compose.ts, dispatch.ts, input.ts, log.ts or anything under src/testing/, their tests, tools/mutations/ or test/scheduled.test_scheduler.ts.
+description: How a change of the engine of @fgaudo/effect-tea or of a testing tool is made: the invariants and the premises to read first, what to list before writing it, the deterministic test and the mutation a check leaves, how a lead of the search of interleavings is weighed, and the checks to run. Use before changing src/core.ts, shell.ts, engine.ts, run.ts, compose.ts, dispatch.ts, log.ts or anything under src/testing/, their tests, tools/mutations/ or test/scheduled.test_scheduler.ts.
 ---
 
 # Change the engine or a testing tool
 
-The engine is `core.ts`, `shell.ts`, `engine.ts`, `run.ts`, `compose.ts`, `dispatch.ts`, `input.ts` and `log.ts`; the
+The engine is `core.ts`, `shell.ts`, `engine.ts`, `run.ts`, `compose.ts`, `dispatch.ts` and `log.ts`; the
 testing tools are `src/testing/`. How the engine keeps each guarantee is
 [`docs/invariants.md`](../../../docs/invariants.md), and what it rests on
 [`docs/premises.md`](../../../docs/premises.md).

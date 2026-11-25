@@ -11,10 +11,6 @@ version, and everything else, features included, the patch version.
   own state and the states of its children.
 - `output`: a program that names `output: Output` gives `output: (state) => Output`, which its parent reads as
   `children.X.output()` in `makeModel` and in a last parameter of its `update`, `external` and `onEvent`; `OutputOf`.
-- `store` in `input` and `inputById`: the form a value written is stored in, a function of the value alone
-  ("Inputs", "What is typed, in another form").
-- `placeViolations(input, { states, ids, values })`, in `@fgaudo/effect-tea/testing`, checks in a test that an input's
-  `set` changes its place and nothing else, and returns each `PlaceViolation` it finds ("Testing tools").
 - `messagesSentBy(view, model, reports)`, in `@fgaudo/effect-tea/snabbdom/testing`: `reports` gives what a handler
   reads of its element and its event, as `scrollTop` or `clientX`, and each event's `currentTarget` is its element too
   ("Writing a bridge").
@@ -34,10 +30,6 @@ version, and everything else, features included, the patch version.
   or bring one back.
 - **Breaking**: `forEach` is removed: a parent lists what it tells its children in `tell`. `andThen` folds `tell` too.
   Upgrade: `forEach(step, ids, (id) => children.Row.external(id, m))` becomes `{ ...step, tell: ids.map(…) }`.
-- **Breaking**: an input's `set` changes its place and nothing else, and stores exactly the value it is given; one
-  that does more, as storing another form, is not supported ("Inputs", "Rules").
-  Upgrade: a `set` that changes the form, `set: (state, note) => ({ ...state, note: note.toUpperCase() })`, becomes
-  `store: (note) => note.toUpperCase()` beside the place, `at` where the place is a path.
 - **Breaking**: a subscription is made from its key alone: `subscriptions(state)` lists keys in an array, a key listed
   twice once, and `listen(key)` makes the subscription of one; `key` names their type (`Listen`, `WithListen`,
   `KeyOf`).
@@ -80,6 +72,14 @@ version, and everything else, features included, the patch version.
   two compares them by value.
 - **Breaking**: `Applied` has no `revision`.
   Upgrade: an `onApplied` that reads it counts, from 0, the messages it hears whose `after` is not `before`.
+- **Breaking**: inputs are removed: `input`, `inputById`, `Input`, `InputById`, `DeclareInput`, `DeclareInputById`,
+  `Written`, `placeViolations` and `PlaceViolation`. What an element holds or reports is a message that the model
+  holds without its value, and that the view fills ("What an element gives").
+  Upgrade: an input `Name` becomes a message of the program, as `NameTyped { value }`. `update` stores the value where
+  the input's place was there, in the form that `store` gave it, and rejects the message elsewhere. The model holds
+  `{ _tag: 'NameTyped' } as const` in each case where its view draws the field to be typed into. A write sent through
+  `forwardTo(dispatch, 'Name')` becomes `dispatch({ ...model.nameTyped, value })`. An input by id becomes a message
+  with its `id`. A test that called `placeViolations` tests `update`.
 - The guide promises only what stands under "Rules", under "What you can rely on" and in the types; the rest explains,
   and what it does not promise is unspecified, with no entry here when it changes ("Guide", "What a page promises").
   "Precisely" is gone. Now promised, under the "Rules" of its page: all that a page held under "Precisely" or said it
@@ -92,13 +92,13 @@ version, and everything else, features included, the patch version.
   called, when React reads the model, whether the commands of `init` start once or twice under StrictMode, what a
   renderer that draws after the next event leaves in the state, and whether a handler that the bridge to snabbdom drew
   still sends its message once the bridge is stopped.
-- The guide's "Inputs the user types into" is now "Inputs": a value an element reports for the program to keep is an
-  input too, and a fact with a value, as a scroll's end, is one message that the view fills ("What an element reports").
+- The guide's "Inputs the user types into" is now "What an element gives": a fact with a value, as a scroll's end, is
+  one message that the view fills ("What an element reports").
 - A value that the user writes belongs to the program whose rules use it: the parent's where it changes or locks it,
   and otherwise the child's, whose `output` gives the parent what the child concludes from it ("Structuring a
   program").
-- `rehearse`'s `hear` takes any message of the program, as `send` does, where it refused one shaped as a write into
-  an input: a wrapper built by a parent's constructor, or a value typed as the whole message, now compiles.
+- `rehearse`'s `hear` takes any message of the program, as `send` does: a wrapper built by a parent's constructor, or
+  a value typed as the whole message, now compiles.
 - The peer dependency on `effect` is `~4.1.5`, where it was `~4.1.4`.
 - `react-dom` is no longer a peer: the bridge to React imports `react` alone. Where there is no `reportError`, as on
   React Native, it reports a run that dies after `Host` unmounts as React reports an error itself ("Writing a bridge").

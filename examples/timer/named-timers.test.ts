@@ -15,17 +15,21 @@ const to = (id: number, message: Named.Message): Message => ({ _tag: "Timer", id
 const typing = (model: Model, id: number, text: string): Message => {
   const entry = model.timers.find((entry) => entry.id === id)
   if (entry === undefined) throw new Error(`no timer ${id} in the model`)
-  return to(id, { _tag: "Name", message: { _tag: "Written", value: text } })
+  return to(id, { ...entry.model.typed, value: text })
 }
 
-// What the model holds: the list's own messages, and each timer's with its id, wrapped as the list receives them.
-const messagesOf = (model: Model): ReadonlyArray<Message> => [
+// What the model holds, in the order the view draws it: the list's own messages, and each timer's with its id,
+// wrapped as the list receives them, what is typed filled with the text that `texts` gives for the name shown.
+const messagesOf = (model: Model, texts: (name: string) => string): ReadonlyArray<Message> => [
   model.add,
   ...model.timers.flatMap(({ id, model, remove }) => [
-    ...namedMessages(model).map((message) => to(id, message)),
+    ...namedMessages(model, texts(model.name)).map((message) => to(id, message)),
     remove
   ])
 ]
+
+// A text other than the name a timer shows: typing the name it holds changes nothing.
+const over = (name: string) => `${name}1`
 
 const state: fc.Arbitrary<State> = fc
   .uniqueArray(
@@ -55,33 +59,36 @@ const state: fc.Arbitrary<State> = fc
     })
   )
 
-// What a user could ask of a named timer, a tag at a time: its timer's clicks, and nothing of the name's, since what
-// is typed is the input's, which the library rules on.
-const namedClicks: ReadonlyArray<Named.Message> = Object.values(
-  {
-    Timer: Object.values(
-      {
-        MoreClicked: [{ _tag: "MoreClicked" }],
-        LessClicked: [{ _tag: "LessClicked" }],
-        StartClicked: [{ _tag: "StartClicked" }],
-        PauseClicked: [{ _tag: "PauseClicked" }],
-        ResumeClicked: [{ _tag: "ResumeClicked" }],
-        ResetClicked: [{ _tag: "ResetClicked" }],
-        // Only the clock sends it.
-        Ticked: []
-      } satisfies { [Tag in Timer.Message["_tag"]]: ReadonlyArray<Extract<Timer.Message, { _tag: Tag }>> }
-    ).flat().map((message) => ({ _tag: "Timer", message }) as const),
-    Name: []
-  } satisfies { [Tag in Named.Message["_tag"]]: ReadonlyArray<Extract<Named.Message, { _tag: Tag }>> }
-).flat()
+// What a user could ask of a named timer, a tag at a time: what is typed, with the text given, and its timer's clicks.
+const namedCandidates = (text: string): ReadonlyArray<Named.Message> =>
+  Object.values(
+    {
+      NameTyped: [{ _tag: "NameTyped", value: text }],
+      Timer: Object.values(
+        {
+          MoreClicked: [{ _tag: "MoreClicked" }],
+          LessClicked: [{ _tag: "LessClicked" }],
+          StartClicked: [{ _tag: "StartClicked" }],
+          PauseClicked: [{ _tag: "PauseClicked" }],
+          ResumeClicked: [{ _tag: "ResumeClicked" }],
+          ResetClicked: [{ _tag: "ResetClicked" }],
+          // Only the clock sends it.
+          Ticked: []
+        } satisfies { [Tag in Timer.Message["_tag"]]: ReadonlyArray<Extract<Timer.Message, { _tag: Tag }>> }
+      ).flat().map((message) => ({ _tag: "Timer", message }) as const)
+    } satisfies { [Tag in Named.Message["_tag"]]: ReadonlyArray<Extract<Named.Message, { _tag: Tag }>> }
+  ).flat()
 
-// What a user can ask of the list, a tag at a time: adding a timer, and removing or using each one.
-const userMessages = (state: State): ReadonlyArray<Message> =>
+// What a user can ask of the list, a tag at a time: adding a timer, and removing or using each one, what is typed
+// into its name a text other than the one it shows.
+const candidatesOf = (model: Model): ReadonlyArray<Message> =>
   Object.values(
     {
       AddClicked: [{ _tag: "AddClicked" }],
-      RemoveClicked: state.own.ids.map((id) => ({ _tag: "RemoveClicked", id })),
-      Timer: state.own.ids.flatMap((id) => namedClicks.map((message) => ({ _tag: "Timer", id, message })))
+      RemoveClicked: model.timers.map(({ id }) => ({ _tag: "RemoveClicked", id })),
+      Timer: model.timers.flatMap(({ id, model }) =>
+        namedCandidates(over(model.name)).map((message) => ({ _tag: "Timer", id, message }))
+      )
     } satisfies { [Tag in Message["_tag"]]: ReadonlyArray<Extract<Message, { _tag: Tag }>> }
   ).flat()
 
@@ -101,10 +108,11 @@ describe("named timers", () => {
 
   test("the model holds what update accepts, all of it, and each acts once when sent twice", () => {
     fc.assert(fc.property(state, (before) => {
+      const model = namedTimers.makeModel(before)
       expect(dispatchViolations(namedTimers.update, {
         state: before,
-        held: messagesOf(namedTimers.makeModel(before)),
-        candidates: userMessages(before),
+        held: messagesOf(model, over),
+        candidates: candidatesOf(model),
         repeatable: (message) =>
           message._tag === "AddClicked"
           || (message._tag === "Timer" && message.message._tag === "Timer"
@@ -114,19 +122,11 @@ describe("named timers", () => {
   })
 
   // Beyond what the library asks: that the view draws what its model holds, each timer through its own dispatch, its
-  // name's input first, with the name it holds, as `messagesSentBy` finds it without a DOM.
+  // name's field first, with the name it holds, as `messagesSentBy` finds it without a DOM.
   test("the view sends what its model holds", () => {
     fc.assert(fc.property(state, (before) => {
       const model = namedTimers.makeModel(before)
-      const sent = [
-        model.add,
-        ...model.timers.flatMap(({ id, model: timer, remove }) => [
-          typing(model, id, timer.name),
-          ...namedMessages(timer).map((message) => to(id, message)),
-          remove
-        ])
-      ]
-      expect(messagesSentBy<Model, Message>(namedTimersView, model)).toEqual(sent)
+      expect(messagesSentBy<Model, Message>(namedTimersView, model)).toEqual(messagesOf(model, (name) => name))
     }))
   })
 })

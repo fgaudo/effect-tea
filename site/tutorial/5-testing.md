@@ -6,7 +6,7 @@ title: Testing
 
 This is the step the others were for. Most of a program is pure, so most of its tests need no runtime: no browser,
 and no clock to wait for. You will test the timer's `update` and its model, play a scenario, and then test a parent
-and an input, with the tools of `@fgaudo/effect-tea/testing`.
+and what the user types, with the tools of `@fgaudo/effect-tea/testing`.
 
 The tests of the timer are in
 [`examples/timer/timer.test.ts`](../../examples/timer/timer.test.ts). They use
@@ -118,25 +118,29 @@ timer's reader lies in a module of its own:
 
 {@includeCode ../../examples/timer/timers.test.ts#reader}
 
-## An input
+## What the user types
 
-What the user writes into an input is not a message of the model. The library rules on it, with the same rule for
-every input. A test writes into an input as the view does, with the value the element would hold. The tests of
-[`examples/timer/named.test.ts`](../../examples/timer/named.test.ts) make the
-write from a model:
-
-{@includeCode ../../examples/timer/named.test.ts#typing}
-
-A write into the name is stored. The state is compared whole, since an input keeps nothing of its own:
+What the user types is a message, which `update` decides on as any other. The tests of
+[`examples/timer/named.test.ts`](../../examples/timer/named.test.ts) check that a name typed is stored:
 
 {@includeCode ../../examples/timer/named.test.ts#update}
 
-The named timer's reader returns its timer's messages, wrapped, and nothing of the name. So the candidates of
-`dispatchViolations` list nothing under `Name`, and the record still says so, tag by tag:
+The model holds the message without its text, and a test fills it as the view does. The named timer's reader takes
+the text to fill, and returns what is typed first, then its timer's messages, wrapped:
+
+{@includeCode ../../examples/timer/named.test_reader.ts#reader}
+
+The candidates of `dispatchViolations` list what is typed with the same text, so that `Missing` compares the same
+message:
 
 {@includeCode ../../examples/timer/named.test.ts#candidates}
 
-In a scenario, `send` takes the write from the current model, as it takes a click:
+The test fills a text other than the name that the model shows. Typing the name that the field already holds changes
+nothing, which `Inert` would find:
+
+{@includeCode ../../examples/timer/named.test.ts#violations}
+
+In a scenario, `send` takes what is typed from the current model, filled as the view fills it, as it takes a click:
 
 {@includeCode ../../examples/timer/named.test.ts#rehearse}
 

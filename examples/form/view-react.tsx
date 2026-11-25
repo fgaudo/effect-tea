@@ -1,4 +1,3 @@
-import { forwardTo } from "@fgaudo/effect-tea"
 import type { View } from "@fgaudo/effect-tea/react"
 import * as Opt from "effect/Option"
 import type { Message, Model } from "./form.ts"
@@ -6,19 +5,18 @@ import type { Message, Model } from "./form.ts"
 // The view of `form/view-snabbdom.ts`, in React: the same model, the same messages.
 export const view: View<Model, Message> = (model, dispatch) => {
   const { editor } = model
-  const name = forwardTo(dispatch, "Name")
   return (
     <main>
       {
         /* A controlled element, as with snabbdom: read-only while saving, so that it keeps the focus, with no handler,
-          since a write would find no place. */
+          since the model holds nothing to type there. */
       }
       {editor._tag === "Saving"
         ? <input value={model.name} readOnly placeholder="A name" />
         : (
           <input
             value={model.name}
-            onChange={(event) => name({ _tag: "Written", value: event.target.value })}
+            onChange={(event) => dispatch({ ...editor.typed, value: event.target.value })}
             placeholder="A name"
           />
         )}

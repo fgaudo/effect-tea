@@ -9,7 +9,7 @@
  * @module @fgaudo/effect-tea
  */
 
-// A program, the types read back from one, and a program composed of children and inputs. The types in the signatures
+// A program, the types read back from one, and a program composed of children. The types in the signatures
 // of the API are exported too, all but those their module keeps to itself: a package that exports what the API
 // returns names them in its declarations (`tools/api-report.ts`).
 export {
@@ -18,10 +18,6 @@ export {
   type DeclareChild,
   type DeclareChildById,
   type DeclareChildren,
-  type DeclareInput,
-  type DeclareInputById,
-  type Input,
-  type InputById,
   type Instance,
   type Kept,
   type MakeParent,
@@ -53,9 +49,6 @@ export type {
 
 // What `update` returns.
 export { andThen, type Folded, reject, type Rejected, type Step, type Transition, type Update } from "./update.ts"
-
-// What the outside writes into a program's state: an input, declared in `program`, and what a view writes into it.
-export type { Written } from "./input.ts"
 
 // The effects it describes: commands, and subscriptions to the world.
 export type { Execution, RunCommand } from "./command.ts"

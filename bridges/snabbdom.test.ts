@@ -10,8 +10,7 @@ import {
   type ModelOf,
   program,
   ProgramDefect,
-  start,
-  type Written
+  start
 } from "@fgaudo/effect-tea"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test"
@@ -66,15 +65,18 @@ afterAll(() => GlobalRegistrator.unregister())
 
 afterEach(stop)
 
-/** The data of a controlled text field: its value is the model's, and what is typed is written. */
-const field = (value: string, write: Dispatch<Written<string>>) => ({
+/**
+ * The data of a controlled text field: its value is the model's, and `send` sends what is typed, the message its model
+ * holds filled with the text that the element holds.
+ */
+const field = (value: string, send: (value: string) => void) => ({
   props: { value },
-  on: { input: (event: Event) => write({ _tag: "Written", value: (event.target as HTMLInputElement).value }) }
+  on: { input: (event: Event) => send((event.target as HTMLInputElement).value) }
 })
 
 const draftView = (model: ModelOf<typeof draft>, dispatch: Dispatch<MessageOf<typeof draft>>): VNode =>
   h("form", [
-    h("input", field(model.text, forwardTo(dispatch, "Text"))),
+    h("input", field(model.text, (value) => dispatch({ ...model.typed, value }))),
     h("button", { props: { type: "button" }, on: { click: () => dispatch("SendClicked") } }, "Send"),
     h("button", { props: { type: "button" }, on: { click: () => dispatch("DiscardClicked") } }, "Discard"),
     h("button", { props: { type: "button" }, on: { click: () => dispatch("Kept") } }, "Keep"),
@@ -105,14 +107,14 @@ const volumeView: View<VolumeModel, VolumeMessage> = (model, dispatch) =>
   ])
 
 const noteView: View<ModelOf<typeof note>, MessageOf<typeof note>> = (model, dispatch) =>
-  h("main", [h("input", field(model, forwardTo(dispatch, "Note")))])
+  h("main", [h("input", field(model.note, (value) => dispatch({ ...model.typed, value })))])
 
 // The control listens to the source from the element's insertion: each result is put into the element on screen as a
-// key is, and written by the element's own listener, over the model's value.
+// key is, and sent by the element's own listener.
 const dictatedView = (source: Dictation): View<ModelOf<typeof note>, MessageOf<typeof note>> => (model, dispatch) =>
   h("main", [
     h("input", {
-      ...field(model, forwardTo(dispatch, "Note")),
+      ...field(model.note, (value) => dispatch({ ...model.typed, value })),
       hook: {
         insert: (vnode) => {
           const input = vnode.elm as HTMLInputElement
@@ -127,7 +129,10 @@ const dictatedView = (source: Dictation): View<ModelOf<typeof note>, MessageOf<t
 const lidView: View<ModelOf<typeof lid>, MessageOf<typeof lid>> = (model, dispatch) =>
   model._tag === "Opened"
     ? h("main", [
-      h("input", { ...field(model.note, forwardTo(dispatch, "Note")), props: { value: model.note, readOnly: false } }),
+      h("input", {
+        ...field(model.note, (value) => dispatch({ ...model.typed, value })),
+        props: { value: model.note, readOnly: false }
+      }),
       h("button", { on: { click: () => dispatch(model.close) } }, "Close"),
       h("output", model.note)
     ])
@@ -138,45 +143,43 @@ const lidView: View<ModelOf<typeof lid>, MessageOf<typeof lid>> = (model, dispat
 
 const stepsView: View<ModelOf<typeof steps>, MessageOf<typeof steps>> = (model, dispatch) =>
   h("main", [
-    h(
-      "input",
-      field(model.text, model._tag === "First" ? forwardTo(dispatch, "First") : forwardTo(dispatch, "Second"))
-    ),
+    h("input", field(model.text, (value) => dispatch({ ...model.typed, value }))),
     ...(model._tag === "First" ? [h("button", { on: { click: () => dispatch(model.next) } }, "Next")] : []),
     h("output", model.text)
   ])
 
 const lockView: View<ModelOf<typeof lock>, MessageOf<typeof lock>> = (model, dispatch) =>
   h("main", [
-    h("input", field(model.text, forwardTo(dispatch, "Text"))),
+    h("input", field(model.text, (value) => dispatch({ ...model.typed, value }))),
     ...(model._tag === "Open" ? [h("button", { on: { click: () => dispatch(model.lock) } }, "Lock")] : []),
     h("output", model.text)
   ])
 
-const checkbox = (checked: boolean, write: Dispatch<Written<boolean>>) =>
+const checkbox = (checked: boolean, send: (value: boolean) => void) =>
   h("input", {
     props: { type: "checkbox", checked },
-    on: {
-      change: (event: Event) => write({ _tag: "Written", value: (event.target as HTMLInputElement).checked })
-    }
+    on: { change: (event: Event) => send((event.target as HTMLInputElement).checked) }
   })
 
 const controlsView: View<ModelOf<typeof controls>, MessageOf<typeof controls>> = (model, dispatch) =>
   h("main", [
-    h("textarea", field(model.notes, forwardTo(dispatch, "Notes"))),
-    h("select", field(model.choice, forwardTo(dispatch, "Choice")), [
+    h("textarea", field(model.notes, (value) => dispatch({ ...model.notesTyped, value }))),
+    h("select", field(model.choice, (value) => dispatch({ ...model.choiceChosen, value })), [
       h("option", { props: { value: "tea" } }, "Tea"),
       h("option", { props: { value: "coffee" } }, "Coffee"),
       h("option", { props: { value: "water" } }, "Water")
     ]),
-    checkbox(model.agreed, forwardTo(dispatch, "Agreed")),
-    h("input", { ...field(model.level, forwardTo(dispatch, "Level")), props: { type: "range", value: model.level } })
+    checkbox(model.agreed, (value) => dispatch({ ...model.agreedChecked, value })),
+    h("input", {
+      ...field(model.level, (value) => dispatch({ ...model.levelMoved, value })),
+      props: { type: "range", value: model.level }
+    })
   ])
 
 const gatedView: View<ModelOf<typeof gated>, MessageOf<typeof gated>> = (model, dispatch) =>
   h("main", [
-    h("textarea", field(model.notes, forwardTo(dispatch, "Notes"))),
-    checkbox(model.agreed, forwardTo(dispatch, "Agreed")),
+    h("textarea", field(model.notes, (value) => dispatch({ ...model.notesTyped, value }))),
+    checkbox(model.agreed, (value) => dispatch({ ...model.agreedChecked, value })),
     ...(model.freeze === undefined ? [] : [h("button", { on: { click: () => dispatch("Frozen") } }, "Freeze")])
   ])
 

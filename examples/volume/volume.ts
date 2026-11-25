@@ -1,12 +1,13 @@
 // Two sliders side by side, both drawn by the program: a native range changes its own value, bringing it within bounds
 // that narrow, which no edit of the user reports, so the bridges support none, and a widget that changes its own value
-// is replaced by one the program draws. Neither slider is an input: a press on its track starts a drag, a message that
-// the model holds without where the pointer is and where the track lies, which the view fills as the element and its
-// event report them. `update` sets the level at the point pressed, and keeps where the track lies for the drag. The
-// moves are the messages of a subscription keyed by the slider dragged, each with where the pointer is, which `update`
-// puts along the track and within the bounds it holds, whatever they were when the drag began. The media's bounds never change, and muting draws
-// it at 0, with no press, without touching the level, which unmuting gives back; a mute ends a drag of it. The ringer's
-// bounds narrow: quiet hours bring its maximum down to 30, under a drag in progress too.
+// is replaced by one the program draws. Neither slider holds a value of its own: a press on its track starts a drag, a
+// message that the model holds without where the pointer is and where the track lies, which the view fills as the
+// element and its event report them. `update` sets the level at the point pressed, and keeps where the track lies for
+// the drag. The moves are the messages of a subscription keyed by the slider dragged, each with where the pointer is,
+// which `update` puts along the track and within the bounds it holds, whatever they were when the drag began. The
+// media's bounds never change, and muting draws it at 0, with no press, without touching the level, which unmuting
+// gives back; a mute ends a drag of it. The ringer's bounds narrow: quiet hours bring its maximum down to 30, under a
+// drag in progress too.
 import { defect, program, reject, type Subscription, type Update } from "@fgaudo/effect-tea"
 import * as Channel from "effect/Channel"
 import * as Context from "effect/Context"

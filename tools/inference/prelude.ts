@@ -3,10 +3,8 @@ import * as Channel from "effect/Channel"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Opt from "effect/Option"
-import { type MessageOf, program, reject, type Subscription, type Written } from "../../src/index.ts"
+import { type MessageOf, program, reject, type Subscription } from "../../src/index.ts"
 import type { Driver, Rehearsal, Simulated } from "../../src/testing/index.ts"
-
-export type { Written }
 
 // Unlike two `extends`, it tells `any` and `unknown` apart, and a union from one of its members.
 export type Exactly<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
@@ -160,10 +158,6 @@ export type SNone = Readonly<{ n: number }>
 // children's states beside it.
 export type SChild = Readonly<{ n: number; open: boolean }>
 export type SChildById = Readonly<{ n: number; ids: ReadonlyArray<number> }>
-export type SInput = Readonly<{ n: number; name: string }>
-export type SInputById = Readonly<{ n: number; counts: Readonly<Record<string, number>> }>
-
-export type SMixed = Readonly<{ n: number; open: boolean; name: string }>
 // A parent of `kid` alone and of `pal` by id.
 export type SPair = Readonly<{ n: number; open: boolean; ids: ReadonlyArray<number> }>
 
@@ -171,12 +165,9 @@ export type SPair = Readonly<{ n: number; open: boolean; ids: ReadonlyArray<numb
 export type Go = Readonly<{ _tag: "Go" }>
 
 export type MNone = Readonly<{ count: number }>
-export type MMixed = Readonly<{ count: number; kid: number; name: string }>
 export type MChild = Readonly<{ count: number; kid: number }>
 export type MChildById = Readonly<{ count: number; kids: ReadonlyArray<number> }>
 export type MPair = Readonly<{ count: number; kid: number; pals: ReadonlyArray<string> }>
-export type MInput = Readonly<{ count: number; name: string }>
-export type MInputById = Readonly<{ count: number }>
 
 // The own state of a parent that declares each generated program as its child: where a wrong `external` is refused.
 export type OuterOwn = Readonly<{ m: number }>

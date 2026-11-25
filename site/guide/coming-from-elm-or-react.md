@@ -26,7 +26,7 @@ The loop is the one you know, and most names carry over. One name does not: Elm'
 | `init : flags -> ( Model, Cmd Msg )`                   | `init`: a step, or a function of the flags                                                                          | [anatomy of a program](./anatomy-of-a-program.md)                 |
 | `Html.map`, `Cmd.map` and `Sub.map`, by hand           | `program`: a parent says which children are there, and the library keeps them and does the routing                  | [composition](./composition.md)                                   |
 | A child's `update` that returns a value for its parent | An event the child raises, which the parent handles in `onEvent`                                                    | [events and external messages](./events-and-external-messages.md) |
-| `onInput`, a message for each keystroke                | An input: the view writes into a place of the state, and no `update` of the program's sees it                       | [inputs](./inputs.md)                                             |
+| `onInput`, a message for each keystroke                | A message for each keystroke too: the model holds it without the text, and the view fills it                        | [what an element gives](./what-an-element-gives.md)               |
 
 What is new:
 
@@ -38,13 +38,10 @@ What is new:
   [rejections and defects](./rejections-and-defects.md)).
 - **The model, between the state and the view.** The model holds each control's message as data. So a test checks the
   controls against `update` without drawing anything (see [testing](./testing.md)).
-- **Inputs.** In Elm, `onInput` makes a message of each keystroke, and `update` stores the text. Here the text is no
-  message: the program declares a place in its state, and the library stores what the view writes there. So no
-  `update` runs when the user types (see
-  [why what the user types is no message](./inputs.md#why-what-the-user-types-is-no-message)). A fact that comes with
-  a value, as the end of a scroll with its offset, is a message, as in Elm. The model holds it without the value, and
-  the view copies the value from the element into it (see
-  [what an element reports](./inputs.md#what-an-element-reports)).
+- **A message that an element fills.** As in Elm, what the user types is a message, and `update` stores the text. The
+  model holds the message without the value, and the view copies the value from the element into it. A fact that
+  comes with a value, as the end of a scroll with its offset, is another case of it (see
+  [what an element gives](./what-an-element-gives.md)).
 
 What you lose: Elm's compiler keeps `update` pure, and TypeScript's compiler does not. Two things are left to you:
 keeping `update`, `makeModel` and `subscriptions` pure, and never mutating a value given to the library (see
@@ -55,17 +52,17 @@ keeping `update`, `makeModel` and `subscriptions` pure, and never mutating a val
 You keep React to draw, and JSX to write views. What changes is where the state and the effects live. They live in one
 program, outside the components.
 
-| In React                                       | Here                                                                                                                              | See                                                                                                |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `useState`, `useReducer`, a store              | The program's state. A component keeps only what the program does not decide by                                                   | [view](./view.md)                                                                                  |
-| A reducer and its actions                      | `update` and its messages. `update` also returns commands, and may `reject`                                                       | [update](./update.md)                                                                              |
-| `useEffect` that fetches or saves              | A command `update` returns, run by `runCommand`                                                                                   | [commands](./commands.md)                                                                          |
-| `useEffect` that listens, with a cleanup       | A subscription under a key: started when the state lists the key, stopped when it does not                                        | [subscriptions](./subscriptions.md)                                                                |
-| A component                                    | A view: a function of its model, which `Host`, of the [package's bridge to React](../../bridges/react.ts), calls as React renders | [view](./view.md)                                                                                  |
-| A handler that decides what to do              | A handler that sends a message the model holds: `onClick={() => dispatch(model.save)}`                                            | [model](./model.md)                                                                                |
-| Props down, callbacks up                       | Flags and external messages down, events up, and an output that the parent reads                                                  | [composition](./composition.md), [events and external messages](./events-and-external-messages.md) |
-| A controlled `<input>`, `value` and `onChange` | An input. A controlled `<input>` too: `value` is the model's, and `onChange` writes what the element holds                        | [inputs](./inputs.md)                                                                              |
-| A test that renders a component                | A test of `update` and of the model, without a DOM                                                                                | [testing](./testing.md)                                                                            |
+| In React                                       | Here                                                                                                                                                 | See                                                                                                |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `useState`, `useReducer`, a store              | The program's state. A component keeps only what the program does not decide by                                                                      | [view](./view.md)                                                                                  |
+| A reducer and its actions                      | `update` and its messages. `update` also returns commands, and may `reject`                                                                          | [update](./update.md)                                                                              |
+| `useEffect` that fetches or saves              | A command `update` returns, run by `runCommand`                                                                                                      | [commands](./commands.md)                                                                          |
+| `useEffect` that listens, with a cleanup       | A subscription under a key: started when the state lists the key, stopped when it does not                                                           | [subscriptions](./subscriptions.md)                                                                |
+| A component                                    | A view: a function of its model, which `Host`, of the [package's bridge to React](../../bridges/react.ts), calls as React renders                    | [view](./view.md)                                                                                  |
+| A handler that decides what to do              | A handler that sends a message the model holds: `onClick={() => dispatch(model.save)}`                                                               | [model](./model.md)                                                                                |
+| Props down, callbacks up                       | Flags and external messages down, events up, and an output that the parent reads                                                                     | [composition](./composition.md), [events and external messages](./events-and-external-messages.md) |
+| A controlled `<input>`, `value` and `onChange` | A controlled `<input>` too: `value` is the model's, and `onChange` sends the message that the model holds for it, filled with what the element holds | [what an element gives](./what-an-element-gives.md)                                                |
+| A test that renders a component                | A test of `update` and of the model, without a DOM                                                                                                   | [testing](./testing.md)                                                                            |
 
 Some things stay with the platform. A hover, an animation or the focus that the platform keeps by itself is not a state
 of the program (see [structuring a program](./structuring-a-program.md#model-and-view)). An animation that the program

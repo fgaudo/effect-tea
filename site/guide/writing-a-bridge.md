@@ -75,7 +75,7 @@ itself, with a message the model holds, never one the view builds. The timer's v
 `onClick={() => dispatch(model.more)}`.
 
 With snabbdom, the `dispatch` a view is given is the bridge's own. It applies the message, then asks for a draw,
-whether the message made a new state or not. A rejected write makes no new state, and its element must still be given
+whether the message made a new state or not. A rejected message makes no new state, and its element must still be given
 the program's value back:
 
 {@includeCode ../../bridges/snabbdom.ts#dispatch}
@@ -87,18 +87,14 @@ microtask throws ends the run: the bridge gives it to `die`, since a microtask r
 ### A controlled element
 
 A text field, a textarea, a select, a checkbox and a range are each drawn as a controlled element. The view gives the
-element the value its model holds, and its handler writes what the element holds, through the input's dispatch (see
-[inputs](./inputs.md)):
+element the value its model holds, and its handler sends the message that its model holds for it, filled with what the
+element holds (see [what an element gives](./what-an-element-gives.md)):
 
 ```ts
 h("input", {
   props: { value: model.name },
   on: {
-    input: (event) =>
-      forwardTo(dispatch, "Name")({
-        _tag: "Written",
-        value: (event.target as HTMLInputElement).value
-      })
+    input: (event) => dispatch({ ...model.typed, value: (event.target as HTMLInputElement).value })
   }
 })
 ```
@@ -107,7 +103,7 @@ What the user types is applied in its own event. When the handler returns, the s
 
 **The second place of the renderer** is how the bridge reaches each element drawn with a controlled prop, after each
 draw. snabbdom's props module sets `value` only where it differs from the vnode drawn before. So an element that the
-user typed into, and whose write the state rejected, would keep what was typed. A module of the bridge records each
+user typed into, and whose message the state rejected, would keep what was typed. A module of the bridge records each
 element drawn with a `value` or a `checked` in `props`. After each draw, the bridge gives each one its prop back, where
 the element differs from it:
 
@@ -133,16 +129,17 @@ Every bridge does what follows. [An example](#an-example) shows how the package'
   [view](./view.md#rules).
 - **A handler calls `dispatch` itself.** Sending needs no services, and returns once the message is applied.
 - **The message is one the model holds**, never one the view builds.
-- **A controlled element is drawn with the value its model holds**, and its handler writes what the element holds:
-  `{ _tag: 'Written', value }`.
+- **A controlled element is drawn with the value its model holds**, and its handler sends the message that its model
+  holds for it, filled with what the element holds.
 - **After each draw, the element shows the value of its model.** A bridge whose renderer sets a value only where its
   own tree changed gives each controlled element its value back after each draw, where the element differs from it.
 - **Each new state is drawn before the browser handles the next event**, as React renders a store. So is each message
   that a handler sends, whether it made a new state or not. Otherwise a handler runs on a view older than the state: a
-  key is typed over a value that the program has replaced since, and the write stores the old value back.
+  key is typed over a value that the program has replaced since, and its message carries the old value back.
   A renderer that draws after the next event, as one whose elements live in another thread, breaks this rule: a value
-  that the program leaves in an input's place may then be written over by a key typed before its draw. A lock by the
-  shape of the state still rejects such a key, as it rejects any write (see [inputs by id](./inputs.md#inputs-by-id)).
+  that the program leaves in a field may then be replaced by a key typed before its draw. A lock by the shape of the
+  state still rejects such a key, as it rejects any message that does not apply (see
+  [what an element gives](./what-an-element-gives.md#rules)).
 - **The renderer keeps an element drawn in the same place from one draw to the next**, as snabbdom and React do.
   Otherwise the element is made anew, and loses its focus.
 
@@ -167,7 +164,7 @@ bridge:
   while it is mounted, and `Draw`, which draws a program that the application starts itself;
 - runs `dispatch` from any event of a native element;
 - draws any native controlled element, a text field, a textarea, a select, a checkbox or a range, as its renderer's
-  own documentation draws it: an input needs nothing else of the bridge.
+  own documentation draws it: such an element needs nothing else of the bridge.
 
 snabbdom's props module sets the props a view gives, and never removes one. So a view of the bridge to snabbdom gives
 a prop it changes in every state: `disabled: false` where a button is enabled, as the view of
@@ -240,8 +237,8 @@ the `fork` handles is not thrown or reported again.
 
 Beside the snabbdom bridge, `@fgaudo/effect-tea/snabbdom/testing` ([`bridges/snabbdom-testing.ts`][messages]) has
 `messagesSentBy`. It finds what a view sends, without a DOM. Each listener gets an event whose `target` and
-`currentTarget` are its element. The element holds the `value` and the `checked` that the view drew. So it finds the
-writes of controlled elements too, each with the value its model holds.
+`currentTarget` are its element. The element holds the `value` and the `checked` that the view drew. So it finds what
+controlled elements send too, each filled with the value its model holds.
 
 What else a handler reads, the test gives in a third argument, `reports`. It is a function of the listener's node and
 of the name of its event, and returns the fields of the element and of the event:
@@ -269,18 +266,18 @@ The package's bridges are minimal, and examples to start from. They show how a n
 library, and handle the base case that [the package's bridges](#the-packages-bridges) promises. They promise nothing
 of what follows, and say why:
 
-- **A value the element changes by itself**, as when a text field strips the line breaks from what is written into
-  it, or when a range narrows its bounds below its value. The element shows the value it made until the next write,
-  which is stored over the model's value.
+- **A value the element changes by itself**, as when a text field strips the line breaks from the value it is given,
+  or when a range narrows its bounds below its value. The element shows the value it made until the user types again,
+  and `update` stores what the element sends then.
 - **A form's reset**, by a reset button or `form.reset()`, with either bridge. A program may empty a field by leaving
-  `''` in its place.
+  `''` in its state.
 - **With React, a value that a script writes into an element past React's own setter**, and announces with an input
   event. React sends no `onChange` for it, so it is lost.
 - **An event that the program's own code dispatches before a new state is drawn**, with either bridge: a call of
   `element.click()`, `dispatchEvent` or `focus()` in the task that made the new state. Its handler runs on the view of
-  before that state. With snabbdom, a write from it is stored over what the program put there in that task. React
-  sends no `onChange` for an input event while the element holds the value that React saw last, so the program's value
-  stays, and is drawn.
+  before that state. With snabbdom, the message it sends carries what the element held, and `update` stores it over what
+  the program put there in that task. React sends no `onChange` for an input event while the element holds the value
+  that React saw last, so the program's value stays, and is drawn.
 - **Other widgets.** A widget of a component library with `value` and `onChange` props is drawn as a controlled
   element. Where connecting a widget is too complex, prefer a widget that the program draws: its press is a message,
   and its drag a subscription. The sliders of [`examples/volume`](../../examples/volume) are drawn this way.
@@ -292,8 +289,8 @@ Any other feature of a renderer is left to the bridge that needs it.
 Both bridges are tested in a DOM, with [happy-dom](https://github.com/capricorn86/happy-dom):
 [`bridges/snabbdom.test.ts`](../../bridges/snabbdom.test.ts) and
 [`bridges/react.test.ts`](../../bridges/react.test.ts) run them. The same tests run in Chromium, Firefox and WebKit
-too, with [`bridges/browser.test.ts`](../../bridges/browser.test.ts), which checks what only a real browser shows: an
-input that keeps the focus while a save spans several screen refreshes, a text composed by an IME (in Chromium
+too, with [`bridges/browser.test.ts`](../../bridges/browser.test.ts), which checks what only a real browser shows: a
+field that keeps the focus while a save spans several screen refreshes, a text composed by an IME (in Chromium
 alone), and an event that the program's own code dispatches before a new state is drawn.
 
 The tests they share are written once, in
@@ -302,11 +299,12 @@ The tests they share are written once, in
 - that a click reaches the program, and is drawn once its handler returns;
 - that what the user types is stored, and that the element keeps it, with its focus, its caret and its selection;
 - that a second click on a button in the same task is rejected while what the first started is under way;
-- that the element of an input shows what the program puts in its place, and keeps its focus;
+- that a controlled element shows what the program puts in its state, and keeps its focus;
 - that a key the state rejects is taken back, and the element shows the program's value again;
-- that a value that `set` changes as it stores it is shown by the element at once, which keeps its focus;
+- that a value that `update` stores in another form is shown by the element at once, which keeps its focus;
 - that a textarea, a select, a checkbox and a range store what the user gives them, and show it;
-- that an element drawn in turn as an input and as a plain field shows the input only while it is one.
+- that an element drawn in turn as a field to type into and as a plain field sends what is typed only while it is the
+  first.
 
 A bridge of your own can start from them. To run them on it:
 

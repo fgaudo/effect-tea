@@ -164,11 +164,11 @@ describe("forwardTo", () => {
     expect(() => forwardTo(dispatch, "Row")("Inc")).toBeDefined()
   })
 
-  test("says that a name is neither a child's nor an input's, or that it is not a literal", () => {
+  test("says that a name is no child's, or that it is not a literal", () => {
     const { dispatch } = recording()
     const name: string = "Clock"
-    const unknown: Readonly<{ "is not a child or an input": "Clok" }> = forwardTo(dispatch, "Clok")
-    const any: Readonly<{ "is not the literal name of a child or of an input": string }> = forwardTo(dispatch, name)
+    const unknown: Readonly<{ "is not a child": "Clok" }> = forwardTo(dispatch, "Clok")
+    const any: Readonly<{ "is not the literal name of a child": string }> = forwardTo(dispatch, name)
     expect([unknown, any]).toHaveLength(2)
   })
 })

@@ -28,11 +28,7 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Step 64 applies what step 61 decided on 24 November 2026, when it weighed the decisions taken before the charter, and
-the invariants, by the values of "Deciding" ([`decisions-weighed.md`](docs/records/decisions-weighed.md)), whose first
-three points steps 62 and 63 applied. Step 64 comes after the step of the engine, 54: it is the largest, and may
-stop with a report, so its fix does not wait for it. Step 55 comes last, before the release that follows them all, so
-that one release carries every breaking change.
+Step 55 comes last, before the release that follows them both, so that one release carries every breaking change.
 
 ### 54. The rule as a boundary: a tool decides when, never what
 
@@ -72,150 +68,13 @@ What keeps the tools aligned is then a structure, which a check can hold where a
 say the rule; each case of the contract is kept or removed, with its line in the commit; and `bun run comments`,
 `bun run lint`, `bun run test`, `bun run test:node` and `bun run mutations` pass.
 
-### 64. What an element gives is a message that the model holds, and inputs go
-
-**Model and effort.** Opus 5.5, `high`: a page of the guide is a specification, and a concept leaves `compose.ts` with
-its checks.
-
-**Depends on** step 54, which comes before it, so that its fix does not wait for the largest step. Step 62
-made a program's state any value, in the types of `program.ts` and `compose.ts`. Step 61 decided it
-([`decisions-weighed.md`](docs/records/decisions-weighed.md), point 4), and change 11 of
-[`api-review.md`](docs/records/api-review.md) spells what the API loses.
-
-**Why.** A model holds a message without its value, and the view fills what the element gives ("Inputs", "What an
-element reports"). An input does the same job by a second concept: a place declared in `make`, a write that no model
-holds, a rule of `set` that nothing checks, and a tool for that rule. One way is left: what the user types is a
-message of the program, as a click is, and `update` decides what it does.
-
-**How.** By `change-api`, `change-engine` and `add-example`, in this order, since each is checked before the next:
-
-1. **The examples first, on the library as it is**: `examples/form`, `examples/stocktake` and the named timers of
-   `examples/timer`, each with its views and its tests. A value that an input held is a message of the program, named
-   by what happened (`NameTyped { value }`, and `CountTyped { id, value }` for a row). `update` stores it where the
-   input's place was there, and rejects it elsewhere. The model holds its held part, `{ _tag: 'NameTyped' } as const`,
-   in each case where the view draws the element to be written into. The reader of each test fills the held messages,
-   with a value other than the one the model shows, and gives them to `dispatchViolations` with the rest. A test of
-   `placeViolations` goes: `update` is tested there as for any message. If a value is found that an input serves and a
-   held message cannot, the step stops here, with a report, and changes nothing.
-2. **The guide**, one section at a time, each sentence checked against the old one. A rule that still holds keeps its
-   words.
-   - The page "Inputs" becomes "What an element gives" (`site/guide/what-an-element-gives.md`), and says what the user
-     types and what an element reports one way. Its first rule: "**What an element gives is a message of the
-     program**, as a click is: `update` decides what it does. The model holds the message without the value, and the
-     view fills it." "Why what the user types is no message", the rules of an input and of a `set`, `store` and
-     "Inputs by id" go. What is typed in another form is what `update` stores. A lock is a case of the state in which
-     `update` rejects the message and the model holds none. "The element on screen", "What is there whatever is drawn
-     is a subscription" and "A value is never a reason to reject" stay. "Only a plain tagged message can be held
-     without a value", under "What an element reports" of that page, loses the way of a write, then a message: a
-     message that an element fills is a plain tagged one.
-   - "Model", "Messages live in the model": the bullet on what the user types goes, and the bullet on a fact that comes
-     with a value says it of every value that an element holds or reports, the text of a field first. The sentence "A
-     view writes only into the inputs that the model shows" goes, and "Its shape says what the view shows" says the
-     values that the view draws in a case, where it said the values of the inputs.
-   - "Guarantees": "An input stores what is written, where its place is there" leaves "What you can rely on", since
-     "Outdated clicks are harmless" holds of what is typed as of a click. "What is left to you" loses "A `set` changes
-     its place, and nothing else", and what "A view sends only what its model holds" and the item "Flags, and what `key`
-     gives, made of values that `Equal` compares by value" say of an input. Its item on the stack of whoever sends the
-     message says "An element that reports at each of its events, as a scroll does, runs a step at each, in its
-     handler", with no sentence on a write. Its item on purity loses "the `get`, the `set` and the `store` of an input
-     and an `at` that is a function of the id" from the functions that are pure, and "the `get`, the `set` and the
-     `store` of a write" from what runs in the parent's `update`. "How the tests check them" follows the search.
-   - "Running", "When a defect happens": "A function that a parent or an input gives" says "A function that a parent
-     gives", and the item of `'update'` loses "the `get` and the `set` of an input".
-   - "Rejections and defects": "A message of the view that is not a write into an input is rejected" says "A message
-     of the view is rejected", the "Three other kinds of message" are two, and the table loses its row of a write. The
-     sentence after the table stays: a screen older than the state is that of a message of the view.
-   - "Coming from Elm or React". Elm's row of `onInput` says "A message for each keystroke too: the model holds it
-     without the text, and the view fills it". Under "What is new", "Inputs" becomes "**A message that an element
-     fills.** As in Elm, what the user types is a message, and `update` stores the text. The model holds the message
-     without the value, and the view copies the value from the element into it", and a fact that comes with a value
-     is said there as another case of it. React's row of a controlled `<input>` says "A controlled `<input>` too:
-     `value` is the model's, and `onChange` sends the message that the model holds for it, filled with what the
-     element holds". Each links the new page.
-   - "View", "Rules": the sentence on an element with a value of its own links the new page.
-   - The guide's index has `./what-an-element-gives.md` among its `children`, where `./inputs.md` was. Its item of
-     "Composition" says "a parent declares its children, and says where each child lives in its state", and that of
-     the page: "[What an element gives](./what-an-element-gives.md): values that an element holds or reports, such as
-     the text of a field or the offset of a scroll. Each is a message that the model holds without its value, and that
-     the view fills."
-   - "Composition": "The parent's inputs", "The rule of an input" and what names an input under "What does not
-     compile" go. "A row whose value the parent reads" says a message of the parent's own, with the row's id.
-   - "Events and external messages" loses "An external message never writes into an input". In "Structuring a
-     program", "Input is never a reason to reject" becomes a case of "A value is never a reason to reject", and the
-     table of "What kind of thing is it" names no input.
-   - "Testing" and "Testing tools" lose what a reader does for an input, "The place of an input" and
-     `placeViolations`. In "Writing a bridge", the handler of a controlled element "sends the message that its model
-     holds for it, filled with what the element holds".
-   - The glossary loses **Input**, **Write** and **`at`**, and what **Controlled element**, **Composition** and **By
-     id** say of an input. "Anatomy of a program" draws its loop with no input.
-   - The fourth step of the tutorial teaches the same, as "What the user types"
-     (`site/tutorial/4-what-the-user-types.md`, where `4-inputs.md` was). The tutorial's index follows, in its
-     `children`, in its items of steps 4 and 5 and in its sentence on a native controlled element, and so do the links
-     of `1-first-program.md` and of `3-children.md`, and "An input" of `5-testing.md`, which says how a test fills a
-     held message.
-   - Then a search of what a user reads is read line by line
-     (`git grep -n -i -w -E "inputs?|writes?|written" -- site skills README.md`), once point 4 has changed the skill
-     and the README: what is left names an `<input>` of the DOM, what the user writes or types, or what a program, a
-     test or a tool writes as code. And `git grep -n -e 'inputs\.md' -e '4-inputs' -e '"Inputs"'` finds a line only
-     in this step, in the released sections of `CHANGELOG.md`, in `docs/records/` and in `docs/rejected.md`: no link,
-     no `@see` line of a doc comment, and not the example in the header of `tools/comments.ts`.
-3. **The library**, as change 11 spells it. `src/input.ts` and `src/testing/place-violations.ts` go, with their tests.
-   `src/compose.ts` loses the placements, the routing of a write, and what its types say of an input (`Inputs`,
-   `InputMessages`, `NoShared`, and the half of `NoClash` on an input). In `src/dispatch.ts`, the two refusals of
-   `forwardTo` take the keys that change 11 spells, and the doc comments of `IdOf`, of `ChildDispatch` and of
-   `forwardTo` name a child alone, with no line on `Written` and no `@see` of "Inputs". `src/dispatch.test.ts` reads the
-   new keys, in a test whose name says that a name is no child's. Each mutation of an input goes, or loses "or of an
-   input". The tests of the library, of the bridges and of the tools that wrote into an input send a held message:
-   `bridges/bridge.test_suite.ts` and the bridges' own tests, `src/interleaving.test.ts`, the tests of the testing
-   tools, `tools/smoke/`, `tools/inference/` and `tools/bench/writes.ts`.
-4. **The documents.** In `docs/invariants.md`, "A write is stored wherever its place is there" goes, and "What a screen
-   shows of an input is the bridges'" says it of a controlled element, under a title that names one, with its reason
-   said of a message that an element fills. "The children are those the parent's own state lists" loses "a write into
-   its input" from the steps of the parent's own code, and "as a write does" from what a message of a view carries.
-   `docs/premises.md` cites the invariant of the bridges by its new title, in the premise of a store updated outside its
-   events. In this file, the item of "Any time" on a benchmark says what `tools/bench/writes.ts` measures once point 3
-   has written it again. Then a search of the three is read line by line
-   (`git grep -n -i -w -E "inputs?|writes?|written" -- docs/invariants.md docs/premises.md ROADMAP.md`): what is left
-   names an `<input>` of the DOM, what a thunk or a tool writes, or the inputs as what this step took away. In
-   `docs/rejected.md`, the entries whose subject is a form of an input are gathered in one, "An input declared
-   in `make`, whose writes the library stores", which says why it went, and what would bring it back: a value of an
-   element that a held message cannot carry, or programs that lose what is typed where their tests with
-   `dispatchViolations` pass. "An entry of each input in the model", "A write, then a message" and "`hear` refusing a
-   write into an input" are set right: each says of an input what was, the first names no step of this file, and the
-   second loses "It stays the way for a message that is a class". An entry on something else keeps the names of its
-   day, since it tells what was weighed then, and is not edited: "`write`, `isRejected` and `raise`", "`child`,
-   `childById`, `input` and `inputById` as free functions", "Other names for `childById` and `inputById`" and their
-   like. So `docs/rejected.md` is outside the search of "Done when". The skill, the README, the doc comments and the
-   changelog follow, the last as change 11 words it (`release`). In the README, the rows of `form`, `stocktake` and
-   `timer` say what each example shows then, and the link to the page is the one that the built site gives it. In the
-   unreleased section of the changelog, the entry on the page "Inputs" names the page by its new title. The documents
-   of the agents follow too:
-   - `AGENTS.md` and `.agents/skills/change-engine/SKILL.md`, in its description and in its first paragraph, list the
-     modules of the engine without `input.ts`. In `AGENTS.md`, under "A function earns its place", the declaration
-     that takes a standard type of Effect is the `flags` of a child, an `Option`, where it was `at`, an `Optic`.
-   - `.agents/skills/add-example/SKILL.md`. In its item "The view", the sentence on an input declared in `make` says
-     that a native controlled element has the value that its model holds in `props`, no key, and a handler that sends
-     the message that its model holds for it, filled with what the element holds, as "What an element gives" says. In
-     "A bridge owes no `messagesSentBy`", the clause on a view with an input that expects its writes goes: a held
-     message is in `messagesOf(model)` already. Its last paragraph names the fourth step of the tutorial by its new
-     title, with the modules of `examples/timer` that the step has then. Its first paragraph names no optics: no
-     example places a child with one.
-
-**Done when** the examples, the tutorial and the bridges' tests send what an element gives as a held message; what
-change 11 removes is named in no file, `AGENTS.md` and those of `.agents/skills/` included, but `CHANGELOG.md`, in its
-released sections and in the entry of change 11, `docs/records/` and `docs/rejected.md`, which keep the names of their
-day; the two searches of point 2 leave what it says; and `bun run typecheck`, `bun run lint`,
-`bun run test`, `bun run test:node`, `bun run interleavings`, `bun run comments`, `bun run build`,
-`bun run api --check` once `bun run api` has written the reports, `bun run smoke`, `bun run inference`,
-`bun run mutations` and `bun run test:browsers` pass, and the site builds with no warning
-(`cd site && bun install && bun run build`).
-
 ### 55. The review before the release
 
 **Model and effort.** Opus 5.5, `high`, by a reviewer that wrote none of the changes
 ([`premise-review`](.agents/skills/premise-review/SKILL.md)).
 
-**Depends on** steps 54 and 64, and comes before the release that follows them.
+**Depends on** step 54, and comes before the release that follows it. Step 64, the last of what step 61 decided
+([`decisions-weighed.md`](docs/records/decisions-weighed.md), point 4), is done.
 
 **Why.** Steps 49 to 54 move a check from a tool to the engine, or take one away with the code it guarded: a premise
 may leave with it, and no test fail. From step 52 on, `simulate` rests on the engine's premises, and no longer on
@@ -333,7 +192,8 @@ otherwise.
 - **A benchmark that runs in the CI.** Many children, many messages per second, to keep what a message costs the event
   that sends it, and a model made only when it is read, from regressing. `bun run bench`
   (`tools/bench/subscriptions.ts`) measures a parent's subscriptions only, and `tools/bench/writes.ts`, run by hand,
-  what a write into an input and a dispatch with its model read cost; neither runs in the CI. A CI machine's times
+  what a message that an element fills costs as a program stores its value, by its own `update`, through the `update`
+  that `make` composes, and through a dispatch with its model read; neither runs in the CI. A CI machine's times
   vary, so what fails is a count that does not: how often `makeModel` runs, how many keys one message reconciles.
   What one step with many keys costs was measured by hand in step 57 ([`left-points.md`](docs/records/left-points.md),
   the last item): a start for its cases.

@@ -1,7 +1,8 @@
 // The stock-take of one aisle, as one program: the items are loaded from the server, a scanner feed adds to the item
-// it scans, and the counts are submitted once every item holds a whole number. The count of each item is an input by
-// id: what is typed is stored by the library, and no `update` sees it. An item is no child: the sheet adds to its
-// count on a scan, and locks and submits it.
+// it scans, and the counts are submitted once every item holds a whole number. What is typed into the count of an
+// item is a message of the sheet's, with the item's id: the model holds it without the text, where the count can be
+// typed into, and the view fills the text. An item is no child: the sheet adds to its count on a scan, and locks and
+// submits it.
 import { defect, type MessageOf, type ModelOf, program, reject } from "@fgaudo/effect-tea"
 import * as Arr from "effect/Array"
 import * as Channel from "effect/Channel"
@@ -39,7 +40,7 @@ export type Listening = Data.TaggedEnum<{ Listening: object; Disconnected: objec
 
 export const Listening = Data.taggedEnum<Listening>()
 
-/** The counts of the aisle. Only open counts are a place to write into: locked ones are another case. */
+/** The counts of the aisle. Only open counts can be typed into: locked ones are another case. */
 export type Counts = Data.TaggedEnum<{
   /** Typed and scanned. `error` is why the last submit failed, when one did. */
   Open: { lines: ReadonlyArray<Line>; error: Opt.Option<string> }
@@ -73,6 +74,8 @@ export type State = Readonly<{ aisle: string; load: Load }>
 export type Flags = Readonly<{ aisle: string }>
 
 export type Own = Data.TaggedEnum<{
+  /** What is typed into the count of the item `id`, with the text that its field holds. */
+  CountTyped: { id: string; value: string }
   RetryClicked: object
   Loaded: { items: ReadonlyArray<ServerItem> }
   LoadFailed: { error: string }
@@ -180,25 +183,22 @@ const withText = (id: string, text: (was: string) => string) => (counts: Open): 
   lines: Arr.map(counts.lines, (line) => line.id === id ? { ...line, text: text(line.text) } : line)
 })
 
-const { make, inputById } = program<{ state: State; command: Command; flags: Flags; message: Own; key: "scanner" }>()
-
-// Only an open count is a place to write into: a write over a locked one finds no place, and is rejected. The model
-// reads the same place, so a line is drawn editable exactly where a write is stored. It is exported for its test, which
-// checks that its `set` changes its place and nothing else.
-export const counts = inputById({
-  get: (state, id: string) =>
-    Opt.flatMap(
-      read(atOpen)(state),
-      ({ lines }) => Opt.map(Arr.findFirst(lines, (line) => line.id === id), (line) => line.text)
-    ),
-  set: (state, id, text) => atOpen.modify(withText(id, () => text))(state)
-})
+const { make } = program<{ state: State; command: Command; flags: Flags; message: Own; key: "scanner" }>()
 
 export const stocktake = make({
   init: ({ aisle }) => ({ state: { aisle, load: Load.Loading() }, commands: [Command.Load({ aisle })] }),
-  inputs: { Count: counts },
   update: (message) => (state) => {
     switch (message._tag) {
+      // Only an open count can be typed into: what is typed over a locked one, or for an item that is not there, is
+      // rejected. The text is stored as it is typed, whatever it is: the field on screen already shows it.
+      case "CountTyped":
+        return Opt.match(read(atOpen)(state), {
+          onNone: () => reject,
+          onSome: ({ lines }) =>
+            Arr.some(lines, (line) => line.id === message.id)
+              ? { state: atOpen.modify(withText(message.id, () => message.value))(state) }
+              : reject
+        })
       case "RetryClicked":
         return state.load._tag === "Failed"
           ? { state: { ...state, load: Load.Loading() }, commands: [Command.Load({ aisle: state.aisle })] }
@@ -282,16 +282,15 @@ export const stocktake = make({
       case "Loaded": {
         const sheet = state.load.sheet
         const lines = sheet._tag === "Closed" ? sheet.lines : sheet.counts.lines
+        // A count is drawn editable exactly where `update` stores what is typed into it: while the counts are open.
+        const open = sheet._tag === "Counting" && sheet.counts._tag === "Open"
         const items = Arr.map(lines, ({ id, name, expected, text }): ItemLine => ({
           id,
           model: {
             name,
             expected,
             count: countOf(text),
-            entry: Opt.match(counts.get(state, id), {
-              onNone: () => ({ _tag: "ReadOnly", text }),
-              onSome: (text) => ({ _tag: "Editable", text })
-            })
+            entry: open ? { _tag: "Editable", text, typed: { _tag: "CountTyped", id } } : { _tag: "ReadOnly", text }
           }
         }))
         const total = Arr.reduce(
@@ -328,7 +327,10 @@ export type ItemModel = Readonly<{
   name: string
   expected: number
   count: Count
-  entry: Readonly<{ _tag: "Editable"; text: string }> | Readonly<{ _tag: "ReadOnly"; text: string }>
+  /** The count as typed, and, where it can be typed into, what is typed, held without the text: the view fills it. */
+  entry:
+    | Readonly<{ _tag: "Editable"; text: string; typed: Readonly<{ _tag: "CountTyped"; id: string }> }>
+    | Readonly<{ _tag: "ReadOnly"; text: string }>
 }>
 
 export type ItemLine = Readonly<{ id: string; model: ItemModel }>

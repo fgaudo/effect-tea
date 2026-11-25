@@ -41,44 +41,43 @@ versions. The paths below are relative to this file.
 
 ## Which page to read
 
-| To…                                         | read in the guide                             |
-| ------------------------------------------- | --------------------------------------------- |
-| write a first program                       | "Anatomy of a program", then the tutorial     |
-| decide what `update` does with a message    | "Update", "Rejections and defects"            |
-| shape the state, the messages and the model | "Structuring a program", "Model"              |
-| draw a view and send messages from it       | "View"                                        |
-| talk to the world                           | "Commands", "Subscriptions"                   |
-| split a program into children               | "Composition", "Events and external messages" |
-| keep a value that an element holds, reports | "Inputs"                                      |
-| send a fact that comes with a value         | "Inputs", "What an element reports"           |
-| start the program and handle its defects    | "Running"                                     |
-| test it                                     | "Testing", "Testing tools"                    |
-| connect a renderer                          | "Writing a bridge"                            |
-| know what is promised, and what is not      | "Guarantees"                                  |
+| To…                                         | read in the guide                                  |
+| ------------------------------------------- | -------------------------------------------------- |
+| write a first program                       | "Anatomy of a program", then the tutorial          |
+| decide what `update` does with a message    | "Update", "Rejections and defects"                 |
+| shape the state, the messages and the model | "Structuring a program", "Model"                   |
+| draw a view and send messages from it       | "View"                                             |
+| talk to the world                           | "Commands", "Subscriptions"                        |
+| split a program into children               | "Composition", "Events and external messages"      |
+| keep a value that an element holds, reports | "What an element gives"                            |
+| send a fact that comes with a value         | "What an element gives", "What an element reports" |
+| start the program and handle its defects    | "Running"                                          |
+| test it                                     | "Testing", "Testing tools"                         |
+| connect a renderer                          | "Writing a bridge"                                 |
+| know what is promised, and what is not      | "Guarantees"                                       |
 
 ## What kind of thing is it
 
 A design answers this question for each part of a program. Each line below is a summary: the section it names rules
 where the summary says less.
 
-| The thing                                                         | What it is                                          |
-| ----------------------------------------------------------------- | --------------------------------------------------- |
-| something happened: a click, an answer, a tick                    | a message; `update` decides what it means           |
-| a value that an element holds, or reports for the program to keep | an input; no `update` sees it                       |
-| a fact that an element reports with a value: a scroll's end       | a message held without the value; the view fills it |
-| work whose answer must arrive, even if the state has moved on     | a command: data, which `runCommand` runs            |
-| listening, or work that stops when the state no longer wants it   | a subscription, under a key                         |
-| what stays open while a value it uses changes, as a connection    | a service, from a layer provided to `run`           |
-| what follows from the state                                       | computed in `makeModel`, not kept in the state      |
-| what the platform keeps by itself: a hover, the focus             | not a state of the program                          |
-| a message that may arrive, and does not apply in the state        | `reject`                                            |
-| a message that only a bug can bring                               | `defect`                                            |
-| an expected failure of a command                                  | a message, as the success is                        |
-| a part whose controls the parent enables from its own state       | not a child: the parent's state, or its input       |
-| a value that the user writes, and a parent reads                  | an input of the program whose rules use it          |
-| what holds in a child, that its parent reads                      | the child's `output`                                |
-| what a child asks of its parent                                   | an event                                            |
-| a fact that several children must see as one                      | an external message, which the parent tells down    |
+| The thing                                                        | What it is                                          |
+| ---------------------------------------------------------------- | --------------------------------------------------- |
+| something happened: a click, an answer, a tick                   | a message; `update` decides what it means           |
+| a value that an element holds or reports: a text, a scroll's end | a message held without the value; the view fills it |
+| work whose answer must arrive, even if the state has moved on    | a command: data, which `runCommand` runs            |
+| listening, or work that stops when the state no longer wants it  | a subscription, under a key                         |
+| what stays open while a value it uses changes, as a connection   | a service, from a layer provided to `run`           |
+| what follows from the state                                      | computed in `makeModel`, not kept in the state      |
+| what the platform keeps by itself: a hover, the focus            | not a state of the program                          |
+| a message that may arrive, and does not apply in the state       | `reject`                                            |
+| a message that only a bug can bring                              | `defect`                                            |
+| an expected failure of a command                                 | a message, as the success is                        |
+| a part whose controls the parent enables from its own state      | not a child: the parent's state and messages        |
+| a value that the user types, and a parent reads                  | a message of the program whose rules use it         |
+| what holds in a child, that its parent reads                     | the child's `output`                                |
+| what a child asks of its parent                                  | an event                                            |
+| a fact that several children must see as one                     | an external message, which the parent tells down    |
 
 The guide, "Structuring a program", "What kind of thing is it": its rows name the page of each.
 
@@ -94,11 +93,10 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   unused. The guide, "Guarantees", "Whoever starts a program runs it". The guide, "Running", "A program is started,
   then run".
 - **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated.** So are an
-  `init` that takes flags, the handlers of `onEvent`, the `get`, the `set` and the `store` of an input and an `at` that
-  is a function of the id, and `there`, `key`, `flags`, `ids` and `listening`, which say which children are there and
-  when they listen. `update` may be called at any time: never assume it runs once per message. A child's `external`, its
-  `init` when a step of its parent starts it, its parent's handlers of `onEvent`, and the `get`, the `set` and the
-  `store` of a write run in the parent's `update`. No value given to the library, or taken from it, is mutated once
+  `init` that takes flags, the handlers of `onEvent`, and `there`, `key`, `flags`, `ids` and `listening`, which say
+  which children are there and when they listen. `update` may be called at any time: never assume it runs once per
+  message. A child's `external`, its `init` when a step of its parent starts it, and its parent's handlers of `onEvent`
+  run in the parent's `update`. No value given to the library, or taken from it, is mutated once
   made, nested objects included: a state, a message, a command, an event, flags, a key, a model, an output. The library
   reuses a child's model, and the keys of its subscriptions, while the child keeps the very same state: a child started
   again makes its own. The guide, "Guarantees", "What is left to you". The guide, "Update", "Keep it pure". The guide,
@@ -111,19 +109,20 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
 - **A view draws its model, and decides nothing.** A view is a function `(model, dispatch) => Node`. It matches tags
   and formats values. What it would decide, `makeModel` decides, as a case of the model. The guide, "View", "In short".
   The guide, "Structuring a program", "A view draws, it never decides".
-- **A view adds nothing to what it sends but what an element or its event gives, as given.** A fact that comes with a
-  value, as the end of a scroll with its offset, is one message. The model holds it without the value,
-  `{ _tag: 'ScrollEnded' } as const`, and the view fills each field that is left with one value that the element or
-  its event gives, copied as it is. It combines none, compares none and converts none: what follows from them,
-  `update` computes. Copy the numbers of an object of the browser, as a `DOMRect`. Only a plain tagged message can be
-  held so: for a class, write the value into an input, then send the message. A value is never a reason to reject.
-  A test of the model does not see a value that the view computed. The guide, "Inputs", "What an element reports".
-  The guide, "Model", "Messages live in the model". The guide, "Structuring a program", "Model and view".
+- **A view adds nothing to what it sends but what an element or its event gives, as given.** What an element gives,
+  the text of a field as the end of a scroll with its offset, is a message of the program, as a click is: `update`
+  decides what it does. The model holds it without the value, `{ _tag: 'NameTyped' } as const`, and the view fills
+  each field that is left with one value that the element or its event gives, copied as it is. It combines none,
+  compares none and converts none: what follows from them, `update` computes. Copy the numbers of an object of the
+  browser, as a `DOMRect`. A message that an element fills is a plain tagged one, never a class. A value is never a
+  reason to reject. A test of the model does not see a value that the view computed. The guide, "What an element
+  gives", "Rules". The guide, "What an element gives", "What an element reports". The guide, "Model", "Messages live
+  in the model". The guide, "Structuring a program", "Model and view".
 - **What the program draws comes from its model.** It comes from nowhere else, with one exception: what the platform
   keeps by itself, as a hover or the focus. An element with a value of its own, as a text field, shows what the user
   typed into it only for the length of its own event. A part of the page outside the bridge's `root`, as its title,
   is drawn from the model by code over the handle, beside the bridge. The guide, "View", "What the program draws
-  comes from its model". The guide, "Inputs", "The element on screen".
+  comes from its model". The guide, "What an element gives", "The element on screen".
 - **Each bridge says what it draws beside the model.** The bridge to snabbdom draws the model and nothing else: what
   it shows of a controlled element is the value its model gave it. With the bridge to React, the application's
   components may keep state of their own, which the testing tools do not see. The guide, "View", "Each bridge says what
@@ -141,14 +140,14 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   as long as the effect that starts it". The guide, "Writing a bridge", "With the bridge to React, a run that dies is
   thrown to the nearest error boundary".
 - **A value that the user writes belongs to the program whose rules use it.** Where the parent changes it, locks it or
-  submits it, it is an input of the parent, by id for rows, and a row is no child. Where only a child's rules use it,
-  it is the child's input, and the parent reads what the child concludes from it, through the child's `output`: a
-  valid count, not the text. Nothing checks it: an `output` that gives the text compiles. The guide, "Structuring a
-  program", "A value that the user writes belongs to the program whose rules use it".
+  submits it, what is typed is a message of the parent, with the row's id for rows, and a row is no child. Where only
+  a child's rules use it, it is the child's, and the parent reads what the child concludes from it, through the
+  child's `output`: a valid count, not the text. Nothing checks it: an `output` that gives the text compiles. The
+  guide, "Structuring a program", "A value that the user writes belongs to the program whose rules use it".
 - **Flags, and what `key` gives, are compared with `Equal`.** Other flags, or another value of `key`, start a child
   again, as another instance. A function made anew in `flags` or `key` is other flags each time, since `Equal` compares
   a function by reference: give plain values. An `Equal` and a `Hash` written by hand, for a key, what `key` gives, an
-  id, flags or a stored value, keep Effect's rules: equal values have the same `Hash`, and both give the same answer
+  id or flags, keep Effect's rules: equal values have the same `Hash`, and both give the same answer
   each time. Otherwise what the library does with that value is undefined. The guide, "Composition", "Ids are compared
   by value". The guide, "Guarantees", "What is left to you".
 - **The state is ahead of its effects.** A step's commands, and the subscriptions it starts, start after the step,
@@ -176,18 +175,13 @@ The run does not check these. A test does, with the tool named.
   The guide, "Testing tools", "Each message the model holds must do something".
 - **A message sent twice from one model acts once**, unless it is marked `repeatable`: `dispatchViolations`, with
   `ActsTwice`. The guide, "Testing tools", "Each message must act once when sent twice".
-- **A `set` changes its place, and nothing else**: `placeViolations`, given the input, in states where its place is
-  there and, for inputs by id, at several ids. An input's place given as `get` and `set` has a `set` that puts the
-  value it is given where `get` reads it, exactly as it is given, as an optic does. What follows a write is computed
-  where the state is read. A value stored in another form than the one written is declared with `store`, a function
-  of the value alone, beside the place: `input({ at, store: (note) => note.toUpperCase() })`. The guide, "Inputs",
-  "Rules". The guide, "Inputs", "What is typed, in another form". The guide, "Testing tools", "placeViolations".
 - **A view sends only the messages its model holds**: your renderer's tools, as `messagesSentBy` for snabbdom. That
   tool gives a handler the `value` and the `checked` of its element, and what its third argument, `reports`, says the
   element and the event report. The guide, "Testing", "The view". The guide, "Model", "Messages live in the model".
   The guide, "Writing a bridge".
-- **A message held without its value is filled by the reader too**, with values that the test draws, and the values
-  at which it means nothing are exempted with `inert`. The guide, "Testing", "The reader".
+- **A message held without its value is filled by the reader too**, with values that the test draws, a text other
+  than the one the model shows for what is typed, and the values at which it means nothing are exempted with `inert`.
+  The guide, "Testing", "The reader".
 - **A rejection is asserted as `reject` itself**, with `toBe(reject)`. The guide, "Testing", "Do and don't".
 - **A model is data, and holds no function**: `Equal.equals` on the models of two equal states built apart, never on
   one state used twice. The guide, "Model", "A model is data". The guide, "Testing", "That the model is data".
@@ -222,8 +216,8 @@ Each sign breaks the rule named after it.
   bridge's `root`, as the page's title, is beside the bridge, not in its place. The guide, "View", "What the program
   draws comes from its model".
 - A message built in a view, or `Message` exported as a value. The guide, "Model", "Messages live in the model".
-- A message for each keystroke. The guide, "Inputs", "What the user gives an input is no message
-  of the program".
+- A message of what is typed that the view builds, in place of the one its model holds. The guide, "What an element
+  gives", "Rules".
 - `defect` on a message of the view. The guide, "Rejections and defects", "What the view draws never rules a message
   out".
 - A copy in the parent's state of what holds in a child, changed at each change of the child: read the child's

@@ -29,28 +29,30 @@ const state = (): fc.Arbitrary<State> => {
 /** An editing draft with this name, and no failure. */
 const editing = (name: string): State => ({ ...empty, draft: Draft.Editing({ name, failed: Opt.none() }) })
 
-// What the model holds: the messages of its controls, a case at a time. What is typed is none of them.
-const messagesOf = ({ editor }: Model): ReadonlyArray<Message> => editor._tag === "Named" ? [editor.save] : []
+// What the model holds, in the order the view draws it: what is typed, filled with the text given, where the model shows
+// an editor, then Save.
+const messagesOf = ({ editor }: Model, text: string): ReadonlyArray<Message> =>
+  editor._tag === "Saving" ? [] : [
+    { ...editor.typed, value: text },
+    ...(editor._tag === "Named" ? [editor.save] : [])
+  ]
 
 // What a user could ask of the form, a tag at a time, so that a new message does not compile here until the test
-// says what a user could ask with it: the save's answers are its command's, and what is typed is the input's.
-const userMessages: ReadonlyArray<Message> = Object.values(
-  {
-    SaveClicked: [{ _tag: "SaveClicked" }],
-    SaveSucceeded: [],
-    SaveFailed: [],
-    Name: []
-  } satisfies { [Tag in Message["_tag"]]: ReadonlyArray<Extract<Message, { _tag: Tag }>> }
-).flat()
+// says what a user could ask with it: the save's answers are its command's. What is typed is the text given, in every
+// state, so that a field that takes it where the model shows no editor is missing.
+const candidatesOf = (text: string): ReadonlyArray<Message> =>
+  Object.values(
+    {
+      NameTyped: [{ _tag: "NameTyped", value: text }],
+      SaveClicked: [{ _tag: "SaveClicked" }],
+      SaveSucceeded: [],
+      SaveFailed: []
+    } satisfies { [Tag in Message["_tag"]]: ReadonlyArray<Extract<Message, { _tag: Tag }>> }
+  ).flat()
 
-/** What the user types into the input, as the view sends it. */
-const typing = (text: string): Message => ({ _tag: "Name", message: { _tag: "Written", value: text } })
-
-// A write over the name the model shows, of a value that differs from it: held where the model shows an editor, so
-// that an input drawn editable takes a write, and a candidate in every state, so that a write that has a place where
-// the input is drawn read-only is missing.
-const writesOf = (model: Model, editable: boolean): ReadonlyArray<Message> =>
-  !editable || model.editor._tag !== "Saving" ? [typing(`${model.name}1`)] : []
+/** What the user types, where the model shows an editor, as the view sends it. */
+const typing = (model: Model, text: string): Opt.Option<Message> =>
+  model.editor._tag === "Saving" ? Opt.none() : Opt.some({ ...model.editor.typed, value: text })
 
 const working = Storage.of({ save: () => Effect.void })
 const failing = Storage.of({ save: (name) => Effect.fail(new StorageError({ cause: name })) })
@@ -77,13 +79,19 @@ describe("form", () => {
       expect(() => update({ _tag: "SaveFailed", name: "Ada" })(failed)).toThrow(InvariantDefect)
     })
 
-    // While saving, the name has no place to be written into: a write, as a script may send into the read-only input,
-    // is rejected, so the failure gives back the name that was saved.
-    test("rejects a write while saving", () => {
-      expect(update(typing(" Ada x"))({ ...empty, draft: Draft.Saving({ name: " Ada " }) })).toBe(reject)
+    test("stores what is typed, as it is typed, and keeps the name a save failed on", () => {
+      const failed = { ...empty, draft: Draft.Editing({ name: "Ada", failed: Opt.some("Ada") }) }
+      const { state } = applyAll(update, [{ _tag: "NameTyped", value: " Ada x" }], failed)
+      expect(state.draft).toEqual(Draft.Editing({ name: " Ada x", failed: Opt.some("Ada") }))
     })
 
-    // An input keeps nothing of its own: the state stored is the state the form wrote, which a test compares whole.
+    // While saving, the name cannot be typed into: what is typed, as a script may send it into the read-only field, is
+    // rejected, so the failure gives back the name that was saved.
+    test("rejects what is typed while saving", () => {
+      expect(update({ _tag: "NameTyped", value: " Ada x" })({ ...empty, draft: Draft.Saving({ name: " Ada " }) }))
+        .toBe(reject)
+    })
+
     test("a completed save leaves the form as it starts, with the name listed", () => {
       const { state } = applyAll(
         update,
@@ -98,37 +106,28 @@ describe("form", () => {
     })
   })
 
-  // The model, for any state: every message it holds is accepted, a double click saves once, and nothing
-  // `update` accepts is missing. No text is drawn: what is typed is no message of the model's.
+  // The model, for any state: every message it holds is accepted, a double click saves once, and nothing `update`
+  // accepts is missing. What is typed is filled with a text other than the one the model shows: the same text would
+  // change nothing.
   test("the model holds what update accepts, all of it, and each acts once when sent twice", () => {
     fc.assert(fc.property(state(), (before) => {
-      expect(dispatchViolations(update, {
-        state: before,
-        held: messagesOf(form.makeModel(before)),
-        candidates: userMessages
-      })).toEqual([])
-    }))
-  })
-
-  test("the model shows an editor exactly where a write into the name is stored, once", () => {
-    fc.assert(fc.property(state(), (before) => {
       const model = form.makeModel(before)
+      const text = `${model.name}1`
       expect(dispatchViolations(update, {
         state: before,
-        held: writesOf(model, true),
-        candidates: writesOf(model, false)
+        held: messagesOf(model, text),
+        candidates: candidatesOf(text)
       })).toEqual([])
     }))
   })
 
-  // Beyond what the library asks: that the view draws what its model holds, each control once, and the input with the
-  // name the model holds. `messagesSentBy`, beside the snabbdom bridge, is its way to see it without a DOM: the input's
-  // write holds the value its element is drawn with.
+  // Beyond what the library asks: that the view draws what its model holds, each control once, and the field with the
+  // name the model holds. `messagesSentBy`, beside the snabbdom bridge, is its way to see it without a DOM: what is
+  // typed holds the text its element is drawn with.
   test("the view sends what its model holds", () => {
     fc.assert(fc.property(state(), (before) => {
       const model = form.makeModel(before)
-      const write = model.editor._tag === "Saving" ? [] : [typing(model.name)]
-      expect(messagesSentBy<Model, Message>(view, model)).toEqual([...write, ...messagesOf(model)])
+      expect(messagesSentBy<Model, Message>(view, model)).toEqual(messagesOf(model, model.name))
     }))
   })
 
@@ -146,9 +145,9 @@ describe("form", () => {
 
   // `update` and the commands, with the storage provided: what each outcome leaves.
   describe("saving", () => {
-    const typedAndSaved: ReadonlyArray<Message> = [typing(" Ada "), { _tag: "SaveClicked" }]
+    const typedAndSaved: ReadonlyArray<Message> = [{ _tag: "NameTyped", value: " Ada " }, { _tag: "SaveClicked" }]
 
-    test("a saved name is listed, trimmed, and the form empties its input", async () => {
+    test("a saved name is listed, trimmed, and the form empties its field", async () => {
       const { state, ignored } = await Effect.runPromise(
         simulate(form, typedAndSaved, form.init).pipe(Effect.provideService(Storage, working))
       )
@@ -171,7 +170,7 @@ describe("form", () => {
         rehearse(
           form,
           Effect.fnUntraced(function*(rehearsal) {
-            yield* rehearsal.send((model) => model.editor._tag === "Saving" ? Opt.none() : Opt.some(typing(" Ada ")))
+            yield* rehearsal.send((model) => typing(model, " Ada "))
             yield* rehearsal.send(save)
             const whileSaving = (yield* rehearsal.model).editor._tag
             yield* rehearsal.run((command) => command._tag === "Save")
@@ -194,7 +193,7 @@ describe("form", () => {
       drive(
         form,
         Effect.fnUntraced(function*(driver) {
-          yield* driver.send((model) => model.editor._tag === "Saving" ? Opt.none() : Opt.some(typing("Ada")))
+          yield* driver.send((model) => typing(model, "Ada"))
           yield* driver.send(({ name, editor }) =>
             name === "Ada" && editor._tag === "Named" ? Opt.some(editor.save) : Opt.none()
           )

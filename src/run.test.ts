@@ -1109,12 +1109,12 @@ describe("defects", () => {
     ])
   })
 
-  // What a parent declares, its children's functions and its inputs are called where the library needs them: in the
-  // step of the parent's `update`, in `subscriptions`, or where the model is read. What they throw is a defect there.
-  describe("a defect in a function that a parent or an input gives is recorded where the library calls it", () => {
-    type Desk = Readonly<{ step: number; note: string }>
+  // What a parent declares and its children's functions are called where the library needs them: in the step of the
+  // parent's `update`, in `subscriptions`, or where the model is read. What they throw is a defect there.
+  describe("a defect in a function that a parent gives is recorded where the library calls it", () => {
+    type Desk = Readonly<{ step: number }>
     type Leaf = Readonly<{ on: boolean }>
-    const initial = { state: { step: 0, note: "" } }
+    const initial = { state: { step: 0 } }
     const Desk = program<{ state: Desk; message: "Next" }>()
     const next = () => (state: Desk) => ({ state: { ...state, step: state.step + 1 } })
     const quiet = program<{ state: Leaf }>().make({ init: { state: { on: false } }, makeModel: () => null })
@@ -1125,7 +1125,6 @@ describe("defects", () => {
       output: () => boom(),
       makeModel: () => null
     })
-    const written = { _tag: "Note", message: { _tag: "Written", value: "Ada" } } as const
 
     /** Starts the program, reads its model at each new state as a renderer does, sends `message`, and tells where
      * the run died of a `Boom`. */
@@ -1243,36 +1242,6 @@ describe("defects", () => {
               })
             ),
             "Next"
-          )
-      ],
-      [
-        "the get of an input",
-        "update",
-        () =>
-          diedIn(
-            start(Desk.make({
-              init: initial,
-              inputs: {
-                Note: Desk.input({ get: (): Opt.Option<string> => boom(), set: (state, note) => ({ ...state, note }) })
-              },
-              update: next,
-              makeModel: () => null
-            })),
-            written
-          )
-      ],
-      [
-        "the set of an input",
-        "update",
-        () =>
-          diedIn(
-            start(Desk.make({
-              init: initial,
-              inputs: { Note: Desk.input({ get: (state) => Opt.some(state.note), set: () => boom() }) },
-              update: next,
-              makeModel: () => null
-            })),
-            written
           )
       ],
       [

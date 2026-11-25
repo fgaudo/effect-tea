@@ -5,9 +5,11 @@ import { timerMessages } from "./timer.test_reader.ts"
 
 // #region reader
 /**
- * What a named timer's model holds: its timer's messages, wrapped as it receives them, in the order the view draws
- * them. What is typed into the name is none of them.
+ * What a named timer's model holds, in the order the view draws it: what is typed into the name, filled with the text
+ * given, then its timer's messages, wrapped as it receives them.
  */
-export const namedMessages = (model: Named.Model): ReadonlyArray<Named.Message> =>
-  timerMessages(model.timer).map((message) => ({ _tag: "Timer", message }))
+export const namedMessages = (model: Named.Model, text: string): ReadonlyArray<Named.Message> => [
+  { ...model.typed, value: text },
+  ...timerMessages(model.timer).map((message) => ({ _tag: "Timer", message }) as const)
+]
 // #endregion reader

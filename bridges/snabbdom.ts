@@ -106,7 +106,7 @@ const giveBack = (controlled: Map<Element, Controlled>): void => {
  * @see The guide, "Writing a bridge", "Handlers".
  * @see The guide, "Writing a bridge", "A controlled element".
  * @see The guide, "Writing a bridge", "The package's bridges".
- * @see The guide, "Inputs", "The element on screen".
+ * @see The guide, "What an element gives", "The element on screen".
  */
 export const drawInto = <Model, Message>(root: Element, { app, view }: {
   /** The handle of a program that was started. */

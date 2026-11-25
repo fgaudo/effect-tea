@@ -4,7 +4,7 @@ children:
   - ./1-first-program.md
   - ./2-commands-and-subscriptions.md
   - ./3-children.md
-  - ./4-inputs.md
+  - ./4-what-the-user-types.md
   - ./5-testing.md
 ---
 
@@ -26,8 +26,9 @@ here links to the rules it uses there.
 2. [Commands and subscriptions](./2-commands-and-subscriptions.md): the timer itself, which ticks while it runs
    and rings a bell when it finishes.
 3. [Children](./3-children.md): many timers, each the program of step 2 as it is, under a parent.
-4. [Inputs](./4-inputs.md): a name for each timer, typed by the user, which the library stores.
-5. [Testing](./5-testing.md): `update`, the model, an input and a scenario, tested without running the program.
+4. [What the user types](./4-what-the-user-types.md): a name for each timer, typed by the user, a message that the
+   view fills.
+5. [Testing](./5-testing.md): `update`, the model, what is typed and a scenario, tested without running the program.
 
 ## Before you start
 
@@ -65,5 +66,5 @@ The library draws nothing: a view is a function of its model, and a small bridge
 draws with [snabbdom](https://github.com/snabbdom/snabbdom). You do not need to know snabbdom: its views are a few
 lines each. They go through the package's bridge to snabbdom, `@fgaudo/effect-tea/snabbdom`
 ([`bridges/snabbdom.ts`](../../bridges/snabbdom.ts)). In it, `drawInto` draws the model of the current state. A
-view's listener calls `dispatch` itself, and an input is drawn as a native controlled element.
+view's listener calls `dispatch` itself, and a field to type into is drawn as a native controlled element.
 [Writing a bridge](../guide/writing-a-bridge.md) explains the bridge, and names what a bridge to React does instead.

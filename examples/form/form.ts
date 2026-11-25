@@ -1,19 +1,17 @@
-// A form that saves names. The name is an input, a plain value of the form's own state that the outside writes over:
-// no `update` of the form's sees what is typed, which the library stores wherever the name can be typed, over whatever
-// name the form put there. The form's messages are those it fixes, Save and the answers of its command, and its
-// model holds no function. The name's validity becomes model data: "Save" exists only for a name that is not blank.
-// Saving is a state that only its completion leaves, so a second click is rejected, and a completion outside it
-// cannot arrive: it is a defect. The name lives in the case of the draft where it can be typed, and the input is at
-// that case: a write while saving finds no place, and is rejected. A failure gives the form back, as it was, and says
-// which name it could not save.
+// A form that saves names. What is typed is a message of the form's, as a click is: the model holds it without the
+// text, where the name can be typed, and the view fills the text that the element holds. The form's messages are
+// what is typed, Save and the answers of its command, and its model holds no function. The name's validity becomes
+// model data: "Save" exists only for a name that is not blank. Saving is a state that only its completion leaves, so a
+// second click is rejected, and a completion outside it cannot arrive: it is a defect. The name lives in the case of
+// the draft where it can be typed: what is typed while saving is rejected, and the model holds nothing to type there.
+// A failure gives the form back, as it was, and says which name it could not save.
 import { defect, type Execution, type MessageOf, type ModelOf, program, reject } from "@fgaudo/effect-tea"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
-import * as Optic from "effect/Optic"
 import * as Opt from "effect/Option"
 import { Storage } from "./storage.ts"
 
-/** The draft: one state machine. Only an editing draft is a place to type into, and it keeps the name a save failed on. */
+/** The draft: one state machine. Only an editing draft can be typed into, and it keeps the name a save failed on. */
 export type Draft = Data.TaggedEnum<{
   Editing: { name: string; failed: Opt.Option<string> }
   Saving: { name: string }
@@ -26,8 +24,9 @@ export type State = Readonly<{
   saved: ReadonlyArray<string>
 }>
 
-/** The form's own messages: what is typed is no message of the form's. */
+/** The form's messages: what is typed, with the text the element holds, Save, and the answers of its command. */
 export type Own = Data.TaggedEnum<{
+  NameTyped: { value: string }
   SaveClicked: object
   SaveSucceeded: { name: string }
   SaveFailed: { name: string }
@@ -59,22 +58,29 @@ export const runCommand = (command: Command): Execution<Own, Storage> => {
 
 const isBlank = (name: string) => name.trim() === ""
 
+/** What is typed, held without its text: the view fills the text that the element holds. */
+type Typing = Readonly<{ _tag: "NameTyped" }>
+
 export type Editor = Data.TaggedEnum<{
   Saving: object
-  Blank: object
-  Named: { save: Own }
+  Blank: { typed: Typing }
+  Named: { typed: Typing; save: Own }
 }>
 
 export const Editor = Data.taggedEnum<Editor>()
 
-const { make, input } = program<{ state: State; command: Command; message: Own }>()
+const { make } = program<{ state: State; command: Command; message: Own }>()
 
 export const form = make({
   init: { state: { draft: Draft.Editing({ name: "", failed: Opt.none() }), saved: [] } },
-  inputs: { Name: input({ at: Optic.id<State>().key("draft").tag("Editing").key("name") }) },
   update: (message) => (state) => {
     const { draft } = state
     switch (message._tag) {
+      // The text is stored as it is typed, whatever it is: the element on screen already shows it.
+      case "NameTyped":
+        return draft._tag === "Editing"
+          ? { state: { ...state, draft: Draft.Editing({ name: message.value, failed: draft.failed }) } }
+          : reject
       case "SaveClicked":
         return draft._tag === "Saving" || isBlank(draft.name)
           ? reject
@@ -86,8 +92,7 @@ export const form = make({
       // is a bug, and the run dies with it.
       case "SaveSucceeded":
         return draft._tag === "Saving"
-          // The form puts an empty name in the input's place, and the input on screen is emptied: what is typed next
-          // is stored over it.
+          // The form empties the name, and the element on screen is emptied: what is typed next replaces it.
           ? { state: { draft: Draft.Editing({ name: "", failed: Opt.none() }), saved: [...state.saved, message.name] } }
           : defect("A save completed while nothing was saving")
       case "SaveFailed":
@@ -98,13 +103,14 @@ export const form = make({
   },
   runCommand,
   makeModel: ({ draft, saved }) => ({
-    // The form's own state: the view draws the input from it, and writes over it where the editor is there.
+    // The view draws the field with this name, and, where the model shows an editor, fills what is typed with the
+    // text that the field holds.
     name: draft.name,
     editor: draft._tag === "Saving"
       ? Editor.Saving()
       : isBlank(draft.name)
-      ? Editor.Blank()
-      : Editor.Named({ save: Own.SaveClicked() }),
+      ? Editor.Blank({ typed: { _tag: "NameTyped" } })
+      : Editor.Named({ typed: { _tag: "NameTyped" }, save: Own.SaveClicked() }),
     failed: draft._tag === "Editing" ? draft.failed : Opt.none(),
     saved
   })
@@ -112,7 +118,7 @@ export const form = make({
 
 export type Model = ModelOf<typeof form>
 
-/** The form's messages, made by the library: its own, and `{ _tag: 'Name', message }` for what is typed. */
+/** The form's messages: what is typed, Save, and the answers of its command. */
 export type Message = MessageOf<typeof form>
 
 export const update = form.update

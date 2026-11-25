@@ -9,7 +9,6 @@ import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import { pipe } from "effect/Function"
 import * as HashMap from "effect/HashMap"
-import * as Optic from "effect/Optic"
 import * as Opt from "effect/Option"
 import { collectGarbage } from "../test/gc.test_helper.ts"
 import type { Execution } from "./command.ts"
@@ -17,7 +16,6 @@ import { type Child, type ChildById, type Instance, program } from "./compose.ts
 import { CompositionDefect, compositionDefect, defect } from "./defect.ts"
 import { type Dispatch, forwardTo } from "./dispatch.ts"
 import type { Ignored } from "./engine.ts"
-import type { Written } from "./input.ts"
 import type {
   AnyProgram,
   CommandOf,
@@ -105,7 +103,7 @@ const counter: Program<{
         return { state: { ...state, count: state.count + 1 } }
       case "Decrement":
         return state.count > 0 ? { state: { ...state, count: state.count - 1 } } : reject
-      // Breaks the rule "input is never a reason to reject", on purpose.
+      // Breaks the rule "a value is never a reason to reject", on purpose.
       case "Typed":
         return /^\d*$/.test(message.text) ? { state: { ...state, text: message.text } } : reject
       case "SaveClicked":
@@ -347,6 +345,10 @@ describe("compose", () => {
     expect(kept.state).toBe(before)
     expect(kept.commands).toEqual([{ _tag: "Pinger", instance: 1, command: "Pong" }])
     expect(heard.state.own.heard).toBe(1)
+  })
+
+  test("a message its child rejects is rejected by the parent", () => {
+    expect(app.update({ _tag: "Left", message: CounterMessage.Decrement() })(app.init.state)).toBe(reject)
   })
 
   test("a message for a child that is not there is rejected, from its view or as the answer of a command", () => {
@@ -1020,25 +1022,6 @@ describe("the children that the library keeps", () => {
         makeModel: () => null
       })
     expect(makeTwice).toThrow(twice)
-  })
-
-  // A write into a parent's input is a step on its own state: where a child's flags are read from it, the child follows.
-  test("a write into the parent's input that changes what its state lists reconciles too", () => {
-    type Named = Readonly<{ name: string }>
-    const Named = program<{ state: Named }>()
-    const named = Named.withChildren({ Row: Named.child(labelled, { flags: (state) => Opt.some(state.name) }) }).make({
-      init: { state: { name: "a" } },
-      inputs: { Name: Named.input({ at: Optic.id<Named>().key("name") }) },
-      onEvent: { Row: () => (state) => ({ state }) },
-      makeModel: (state, children) => ({ name: state.name, row: children.Row() })
-    })
-    const first = named.init.state
-    const write = (value: string) =>
-      applyAll(named.update, [{ _tag: "Name", message: { _tag: "Written", value } }], first)
-    expect(write("a").state).toBe(first)
-    const { state, commands } = write("b")
-    expect(Opt.map(state.children.Row, (kept) => kept.instance)).toEqual(Opt.some(2))
-    expect(commands).toEqual([{ _tag: "Row", instance: 2, command: { _tag: "Load", label: "b" } }])
   })
 
   // A state written by hand that holds none of the children its own state lists shows what is reconciled: a
@@ -2317,18 +2300,6 @@ describe("what the types reject", () => {
     })
   })
 
-  test("an own command cannot take the name of an input", () => {
-    type Named = Readonly<{ name: string }>
-    const { input, make } = program<{ state: Named; command: Readonly<{ _tag: "Name" }> }>()
-    // @ts-expect-error: `Name` is an input's name.
-    make({
-      init: { state: { name: "" } },
-      inputs: { Name: input({ at: Optic.id<Named>().key("name") }) },
-      runCommand: () => Effect.succeedNone,
-      makeModel: () => null
-    })
-  })
-
   test("an own message or command cannot take the name of a child, however wide its type", () => {
     const { child } = program<{ state: Ticks }>()
     const children = { Plain: child(plain) }
@@ -2381,31 +2352,6 @@ describe("what the types reject", () => {
       { state: elsewhere.init.state, commands: [], events: [] },
       { state: noTicks }
     ])
-  })
-
-  test("an external message tagged like an input is the program's to answer, never a write", () => {
-    type Named = Readonly<{ name: string }>
-    type Filled = Readonly<{ _tag: "Name"; message: Written<string> }>
-    const { input, make } = program<{ state: Named; external: Filled }>()
-    const filling = make({
-      init: { state: { name: "Ada" } },
-      inputs: { Name: input({ at: Optic.id<Named>().key("name") }) },
-      external: (filled: Filled) => () => ({ state: { name: filled.message.value.toUpperCase() } }),
-      makeModel: () => null
-    })
-    const filled = filling.external({ _tag: "Name", message: { _tag: "Written", value: "Grace" } })
-    expect(filled(filling.init.state)).toEqual({ state: { name: "GRACE" } })
-  })
-
-  test("an input cannot take the name of a child, which it would replace", () => {
-    type Named = Readonly<{ name: string }>
-    const { child, withChildren, input } = program<{ state: Named }>()
-    // @ts-expect-error: `Plain` is a child's name.
-    withChildren({ Plain: child(plain) }).make({
-      init: { state: { name: "" } },
-      inputs: { Plain: input({ at: Optic.id<Named>().key("name") }) },
-      makeModel: () => null
-    })
   })
 
   test("a program has an external exactly when it has external messages, and it never rejects", () => {
@@ -2724,7 +2670,7 @@ describe("what the types reject", () => {
       makeModel: () => null
     }
     const Holder = program<{ state: Ticks }>()
-    const holder = Holder.withChildren({ Written: Holder.child(written) }).make({
+    const holder = Holder.withChildren({ Literal: Holder.child(written) }).make({
       init: { state: noTicks },
       makeModel: () => null
     })

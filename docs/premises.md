@@ -107,9 +107,9 @@ unless it says otherwise, named after it, with what it fails with.
   variable, not of a store. Its test, in `bridges/react.test.ts`, fails with the store updated a microtask later.
 - **React renders a store read with `useSyncExternalStore`, updated outside its events, in a microtask**, before the
   browser's next task: so the bridge to React draws the state that an answer or a subscription made before the next
-  event, as "Writing a bridge" says (`invariants.md`, "What a screen shows of an input is the bridges'"). Agreed by the
-  owner on 21 November 2026. react.dev says that React renders again, not when. Its test, in `bridges/react.test.ts`,
-  fails with the listeners told a task later.
+  event, as "Writing a bridge" says (`invariants.md`, "What a screen shows of a controlled element is the bridges'").
+  Agreed by the owner on 21 November 2026. react.dev says that React renders again, not when. Its test, in
+  `bridges/react.test.ts`, fails with the listeners told a task later.
 - **StrictMode runs an effect's cleanup in the task of the effect, before any microtask**: so `Host` runs one program
   under StrictMode (`invariants.md`, "`Host` starts one run under StrictMode"); should React run it later, `Host` would
   start the program anew, which is why the guide leaves it unspecified. Agreed by the owner on 20 November 2026.

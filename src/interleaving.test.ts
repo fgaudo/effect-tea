@@ -8,7 +8,6 @@ import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import * as HashMap from "effect/HashMap"
 import * as Logger from "effect/Logger"
-import * as Optic from "effect/Optic"
 import * as Opt from "effect/Option"
 import * as References from "effect/References"
 import type * as Scope from "effect/Scope"
@@ -19,7 +18,6 @@ import { type Instance, type Kept, program } from "./compose.ts"
 import { type DefectSite, ProgramDefect } from "./defect.ts"
 import { type Dispatch, forwardTo } from "./dispatch.ts"
 import type { Applied, Ignored } from "./engine.ts"
-import type * as Input from "./input.ts"
 import type { Program } from "./program.ts"
 import { start } from "./run.ts"
 import type { Subscription } from "./subscription.ts"
@@ -33,12 +31,13 @@ import { reject } from "./update.ts"
 // something and completes when the scheduler says (working mutes the row, so that one step both stops a subscription
 // and starts a command), can be poked, which leaves it as it is, and, while it listens, hears two ticks from a
 // subscription that then stays open, ends with a last message, or dies; each time it starts listening again is a new
-// session. The list can clear all its rows at once, stopping their subscriptions together. The list has a field, which
-// is the place of one of two inputs, a note or a title, and which a swap turns into the other's place, the text kept.
-// The user types into the element of that field, which shows what the current model holds, as a controlled element
-// does, or writes from a model read before, as its element would have; clearing empties the field, and while it holds a
-// text the list searches for it, under a key of that text, and hears what the search sends, which names the start that
-// sent it. The program is started by plain code, and the user may act before its run begins. The renderer is plain code
+// session. The list can clear all its rows at once, stopping their subscriptions together. The list has a field, a note
+// or a title, which a swap turns into the other, the text kept: what is typed names the field it is typed into, and is
+// rejected once the field is the other. The user types into the element of that field, which shows what the current
+// model holds and sends the message that it holds, filled with the text, as a controlled element does, or sends what is
+// typed from a model read before, as its element would have; clearing empties the field, and while it holds a text the
+// list searches for it, under a key of that text, and hears what the search sends, which names the start that sent
+// it. The program is started by plain code, and the user may act before its run begins. The renderer is plain code
 // too: a listener of the handle, told of each new state, which reads the model or not, as the fates say, and now and
 // then sends a poke from inside the step that told it. What the user does, when the run begins, when commands complete,
 // when ticks arrive and when releases end is all in the hands of the scheduler of the tests
@@ -85,7 +84,7 @@ type RowModel = Readonly<{
   poke: RowMessage
 }>
 
-/** The field, the place of the input its tag names: `Swap` turns it into the place of the other. */
+/** The field, a note or a title: `Swap` turns it into the other. */
 type Field = Readonly<{ _tag: "Note"; text: string }> | Readonly<{ _tag: "Title"; text: string }>
 /** What a row starts from: its id, and the number of the addition that made it, which no other row has. */
 type RowFlags = Readonly<{ id: Id; born: number }>
@@ -98,6 +97,10 @@ type Own =
   | Readonly<{ _tag: "Clear" }>
   | Readonly<{ _tag: "Swap" }>
   | Readonly<{ _tag: "Found"; text: string; start: number }>
+  | Typed
+
+/** What is typed into the field, with the text that the element holds, and the field it is typed into. */
+type Typed = Readonly<{ _tag: "Typed"; into: Field["_tag"]; value: string }>
 
 const emptyField: Field = { _tag: "Note", text: "" }
 
@@ -240,12 +243,12 @@ type Event =
   // The run about to begin, in the fiber whoever runs it forked.
   | Readonly<{ _tag: "Running" }>
   // The renderer told of a new state, or stopped; a model read, by the renderer as it starts or is told, or by the
-  // element as the user types into it; a poke the renderer sends from inside a step, and what the element writes.
+  // element as the user types into it; a poke the renderer sends from inside a step, and what the element sends.
   | Readonly<{ _tag: "Noticed" }>
   | Readonly<{ _tag: "Stopped" }>
   | Readonly<{ _tag: "Read"; model: Model; why: "notice" | "start" | "typing" }>
   | Readonly<{ _tag: "Reentering"; message: unknown }>
-  | Readonly<{ _tag: "Typed"; input: Field["_tag"]; write: Input.Written<string> }>
+  | Readonly<{ _tag: "Typed"; message: Typed }>
   // A dispatch of the user's about to be called, and returned, with the message `update` gets, unwrapped.
   | Readonly<{ _tag: "Sending" }>
   | Readonly<{ _tag: "Returned"; message: unknown }>
@@ -568,10 +571,10 @@ const makeList = (fates: Fates, events: Array<Event>) => {
           return state.rows.some((entry) => entry.id === message.id)
             ? { state: { ...state, rows: state.rows.filter((entry) => entry.id !== message.id) } }
             : reject
-        // Another text in the field's place: a write after it is stored over it all the same.
+        // Another text in the field: what is typed after it is stored over it all the same.
         case "Clear":
           return state.rows.length > 0 ? { state: { ...state, rows: [], field: { ...state.field, text: "" } } } : reject
-        // The place of the input the field was is gone: what was written into it is rejected.
+        // The field is the other one: what is typed into the one it was is rejected.
         case "Swap": {
           const { text } = state.field
           return {
@@ -582,16 +585,18 @@ const makeList = (fates: Fates, events: Array<Event>) => {
         // what the test checks.
         case "Found":
           return { state }
+        // The text is stored as it is typed, whatever it is, into the field it names.
+        case "Typed":
+          return state.field._tag === message.into
+            ? { state: { ...state, field: { ...state.field, text: message.value } } }
+            : reject
       }
-    },
-    inputs: {
-      Note: List.input({ at: Optic.id<ListOwn>().key("field").tag("Note").key("text") }),
-      Title: List.input({ at: Optic.id<ListOwn>().key("field").tag("Title").key("text") })
     },
     subscriptions: ({ field: { text } }) => text === "" ? [] : [["search", text] as const],
     listen: ([, text]) => searching(text),
     makeModel: (state, children) => ({
       field: state.field,
+      typed: { _tag: "Typed", into: state.field._tag } as const,
       swap: { _tag: "Swap" } as Own,
       add: ids.filter((id) => !state.rows.some((entry) => entry.id === id)).map((id): Own => ({ _tag: "Add", id })),
       clear: state.rows.length > 0 ? Opt.some<Own>({ _tag: "Clear" }) : Opt.none<Own>(),
@@ -615,16 +620,12 @@ const act: fc.Arbitrary<Act> = fc.record({
   pick: fc.nat(),
   twice: fc.boolean(),
   pause: fc.integer({ min: 1, max: 4 }),
-  // A write into the field of a model read before, as the element of that model would send it, now and then.
+  // What is typed into the field of a model read before, as the element of that model would send it, now and then.
   stale: fc.oneof({ arbitrary: fc.constant(Opt.none()), weight: 5 }, { arbitrary: fc.nat().map(Opt.some), weight: 1 })
 })
 
 /** What the user makes of a text: a letter more, or one less. */
 const typed = (text: string, pick: number) => pick % 3 === 0 ? text.slice(0, -1) : `${text}${"ab"[pick % 2]}`
-
-/** Sends a write into the input `input` names, through the input's own dispatch, as its element would. */
-const writeInto = (dispatch: Dispatch<Message>, input: Field["_tag"], write: Input.Written<string>) =>
-  input === "Note" ? forwardTo(dispatch, "Note")(write) : forwardTo(dispatch, "Title")(write)
 
 /**
  * What a control does with the dispatch, and the message it sent, as `update` gets it, unwrapped: a row's sends through
@@ -635,10 +636,10 @@ type Control = (dispatch: Dispatch<Message>) => Effect.Effect<unknown>
 // The dispatch is called as the control is: when it returns, its message has been applied.
 const sent = <A>(_: void, message: A): Effect.Effect<A> => Effect.succeed(message)
 
-/** What the element of an older model would have sent: a text typed over the one that model drew, to its place. */
-const staleWrite = (model: Model, pick: number): Control => (dispatch) => {
-  const write: Input.Written<string> = { _tag: "Written", value: typed(model.field.text, pick) }
-  return sent(writeInto(dispatch, model.field._tag, write), write)
+/** What the element of an older model would have sent: a text typed over the one that model drew, into its field. */
+const staleTyping = (model: Model, pick: number): Control => (dispatch) => {
+  const message: Typed = { ...model.typed, value: typed(model.field.text, pick) }
+  return sent(dispatch(message), message)
 }
 
 /** Every control the model shows, the element of the field first: a user can only use what is drawn. */
@@ -660,9 +661,8 @@ const controlFor = (model: Model, { pick }: Act, typing: Control): Opt.Option<Co
   return Arr.get(drawn, pick % Math.max(drawn.length, 1))
 }
 
-/** The message `update` got, as the control that sent it made it: a child's and an input's unwrapped. */
-const innerOf = (message: Message): unknown =>
-  message._tag === "Rows" || message._tag === "Note" || message._tag === "Title" ? message.message : message
+/** The message `update` got, as the control that sent it made it: a child's unwrapped. */
+const innerOf = (message: Message): unknown => message._tag === "Rows" ? message.message : message
 
 /**
  * Runs `acts` against the list, in a span of its own with debug logs enabled, and what was seen once nothing is under
@@ -734,14 +734,14 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
     forwardTo(app.dispatch, "Rows", first.id)(first.row.poke)
   })
   // A key typed into the element of the field, which shows what the current model holds, as a controlled element
-  // does: the write is that value with the key, sent from a plain callback.
+  // does: it sends the message that the model holds, filled with that value with the key, from a plain callback.
   const typing = (pick: number): Control => (dispatch) =>
     Effect.sync(() => {
-      const { field } = read("typing")
-      const write: Input.Written<string> = { _tag: "Written", value: typed(field.text, pick) }
-      events.push({ _tag: "Typed", input: field._tag, write })
-      writeInto(dispatch, field._tag, write)
-      return write
+      const model = read("typing")
+      const message: Typed = { ...model.typed, value: typed(model.field.text, pick) }
+      events.push({ _tag: "Typed", message })
+      dispatch(message)
+      return message
     })
   let caller: Tracer.Span | undefined
   const fiber = yield* Effect.forkChild(
@@ -773,7 +773,7 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
     }
     const older = Opt.flatMap(act.stale, (index) => Arr.get(shown, index % Math.max(shown.length, 1)))
     const control = Opt.isSome(older)
-      ? Opt.some(staleWrite(older.value, act.pick))
+      ? Opt.some(staleTyping(older.value, act.pick))
       : controlFor(latest, act, typing(act.pick))
     if (Opt.isNone(control)) continue
     for (const _ of act.twice ? [1, 2] : [1]) {
@@ -792,10 +792,7 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
 
 type Outcome = Effect.Success<ReturnType<typeof runScenario>>
 
-/** A write into the field, through the input it names. */
-type Write = Extract<Message, Readonly<{ _tag: "Note" | "Title" }>>
-
-const isWrite = (message: Message): message is Write => message._tag === "Note" || message._tag === "Title"
+const isTyped = (message: Message): message is Typed => message._tag === "Typed"
 
 const applied = (events: ReadonlyArray<Event>) =>
   events.flatMap((event) => event._tag === "Applied" ? [event.applied] : [])
@@ -978,7 +975,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
         }
         if (event._tag === "Spanned") reached.add("a span of the program")
         if (event._tag === "Reentering") reached.add("a message a listener sends")
-        if (event._tag === "Typed") reached.add("a write typed into the element")
+        if (event._tag === "Typed") reached.add("a text typed into the element")
         if (event._tag === "Acquired" && !listeners(stateAfter(first, events, index)).includes(event.listener)) {
           reached.add("a subscription started once its key had gone")
         }
@@ -991,7 +988,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
         if (event._tag !== "Applied") return
         const { message } = event.applied
         reached.add(message._tag === "Rows" ? message.message._tag : message._tag)
-        if (!isWrite(message) && event.applied.before.own.field.text !== event.applied.after.own.field.text) {
+        if (!isTyped(message) && event.applied.before.own.field.text !== event.applied.after.own.field.text) {
           reached.add("a text replaced")
         }
         if (event.applied.before === event.applied.after) reached.add("the very same state")
@@ -1010,11 +1007,11 @@ describe("interleavings of the user, commands and subscriptions", () => {
         if (event.defect === thrownByDraw) reached.add("a defect given to die")
       }
       if (events.some(({ _tag }) => _tag === "Ignored")) reached.add("rejected")
-      const typed = new Set(events.flatMap((event) => event._tag === "Typed" ? [event.write] : []))
+      const typed = new Set(events.flatMap((event) => event._tag === "Typed" ? [event.message] : []))
       for (const event of events) {
         if (event._tag !== "Ignored") continue
         const { message } = event.ignored
-        if (isWrite(message) && !typed.has(message.message)) reached.add("a write to a place that is gone")
+        if (isTyped(message) && !typed.has(message)) reached.add("a text typed into a field that is gone")
       }
       if (events.some(({ _tag }) => _tag === "SearchStopped")) reached.add("a search stopped")
       const stopped = events.findIndex(({ _tag }) => _tag === "Stopped")
@@ -1043,12 +1040,11 @@ describe("interleavings of the user, commands and subscriptions", () => {
       "Found",
       "ListenClicked",
       "MuteClicked",
-      "Note",
       "Poked",
       "Remove",
       "Swap",
       "Tick",
-      "Title",
+      "Typed",
       "WorkClicked",
       ...places.flatMap((where) =>
         (["defect", "interrupts", "joins", "isInterrupted"] as const).map((how) => `${where} ${how}`)
@@ -1058,9 +1054,9 @@ describe("interleavings of the user, commands and subscriptions", () => {
       "onApplied defect",
       "onIgnored defect",
       "rejected",
-      "a write to a place that is gone",
+      "a text typed into a field that is gone",
       "a text replaced",
-      "a write typed into the element",
+      "a text typed into the element",
       "a search stopped",
       "two waiting releases",
       "the very same state",
@@ -1208,41 +1204,14 @@ describe("interleavings of the user, commands and subscriptions", () => {
     })
   }, 120_000)
 
-  test(
-    "a write into the field is stored exactly when its place is there, whatever it is",
-    () => {
-      property(({ events }) => {
-        const broken: Array<string> = []
-        for (const event of events) {
-          if (event._tag === "Applied") {
-            const { before, after, message } = event.applied
-            if (!isWrite(message)) continue
-            if (before.own.field._tag !== message._tag) broken.push("a write to a place that is gone was stored")
-            const same = message.message.value === before.own.field.text
-            const written = after.own.field._tag === message._tag && after.own.field.text === message.message.value
-            if (same ? after !== before : !written) broken.push("not as written")
-          }
-          if (event._tag === "Ignored") {
-            const { message, state } = event.ignored
-            if (isWrite(message) && state.own.field._tag === message._tag) {
-              broken.push("a write to a place that is there was rejected")
-            }
-          }
-        }
-        expect(broken).toEqual([])
-      }, { numRuns: 1000 })
-    },
-    120_000
-  )
-
-  // What a controlled element writes goes to the place of the current model, which a dispatch applied at once keeps
-  // current: no write typed into it is ever to a place that is gone.
-  test("a write typed into the element is never rejected", () => {
+  // What a controlled element sends is the message of the current model, which a dispatch applied at once keeps
+  // current: nothing typed into it is ever for a field that is gone.
+  test("what is typed into the element is never rejected", () => {
     property(({ events }) => {
-      const typed = new Set(events.flatMap((event) => event._tag === "Typed" ? [event.write] : []))
+      const typed = new Set(events.flatMap((event) => event._tag === "Typed" ? [event.message] : []))
       const rejected = events.flatMap((event) =>
-        event._tag === "Ignored" && isWrite(event.ignored.message) && typed.has(event.ignored.message.message)
-          ? [event.ignored.message.message]
+        event._tag === "Ignored" && isTyped(event.ignored.message) && typed.has(event.ignored.message)
+          ? [event.ignored.message]
           : []
       )
       expect(rejected).toEqual([])

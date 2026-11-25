@@ -1,7 +1,6 @@
 // `messagesSentBy`, the snabbdom bridge's own way to find what a view sends, does what its comment says, without a DOM.
-import { type Dispatch, forwardTo, type MessageOf, type ModelOf, program, type Written } from "@fgaudo/effect-tea"
+import { type Dispatch, forwardTo, type MessageOf, type ModelOf, program } from "@fgaudo/effect-tea"
 import { describe, expect, test } from "bun:test"
-import * as Optic from "effect/Optic"
 import * as fc from "fast-check"
 import { h, thunk, type VNode } from "snabbdom"
 import { messagesSentBy } from "./snabbdom-testing.ts"
@@ -46,34 +45,39 @@ describe("messagesSentBy", () => {
     ])
   })
 
-  test("finds the writes of controlled elements, each with the value its model holds", () => {
+  test("finds what controlled elements send, each filled with the value its model holds", () => {
     type Held = Readonly<{ name: string; agreed: boolean }>
-    const heldOf = program<{ state: Held }>()
-    const at = Optic.id<Held>()
+    type Given =
+      | Readonly<{ _tag: "NameTyped"; value: string }>
+      | Readonly<{ _tag: "AgreedChecked"; value: boolean }>
+    const heldOf = program<{ state: Held; message: Given }>()
     const form = heldOf.make({
       init: { state: { name: "", agreed: false } },
-      inputs: { Name: heldOf.input({ at: at.key("name") }), Agreed: heldOf.input({ at: at.key("agreed") }) },
-      makeModel: (state) => state
+      update: (message) => (state) => ({
+        state: message._tag === "NameTyped" ? { ...state, name: message.value } : { ...state, agreed: message.value }
+      }),
+      makeModel: (state) => ({
+        ...state,
+        nameTyped: { _tag: "NameTyped" } as const,
+        agreedChecked: { _tag: "AgreedChecked" } as const
+      })
     })
-    const write = <A>(dispatch: Dispatch<Written<A>>, value: A) => dispatch({ _tag: "Written", value })
     const formView: View<ModelOf<typeof form>, MessageOf<typeof form>> = (model, dispatch) =>
       h("main", [
         h("input", {
           props: { value: model.name },
-          on: {
-            input: (event) => write(forwardTo(dispatch, "Name"), (event.target as HTMLInputElement).value)
-          }
+          on: { input: (event) => dispatch({ ...model.nameTyped, value: (event.target as HTMLInputElement).value }) }
         }),
         h("input", {
           props: { type: "checkbox", checked: model.agreed },
           on: {
-            change: (event) => write(forwardTo(dispatch, "Agreed"), (event.target as HTMLInputElement).checked)
+            change: (event) => dispatch({ ...model.agreedChecked, value: (event.target as HTMLInputElement).checked })
           }
         })
       ])
-    expect(messagesSentBy(formView, { name: "Ada", agreed: true })).toEqual([
-      { _tag: "Name", message: { _tag: "Written", value: "Ada" } },
-      { _tag: "Agreed", message: { _tag: "Written", value: true } }
+    expect(messagesSentBy(formView, form.makeModel({ name: "Ada", agreed: true }))).toEqual([
+      { _tag: "NameTyped", value: "Ada" },
+      { _tag: "AgreedChecked", value: true }
     ])
   })
 

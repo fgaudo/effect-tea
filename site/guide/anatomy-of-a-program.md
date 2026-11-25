@@ -23,8 +23,8 @@ A program is a plain object, made with `program`. It has up to eight pieces:
 The view is not part of the program.
 
 The pieces connect in a loop. Each message that `update` accepts makes the next state. A message that `update` rejects
-leaves the state as it was. What the user types takes another path. The view writes it into an input declared in
-`make`, and the library stores it without calling `update` (see [inputs](./inputs.md)).
+leaves the state as it was. What the user types is a message too: the model holds it without its value, and the view
+fills it (see [what an element gives](./what-an-element-gives.md)).
 
 ```mermaid
 flowchart LR
@@ -36,8 +36,6 @@ flowchart LR
   state --> makeModel
   makeModel -->|model| view
   view -->|message| update
-  view -->|Written| input[an input]
-  input -->|stored if its place is there| state
   state --> subscriptions
   subscriptions -->|keys| listen
   listen -->|messages| update

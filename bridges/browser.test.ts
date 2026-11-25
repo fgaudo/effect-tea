@@ -1,20 +1,12 @@
 // The bridges in a real browser, Chromium, Firefox and WebKit, and nowhere else: what happy-dom cannot show. A browser
 // takes the focus from an element disabled as the screen refreshes, which happy-dom never does; an IME composes a text
-// in the element before it is written; and an event that the program's own code dispatches before a new state is
+// in the element before it is sent; and an event that the program's own code dispatches before a new state is
 // drawn runs the handler of the view drawn before it (the guide's "Writing a bridge", "What is left out"); and so do a
 // handler that awaits, and a limit that the element keeps by itself, which the browser applies to what a user types,
 // with keys that Playwright sends as a user's. Run by
 // `bun run test:browsers` (`tools/browser/vitest.config.ts`), never by `bun run test`, which leaves it out. The rest of
 // the bridges' tests run there too, those of `snabbdom.test.ts` and `react.test.ts`, unchanged.
-import {
-  type App,
-  type Dispatch,
-  forwardTo,
-  type MessageOf,
-  type ModelOf,
-  start,
-  type Written
-} from "@fgaudo/effect-tea"
+import { type App, type MessageOf, type ModelOf, start } from "@fgaudo/effect-tea"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import { createElement, type ReactNode } from "react"
@@ -65,16 +57,14 @@ const awaiting = async (resumed: Promise<void>, send: () => void) => {
   send()
 }
 
-const written = (write: Dispatch<Written<string>>) => (value: string) => write({ _tag: "Written", value })
-
 const snabbdom: Bridge<VNode> = {
   drawInto: drawWithSnabbdom,
   form: formWithSnabbdom,
   note: (limit) => (model, dispatch) =>
     h("main", [
       h("input", {
-        props: limit === undefined ? { value: model } : { value: model, maxLength: limit },
-        on: { input: (event: Event) => written(forwardTo(dispatch, "Note"))((event.target as HTMLInputElement).value) }
+        props: limit === undefined ? { value: model.note } : { value: model.note, maxLength: limit },
+        on: { input: (event: Event) => dispatch({ ...model.typed, value: (event.target as HTMLInputElement).value }) }
       })
     ]),
   counter: (resumed) => (model, dispatch) =>
@@ -108,9 +98,9 @@ const react: Bridge<ReactNode> = {
       "main",
       null,
       createElement("input", {
-        value: model,
+        value: model.note,
         maxLength: limit,
-        onChange: (event: { target: { value: string } }) => written(forwardTo(dispatch, "Note"))(event.target.value)
+        onChange: (event: { target: { value: string } }) => dispatch({ ...model.typed, value: event.target.value })
       })
     ),
   counter: (resumed) => (model, dispatch) =>
@@ -184,7 +174,7 @@ const browserTests = <Node>(name: string, bridge: Bridge<Node>) =>
         input.focus()
         // Vitest types the session as an empty interface, for a provider to fill.
         const ime = cdp() as { send: (method: string, params: object) => Promise<unknown> }
-        const shown = () => [app.model(), input.value]
+        const shown = () => [app.model().note, input.value]
         await ime.send("Input.imeSetComposition", { text: "か", selectionStart: 1, selectionEnd: 1 })
         await task()
         expect(shown()).toEqual(["か", "か"])
@@ -228,7 +218,7 @@ const browserTests = <Node>(name: string, bridge: Bridge<Node>) =>
       const input = element<HTMLInputElement>("input")
       await userEvent.type(input, "abcd")
       await task()
-      expect([app.model(), input.value]).toEqual(["abc", "abc"])
+      expect([app.model().note, input.value]).toEqual(["abc", "abc"])
     })
 
     test("a click that the program's own code makes in the task of a new state, before its draw, runs the handler of the view drawn before", async () => {
@@ -264,7 +254,7 @@ describe("an input event that the program's own code dispatches in the task of a
     await task()
     app.dispatch("Cleared")
     input.dispatchEvent(new Event("input", { bubbles: true }))
-    const stored = app.model()
+    const stored = app.model().note
     await task()
     return [stored, input.value]
   }

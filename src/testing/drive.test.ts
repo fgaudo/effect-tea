@@ -52,7 +52,7 @@ describe("drive", () => {
     | Readonly<{ _tag: "Saving"; note: Note; explode: Edit }>
     | Readonly<{ _tag: "Empty"; note: Note; changeText: (text: string) => Edit; explode: Edit }>
     | Readonly<{
-      _tag: "Written"
+      _tag: "Drafted"
       note: Note
       changeText: (text: string) => Edit
       save: Edit
@@ -78,14 +78,14 @@ describe("drive", () => {
       const changeText = (text: string): Edit => ({ _tag: "Typed", text })
       return note.text === ""
         ? { _tag: "Empty", note, changeText, explode }
-        : { _tag: "Written", note, changeText, save: { _tag: "Save" }, explode }
+        : { _tag: "Drafted", note, changeText, save: { _tag: "Save" }, explode }
     }
   })
 
   const typing = (text: string) => (model: NoteModel) =>
     model._tag === "Saving" ? Opt.none() : Opt.some(model.changeText(text))
 
-  const saving = (model: NoteModel) => model._tag === "Written" ? Opt.some(model.save) : Opt.none()
+  const saving = (model: NoteModel) => model._tag === "Drafted" ? Opt.some(model.save) : Opt.none()
 
   test("runs the commands and subscriptions, returns what the scenario returns, then stops the program", async () => {
     let stopped = false
@@ -355,7 +355,7 @@ describe("drive", () => {
       { patience: 20 }
     ))
     const cause = Exit.isFailure(exit) ? (Cause.squash(exit.cause) as Error).cause : undefined
-    expect(cause).toMatchObject({ _tag: "Written", note: { text: "milk" } })
+    expect(cause).toMatchObject({ _tag: "Drafted", note: { text: "milk" } })
   })
 
   test("a message update rejects is ignored, as when the program runs", async () => {

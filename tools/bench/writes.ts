@@ -1,9 +1,9 @@
-// What a write into an input costs as `main` stores it (`{ _tag: 'Written', value }`), for each kind of value: by the
-// bare rule, through the composed program's `update` as the engine calls it, and, for some cases, through the dispatch
-// of the program `start` gives, which applies the write before it returns, with the model of the new state read after it,
-// as a renderer's listener reads it: what a handler pays for a key, but the draw. A draw is not measured: it needs a DOM
-// and a renderer, which no file of `tools/` imports (`AGENTS.md`). Run by hand, on Bun or on Node; not part of
-// `bun run test`.
+// What a message that an element fills costs as a program stores its value (`{ _tag: 'Typed', value }`), for each kind
+// of value: by the program's own `update`, through the `update` that `make` composes, as the engine calls it, and, for
+// some cases, through the dispatch of the program `start` gives, which applies the message before it returns, with the
+// model of the new state read after it, as a renderer's listener reads it: what a handler pays for a key, but the draw.
+// A draw is not measured: it needs a DOM and a renderer, which no file of `tools/` imports (`AGENTS.md`). Run by hand,
+// on Bun or on Node; not part of `bun run test`.
 //
 //   bun tools/bench/writes.ts [--writes 2000] [--rounds 11] [--sections writes]
 //   node tools/bench/writes.ts …     the same, on V8
@@ -14,9 +14,7 @@ import * as Flag from "effect/cli/Flag"
 import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
 import * as Num from "effect/Number"
-import * as Optic from "effect/Optic"
-import { type Program, program, reject, start, type Transition, type Update, type Written } from "../../src/index.ts"
-import { written } from "../../src/input.ts"
+import { type Program, program, reject, start, type Transition, type Update } from "../../src/index.ts"
 import { main } from "../cli.ts"
 
 const rows = 1000
@@ -86,13 +84,19 @@ const cases: ReadonlyArray<Case> = [
 
 type State = Readonly<{ v: unknown }>
 
-const inputOf = program<{ state: State }>()
+/** What an element gives, filled by the view: the value that it holds. */
+type Typed = Readonly<{ _tag: "Typed"; value: unknown }>
 
-const inputProgram = (start: unknown) =>
-  inputOf.make({
+// The program's own `update`: the value is stored as it is given.
+const stores: Update<State, Typed> = ({ value }) => () => ({ state: { v: value } })
+
+const typedOf = program<{ state: State; message: Typed }>()
+
+const typedProgram = (start: unknown) =>
+  typedOf.make({
     init: { state: { v: start } },
-    inputs: { V: inputOf.input({ at: Optic.id<State>().key("v") }) },
-    makeModel: (state) => state.v
+    update: stores,
+    makeModel: (state) => ({ v: state.v, typed: { _tag: "Typed" } as const })
   })
 
 type Rows = Readonly<{ ids: ReadonlyArray<number> }>
@@ -100,47 +104,44 @@ type Rows = Readonly<{ ids: ReadonlyArray<number> }>
 const rowsOf = program<{ state: Rows }>()
 
 // The child, among `rows` children by id, which the library keeps.
-const inputRows = (child: ReturnType<typeof inputProgram>) =>
+const typedRows = (child: ReturnType<typeof typedProgram>) =>
   rowsOf.withChildren({ Row: rowsOf.childById(child, { ids: (state) => state.ids }) }).make({
     init: { state: { ids: Arr.makeBy(rows, (id) => id) } },
     makeModel: (state) => state.ids.length
   })
 
-type Program_ = Program<{ state: object; model: unknown; message: unknown }>
+type Program_ = Program<{ state: unknown; model: unknown; message: unknown }>
 
 type Messages = Readonly<{ bare: ReadonlyArray<unknown>; composed: ReadonlyArray<unknown> }>
 
 type Subject = Readonly<{
-  bare: Readonly<{ start: unknown; rule: Update<unknown, unknown> }>
+  bare: Readonly<{ start: unknown; update: Update<unknown, unknown> }>
   program: Program_
   // Made anew on each call, from the value the program starts with.
   messages: () => Messages
 }>
 
-const rule = written as unknown as Update<unknown, unknown>
-
 const subjectOf = ({ inRow, values: of }: Case, made: Values): Subject => {
   const values = () => of(made)
   const start = values()[0]
-  const child = inputProgram(start)
+  const child = typedProgram(start)
   const at = (message: unknown) => inRow === true ? { _tag: "Row", id: rows / 2, message } : message
   return {
-    bare: { start, rule },
-    program: (inRow === true ? inputRows(child) : child) as unknown as Program_,
+    bare: { start: { v: start }, update: stores as Update<unknown, unknown> },
+    program: (inRow === true ? typedRows(child) : child) as unknown as Program_,
     messages: () => {
-      const all = [start, ...values().slice(1)]
-      const bare = all.slice(1).map((value): Written<unknown> => ({ _tag: "Written", value }))
-      return { bare, composed: bare.map((message) => at({ _tag: "V", message })) }
+      const bare = values().slice(1).map((value): Typed => ({ _tag: "Typed", value }))
+      return { bare, composed: bare.map(at) }
     }
   }
 }
 
-// Every write applies: a rejected one would measure a rule that was not run to its end.
+// Every message applies: a rejected one would measure an `update` that was not run to its end.
 const applyAll = (update: Update<unknown, unknown>, start: unknown, messages: ReadonlyArray<unknown>) => {
   let state = start
   for (const message of messages) {
     const step: Transition<unknown> = update(message)(state)
-    if (step === reject) throw new Error("a write was rejected")
+    if (step === reject) throw new Error("a message was rejected")
     state = step.state
   }
   return state
@@ -176,8 +177,8 @@ const alternated = Effect.fnUntraced(function*(rounds: number, samplers: Readonl
   return all
 })
 
-// One write at a time, through the dispatch of a program started, which applies it before it returns, then the model
-// of the state it made: a write has no effects, so the program is not run.
+// One message at a time, through the dispatch of a program started, which applies it before it returns, then the model
+// of the state it made: the message has no effects, so the program is not run.
 const throughRun = (subject: Subject) =>
   Effect.sync(() => {
     const messages = subject.messages().composed
@@ -197,17 +198,17 @@ const summary = (samples: ReadonlyArray<number>) => {
   return `${format(at(0.5))} (${format(at(0))}–${format(at(1))})`
 }
 
-// What each section is given: how many writes a pass makes, how many rounds it measures, and the values it writes.
+// What each section is given: how many messages a pass sends, how many rounds it measures, and the values they carry.
 type Sizes = Readonly<{ writes: number; rounds: number; values: Values }>
 
 const writesSection = Effect.fnUntraced(function*({ rounds, values, writes }: Sizes) {
-  yield* Console.log("\n| case | bare rule | compose `update` | `start`'s dispatch, and the model |")
+  yield* Console.log("\n| case | own `update` | composed `update` | `start`'s dispatch, and the model |")
   yield* Console.log("| --- | --- | --- | --- |")
   for (const each of cases) {
     const subject = subjectOf(each, values)
     const update = subject.program.update as unknown as Update<unknown, unknown>
     const [bare, composed] = yield* alternated(rounds, [
-      sampler(subject.messages, (all) => applyAll(subject.bare.rule, subject.bare.start, all.bare), writes),
+      sampler(subject.messages, (all) => applyAll(subject.bare.update, subject.bare.start, all.bare), writes),
       sampler(subject.messages, (all) => applyAll(update, subject.program.init.state, all.composed), writes)
     ])
     const [whole] = each.throughRun === true ? yield* alternated(rounds, [throughRun(subject)]) : []

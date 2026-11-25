@@ -1,19 +1,15 @@
-// A parent declares its children and its inputs, and the library generates how their messages, commands,
-// subscriptions and models reach them. The parent's state says which children are there, and the library keeps them,
-// in the state of the composed program, beside the parent's own: it starts and drops them after each step of the
-// parent's own code, and stores what is written into each input.
+// A parent declares its children, and the library generates how their messages, commands, subscriptions and models
+// reach them. The parent's state says which children are there, and the library keeps them, in the state of the
+// composed program, beside the parent's own: it starts and drops them after each step of the parent's own code.
 import * as Arr from "effect/Array"
 import * as Channel from "effect/Channel"
 import * as Effect from "effect/Effect"
 import * as Equal from "effect/Equal"
 import * as HashMap from "effect/HashMap"
-import type * as Optic from "effect/Optic"
 import * as Opt from "effect/Option"
 import * as Predicate from "effect/Predicate"
-import * as Result from "effect/Result"
 import type { Execution, RunCommand } from "./command.ts"
 import { compositionDefect } from "./defect.ts"
-import { type Written, written } from "./input.ts"
 import { describeByTag } from "./log.ts"
 import {
   type AnyProgram,
@@ -37,81 +33,6 @@ import {
 } from "./program.ts"
 import type { Listen, Subscription } from "./subscription.ts"
 import { reject, type Rejected, type Step, type Transition } from "./update.ts"
-
-/**
- * Where an input lives in its program's state: an optic, `at`, or the two functions an optic is, `get` and `set`, and
- * the form its value is stored in, `store`, where it has one.
- *
- * @example
- * ```ts
- * { at: Optic.id<State>().key('name') }
- * ```
- *
- * @see The guide, "Inputs", "The program declares where it goes".
- * @see The guide, "Inputs", "A `set` changes its place, and nothing else".
- */
-type Placement<State, A> =
-  | Readonly<{
-    /** The input's value, or `None` where the input is not there: what `set` put, read from the state alone. */
-    get: (state: State) => Opt.Option<A>
-    /**
-     * The state with the value put where `get` finds it, and nothing else of it changed. A test checks it with
-     * `placeViolations`.
-     */
-    set: (state: State, value: A) => State
-    at?: never
-    /**
-     * The form a value written is stored in, from the value alone: `(note) => note.toUpperCase()`. Without it, the
-     * value as it is written.
-     */
-    store?: (value: A) => A
-  }>
-  | Readonly<{
-    /** An optic into the state, to the input's value. */
-    at: Optic.Optional<State, A>
-    get?: never
-    set?: never
-    /**
-     * The form a value written is stored in, from the value alone: `(note) => note.toUpperCase()`. Without it, the
-     * value as it is written.
-     */
-    store?: (value: A) => A
-  }>
-
-/**
- * Where an input by id lives in its program's state: an optic that is a function of the id, `at`, or `get` and `set`,
- * which take the id, and the form its value is stored in, `store`, where it has one.
- *
- * @see The guide, "Inputs", "A write into an input by id names its id".
- * @see The guide, "Inputs", "A `set` changes its place, and nothing else".
- */
-type PlacementById<State, Id, A> =
-  | Readonly<{
-    /** The value of the input at `id`, or `None` where it is not there. */
-    get: (state: State, id: Id) => Opt.Option<A>
-    /**
-     * The state with the value of the input at `id` put where `get` finds it, and nothing else changed. A test checks it
-     * with `placeViolations`.
-     */
-    set: (state: State, id: Id, value: A) => State
-    at?: never
-    /**
-     * The form a value written is stored in, from the value alone: `(note) => note.toUpperCase()`. Without it, the
-     * value as it is written.
-     */
-    store?: (value: A) => A
-  }>
-  | Readonly<{
-    /** The optic into the state, to the value of the input at `id`. */
-    at: (id: Id) => Optic.Optional<State, A>
-    get?: never
-    set?: never
-    /**
-     * The form a value written is stored in, from the value alone: `(note) => note.toUpperCase()`. Without it, the
-     * value as it is written.
-     */
-    store?: (value: A) => A
-  }>
 
 // A child is checked as a program of the types read back from it: a child written as an object, and not typed
 // `Program<…>`, is checked by nothing else. So its `external` answers with a step, never `reject`, its `output` reads
@@ -241,94 +162,8 @@ export type ChildById<State, Id, P> = {
   readonly listening?: (state: State, id: Id) => boolean
 }
 
-/**
- * An input alone in its program's state: what `input` returns, for `inputs` in `make`.
- *
- * - Its value is part of the program's own state.
- * - The library stores a write in every state where `get` finds its place.
- * - It stores the value in the form that `store` gives, where the input has one.
- * - It rejects the write where `get` returns `None`.
- *
- * @example
- * ```ts
- * export const name: Input<State, string> = input({ at: Optic.id<State>().key('name') })
- * ```
- *
- * @see The guide, "Composition", "The parent's inputs".
- * @see The guide, "Inputs", "The program declares where it goes".
- * @see The guide, "Inputs", "The library stores what is written, whatever it is".
- * @see The guide, "Inputs", "The library rejects the write where its place is not there".
- */
-export type Input<State, A> = {
-  /** An input alone, not one of inputs by id. */
-  readonly kind: "one"
-  /** The input's value in the state, or `None` where the input is not there. */
-  readonly get: (state: State) => Opt.Option<A>
-  /** The state with the input's value put where `get` finds it. */
-  readonly set: (state: State, value: A) => State
-  /** The form a value written is stored in, where the input declares one. `set` is given that form. */
-  readonly store?: (value: A) => A
-}
-
-/**
- * Inputs told apart by an id, such as one in each row: what `inputById` returns, for `inputs` in `make`.
- *
- * `get` and `set` take the id, and `store` does not. A write names its id, and is stored at the place of that id, by the
- * rule of every input.
- *
- * @example
- * ```ts
- * export const counts: InputById<State, string, number> = inputById({ get, set })
- * ```
- *
- * @see The guide, "Inputs", "A write into an input by id names its id".
- * @see The guide, "Inputs", "A write is stored at the place of its id".
- */
-export type InputById<State, Id, A> = {
-  /** Inputs by id, not an input alone. */
-  readonly kind: "byId"
-  /** The value of the input at `id`, or `None` where it is not there. */
-  readonly get: (state: State, id: Id) => Opt.Option<A>
-  /** The state with the value of the input at `id` put where `get` finds it. */
-  readonly set: (state: State, id: Id, value: A) => State
-  /** The form a value written is stored in, where the inputs declare one. `set` is given that form. */
-  readonly store?: (value: A) => A
-}
-
-// `never` parameters: any `set` and `store` fit, whatever their value and id.
-/** The inputs a program declares, by name: `{ Name: input({ at }), Count: inputById({ at }) }`. */
-type Inputs<State> = Readonly<
-  Record<
-    string,
-    | Readonly<{
-      kind: "one"
-      get: (state: State) => Opt.Option<any>
-      set: (state: State, value: never) => State
-      store?: (value: never) => unknown
-    }>
-    | Readonly<{
-      kind: "byId"
-      get: (state: State, id: never) => Opt.Option<any>
-      set: (state: State, id: never, value: never) => State
-      store?: (value: never) => unknown
-    }>
-  >
->
-
-/** No children, or no inputs: what a program that declares none has. */
+/** No children: what a program that declares none has. */
 type None = Readonly<Record<never, never>>
-
-/**
- * What is written into an input, as its program receives it: `{ _tag: <input>, message }`, and its `id` for inputs by
- * id, as a child's message.
- */
-type InputMessages<I> = {
-  [K in keyof I & string]: I[K] extends
-    Readonly<{ kind: "byId"; get: (state: any, id: infer Id) => Opt.Option<infer A> }>
-    ? Readonly<{ _tag: K; id: Id; message: Written<A> }>
-    : I[K] extends Readonly<{ get: (state: any) => Opt.Option<infer A> }> ? Readonly<{ _tag: K; message: Written<A> }>
-    : never
-}[keyof I & string]
 
 // `never` parameters: any `listening` fits, whatever its id.
 type Children<State> = Readonly<
@@ -586,15 +421,12 @@ type TagsTaken<M, Names> = 0 extends 1 & M ? Names
     : never
   : never
 
-/**
- * An own message or command that can take the name of a child or of an input, `Of`, would be routed to it: it does not
- * compile.
- */
-type NoClash<Own, OwnCommand, C, Of extends string> =
+/** An own message or command that can take the name of a child would be routed to it: it does not compile. */
+type NoClash<Own, OwnCommand, C> =
   & ([TagsTaken<Own, keyof C & string>] extends [never] ? unknown
-    : { readonly [K in `an own message takes the name of ${Of}`]: TagsTaken<Own, keyof C & string> })
+    : { readonly "an own message takes the name of a child": TagsTaken<Own, keyof C & string> })
   & ([TagsTaken<OwnCommand, keyof C & string>] extends [never] ? unknown
-    : { readonly [K in `an own command takes the name of ${Of}`]: TagsTaken<OwnCommand, keyof C & string> })
+    : { readonly "an own command takes the name of a child": TagsTaken<OwnCommand, keyof C & string> })
 
 /** An own key that can take the name of a child would be listened to as the child's: it does not compile. */
 type NoKeyClash<OwnKey, C> = [TagsTaken<OwnKey, keyof C & string>] extends [never] ? unknown
@@ -610,23 +442,16 @@ type ListenOf<State, OwnKey, Message, Heard> = [OwnKey] extends [never]
     listen: (key: OwnKey) => Heard & Subscription<Message, any>
   }>
 
-/** An input that takes a child's name would replace the child, whose messages would then be the input's. */
-type NoShared<C, I> = [keyof C & keyof I] extends [never] ? unknown
-  : Readonly<{ "an input takes the name of a child": keyof C & keyof I }>
-
-type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, External, Flags, Output> =
+type Config<State, C, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, External, Flags, Output> =
   & OnEventOf<State, C, OwnCommand, Event>
   & ListenOf<State, OwnKey, Own, Heard>
   & NoKeyClash<OwnKey, C>
-  // A command's answer is an own message, as a subscription's is: a parent tells a child only in a step's `tell`. So
-  // no answer writes into an input either.
+  // A command's answer is an own message, as a subscription's is: a parent tells a child only in a step's `tell`.
   & RunCommandOf<OwnCommand, Own, Ran>
   & UpdateOf<State, C, Own, OwnCommand, Event>
   & ExternalHandlerOf<State, C, External, OwnCommand, Event>
   & OutputHandlerOf<State, C, Output>
-  & NoClash<Own, OwnCommand, C, "a child">
-  & NoClash<Own, OwnCommand, I, "an input">
-  & NoShared<C, I>
+  & NoClash<Own, OwnCommand, C>
   & Readonly<{
     /**
      * The first state and commands: a step, or, for a program with flags, the function that makes one from them.
@@ -638,27 +463,6 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, Exte
      * @see The guide, "Composition", "The parent's own flags".
      */
     init: Init<State, OwnCommand, Flags>
-    /**
-     * The inputs, by name, as `input` and `inputById` declare them.
-     *
-     * - A write is stored wherever the input's place is there. It is rejected where it is not.
-     * - Every other step leaves an input as that step wrote it.
-     * - No `update` of the program sees what the user gives an input.
-     * - Only what is drawn writes into an input. A subscription and a command answer with messages of the program.
-     *
-     * @example
-     * ```ts
-     * inputs: {
-     *   Name: input({ at: Optic.id<State>().key('name') }),
-     *   Count: inputById({ at: (id: string) => Optic.id<State>().key('rows').at(id).key('count') }),
-     * },
-     * ```
-     *
-     * @see The guide, "Composition", "The rule of an input".
-     * @see The guide, "Inputs", "What the user gives an input is no message of the program".
-     * @see The guide, "Inputs", "Only what is drawn writes into an input".
-     */
-    inputs?: I
     /** What the program draws, from its own state and its children's models. */
     makeModel: (state: State, children: Models<C>) => Model
   }>
@@ -667,34 +471,6 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, Exte
 // of `make` read them: `Record.map` and `Record.keys` do not say which keys they visit.
 const mapOwn = <A, B>(record: Readonly<Record<string, A>>, f: (value: A, name: string) => B): Record<string, B> =>
   Object.fromEntries(Object.entries(record).map(([name, value]) => [name, f(value, name)]))
-
-// An optic focuses or not: `None` where it does not, and `replace` is only called where `get` focused. The `set` is
-// the place's own, and applies no form: a write gives it the form that `written` makes.
-const placed = <S, A>(
-  place: Placement<S, A>
-): Readonly<{ get: (state: S) => Opt.Option<A>; set: (state: S, value: A) => S; store?: (value: A) => A }> => ({
-  ...(place.at === undefined
-    ? { get: place.get, set: place.set }
-    : {
-      get: (state: S) => Result.getSuccess(place.at.getResult(state)),
-      set: (state: S, value: A) => place.at.replace(value, state)
-    }),
-  ...(place.store === undefined ? {} : { store: place.store })
-})
-
-const placedById = <S, Id, A>(
-  place: PlacementById<S, Id, A>
-): Readonly<
-  { get: (state: S, id: Id) => Opt.Option<A>; set: (state: S, id: Id, value: A) => S; store?: (value: A) => A }
-> => ({
-  ...(place.at === undefined
-    ? { get: place.get, set: place.set }
-    : {
-      get: (state: S, id: Id) => Result.getSuccess(place.at(id).getResult(state)),
-      set: (state: S, id: Id, value: A) => place.at(id).replace(value, state)
-    }),
-  ...(place.store === undefined ? {} : { store: place.store })
-})
 
 /** Who receives what a child at `id` sends: `undefined` for a child that is alone. */
 type Place = Readonly<{ name: string; id: unknown }>
@@ -731,16 +507,8 @@ type UntypedChild = Readonly<{
   listening?: (own: unknown, id?: unknown) => boolean
 }>
 
-type UntypedInput = Readonly<{
-  kind: "one" | "byId"
-  get: (state: unknown, id?: unknown) => Opt.Option<unknown>
-  set: (state: unknown, idOrValue: unknown, value?: unknown) => unknown
-  store?: (value: unknown) => unknown
-}>
-
 type UntypedConfig = Readonly<{
   init: Step<unknown, unknown> | ((flags: unknown) => Step<unknown, unknown>)
-  inputs?: Readonly<Record<string, UntypedInput>>
   update?: (message: unknown, children?: unknown) => (state: unknown) => UntypedStep | Rejected
   external?: (message: unknown, children?: unknown) => (state: unknown) => UntypedStep
   onEvent?: Readonly<Record<string, (...args: ReadonlyArray<unknown>) => (state: unknown) => UntypedStep>>
@@ -766,14 +534,11 @@ const none: ReadonlyArray<unknown> = []
 // One `make` for a program and for a parent: `children` is `undefined` for a program, whose state is its own alone.
 const make = (children: Readonly<Record<string, UntypedChild>> | undefined, config: UntypedConfig): unknown => {
   const programs = children ?? {}
-  const inputs = config.inputs ?? {}
   const composed = children !== undefined
   const names = Object.keys(programs)
   const childOf = (name: string) => programs[name] as UntypedChild
-  const inputOf = (name: string) => inputs[name] as UntypedInput
   // `Object.hasOwn`, not `Record.has`, which does not say whether a key a record inherits (`toString`) counts.
   const isChildName = (tag: unknown): tag is string => typeof tag === "string" && Object.hasOwn(programs, tag)
-  const isInputName = (tag: unknown): tag is string => typeof tag === "string" && Object.hasOwn(inputs, tag)
   const field = (value: unknown, key: string): unknown => Predicate.hasProperty(value, key) ? value[key] : undefined
   const placeOf = (value: unknown): Place => ({ name: field(value, "_tag") as string, id: field(value, "id") })
   const isById = (name: string) => childOf(name).kind === "byId"
@@ -939,29 +704,6 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
       childStep(gathered, place, entry.value, answer(message)(entry.value.state))
     }
   }
-  const getInput = (name: string, id: unknown, own: unknown) => {
-    const input = inputOf(name)
-    return input.kind === "byId" ? input.get(own, id) : input.get(own)
-  }
-  const setInput = (name: string, id: unknown, own: unknown, value: unknown) => {
-    const input = inputOf(name)
-    return input.kind === "byId" ? input.set(own, id, value) : input.set(own, value)
-  }
-  // A write is stored at its place, by the rule of every input, and keeps nothing between two writes. In a parent, it
-  // is a step on the parent's own state, after which the children are reconciled, as after any other.
-  const write = (place: Place, message: unknown, state: unknown) => {
-    const own = composed ? (state as Kept<unknown, Slots>).own : state
-    const held = getInput(place.name, place.id, own)
-    if (Opt.isNone(held)) return reject
-    const value = (written(message as never, inputOf(place.name).store)(held.value) as Step<unknown>).state
-    // `Object.is`, since a place may hold NaN, which a write of NaN leaves as it is.
-    if (Object.is(value, held.value)) return { state, commands: [], events: [] }
-    if (!composed) return { state: setInput(place.name, place.id, own, value), commands: [], events: [] }
-    const gathered = open(state)
-    gathered.own = setInput(place.name, place.id, own, value)
-    reconcile(gathered, Opt.some(own))
-    return close(gathered, state)
-  }
   const update = (message: unknown) => (state: unknown) => {
     const place = placeOf(message)
     if (isChildName(place.name)) {
@@ -978,7 +720,6 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
       childStep(gathered, place, entry.value, result)
       return close(gathered, state)
     }
-    if (isInputName(place.name)) return write(place, field(message, "message"), state)
     if (config.update === undefined) return reject
     if (!composed) return config.update(message)(state)
     const gathered = open(state)
@@ -1182,7 +923,7 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
  * external messages, flags, output and keys. Its model may be named too: a model named is checked, and one not named is
  * inferred.
  *
- * - Each is the program's own: what its children and its inputs bring is added to it.
+ * - Each is the program's own: what its children bring is added to it.
  * - The services are never named: they are inferred from `runCommand`, `listen` and the children.
  *
  * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
@@ -1210,10 +951,10 @@ type DeclaredTypes = Readonly<{
 }>
 
 /**
- * The way to make a program: its types named once, then the functions that declare its children and its inputs, and
- * `make`, which makes it.
+ * The way to make a program: its types named once, then the functions that declare its children, and `make`, which
+ * makes it.
  *
- * Naming the types first lets `update`, `get`, `set` and the rest be typed without annotations. The types also say
+ * Naming the types first lets `update`, `makeModel` and the rest be typed without annotations. The types also say
  * the program's own messages, commands, events, external messages, flags and keys. A type that the program does not name is
  * a type that the program does not have: a program that names no messages has no `update`. The model may be named
  * too. A model that is named is checked, and a model that is not named is inferred. The services are never named:
@@ -1224,20 +965,18 @@ type DeclaredTypes = Readonly<{
  * first commands, and drops one that the state no longer lists. A parent and its children talk only through events,
  * external messages and outputs: a step of the parent's own lists what it tells its children in `tell`, and the parent
  * reads only the `output` that a child declares. The parent's messages, commands and subscriptions are its own, plus
- * each child's, wrapped. The parent's messages also include the writes into each input:
+ * each child's, wrapped:
  *
- * - a message as `{ _tag: <child>, message }`, and a write as `{ _tag: <input>, message }`;
+ * - a message as `{ _tag: <child>, message }`;
  * - a command as `{ _tag: <child>, instance, command }`, run by the child's `runCommand`, whose answer names the
  *   `instance` too;
  * - a key as `{ _tag: <child>, instance, key }`, whose subscription the child's `listen` makes.
  *
- * For children and inputs by id, each of these also carries the `id`. A message, a command or a key of the parent's
- * own that can take the name of a child, or a message that can take the name of an input, does not compile, as one
- * tagged `string` can.
+ * For children by id, each of these also carries the `id`. A message, a command or a key of the parent's own that can
+ * take the name of a child does not compile, as one tagged `string` can.
  *
  * @returns `child` and `childById`, which declare a child alone and children by id, `withChildren`, which takes the
- * children of a parent, `input` and `inputById`, which declare an input alone and inputs by id, and `make`, which
- * makes a program without children.
+ * children of a parent, and `make`, which makes a program without children.
  *
  * @example
  * ```ts
@@ -1301,8 +1040,6 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> =>
       flagged: place.flags !== undefined,
       ...(place.listening === undefined ? {} : { listening: place.listening })
     }),
-    input: (place: Placement<unknown, unknown>) => ({ kind: "one", ...placed(place) }),
-    inputById: (place: PlacementById<unknown, unknown, unknown>) => ({ kind: "byId", ...placedById(place) }),
     make: (config: UntypedConfig) => make(undefined, config),
     withChildren: (children: Readonly<Record<string, UntypedChild>>) => ({
       make: (config: UntypedConfig) => make(children, config)
@@ -1315,7 +1052,7 @@ type Named<T, K extends "model", Inferred> = T extends { readonly [P in K]: infe
 // What `program` returns, and each of its functions, have names of their own: the declarations of a package that
 // exports one name it, where they would spell out every type of this module, for each field of the state.
 /**
- * What `program<T>()` returns: the functions that declare a program's children and inputs, and make it.
+ * What `program<T>()` returns: the functions that declare a program's children, and make it.
  *
  * @group Types of the signatures
  * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
@@ -1387,65 +1124,23 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    */
   readonly withChildren: DeclareChildren<T>
   /**
-   * Declares an input: a place of the program's state that the view writes into.
-   *
-   * An input is not a child. The input's value is part of the program's own state. The program's `update` and
-   * `makeModel` read that value like the rest of the state. The view writes what the element holds,
-   * `{ _tag: 'Written', value }`, through `forwardTo(dispatch, 'Name')`.
-   *
-   * @param place - Where the input is: an optic into the program's state, `at`, or the two functions an optic is,
-   * `get` and `set`. And `store`, where the value is stored in another form than the one written: a function of the
-   * value alone, whose result `set` is given.
-   * @returns The input, for `inputs` in `make`.
-   *
-   * @example
-   * ```ts
-   * inputs: { Name: input({ at: Optic.id<State>().key('name') }) },
-   * ```
-   *
-   * @see The guide, "Composition", "The parent's inputs".
-   * @see The guide, "Inputs", "The view writes what the element holds".
-   * @see The guide, "Inputs", "What is typed, in another form".
-   */
-  readonly input: DeclareInput<T>
-  /**
-   * Declares inputs told apart by an id, such as one in each row: a place of the program's state for each id.
-   *
-   * A write names its id, `{ _tag: 'Count', id, message }`, through `forwardTo(dispatch, 'Count', id)`.
-   *
-   * @param place - Where the input at an id is: an optic that is a function of the id, `at`, or `get` and `set`,
-   * which take the id. And `store`, where the value is stored in another form than the one written.
-   * @returns The inputs, for `inputs` in `make`.
-   *
-   * @example
-   * ```ts
-   * Count: inputById({
-   *   get: (state, id: string) => Opt.map(Arr.findFirst(state.rows, (row) => row.id === id), (row) => row.count),
-   *   set: (state, id, count) => ({ rows: state.rows.map((row) => (row.id === id ? { ...row, count } : row)) }),
-   * }),
-   * ```
-   *
-   * @see The guide, "Inputs", "A write into an input by id names its id".
-   */
-  readonly inputById: DeclareInputById<T>
-  /**
-   * Makes a program without children from its pieces, and from the inputs it declares.
+   * Makes a program without children from its pieces.
    *
    * A model named in `program` is checked against `makeModel`, and a model not named is inferred from it. `update`
    * may reject the program's own messages, as any `update` does. `external` never rejects. The program's commands need
    * the services of its `runCommand`, and its subscriptions the services of its `listen`. Nothing names these
    * services: they are inferred.
    *
-   * @param config - Its `init` and `makeModel`, its `update`, `external`, `runCommand`, `subscriptions` and `listen`
-   * where it has them, and its `inputs`.
+   * @param config - Its `init` and `makeModel`, and its `update`, `external`, `runCommand`, `subscriptions` and
+   * `listen` where it has them.
    * @returns The program, which runs alone or as a child of another.
    *
    * @example
    * ```ts
    * const form = make({
    *   init: { state: { name: '' } },
-   *   inputs: { Name: input({ at: Optic.id<State>().key('name') }) },
-   *   makeModel: (state) => ({ name: state.name }),
+   *   update: (message) => () => ({ state: { name: message.value } }),
+   *   makeModel: (state) => ({ name: state.name, typed: { _tag: 'NameTyped' } as const }),
    * })
    * ```
    *
@@ -1566,7 +1261,7 @@ export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field
  */
 export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T, "state">>> {
   /**
-   * Makes the parent from its pieces, and from its children and the inputs it declares.
+   * Makes the parent from its pieces, and from its children.
    *
    * - The parent's functions are given its own state alone. Its state is that state, and the children that the library
    *   keeps.
@@ -1574,8 +1269,8 @@ export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T
    *   step is taken and its children are there, in order.
    * - `init` is a step of the parent's own: the library starts the children that its state lists.
    *
-   * @param config - Its `init` and `makeModel`, its `update`, `external`, `runCommand`, `subscriptions`, `listen` and
-   * `onEvent` where it has them, and its `inputs`.
+   * @param config - Its `init` and `makeModel`, and its `update`, `external`, `runCommand`, `subscriptions`, `listen`
+   * and `onEvent` where it has them.
    * @returns The parent, which runs alone or as a child of another.
    *
    * @example
@@ -1595,60 +1290,31 @@ export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T
 }
 
 /**
- * The function of `program` that declares an input.
- *
- * @group Types of the signatures
- * @see The guide, "Composition", "The parent's inputs".
- */
-export type DeclareInput<T extends DeclaredTypes> = <A>(
-  place: Placement<Field<T, "state">, A>
-) => Input<Field<T, "state">, A>
-
-/**
- * The function of `program` that declares inputs told apart by an id.
- *
- * @group Types of the signatures
- * @see The guide, "Inputs", "A write into an input by id names its id".
- */
-export type DeclareInputById<T extends DeclaredTypes> = <Id, A>(
-  place: PlacementById<Field<T, "state">, Id, A>
-) => InputById<Field<T, "state">, Id, A>
-
-/**
  * The function of `program` that makes a program without children from its pieces.
  *
  * @group Types of the signatures
  * @see The guide, "Composition", "The parent's own messages, commands and subscriptions".
  */
-export type MakeProgram<T extends DeclaredTypes> = <
-  Model,
-  I extends Inputs<Field<T, "state">> = None,
-  Ran = never,
-  Heard = never
->(
-  // The inputs are inferred from where they are declared alone.
-  config:
-    & Config<
-      Field<T, "state">,
-      None,
-      NoInfer<I>,
-      Field<T, "message">,
-      Field<T, "command">,
-      Field<T, "event">,
-      Named<T, "model", Model>,
-      Ran,
-      Heard,
-      Field<T, "key">,
-      Field<T, "external">,
-      Field<T, "flags">,
-      Field<T, "output">
-    >
-    & Readonly<{ inputs?: I }>
+export type MakeProgram<T extends DeclaredTypes> = <Model, Ran = never, Heard = never>(
+  config: Config<
+    Field<T, "state">,
+    None,
+    Field<T, "message">,
+    Field<T, "command">,
+    Field<T, "event">,
+    Named<T, "model", Model>,
+    Ran,
+    Heard,
+    Field<T, "key">,
+    Field<T, "external">,
+    Field<T, "flags">,
+    Field<T, "output">
+  >
 ) => Program<
   Present<{
     state: Field<T, "state">
     model: Named<T, "model", Model>
-    message: Field<T, "message"> | InputMessages<I>
+    message: Field<T, "message">
     command: Field<T, "command">
     commandServices: RanServices<Ran>
     subscriptionServices: HeardServices<Heard>
@@ -1668,34 +1334,30 @@ export type MakeProgram<T extends DeclaredTypes> = <
  */
 export type MakeParent<T extends DeclaredTypes, C extends Children<Field<T, "state">>> = <
   Model,
-  I extends Inputs<Field<T, "state">> = None,
   Ran = never,
   Heard = never
 >(
   // The children are fixed by `withChildren`, so that nothing of what a step tells them is inferred here: a literal
   // in a `tell` would otherwise lose its tags (`_tag: string`), and need `as const`.
-  config:
-    & Config<
-      Field<T, "state">,
-      C,
-      NoInfer<I>,
-      Field<T, "message">,
-      Field<T, "command">,
-      Field<T, "event">,
-      Named<T, "model", Model>,
-      Ran,
-      Heard,
-      Field<T, "key">,
-      Field<T, "external">,
-      Field<T, "flags">,
-      Field<T, "output">
-    >
-    & Readonly<{ inputs?: I }>
+  config: Config<
+    Field<T, "state">,
+    C,
+    Field<T, "message">,
+    Field<T, "command">,
+    Field<T, "event">,
+    Named<T, "model", Model>,
+    Ran,
+    Heard,
+    Field<T, "key">,
+    Field<T, "external">,
+    Field<T, "flags">,
+    Field<T, "output">
+  >
 ) => Program<
   Present<{
     state: Kept<Field<T, "state">, KeptOf<C>>
     model: Named<T, "model", Model>
-    message: Field<T, "message"> | ChildMessages<C> | InputMessages<I>
+    message: Field<T, "message"> | ChildMessages<C>
     command: Field<T, "command"> | ChildCommands<C>
     commandServices: Needs<RanServices<Ran>, ChildCommandServices<C>>
     subscriptionServices: Needs<HeardServices<Heard>, ChildSubscriptionServices<C>>

@@ -35,24 +35,20 @@ const named = [
   "ProgramMaker",
   "DeclareChild",
   "DeclareChildById",
-  "DeclareInput",
-  "DeclareInputById",
   "MakeProgram",
   "Child",
   "ChildById",
-  "Input",
-  "InputById",
   "Rehearsal"
 ]
 
 // How often the consumer's state is spelled out, by a field of its own: once for each place a declaration holds it,
-// 14 with each supported TypeScript: the alias `State`; `children` five times and `inputs` twice, once for each child
-// or input; `app` twice, in its own state, inside `Kept`, and in its model, which has the field too; `served` once;
-// `copied`, which spells out its program, three times. An equality, not a bound: an export added to `consumer.ts`
+// 12 with each supported TypeScript: the alias `State`; `children` five times, once for each child; `app` twice, in
+// its own state, inside `Kept`, and in its model, which has the field too; `served` once; `copied`, which spells out
+// its program, three times. An equality, not a bound: an export added to `consumer.ts`
 // changes it, and its count is read from the declarations and explained here, never raised to pass. A type of the
 // library that repeats the state inside each of its own multiplies it (80 when `make` was spelled out, 25 when `Child`
 // and `Step` were, 16 with `DeclareChild<State>`, in `docs/rejected.md`).
-const expectedSpellings = 14
+const expectedSpellings = 12
 
 // What is wrong in the declarations a consumer's TypeScript emits, as the lines to print.
 const problemsOf = (declared: string) => {

@@ -3,7 +3,7 @@
 // controlled elements as React's own documentation draws them, `value` and `onChange`, and a handler calls `dispatch`
 // itself. The state has changed when the handler
 // returns, as a controlled element asks. No store of frames, no `flushSync`, no animation frame, and no rule of the
-// library's for an input's element. Two components: `Host`, which starts the program as it first renders and runs it
+// library's for a controlled element. Two components: `Host`, which starts the program as it first renders and runs it
 // while it is mounted, and `Draw`, which draws a program the application starts itself, from its `App`.
 // Checked with react 19.3.1, the start of its peer range, and react-dom of the same version in its tests; the daily job
 // runs them with the newest React 19. It imports `react` alone, and no renderer of React.

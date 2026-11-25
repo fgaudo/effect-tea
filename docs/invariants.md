@@ -52,32 +52,21 @@ the engine and in the testing tools.
     own message or command named like a child. A program written without `Program<…>` has `unknown` types, read as
     `never` (`Items` in `program.ts`), so that it opens none of these checks.
 - **The children are those the parent's own state lists, and an answer reaches the instance that asked for it, or is
-  rejected.** After each step of the parent's own code (`init`, `update`, `external`, a handler of `onEvent`, a write
-  into its input), the library starts each child the own state lists anew, with its first commands, drops each it no
-  longer lists, and starts again one whose flags or key differ by `Equal` (`reconcile` in `compose.ts`). So the state
-  stays the fold of `update` over the messages, and the engine and the tools know nothing of children.
+  rejected.** After each step of the parent's own code (`init`, `update`, `external`, a handler of `onEvent`), the
+  library starts each child the own state lists anew, with its first commands, drops each it no longer lists, and
+  starts again one whose flags or key differ by `Equal` (`reconcile` in `compose.ts`). So the state stays the fold of
+  `update` over the messages, and the engine and the tools know nothing of children.
   - Each start has a number, counted in the state (`starts`), which the child's lifted commands, answers and keys
     carry. A message whose number is not that of the child there is rejected, so a child closed and opened again, or
     started again in one step, never gets the answer of the one before. A message of a view carries no number, and
-    names the place alone, as a write does.
+    names the place alone.
   - Children by id whose `ids` gives the very same object for the own states before and after are not reconciled:
     `ids` is pure. An id listed twice is a `CompositionDefect`.
-- **A write is stored wherever its place is there, and only what is drawn writes into an input** (`written` in
-  `input.ts`, applied in `compose.ts` as an input's program; [`registers.md`](records/registers.md) says why, and
-  [`write-without-was.md`](records/write-without-was.md) why a write names no value it was written over).
-  - A write is a message like any other, so `applyAll` replays it, and neither the engine nor the tools know of
-    inputs. It is stored whatever it is and whatever the place held, since the element already shows it, in the form
-    its input declares (`store`); a stored form equal by `Equal` to the value held leaves the very same value.
-  - A write into an input by id is routed as a child's message by id is (`getInput`). A write whose place is not there
-    is rejected by that routing, before `written` and the form: it does not apply in the state.
-  - The rule reads the message alone and keeps nothing between two writes, so no other step changes an input, and a
-    reset or an undo by snapshot cuts no history. A write comes only from a view: an own subscription or command sends
-    only the parent's own messages, so neither compiles with a write. A message names a place, so one drawn for an old
-    instance reaches the new one: a limit declared, not a flaw.
-- **What a screen shows of an input is the bridges', and the library keeps no rule of an element.** The guide promises
-  it in "Inputs" and "Writing a bridge", and `bridges/bridge.test_suite.ts` checks it in a DOM. Since a write names no
-  value it was written over, a key typed on a view older than the state would store that view's text over the state:
-  so a bridge draws each new state before the browser handles the next event.
+- **What a screen shows of a controlled element is the bridges', and the library keeps no rule of an element.** The
+  guide promises it in "What an element gives" and "Writing a bridge", and `bridges/bridge.test_suite.ts` checks it in
+  a DOM. A message that an element fills carries the value the element holds, and names no value it replaces, so a
+  key typed on a view older than the state would send that view's text over the state: so a bridge draws each new
+  state before the browser handles the next event.
   - The bridge to React reads the model with `useSyncExternalStore` (`premises.md`, of a controlled input and of a
     store updated outside its events).
   - The bridge to snabbdom gives each element drawn with a `value` or a `checked` in `props` that prop back after each
@@ -308,7 +297,7 @@ the engine and in the testing tools.
   tools" in the guide). `rehearse` and `simulate` run on the engine itself (`Engine.build`), with the register of the
   run, so the thunk, the jobs, the fibers, their roots and records, and the end are the engine's, held by its tests and
   mutations. `drive` acts only as a user can, through `run` and the run's dispatch. When the engine or one tool changes,
-  keep the others in step: `src/testing/contract.test.ts` gives the same program and inputs to each, and a difference
+  keep the others in step: `src/testing/contract.test.ts` gives the same program and messages to each, and a difference
   found is a `test.failing` there and an item of `ROADMAP.md` until it is fixed.
   - `rehearse` runs through the handle the run makes (`partsOf` in `run.ts`), and decides only what the test decides:
     when a command runs, and when a subscription's message is heard. A call that applies a message gives it to the

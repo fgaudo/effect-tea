@@ -10,7 +10,7 @@ children:
   - ./rejections-and-defects.md
   - ./composition.md
   - ./events-and-external-messages.md
-  - ./inputs.md
+  - ./what-an-element-gives.md
   - ./structuring-a-program.md
   - ./running.md
   - ./guarantees.md
@@ -90,12 +90,12 @@ Its effects:
 
 A larger program:
 
-- [Composition](./composition.md): a parent declares its children and its inputs, and says where each child lives in
-  its state. The library does the routing.
+- [Composition](./composition.md): a parent declares its children, and says where each child lives in its state. The
+  library does the routing.
 - [Events and external messages](./events-and-external-messages.md): a child raises an event to ask its parent for
   something. A parent sends a child an external message.
-- [Inputs](./inputs.md): values that an element holds or reports, such as the text of a field or the offset of a
-  scroll. The library stores each write, or rejects it, and no `update` is involved.
+- [What an element gives](./what-an-element-gives.md): values that an element holds or reports, such as the text of a
+  field or the offset of a scroll. Each is a message that the model holds without its value, and that the view fills.
 - [Structuring a program](./structuring-a-program.md): how to shape the state, the messages, the model and the
   children. The library does not enforce these rules, and the examples follow them.
 

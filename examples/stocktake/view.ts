@@ -1,6 +1,5 @@
-// An item is no child: a function of the sheet's view draws it, given what it shows and the dispatch of its count,
-// `forwardTo(dispatch, 'Count', id)`.
-import { type Dispatch, forwardTo, type Written } from "@fgaudo/effect-tea"
+// An item is no child: a function of the sheet's view draws it, given what it shows and the sheet's dispatch.
+import type { Dispatch } from "@fgaudo/effect-tea"
 import type { View } from "@fgaudo/effect-tea/snabbdom"
 import * as Opt from "effect/Option"
 import { h, type VNode } from "snabbdom"
@@ -8,24 +7,25 @@ import type { ItemLine, ItemModel, Message, Model } from "./stocktake.ts"
 
 // snabbdom patches the one `<input>` in each case, and its props module never removes a prop: the editable count sets
 // `readOnly` too, or a sheet given back after a failed submit would keep the lock it was drawn with before. The editable
-// count is a controlled element: it shows the text the model holds, and what is typed is written over that text.
-const itemView = (model: ItemModel, write: Dispatch<Written<string>>): VNode =>
+// count is a controlled element: it shows the text the model holds, and sends what is typed, filled with the text that
+// it holds.
+const itemView = ({ name, expected, entry, count }: ItemModel, dispatch: Dispatch<Message>): VNode =>
   h("li", [
-    h("span.name", model.name),
-    h("span.expected", `of ${model.expected}`),
-    model.entry._tag === "Editable"
+    h("span.name", name),
+    h("span.expected", `of ${expected}`),
+    entry._tag === "Editable"
       ? h("input.count", {
-        props: { value: model.entry.text, readOnly: false },
+        props: { value: entry.text, readOnly: false },
         on: {
-          input: (event: Event) => write({ _tag: "Written", value: (event.target as HTMLInputElement).value })
+          input: (event: Event) => dispatch({ ...entry.typed, value: (event.target as HTMLInputElement).value })
         }
       })
-      : h("input.count", { props: { value: model.entry.text, readOnly: true } }),
-    ...(model.count._tag === "Invalid" ? [h("span.invalid", "not a whole number")] : [])
+      : h("input.count", { props: { value: entry.text, readOnly: true } }),
+    ...(count._tag === "Invalid" ? [h("span.invalid", "not a whole number")] : [])
   ])
 
 const itemsView = (items: ReadonlyArray<ItemLine>, dispatch: Dispatch<Message>): VNode =>
-  h("ul", items.map(({ id, model }) => itemView(model, forwardTo(dispatch, "Count", id))))
+  h("ul", items.map(({ model }) => itemView(model, dispatch)))
 
 export const view: View<Model, Message> = (model, dispatch) => {
   switch (model._tag) {

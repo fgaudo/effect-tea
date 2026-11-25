@@ -184,10 +184,10 @@ A defect anywhere ends the run, which dies with a `ProgramDefect`:
 
   When the program logs something, a defect in that log is in the place the program logs from.
 
-  A function that a parent or an input gives runs where the library needs it, and a defect in it is recorded there:
+  A function that a parent gives runs where the library needs it, and a defect in it is recorded there:
 
   - in `'update'`: a child's `external`, a child's `init` when a step of its parent starts it, `there`, `key`, `flags`
-    and `ids`, an output read in `update`, and the `get` and the `set` of an input;
+    and `ids`, and an output read in `update`;
   - in `'subscriptions'`: `listening`, and a child's `subscriptions`;
   - in `'render'`: a child's `makeModel`, and an output read in `makeModel`;
   - in `'command'`: `runCommand` itself, as it makes the command's effect;
