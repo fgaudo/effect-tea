@@ -364,13 +364,14 @@ const host = <
   Model,
   Message,
   Command = never,
-  RC = never,
-  RS = never,
+  CommandServices = never,
+  SubscriptionServices = never,
   Flags = never,
   Key = never
 >(
-  props: HostProps<State, Model, Message, Command, RC, RS, Flags, Key> & Attributes
-) => createElement(bridge.Host<State, Model, Message, Command, RC, RS, Flags, Key>, props)
+  props: HostProps<State, Model, Message, Command, CommandServices, SubscriptionServices, Flags, Key> & Attributes
+) =>
+  createElement(bridge.Host<State, Model, Message, Command, CommandServices, SubscriptionServices, Flags, Key>, props)
 
 const hostInto = async (node: ReactNode, into = page()) => {
   const root = rootIn(into)

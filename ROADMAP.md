@@ -26,12 +26,12 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 87 to 90 come before the release of 0.9.0. The owner asked for them on 25 November 2026, with a bridge to React
+Steps 88 to 90 come before the release of 0.9.0. The owner asked for them on 25 November 2026, with a bridge to React
 Native, which step 83 made: whether a view of React can have a `messagesSentBy`, and a reading of the names of the
 API. Step 84 decided the first, after a spike ([`react-view-tests.md`](docs/records/react-view-tests.md)): it has
 none, and step 85 showed the check with React's tools, in `bridges/react.test.ts` and
 `examples/react-native/views.test_jest.tsx`. Step 86 read the names ([`names.md`](docs/records/names.md)): five
-change, two of them with a break, and step 87 applies them. Steps 88 to 90 are the agent's own proposals, which the
+change, two of them with a break, and step 87 applied them. Steps 88 to 90 are the agent's own proposals, which the
 owner may strike. The owner's fourth point has no step: the bridges stay in `bridges/`
 ([`rejected.md`](docs/rejected.md), "The bridges"). Step 82 decided what the bridge to React is on React Native
 ([`react-native.md`](docs/records/react-native.md)): `./react` as it is, with no entry and no peer of its own.
@@ -51,41 +51,12 @@ The next review of the premises ([`premise-review`](.agents/skills/premise-revie
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
 
-### 87. The names that step 86 changed
-
-**Model and effort.** Opus 5.5, `medium`: each change is given word for word, and the compiler, or a search, finds its
-places.
-
-**Depends on** no open step: its list is "What changes", in [`names.md`](docs/records/names.md).
-
-**How.** By [`change-api`](.agents/skills/change-api/SKILL.md), the five changes of the record, each with the exact
-words that the record gives it:
-
-1. `applied`, for the `messages` of a `Simulated`, in the changelog's entry on `Simulated`;
-2. `_tag: 'Child'` and `_tag: 'ChildById'`, for the `kind` of a `Child` and of a `ChildById`;
-3. `repeatable`, of `dispatchViolations`, given the state, with a test of the tool that reads it;
-4. `options`, for the parameter `place` of `child` and of `childById`, and the four types `…Place` named `…Options`;
-5. `CommandServices`, `SubscriptionServices` and `R`, for the type parameters `RC`, `RS` and `RT`, with the three
-   local names that the record lists.
-
-Each in `src/`, the bridges, the tests, the examples, the tools that quote the code (`tools/mutations/mutations.ts`,
-`tools/inference/`), the guide with its glossary, the tutorial, the skill and the README. The compiler finds the places
-of 1 to 3. A search finds those of 4 and 5, which no compiler reports, and the record says which `place` and which
-`R` stay: read each match against it, and rename none by its spelling alone. The changelog's words are the record's:
-the entry on `Simulated` written again for 1, a `**Breaking**:` entry for 2, and the entry of 3 under "Added".
-Changes 4 and 5 have none.
-
-**Done when** `bun run typecheck`, `lint`, `test`, `comments`, `smoke` and `api --check` pass, with `bun run inference`,
-`bun run inference --run`, `test:node`, `interleavings`, `test:browsers`, `test:react-native` and `mutations`; the
-reports of `api/` are written again, and their diff holds the five changes and nothing else; and no old name is left
-but in the changelog and in `docs/`: no `kind` of a declaration, no `messages` of a `Simulated`, no type `…Place` but
-`Place` and `Placer`, and no `RC`, `RS`, `RT`, `RCOf` or `RSOf`.
-
 ### 88. A reader's check of an application in React Native
 
 **Model and effort.** Opus 5.5, `medium`, with the reader and the examiner as subagents.
 
-**Depends on** step 87: the reader reads the package that 0.9.0 ships. Proposed by the agent.
+**Depends on** no open step: the reader reads the package that 0.9.0 ships, with the names of step 87. Proposed by
+the agent.
 
 **Why.** Step 81 met the reader who has an application in React, in a DOM. No check of
 [`guide-reader`](.agents/skills/guide-reader/SKILL.md) has met one on React Native, whom the package names from step
@@ -102,8 +73,8 @@ the skill's "Before it starts".
 
 **Model and effort.** Opus 5.5, `medium`, with the agent that upgrades as a subagent.
 
-**Depends on** step 87. Proposed by the agent. Step 86 changed two names with a break, the `messages` of a `Simulated`
-and the `kind` of a declaration ([`names.md`](docs/records/names.md)).
+**Depends on** no open step. Proposed by the agent. Step 86 changed two names with a break, the `messages` of a
+`Simulated` and the `kind` of a declaration ([`names.md`](docs/records/names.md)), and step 87 applied them.
 
 **Why.** The `Upgrade:` lines of step 87 are all that a user of the package has to follow its names. An application
 written before them shows whether they are enough.
@@ -121,8 +92,9 @@ passes its own tests and the acceptance tests, and each gap of the changelog is 
 
 **Model and effort.** Opus 5.5, `high`, with its readers as subagents: it is a review.
 
-**Depends on** steps 85 and 87, so that it reads the sentences and the names that 0.9.0 ships. Proposed by the
-agent: until 25 November 2026 it was due before the release after 0.9.0, and 0.9.0 did not wait for it.
+**Depends on** no open step: steps 85 and 87 made the sentences and the names that 0.9.0 ships, which it reads.
+Proposed by the agent: until 25 November 2026 it was due before the release after 0.9.0, and 0.9.0 did not wait for
+it.
 
 **Why.** Two facts are new. 0.9.0 now waits for steps that break the API, and a promise that the reading withdraws is
 a breaking change too: it goes out with them, so that users upgrade once. And it is the first reading of a doc comment

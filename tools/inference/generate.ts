@@ -78,9 +78,9 @@ const kidShapes: ReadonlyArray<KidShape> = ["commands", "events", "external", "o
 // `outside`: a constant given to `make` by name, typed `Update<…>`, or, for a parent, returning a `Transition<…>`
 // that names what it tells.
 type UpdateForm = "absent" | "annotated" | "contextual" | "outside"
-// Where a child is, beside what lists it: always there, started again on another key, there in some states, or
+// The options of a child, beside what lists it: always there, started again on another key, there in some states, or
 // listening in some. A child with flags is there where they are given.
-type Place = "plain" | "key" | "there" | "listening"
+type ChildOptions = "plain" | "key" | "there" | "listening"
 // How a parent's step tells its child an external message, in `update`, `external` and `onEvent`: not at all, in a
 // step written inline, in a ternary beside `reject` (or, where a step is required, beside another step), in a
 // `switch`, or mapped over the ids of children by id.
@@ -142,8 +142,8 @@ type Case = Readonly<{
   update: UpdateForm
   subs: Subs
   kidFlags: boolean
-  // Where the child is: always there, started again on a key, there in some states, or listening in some.
-  place: Place
+  // The child's options: always there, started again on a key, there in some states, or listening in some.
+  childOptions: ChildOptions
   // How the parent's steps tell its child an external message.
   tell: Tell
   // The pieces of `make` in the order of the guide, or the reverse.
@@ -287,27 +287,27 @@ const tellsOf = (c: Case, tag: "KInc" | "KReset") =>
     ? `state.ids.map((id) => ({ _tag: 'Kid', id, message: { _tag: '${tag}' } }))`
     : `[${itemOf(c, tag)}${c.comp === "pair" ? ", { _tag: 'Pal', id: 1, message: { _tag: 'PClear' } }" : ""}]`
 
-// The child's place, the second argument of `child` or `childById`, as the case writes it.
-const placeOf = (c: Case, a: (type: string) => string) => {
+// The child's options, the second argument of `child` or `childById`, as the case writes it.
+const childOptionsOf = (c: Case, a: (type: string) => string) => {
   const s = `state${a(S[c.comp])}`
   if (c.comp === "childById") {
     const listed = c.kidFlags
       ? `flags: (${s}) => state.ids.map((id) => [id, state.n] as const)`
       : `ids: (${s}) => state.ids`
-    const listening = c.place === "listening" ? `, listening: (${s}, id${a("number")}) => id > 0` : ""
+    const listening = c.childOptions === "listening" ? `, listening: (${s}, id${a("number")}) => id > 0` : ""
     return `, { ${listed}${listening} }`
   }
   const fields = [
     ...(c.kidFlags ? [`flags: (${s}) => state.open ? Opt.some(state.n) : Opt.none()`] : []),
-    ...(c.place === "key" ? [`key: (${s}) => state.open`] : []),
-    ...(c.place === "there" ? [`there: (${s}) => state.open`] : []),
-    ...(c.place === "listening" ? [`listening: (${s}) => state.n > 0`] : [])
+    ...(c.childOptions === "key" ? [`key: (${s}) => state.open`] : []),
+    ...(c.childOptions === "there" ? [`there: (${s}) => state.open`] : []),
+    ...(c.childOptions === "listening" ? [`listening: (${s}) => state.n > 0`] : [])
   ]
   return fields.length === 0 ? "" : `, { ${fields.join(", ")} }`
 }
 
 // Whether the child alone may not be there, so that its model is an `Option`.
-const sometimes = (c: Case) => c.comp !== "childById" && (c.kidFlags || c.place === "there")
+const sometimes = (c: Case) => c.comp !== "childById" && (c.kidFlags || c.childOptions === "there")
 
 // A part of a case, checked apart by its lines: the program, or what one function makes of it. A case of one part is
 // reported by its id, and a part of a case of several by `<id>/<label>`.
@@ -458,7 +458,7 @@ const parentLines = (byId: boolean, program: string, types: Types, assert: boole
   const external = types.external !== "never"
   const flagged = types.flags !== "never"
   const id = byId ? ", id: 1" : ""
-  const place = byId
+  const childOptions = byId
     ? flagged
       ? ", { flags: (): ReadonlyArray<readonly [number, number]> => [[1, 3]] }"
       : ", { ids: (): ReadonlyArray<number> => [1] }"
@@ -469,7 +469,7 @@ const parentLines = (byId: boolean, program: string, types: Types, assert: boole
     `  const Parent = program<{ state: OuterOwn${external ? `; message: Go; external: ${types.external}` : ""} }>()`,
     `  const parent = Parent.withChildren({ Inner: Parent.${
       byId ? "childById" : "child"
-    }(${program}${place}) }).make({`,
+    }(${program}${childOptions}) }).make({`,
     "    init: { state: { m: 0 } },"
   ]
   if (external) {
@@ -811,7 +811,7 @@ const madeOf = (c: Case): Readonly<{ lines: ReadonlyArray<string>; expected: Typ
   const pal = pair ? `, Pal: childById(pal, { ids: (state${a(state)}) => state.ids })` : ""
   lines.push(
     kidded
-      ? `  const made = withChildren({ Kid: ${declare}(${kidProgram}${placeOf(c, a)})${pal} }).make({`
+      ? `  const made = withChildren({ Kid: ${declare}(${kidProgram}${childOptionsOf(c, a)})${pal} }).make({`
       : "  const made = make({"
   )
   lines.push(...(c.order === "reversed" ? [...entries].reverse() : entries))
@@ -976,37 +976,41 @@ const generateHand = (c: HandCase): ReadonlyArray<Part> => {
 const subsets = <A>(items: ReadonlyArray<A>): ReadonlyArray<ReadonlySet<A>> =>
   Array.from({ length: 2 ** items.length }, (_, mask) => new Set(items.filter((_, i) => (mask >> i) & 1)))
 
-// The layouts of a parent: where its child is, whether it starts from flags, and how its steps tell the child. Each
-// place is crossed with a tell written inline, and each other tell with the plain place.
-type Layout = Readonly<{ kidFlags: boolean; place: Place; tell: Tell }>
+// The layouts of a parent: the options of its child, whether it starts from flags, and how its steps tell the
+// child. Each form of its options is crossed with a tell written inline, and each other tell with the plain options.
+type Layout = Readonly<{ kidFlags: boolean; childOptions: ChildOptions; tell: Tell }>
 const layoutsOf = (comp: Comp): ReadonlyArray<Layout> => {
-  const plain = { kidFlags: false, place: "plain", tell: "none" } as const
+  const plain = { kidFlags: false, childOptions: "plain", tell: "none" } as const
   switch (comp) {
     case "none":
       return [plain]
     case "child":
       return [
-        ...(["plain", "key", "there", "listening"] as const).map((place) => ({
+        ...(["plain", "key", "there", "listening"] as const).map((childOptions) => ({
           ...plain,
-          place,
+          childOptions,
           tell: "inline" as const
         })),
         ...(["none", "ternary", "switch"] as const).map((tell) => ({ ...plain, tell })),
-        ...(["plain", "listening"] as const).map((place) => ({
+        ...(["plain", "listening"] as const).map((childOptions) => ({
           ...plain,
           kidFlags: true,
-          place,
+          childOptions,
           tell: "inline" as const
         }))
       ]
     case "childById":
       return [
-        ...(["plain", "listening"] as const).map((place) => ({ ...plain, place, tell: "inline" as const })),
+        ...(["plain", "listening"] as const).map((childOptions) => ({
+          ...plain,
+          childOptions,
+          tell: "inline" as const
+        })),
         ...(["none", "ternary", "switch", "mapped"] as const).map((tell) => ({ ...plain, tell })),
-        ...(["plain", "listening"] as const).map((place) => ({
+        ...(["plain", "listening"] as const).map((childOptions) => ({
           ...plain,
           kidFlags: true,
-          place,
+          childOptions,
           tell: "inline" as const
         })),
         { ...plain, kidFlags: true, tell: "mapped" }
@@ -1015,7 +1019,7 @@ const layoutsOf = (comp: Comp): ReadonlyArray<Layout> => {
       return [
         { ...plain, tell: "inline" },
         plain,
-        { ...plain, place: "there", tell: "inline" },
+        { ...plain, childOptions: "there", tell: "inline" },
         { ...plain, kidFlags: true, tell: "inline" }
       ]
   }
@@ -1097,7 +1101,7 @@ for (const { comps: among, extra, named: namesets, orders: ordered } of crossing
                   ...(extra.services ? [] : ["free"]),
                   ...(extra.kid === "full" ? [] : [`kidLacks-${extra.kid}`]),
                   ...(layout.kidFlags ? ["kidFlags"] : []),
-                  ...(isKid(comp) ? [layout.place, `tell-${layout.tell}`] : []),
+                  ...(isKid(comp) ? [layout.childOptions, `tell-${layout.tell}`] : []),
                   order,
                   ...(annotate ? ["annotated"] : [])
                 ].join(".")
@@ -1161,7 +1165,7 @@ for (const comp of comps) {
         update,
         subs: "none",
         kidFlags: false,
-        place: "plain",
+        childOptions: "plain",
         tell: isKid(comp) ? "inline" : "none",
         order: "canonical",
         annotate: false,
@@ -1919,7 +1923,7 @@ const messageCases = comps.flatMap((comp) =>
       isValid(c) && representative(c) && c.comp === comp && ownOf(c) === own && c.subs === "none"
       && c.services && c.kid === "full" && !c.named.has("output")
       && c.named.size === (own === "Own" ? 2 : 1) && c.named.has("external") && layout !== undefined
-      && c.kidFlags === layout.kidFlags && c.place === layout.place && c.tell === layout.tell
+      && c.kidFlags === layout.kidFlags && c.childOptions === layout.childOptions && c.tell === layout.tell
     )
     return found === undefined ? [] : [found]
   })

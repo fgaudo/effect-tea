@@ -53,9 +53,9 @@ const doesNothing = <State, Command, Event>(step: Step<State, Command, Event>, s
  * @param update - The program's `update`.
  * @param options - `state`, the state to check in; `held`, the messages the model of that state holds, as the test
  * reads them from `program.makeModel(state)`; `candidates`, what a user could ask for; `repeatable`, the messages
- * meant to act again when sent twice (a "+1"), which must still do something; `inert`, the messages a model may hold
- * in a state though their step does nothing there; `withheld`, the messages a model may leave out on purpose in a
- * state.
+ * meant to act again in a state when sent twice (a "+1"), which must still do something; `inert`, the messages a model
+ * may hold in a state though their step does nothing there; `withheld`, the messages a model may leave out on purpose
+ * in a state.
  * @returns Every violation it finds, so that a test asserts there are none.
  *
  * @example
@@ -76,7 +76,7 @@ export const dispatchViolations = <State, Message, Command, Event>(
     state: State
     held: Iterable<Message>
     candidates?: Iterable<Message>
-    repeatable?: (message: Message) => boolean
+    repeatable?: (message: Message, state: State) => boolean
     inert?: (message: Message, state: State) => boolean
     withheld?: (message: Message, state: State) => boolean
   }>
@@ -87,7 +87,7 @@ export const dispatchViolations = <State, Message, Command, Event>(
     if (first === reject) return [{ _tag: "Rejected", message }]
     // Sent again from the state it leaves, a step that does nothing does nothing again: `ActsTwice` has nothing to ask.
     if (doesNothing(first, state)) return inert(message, state) ? [] : [{ _tag: "Inert", message }]
-    if (repeatable(message)) return []
+    if (repeatable(message, state)) return []
     const second = update(message)(first.state)
     return second !== reject && !doesNothing(second, first.state) ? [{ _tag: "ActsTwice", message }] : []
   })

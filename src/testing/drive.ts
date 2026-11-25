@@ -148,8 +148,8 @@ const driven = <Model, Message, R>(
 }
 
 // The services that the run `startWith` gives needs, as `run.ts` says where it writes them.
-type Needed<Command, RC, Key, RS> = Exclude<
-  ([Command] extends [never] ? never : RC) | ([Key] extends [never] ? never : RS),
+type Needed<Command, CommandServices, Key, SubscriptionServices> = Exclude<
+  ([Command] extends [never] ? never : CommandServices) | ([Key] extends [never] ? never : SubscriptionServices),
   Scope.Scope
 >
 
@@ -200,11 +200,11 @@ export const drive = Effect.fnUntraced(function*<
   Model,
   Message,
   Command = never,
-  RC = never,
-  RS = never,
+  CommandServices = never,
+  SubscriptionServices = never,
   A = unknown,
   E = never,
-  RT = never,
+  R = never,
   Flags = never,
   Key = never,
   External = never,
@@ -215,19 +215,23 @@ export const drive = Effect.fnUntraced(function*<
     model: Model
     message: Message
     command: Command
-    commandServices: RC
-    subscriptionServices: RS
+    commandServices: CommandServices
+    subscriptionServices: SubscriptionServices
     flags: Flags
     key: Key
     external: External
     output: Output
   }>,
-  scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, RT>,
+  scenario: (driver: Driver<Model, Message>) => Effect.Effect<A, E, R>,
   ...[{ patience = "2 seconds", ...options } = {}]: [Flags] extends [never]
     ? [options?: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>]
     : [options: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
-): Effect.fn.Return<A, E, Needed<Command, RC, Key, RS> | RT> {
-  const { deaths, began, now, run, unsubscribe } = driven<Model, Message, Needed<Command, RC, Key, RS>>((
+): Effect.fn.Return<A, E, Needed<Command, CommandServices, Key, SubscriptionServices> | R> {
+  const { deaths, began, now, run, unsubscribe } = driven<
+    Model,
+    Message,
+    Needed<Command, CommandServices, Key, SubscriptionServices>
+  >((
     deaths,
     began,
     settled

@@ -68,16 +68,18 @@ export type StartRead<S> = S extends {
 export type DriveRead<D> = D extends Effect.Effect<Driver<infer M, infer Message>, infer _E, infer R>
   ? { model: M; message: Message; services: R }
   : never
-export type RehearseRead<X> = X extends
-  Effect.Effect<Rehearsal<infer S, infer M, infer Message, infer C, infer E, infer RC, infer RS>, infer _E, infer _R> ?
-  {
+export type RehearseRead<X> = X extends Effect.Effect<
+  Rehearsal<infer S, infer M, infer Message, infer C, infer E, infer CommandServices, infer SubscriptionServices>,
+  infer _E,
+  infer _R
+> ? {
     state: S
     model: M
     message: Message
     command: C
     event: E
-    commandServices: RC
-    subscriptionServices: RS
+    commandServices: CommandServices
+    subscriptionServices: SubscriptionServices
   }
   : never
 export type SimulateRead<F> = F extends

@@ -114,14 +114,14 @@ type Parts<State, Model, Message, R, Key> = Readonly<{
  * that runs the engine itself gives what its fibers run and what it is told, and reads its models through the handle,
  * as a renderer does.
  */
-export const partsOf = <State, Model, Message, Command, RC, RS, Flags, Key, Event, R>(
+export const partsOf = <State, Model, Message, Command, CommandServices, SubscriptionServices, Flags, Key, Event, R>(
   program: Program<{
     state: State
     model: Model
     message: Message
     command: Command
-    commandServices: RC
-    subscriptionServices: RS
+    commandServices: CommandServices
+    subscriptionServices: SubscriptionServices
     event: Event
     flags: Flags
     key: Key
@@ -205,14 +205,14 @@ export const partsOf = <State, Model, Message, Command, RC, RS, Flags, Key, Even
  * and one interrupted before it begins leaves the program as it was, not stopped. `settled` is called as each call
  * that applies messages returns, once its step is done (`Engine.build`).
  */
-export const startWith = <State, Model, Message, Command, RC, RS, Flags, Key>(
+export const startWith = <State, Model, Message, Command, CommandServices, SubscriptionServices, Flags, Key>(
   program: Program<{
     state: State
     model: Model
     message: Message
     command: Command
-    commandServices: RC
-    subscriptionServices: RS
+    commandServices: CommandServices
+    subscriptionServices: SubscriptionServices
     flags: Flags
     key: Key
   }>,
@@ -220,17 +220,18 @@ export const startWith = <State, Model, Message, Command, RC, RS, Flags, Key>(
   deaths: Shell.Deaths,
   began: () => void = () => undefined,
   settled: () => void = () => undefined
-): Started<Model, Message, Needed<Command, RC, Key, RS>> => {
-  const fibers: Engine.Fibers<Message, Command, RC | RS, Key> = {
+): Started<Model, Message, Needed<Command, CommandServices, Key, SubscriptionServices>> => {
+  const fibers: Engine.Fibers<Message, Command, CommandServices | SubscriptionServices, Key> = {
     runCommand: runCommandOf(program),
     listen: listenOf(program)
   }
   const { app, engine, end } = partsOf(program, options, deaths, settled, fibers)
   // The effects of the states, until a defect: the scope's end stops the engine, interrupts its fibers and waits for
   // them, and what they die of is in the register. With no engine, `init` threw, and the register holds its defect.
-  const effects: Effect.Effect<void, never, Exclude<RC | RS, Scope.Scope>> = engine === undefined
-    ? Effect.void
-    : engine.effects.pipe(Effect.andThen(Effect.sync(began)), Effect.andThen(engine.died), Effect.scoped)
+  const effects: Effect.Effect<void, never, Exclude<CommandServices | SubscriptionServices, Scope.Scope>> =
+    engine === undefined
+      ? Effect.void
+      : engine.effects.pipe(Effect.andThen(Effect.sync(began)), Effect.andThen(engine.died), Effect.scoped)
   let begun = false
   // Not an `Effect.fn`: a span of its own would be the one the run's fibers log into (see `Shell.withExternalSpan`).
   const run = Effect.suspend(() => {
@@ -251,7 +252,7 @@ export const startWith = <State, Model, Message, Command, RC, RS, Flags, Key>(
   // What `Needed` leaves out is never asked: a program without commands calls no `runCommand`, one without keys no
   // `listen`. And the run never succeeds: its effects succeed only once the register holds a defect, which the read
   // puts in what it fails with.
-  return { app, run: run as Effect.Effect<never, never, Needed<Command, RC, Key, RS>> }
+  return { app, run: run as Effect.Effect<never, never, Needed<Command, CommandServices, Key, SubscriptionServices>> }
 }
 
 /**
@@ -315,8 +316,8 @@ export const start = <
   Model,
   Message,
   Command = never,
-  RC = never,
-  RS = never,
+  CommandServices = never,
+  SubscriptionServices = never,
   Flags = never,
   Key = never,
   External = never,
@@ -327,8 +328,8 @@ export const start = <
     model: Model
     message: Message
     command: Command
-    commandServices: RC
-    subscriptionServices: RS
+    commandServices: CommandServices
+    subscriptionServices: SubscriptionServices
     flags: Flags
     key: Key
     external: External
@@ -337,13 +338,14 @@ export const start = <
   ...[options = {}]: [Flags] extends [never]
     ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>]
     : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
-): Started<Model, Message, Needed<Command, RC, Key, RS>> => startWith(program, options, Shell.makeDeaths(() => true))
+): Started<Model, Message, Needed<Command, CommandServices, Key, SubscriptionServices>> =>
+  startWith(program, options, Shell.makeDeaths(() => true))
 
 // What a run needs of the services a program names: none of a program without commands, nor without keys, which runs
-// no `runCommand`, or no `listen`. A program typed `Program<{ …; commandServices: Db }>` without commands gives `RC` from
-// the arguments of the alias, where `CommandServicesOf` reads none. Kept to this module, so that a consumer's
-// declarations spell it out, and written again in `testing/drive.ts`.
-type Needed<Command, RC, Key, RS> = Exclude<
-  ([Command] extends [never] ? never : RC) | ([Key] extends [never] ? never : RS),
+// no `runCommand`, or no `listen`. A program typed `Program<{ …; commandServices: Db }>` without commands gives
+// `CommandServices` from the arguments of the alias, where `CommandServicesOf` reads none. Kept to this module, so
+// that a consumer's declarations spell it out, and written again in `testing/drive.ts`.
+type Needed<Command, CommandServices, Key, SubscriptionServices> = Exclude<
+  ([Command] extends [never] ? never : CommandServices) | ([Key] extends [never] ? never : SubscriptionServices),
   Scope.Scope
 >

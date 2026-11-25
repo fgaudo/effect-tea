@@ -3818,8 +3818,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   // - `Tells` for a child without external messages: its `message` would be `never`, which no `tell` can write either.
   // - `Telling` for a child without external messages: its `tell` would return `never`, which only a function that
   //   throws can.
-  // - `there` required where a child alone may not be there: the overload of a child always there takes every place
-  //   without `there`.
+  // - `there` required where a child alone may not be there: the overload of a child always there takes every form of
+  //   options without `there`.
   // - `FlagsChecked` for children by id without flags declared with flags: their flags would be `never`, so only a list
   //   that is always empty can be written, which starts no child.
   // - `update`, `external`, `output` and `runCommand` as `never` in `make` for a program that names no messages, no
@@ -4461,8 +4461,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a child with flags is declared always there without them",
     file: "src/compose.ts",
-    from: "  : [place: { readonly \"a child with flags is declared with its flags\": FlagsOf<P> }]\n",
-    to: "  : [place?: unknown]\n",
+    from: "  : [options: { readonly \"a child with flags is declared with its flags\": FlagsOf<P> }]\n",
+    to: "  : [options?: unknown]\n",
     killedBy: [
       ["src/compose.test.ts", "a child with flags is declared with them", "typecheck"],
       ["src/compose.test.ts", "a child whose init is a function starts from flags, whatever their type", "typecheck"]
@@ -4476,7 +4476,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/compose.test.ts",
-        "the functions of a child's place take the parent's state, without annotations",
+        "the functions of a child's options take the parent's state, without annotations",
         "typecheck"
       ]
     ]

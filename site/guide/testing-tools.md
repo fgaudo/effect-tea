@@ -54,7 +54,7 @@ commands and no events: so keep states data. What the test gives it says what is
 
 - **`candidates`** are what a user could ask for: the program's fixed messages. Without them, only the messages held
   are checked.
-- **`repeatable`** marks the messages meant to act again when sent twice, as a "+1".
+- **`repeatable`** marks, by the message and the state, the messages meant to act again when sent twice, as a "+1".
 - **`inert`** marks, by the message and the state, a message held on purpose though it does nothing: a tab already
   selected, where a tab bar shows every tab, or the messages of a key, which no control sends.
   [`volume`](../../examples/volume/volume.test.ts) gives the tool those of its drag, and a move to where the slider is

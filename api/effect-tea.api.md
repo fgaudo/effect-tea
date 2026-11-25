@@ -13,13 +13,13 @@ import { VoidIfEmpty } from 'effect/Types';
 import { YieldableError } from 'effect/Cause';
 
 // @public (undocumented)
-type AlwaysPlace<State, P> = [FlagsOf<P>] extends [never] ? [
-place?: Readonly<{
+type AlwaysOptions<State, P> = [FlagsOf<P>] extends [never] ? [
+options?: Readonly<{
     key?: (state: State) => unknown;
     there?: never;
     flags?: never;
 }> & Listening<State> & Telling<State, P>
-] : [place: {
+] : [options: {
     readonly "a child with flags is declared with its flags": FlagsOf<P>;
 }];
 
@@ -69,7 +69,7 @@ type CheckedChild<P> = unknown extends Lacking<P> ? P : P & Lacking<P>;
 
 // @public
 export type Child<State, P, There extends "always" | "sometimes"> = {
-    readonly kind: "one";
+    readonly _tag: "Child";
     readonly program: P;
     readonly there: There;
     readonly key: (state: State) => Opt.Option<unknown>;
@@ -79,7 +79,7 @@ export type Child<State, P, There extends "always" | "sometimes"> = {
 
 // @public
 export type ChildById<State, Id, P> = {
-    readonly kind: "byId";
+    readonly _tag: "ChildById";
     readonly program: P;
     readonly listed: (state: State) => Iterable<unknown>;
     readonly flagged: boolean;
@@ -89,7 +89,7 @@ export type ChildById<State, Id, P> = {
 
 // @public (undocumented)
 type ChildByIdOf<Id, P> = Readonly<{
-    kind: "byId";
+    _tag: "ChildById";
     program: P;
     listening?: (state: any, id: Id) => boolean;
 }>;
@@ -140,14 +140,14 @@ type ChildOf<Message, Name> = Extract<Routed<Message>, Readonly<{
 
 // @public (undocumented)
 type Children<State> = Readonly<Record<string, Readonly<{
-    kind: "one";
+    _tag: "Child";
     program: AnyProgram;
     there: "always" | "sometimes";
     key: (state: State) => Opt.Option<unknown>;
     listening?: (state: State) => boolean;
     tell?: (state: State) => unknown;
 }> | Readonly<{
-    kind: "byId";
+    _tag: "ChildById";
     program: AnyProgram;
     listed: (state: State) => Iterable<unknown>;
     flagged: boolean;
@@ -193,14 +193,14 @@ type Config<State, C, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, Externa
 
 // @public
 export type DeclareChild<T extends DeclaredTypes> = {
-    <P extends AnyProgram>(program: CheckedChild<P>, ...place: AlwaysPlace<Field<T, "state">, P>): Child<Field<T, "state">, P, "always">;
-    <P extends AnyProgram>(program: CheckedChild<P>, place: SometimesPlace<Field<T, "state">, P> & Listening<Field<T, "state">> & Telling<Field<T, "state">, P>): Child<Field<T, "state">, P, "sometimes">;
+    <P extends AnyProgram>(program: CheckedChild<P>, ...options: AlwaysOptions<Field<T, "state">, P>): Child<Field<T, "state">, P, "always">;
+    <P extends AnyProgram>(program: CheckedChild<P>, options: SometimesOptions<Field<T, "state">, P> & Listening<Field<T, "state">> & Telling<Field<T, "state">, P>): Child<Field<T, "state">, P, "sometimes">;
 };
 
 // @public
 export type DeclareChildById<T extends DeclaredTypes> = {
-    <Id, P extends AnyProgram>(program: CheckedChild<P>, place: IdsPlace<Field<T, "state">, Id> & FlagsChecked<P, false> & Telling<Field<T, "state">, P>): ChildById<Field<T, "state">, Id, P>;
-    <Id, P extends AnyProgram>(program: CheckedChild<P>, place: FlagsPlace<Field<T, "state">, Id, FlagsOf<P>> & FlagsChecked<P, true> & Telling<Field<T, "state">, P>): ChildById<Field<T, "state">, Id, P>;
+    <Id, P extends AnyProgram>(program: CheckedChild<P>, options: IdsOptions<Field<T, "state">, Id> & FlagsChecked<P, false> & Telling<Field<T, "state">, P>): ChildById<Field<T, "state">, Id, P>;
+    <Id, P extends AnyProgram>(program: CheckedChild<P>, options: FlaggedIdsOptions<Field<T, "state">, Id, FlagsOf<P>> & FlagsChecked<P, true> & Telling<Field<T, "state">, P>): ChildById<Field<T, "state">, Id, P>;
 };
 
 // @public
@@ -266,6 +266,13 @@ type FirstStepOf<P> = P extends {
     readonly init: infer S;
 } ? S : never;
 
+// @public (undocumented)
+type FlaggedIdsOptions<State, Id, Flags> = Readonly<{
+    flags: (state: State) => Iterable<readonly [Id, Flags]>;
+    listening?: (state: State, id: Id) => boolean;
+    ids?: never;
+}>;
+
 // @public
 type FlagsChecked<P, Flagged extends boolean> = [FlagsOf<P>] extends [never] ? Flagged extends true ? {
     readonly "a child without flags is declared with its ids": never;
@@ -284,13 +291,6 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? {
 } : {
     readonly flags: Flags;
 };
-
-// @public (undocumented)
-type FlagsPlace<State, Id, Flags> = Readonly<{
-    flags: (state: State) => Iterable<readonly [Id, Flags]>;
-    listening?: (state: State, id: Id) => boolean;
-    ids?: never;
-}>;
 
 // @public
 export type Folded<State, Command, Event, Tell = never> = {
@@ -312,7 +312,7 @@ type IdOf<Message, Name> = [ChildOf<Message, Name>] extends [never] ? [] : Child
 }> ? [id: Id] : [];
 
 // @public (undocumented)
-type IdsPlace<State, Id> = Readonly<{
+type IdsOptions<State, Id> = Readonly<{
     ids: (state: State) => Iterable<Id>;
     listening?: (state: State, id: Id) => boolean;
     flags?: never;
@@ -452,7 +452,7 @@ type Named<T, K extends "model", Inferred> = T extends {
 } ? V : Inferred;
 
 // @public (undocumented)
-type Needed<Command, RC, Key, RS> = Exclude<([Command] extends [never] ? never : RC) | ([Key] extends [never] ? never : RS), Scope.Scope>;
+type Needed<Command, CommandServices, Key, SubscriptionServices> = Exclude<([Command] extends [never] ? never : CommandServices) | ([Key] extends [never] ? never : SubscriptionServices), Scope.Scope>;
 
 // @public (undocumented)
 type Needs<Own, Children> = unknown extends Children ? unknown : unknown extends Own ? unknown : Own | Children;
@@ -628,15 +628,15 @@ export interface RunOptions<State, Message, Command = unknown> {
 }
 
 // @public (undocumented)
-type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never, Output = never, Key = never> = {
+type Shape<State, Model, Message, Command, CommandServices, SubscriptionServices, Event, External, Flags = never, Output = never, Key = never> = {
     readonly init: Init<State, Command, Flags>;
     readonly update: Update<State, Message, Command, Event>;
     readonly subscriptions: Subscriptions<State, Key>;
     readonly makeModel: (state: State) => Model;
-} & WithRunCommand<Command, NoInfer<Message>, RC> & WithListen<Key, NoInfer<Message>, RS> & WithExternal<External, State, Command, Event> & WithOutput<Output, State>;
+} & WithRunCommand<Command, NoInfer<Message>, CommandServices> & WithListen<Key, NoInfer<Message>, SubscriptionServices> & WithExternal<External, State, Command, Event> & WithOutput<Output, State>;
 
 // @public
-type SometimesPlace<State, P> = [FlagsOf<P>] extends [never] ? Readonly<{
+type SometimesOptions<State, P> = [FlagsOf<P>] extends [never] ? Readonly<{
     there: (state: State) => boolean;
     key?: (state: State) => unknown;
     flags?: never;
@@ -647,18 +647,18 @@ type SometimesPlace<State, P> = [FlagsOf<P>] extends [never] ? Readonly<{
 }>;
 
 // @public
-export const start: <State, Model, Message, Command = never, RC = never, RS = never, Flags = never, Key = never, External = never, Output = never>(program: Program<{
+export const start: <State, Model, Message, Command = never, CommandServices = never, SubscriptionServices = never, Flags = never, Key = never, External = never, Output = never>(program: Program<{
     state: State;
     model: Model;
     message: Message;
     command: Command;
-    commandServices: RC;
-    subscriptionServices: RS;
+    commandServices: CommandServices;
+    subscriptionServices: SubscriptionServices;
     flags: Flags;
     key: Key;
     external: External;
     output: Output;
-}>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Started<Model, Message, Needed<Command, RC, Key, RS>>;
+}>, ...input: [Flags] extends [never] ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>] : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]) => Started<Model, Message, Needed<Command, CommandServices, Key, SubscriptionServices>>;
 
 // @public
 export interface Started<Model, Message, R = never> {

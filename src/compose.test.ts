@@ -2233,10 +2233,10 @@ describe("flags", () => {
     expect(child(ticker, { flags: () => Opt.some(1) })).toBeDefined()
     // @ts-expect-error: by id too.
     expect(childById(ticker, { flags: (): ReadonlyArray<readonly [number, number]> => [[1, 1]] })).toBeDefined()
-    // A place that is no literal: its fields are not checked as fields too many.
-    const place = { there: () => true, flags: () => Opt.some(1) }
-    // @ts-expect-error: nor where it is sometimes there, however its place is written.
-    expect(child(ticker, place)).toBeDefined()
+    // Options that are no literal: their fields are not checked as fields too many.
+    const options = { there: () => true, flags: () => Opt.some(1) }
+    // @ts-expect-error: nor where it is sometimes there, however its options are written.
+    expect(child(ticker, options)).toBeDefined()
   })
 
   test("a child with flags is declared with them", () => {
@@ -2245,11 +2245,11 @@ describe("flags", () => {
     expect(child(seeded)).toBeDefined()
     // @ts-expect-error: nor where it is sometimes there.
     expect(child(seeded, { there: () => true })).toBeDefined()
-    // @ts-expect-error: nor with a place that gives none.
+    // @ts-expect-error: nor with options that give none.
     expect(child(seeded, { listening: () => true })).toBeDefined()
     // @ts-expect-error: by id neither.
     expect(childById(seeded, { ids: (): ReadonlyArray<number> => [1] })).toBeDefined()
-    // @ts-expect-error: nor with a place that lists neither ids nor flags.
+    // @ts-expect-error: nor with options that list neither ids nor flags.
     expect(childById(seeded, { listening: () => true })).toBeDefined()
     // A child without flags is listed by its ids alone.
     // @ts-expect-error: it has no flags to start from.
@@ -2259,7 +2259,7 @@ describe("flags", () => {
       .toEqualTypeOf<ChildById<Ticks, number, typeof ticker>>()
   })
 
-  test("the functions of a child's place take the parent's state, without annotations", () => {
+  test("the functions of a child's options take the parent's state, without annotations", () => {
     type Shown = Readonly<{ open: boolean; generation: number; seed: Opt.Option<number> }>
     const { child } = program<{ state: Shown }>()
     expectTypeOf(child(ticker, { there: (state) => state.open, key: (state) => state.generation }))
@@ -2537,7 +2537,7 @@ describe("what the types reject", () => {
     type Other = Readonly<{ other: string }>
     const elsewhere = program<{ state: Other }>()
     const { withChildren } = program<{ state: Ticks }>()
-    // @ts-expect-error: its place reads another state than the parent's.
+    // @ts-expect-error: its options read another state than the parent's.
     expect(withChildren({ Ticker: elsewhere.child(ticker, { key: (state) => state.other }) })).toBeDefined()
     // @ts-expect-error: by id too.
     expect(withChildren({ Rows: elsewhere.childById(ticker, { ids: (state) => [state.other] }) })).toBeDefined()

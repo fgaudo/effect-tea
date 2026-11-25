@@ -65,7 +65,13 @@ type Taking<Message, Command, R> =
   }>
 
 /** The ledger of a stage: its commands, and how a tool that hears its starts hears them (`S`, `W`). */
-export type StageLedger<Message, Command, RC, S, W> = Ledger.Ledger<Command, Parked<Message, RC>, S, W, Message>
+export type StageLedger<Message, Command, CommandServices, S, W> = Ledger.Ledger<
+  Command,
+  Parked<Message, CommandServices>,
+  S,
+  W,
+  Message
+>
 
 /**
  * Fails with the defects recorded so far, if any: else runs `effect`. It guards no call of the program: one that must
@@ -79,20 +85,22 @@ export const deadOr = (register: Deaths) => <A, E, R>(effect: Effect.Effect<A, E
   })
 
 /** What the engine is given by the stage, before it is made: what the thunk tells, and what a command's fiber runs. */
-export type Staging<State, Message, Command, Event, RC, Key, S, W> = Readonly<{
+export type Staging<State, Message, Command, Event, CommandServices, Key, S, W> = Readonly<{
   told: Readonly<{
     stepped: (step: Engine.Stepped<State, Command, Key, Event>) => void
     answering: (command: Command) => Effect.Effect<void>
   }>
   /** The stage over the engine made with `told`. Called once, before the engine's effects start. */
-  on: (engine: Engine.Engine<State, Message, never, Key>) => Stage<State, Message, Command, Event, RC, Key, S, W>
+  on: (
+    engine: Engine.Engine<State, Message, never, Key>
+  ) => Stage<State, Message, Command, Event, CommandServices, Key, S, W>
 }>
 
 /** The program on the engine, as a tool plays it. */
-export interface Stage<State, Message, Command, Event, RC, Key, S, W> {
+export interface Stage<State, Message, Command, Event, CommandServices, Key, S, W> {
   readonly engine: Engine.Engine<State, Message, never, Key>
   /** Written by every fiber of the test's, and by the engine's thunk and its fiber of effects, by one transition. */
-  ledger: StageLedger<Message, Command, RC, S, W>
+  ledger: StageLedger<Message, Command, CommandServices, S, W>
   /** The events `update` raised, in order. */
   readonly events: () => ReadonlyArray<Event>
   /** The answers and the subscriptions' messages that `update` rejected, in order. */
@@ -132,9 +140,9 @@ export interface Stage<State, Message, Command, Event, RC, Key, S, W> {
   /** Runs the oldest pending command `select` matches, and waits for the job of its answer; or finds none. */
   readonly runFirst: (
     select: (command: Command) => boolean
-  ) => Effect.Effect<Ran<Command>, never, Exclude<RC, Scope.Scope>>
+  ) => Effect.Effect<Ran<Command>, never, Exclude<CommandServices, Scope.Scope>>
   /** Runs the oldest pending command until none is left. */
-  readonly runAll: Effect.Effect<void, never, Exclude<RC, Scope.Scope>>
+  readonly runAll: Effect.Effect<void, never, Exclude<CommandServices, Scope.Scope>>
   /**
    * Starts the engine's effects in a scope of its own, plays `scenario`, and ends: what the scenario ended with, or
    * the defects first, with the ledger as the end was marked. `last` is done once the engine's fibers are stopped.
@@ -142,7 +150,7 @@ export interface Stage<State, Message, Command, Event, RC, Key, S, W> {
   readonly play: <A, E, R>(
     scenario: Effect.Effect<A, E, R>,
     last?: () => Effect.Effect<void>
-  ) => Effect.Effect<readonly [A, StageLedger<Message, Command, RC, S, W>], E, R>
+  ) => Effect.Effect<readonly [A, StageLedger<Message, Command, CommandServices, S, W>], E, R>
 }
 
 /**
@@ -150,22 +158,22 @@ export interface Stage<State, Message, Command, Event, RC, Key, S, W> {
  * ledger takes the starts that came and went, as the keys of each new state, the first one's included, are told;
  * `accepted` is told of each message `update` accepted, in the thunk that applied it.
  */
-export const make = <State, Message, Command, Event, RC, Key, S = never, W = never>(
+export const make = <State, Message, Command, Event, CommandServices, Key, S = never, W = never>(
   config: Readonly<{
     register: Deaths
-    runCommand: RunCommand<Command, Message, RC>
+    runCommand: RunCommand<Command, Message, CommandServices>
     listened?: (
-      ledger: StageLedger<Message, Command, RC, S, W>,
+      ledger: StageLedger<Message, Command, CommandServices, S, W>,
       gone: ReadonlyArray<readonly [Key, Generation]>,
       fresh: ReadonlyArray<readonly [Key, Generation]>
-    ) => StageLedger<Message, Command, RC, S, W>
+    ) => StageLedger<Message, Command, CommandServices, S, W>
     accepted?: (message: Message, arrived: Extract<Arrived<State, Command, Event>, { _tag: "Applied" }>) => void
   }>
-): Staging<State, Message, Command, Event, RC, Key, S, W> => {
+): Staging<State, Message, Command, Event, CommandServices, Key, S, W> => {
   const { register, runCommand, listened: listenedTo = (ledger) => ledger, accepted = () => undefined } = config
   const { all: deaths, dead } = register
   const failedOr = deadOr(register)
-  type RCOf = Exclude<RC, Scope.Scope>
+  type CommandNeeds = Exclude<CommandServices, Scope.Scope>
   // Given once, by `on`, before anything below that reads it runs: the engine's thunk and its jobs run only once the
   // engine is made, and a call only once the stage is.
   let engine: Engine.Engine<State, Message, never, Key>
@@ -261,7 +269,7 @@ export const make = <State, Message, Command, Event, RC, Key, S = never, W = nev
   // defect. However the fiber ends, the command is no longer under way. It leaves what its `run` does last: the wait
   // for the job of its answer.
   const answering = (command: Command): Effect.Effect<void> => {
-    const parked: Parked<Message, RC> = { fiber: Deferred.makeUnsafe(), given: Deferred.makeUnsafe() }
+    const parked: Parked<Message, CommandServices> = { fiber: Deferred.makeUnsafe(), given: Deferred.makeUnsafe() }
     stage.ledger = Ledger.owe(stage.ledger, [{ command, handle: parked }])
     return Effect.flatMap(Effect.fiber, (own) => {
       // The engine forks it to run what this function returns, which succeeds with nothing and cannot fail.
@@ -296,7 +304,9 @@ export const make = <State, Message, Command, Event, RC, Key, S = never, W = nev
   // What a `run` waits for once it has given its command: the fiber's end, its root and its record included, and then
   // what it left to do last, the wait for the job of its answer.
   const answered = (
-    { parked, answer }: Readonly<{ parked: Parked<Message, RC>; answer: Deferred.Deferred<Effect.Effect<void>> }>
+    { parked, answer }: Readonly<
+      { parked: Parked<Message, CommandServices>; answer: Deferred.Deferred<Effect.Effect<void>> }
+    >
   ) =>
     Deferred.await(parked.fiber).pipe(
       Effect.flatMap(Fiber.await),
@@ -307,15 +317,15 @@ export const make = <State, Message, Command, Event, RC, Key, S = never, W = nev
   // started and keeps, all in one thunk, with no check in front of it. The command given and how an interrupted call
   // stops it are one primitive: the call cancels the command and stops its fiber, once it has begun, which may have
   // applied its answer already.
-  const runFirst = (select: (command: Command) => boolean): Effect.Effect<Ran<Command>, never, RCOf> =>
-    Effect.flatMap(Effect.context<RCOf>(), (context) =>
+  const runFirst = (select: (command: Command) => boolean): Effect.Effect<Ran<Command>, never, CommandNeeds> =>
+    Effect.flatMap(Effect.context<CommandNeeds>(), (context) =>
       Effect.acquireUseRelease(
         Effect.suspend(() => {
           if (dead()) return failedOr(Effect.never)
           if (engine.ended()) return Effect.interrupt
           const taking = Ledger.take(stage.ledger, select)
           if (Opt.isNone(taking)) {
-            return Effect.succeed<Taking<Message, Command, RC>>({
+            return Effect.succeed<Taking<Message, Command, CommandServices>>({
               _tag: "None",
               pending: Ledger.pendingOf(stage.ledger)
             })
@@ -325,7 +335,13 @@ export const make = <State, Message, Command, Event, RC, Key, S = never, W = nev
           const answer = Deferred.makeUnsafe<Effect.Effect<void>>()
           const effect = calling(() => runCommand(command))
           Deferred.doneUnsafe(parked.given, Exit.succeed({ ticket, effect, context, answer }))
-          return Effect.succeed<Taking<Message, Command, RC>>({ _tag: "Running", ticket, command, parked, answer })
+          return Effect.succeed<Taking<Message, Command, CommandServices>>({
+            _tag: "Running",
+            ticket,
+            command,
+            parked,
+            answer
+          })
         }),
         (taking): Effect.Effect<Ran<Command>> =>
           taking._tag === "None"
@@ -347,7 +363,7 @@ export const make = <State, Message, Command, Event, RC, Key, S = never, W = nev
       ).pipe(Effect.tap((ran) => ran._tag === "Ran" ? ran.answer : Effect.void)))
   // Ends on a take that finds nothing, never on a count of `pending` made before it: another call may take the last
   // command in between.
-  const runAll: Effect.Effect<void, never, RCOf> = Effect.flatMap(
+  const runAll: Effect.Effect<void, never, CommandNeeds> = Effect.flatMap(
     runFirst(() => true),
     (ran) => ran._tag === "None" ? Effect.void : runAll
   )
@@ -359,7 +375,7 @@ export const make = <State, Message, Command, Event, RC, Key, S = never, W = nev
   const play = <A, E, R>(
     scenario: Effect.Effect<A, E, R>,
     last: () => Effect.Effect<void> = () => Effect.void
-  ): Effect.Effect<readonly [A, StageLedger<Message, Command, RC, S, W>], E, R> =>
+  ): Effect.Effect<readonly [A, StageLedger<Message, Command, CommandServices, S, W>], E, R> =>
     Effect.uninterruptibleMask(Effect.fnUntraced(function*(restore) {
       // Where the engine keeps its fibers, so that they outlive the fiber of the test's that asked for them, as the
       // run's outlive whoever dispatched. Closed at the end, however the stage ends. Made once the program has started,
@@ -404,7 +420,7 @@ export const make = <State, Message, Command, Event, RC, Key, S = never, W = nev
       )
       return [result, owed] as const
     }))
-  const stage: Stage<State, Message, Command, Event, RC, Key, S, W> = {
+  const stage: Stage<State, Message, Command, Event, CommandServices, Key, S, W> = {
     get engine() {
       return engine
     },

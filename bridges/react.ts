@@ -85,7 +85,7 @@ export type Fork<R> = (effect: Effect.Effect<void, never, R>) => Fiber.Fiber<voi
  *
  * @see The guide, "Running".
  */
-export type HostProps<State, Model, Message, Command, RC, RS, Flags, Key = never> =
+export type HostProps<State, Model, Message, Command, CommandServices, SubscriptionServices, Flags, Key = never> =
   & {
     /** The program to start and run. */
     readonly program: Program<{
@@ -93,8 +93,8 @@ export type HostProps<State, Model, Message, Command, RC, RS, Flags, Key = never
       model: Model
       message: Message
       command: Command
-      commandServices: RC
-      subscriptionServices: RS
+      commandServices: CommandServices
+      subscriptionServices: SubscriptionServices
       flags: Flags
       key: Key
     }>
@@ -108,8 +108,8 @@ export type HostProps<State, Model, Message, Command, RC, RS, Flags, Key = never
         & FlagsOption<NoInfer<Flags>>
     })
   // Asked for whenever the run needs services, which only the application can give.
-  & ([Exclude<RC | RS, Scope.Scope>] extends [never] ? { readonly fork?: Fork<never> }
-    : { readonly fork: Fork<Exclude<RC | RS, Scope.Scope>> })
+  & ([Exclude<CommandServices | SubscriptionServices, Scope.Scope>] extends [never] ? { readonly fork?: Fork<never> }
+    : { readonly fork: Fork<Exclude<CommandServices | SubscriptionServices, Scope.Scope>> })
 
 type Died = { readonly error: unknown }
 
@@ -192,12 +192,12 @@ export const Host = <
   Model,
   Message,
   Command = never,
-  RC = never,
-  RS = never,
+  CommandServices = never,
+  SubscriptionServices = never,
   Flags = never,
   Key = never
 >(
-  props: HostProps<State, Model, Message, Command, RC, RS, Flags, Key>
+  props: HostProps<State, Model, Message, Command, CommandServices, SubscriptionServices, Flags, Key>
 ): ReactNode => {
   const first = useRef(props)
   // The program is started as `Host` first renders, by plain code that runs no effect: its first model is drawn in the

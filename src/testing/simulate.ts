@@ -25,7 +25,7 @@ export type Simulated<State, Message, Command = never, Event = never> = {
   /** The last state. */
   readonly state: State
   /** Every message `update` accepted, the test's and the commands' answers, in order. */
-  readonly messages: ReadonlyArray<Message>
+  readonly applied: ReadonlyArray<Message>
   /** Every command started, in order, including the commands of the step the simulation started from. */
   readonly commands: ReadonlyArray<Command>
   /** Every event `update` raised, in order. */
@@ -117,5 +117,5 @@ export const simulate = Effect.fnUntraced(function*<State, Message, Command = ne
     }
     return stage.engine.current()
   }))
-  return { state, messages: accepted, commands, events: stage.events(), ignored: stage.ignored() }
+  return { state, applied: accepted, commands, events: stage.events(), ignored: stage.ignored() }
 })

@@ -25,8 +25,9 @@ import * as Stage from "./stage.ts"
  *
  * Nothing reaches `update` by itself: each message comes through one of these calls.
  *
- * A program without commands or events leaves `Command` or `Event` as `never`. `RC` is the services its commands need,
- * and `RS` those its subscriptions need. `run` and `runAll` ask for `RC`, and `hearNext` for `RS`.
+ * A program without commands or events leaves `Command` or `Event` as `never`. `run` and `runAll` ask for
+ * `CommandServices`, the services that its commands need, and `hearNext` for `SubscriptionServices`, those that its
+ * subscriptions need.
  *
  * - A call applies its message at once. It returns once what the message stops has released what it held, and its
  *   commands are pending. A message sent meanwhile, from another fiber of the test's, applies at once too.
@@ -47,7 +48,15 @@ import * as Stage from "./stage.ts"
  *
  * @see The guide, "Testing tools".
  */
-export type Rehearsal<State, Model, Message, Command = never, Event = never, RC = never, RS = never> = {
+export type Rehearsal<
+  State,
+  Model,
+  Message,
+  Command = never,
+  Event = never,
+  CommandServices = never,
+  SubscriptionServices = never
+> = {
   /** The current state. */
   readonly state: Effect.Effect<State>
   /** The model of the current state. */
@@ -79,7 +88,9 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
    *
    * @see The guide, "Testing tools".
    */
-  readonly run: (select: (command: Command) => boolean) => Effect.Effect<Command, never, Exclude<RC, Scope.Scope>>
+  readonly run: (
+    select: (command: Command) => boolean
+  ) => Effect.Effect<Command, never, Exclude<CommandServices, Scope.Scope>>
   /**
    * Runs the pending commands, and those they start, until none is left.
    *
@@ -88,7 +99,7 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
    *
    * @see The guide, "Testing tools".
    */
-  readonly runAll: Effect.Effect<void, never, Exclude<RC, Scope.Scope>>
+  readonly runAll: Effect.Effect<void, never, Exclude<CommandServices, Scope.Scope>>
   /**
    * Applies a message as the subscription under `key` would send it, without running the subscription.
    *
@@ -130,7 +141,7 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
    *
    * @see The guide, "Testing tools".
    */
-  readonly hearNext: (key: unknown) => Effect.Effect<Message, never, Exclude<RS, Scope.Scope>>
+  readonly hearNext: (key: unknown) => Effect.Effect<Message, never, Exclude<SubscriptionServices, Scope.Scope>>
   /** The events `update` raised for the program's parent, in order. */
   readonly events: Effect.Effect<ReadonlyArray<Event>>
   /**
@@ -193,11 +204,11 @@ const rehearsing = Effect.fnUntraced(function*<
   Message,
   Command = never,
   Event = never,
-  RC = never,
-  RS = never,
+  CommandServices = never,
+  SubscriptionServices = never,
   A = unknown,
   E = never,
-  RT = never,
+  R = never,
   Flags = never,
   Key = never
 >(
@@ -206,16 +217,18 @@ const rehearsing = Effect.fnUntraced(function*<
     model: Model
     message: Message
     command: Command
-    commandServices: RC
-    subscriptionServices: RS
+    commandServices: CommandServices
+    subscriptionServices: SubscriptionServices
     event: Event
     flags: Flags
     key: Key
   }>,
-  scenario: (rehearsal: Rehearsal<State, Model, Message, Command, Event, RC, RS>) => Effect.Effect<A, E, RT>,
+  scenario: (
+    rehearsal: Rehearsal<State, Model, Message, Command, Event, CommandServices, SubscriptionServices>
+  ) => Effect.Effect<A, E, R>,
   ...[{ flags } = {}]: [Flags] extends [never] ? [options?: FlagsOption<never>]
     : [options: FlagsOption<NoInfer<Flags>>]
-): Effect.fn.Return<A, E, RT> {
+): Effect.fn.Return<A, E, R> {
   const listenTo = listenOf(program)
   // The register of the run: what the engine's thunk and its fibers die of, the program's defects and what is thrown
   // outside every function of the program alike, as the run keeps them. The tool's own failures of a call (nothing to
@@ -225,11 +238,11 @@ const rehearsing = Effect.fnUntraced(function*<
   const register = makeDeaths(() => true)
   const { dead } = register
   const deadOr = Stage.deadOr(register)
-  type RSOf = Exclude<RS, Scope.Scope>
+  type SubscriptionNeeds = Exclude<SubscriptionServices, Scope.Scope>
   type CallOf = Call<Message>
   // The commands, and how each start is heard, by its generation, in the ledger of the stage: a start that appears is
   // unheard and starting, with its asks made, and one that went away is forgotten.
-  const staging = Stage.make<State, Message, Command, Event, RC, Key, Start<RSOf>, CallOf>({
+  const staging = Stage.make<State, Message, Command, Event, CommandServices, Key, Start<SubscriptionNeeds>, CallOf>({
     register,
     runCommand: runCommandOf(program),
     listened: (ledger, gone, fresh) =>
@@ -373,7 +386,7 @@ const rehearsing = Effect.fnUntraced(function*<
   // start, in a thunk that has checked the end and the register: the call waits on the start and asks it for a
   // message, the start it opens included, so that a later step that stops the start finds the call waiting. A call
   // that left before its job starts nothing: the test no longer asks for it.
-  const openFor = (generation: Generation, call: CallOf, context: Context.Context<RSOf>): Opened => {
+  const openFor = (generation: Generation, call: CallOf, context: Context.Context<SubscriptionNeeds>): Opened => {
     const found = Ledger.opening(stage.ledger, generation, call)
     switch (found._tag) {
       case "Left":
@@ -419,7 +432,7 @@ const rehearsing = Effect.fnUntraced(function*<
   // thunk; it leaves however it ends: what it is told meanwhile is what it hears, and what it asked for and did not
   // hear is the next call's. A defect of the program, in whichever fiber, ends the wait, as it ends the run.
   const hearNext = Effect.fnUntraced(function*(key: unknown) {
-    const context = yield* Effect.context<RSOf>()
+    const context = yield* Effect.context<SubscriptionNeeds>()
     const call: CallOf = { key, heard: yield* Deferred.make<Told<Message>>() }
     const told = yield* stage.submit(() => {
       const generation = startUnder(key)
@@ -452,7 +465,7 @@ const rehearsing = Effect.fnUntraced(function*<
         : Effect.die(failure(({ tags }) => `No pending command matches (pending: ${describeAll(tags, ran.pending)})`)))
   // What the test reads of the state stays readable once the rehearsal died; what it asks of the program, its model
   // included, fails.
-  const rehearsal: Rehearsal<State, Model, Message, Command, Event, RC, RS> = {
+  const rehearsal: Rehearsal<State, Model, Message, Command, Event, CommandServices, SubscriptionServices> = {
     state: Effect.sync(() => engine.current()),
     model: deadOr(Effect.sync(() => app.model())),
     send: (select) => deadOr(send(select)),
@@ -584,11 +597,11 @@ export const rehearse = <
   Message,
   Command = never,
   Event = never,
-  RC = never,
-  RS = never,
+  CommandServices = never,
+  SubscriptionServices = never,
   A = unknown,
   E = never,
-  RT = never,
+  R = never,
   Flags = never,
   Key = never
 >(
@@ -599,22 +612,31 @@ export const rehearse = <
       model: Model
       message: Message
       command: Commanded<P, Command>
-      commandServices: Commanded<P, RC>
-      subscriptionServices: Listened<P, RS>
+      commandServices: Commanded<P, CommandServices>
+      subscriptionServices: Listened<P, SubscriptionServices>
       event: Event
       flags: Flags
       key: Listened<P, Key>
     }>,
   scenario: (
-    rehearsal: Rehearsal<State, Model, Message, Commanded<P, Command>, Event, Commanded<P, RC>, Listened<P, RS>>
-  ) => Effect.Effect<A, E, RT>,
+    rehearsal: Rehearsal<
+      State,
+      Model,
+      Message,
+      Commanded<P, Command>,
+      Event,
+      Commanded<P, CommandServices>,
+      Listened<P, SubscriptionServices>
+    >
+  ) => Effect.Effect<A, E, R>,
   ...options: [Flags] extends [never] ? [options?: FlagsOption<never>] : [options: FlagsOption<NoInfer<Flags>>]
-): Effect.Effect<A, E, RT> => rehearsing(program, scenario, ...options)
+): Effect.Effect<A, E, R> => rehearsing(program, scenario, ...options)
 
-// A program without commands gives `Command` and `RC` nothing to be inferred from, and an alias that carries one still
-// unfixed leaves the errors and the services of a scenario written `Effect.fnUntraced(function*(rehearsal) { … })`
-// `unknown` wherever it reads `rehearsal`. So each is read through the program, whose type is always inferred: `never`
-// when it has no `runCommand`, and otherwise inferred as any type, from every piece that names it.
+// A program without commands gives `Command` and `CommandServices` nothing to be inferred from, and an alias that
+// carries one still unfixed leaves the errors and the services of a scenario written
+// `Effect.fnUntraced(function*(rehearsal) { … })` `unknown` wherever it reads `rehearsal`. So each is read through
+// the program, whose type is always inferred: `never` when it has no `runCommand`, and otherwise inferred as any type,
+// from every piece that names it.
 type Commanded<P, T> = P extends { readonly runCommand: unknown } ? T : never
-// The same for a program without keys, which gives `Key` and `RS` nothing to be inferred from.
+// The same for a program without keys, which gives `Key` and `SubscriptionServices` nothing to be inferred from.
 type Listened<P, T> = P extends { readonly listen: unknown } ? T : never

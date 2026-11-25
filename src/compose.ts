@@ -121,7 +121,7 @@ export type Kept<Own, Children> = {
  */
 export type Child<State, P, There extends "always" | "sometimes"> = {
   /** A child alone, not one of children by id. */
-  readonly kind: "one"
+  readonly _tag: "Child"
   /** The child's program. */
   readonly program: P
   /** Whether the child is there in every state of its parent. */
@@ -152,7 +152,7 @@ export type Child<State, P, There extends "always" | "sometimes"> = {
  */
 export type ChildById<State, Id, P> = {
   /** Children by id, not a child alone. */
-  readonly kind: "byId"
+  readonly _tag: "ChildById"
   /** The program of each child. */
   readonly program: P
   /** The children in a state: their ids, or, for a program with flags, each id with its flags. */
@@ -176,7 +176,7 @@ type Children<State> = Readonly<
   Record<
     string,
     | Readonly<{
-      kind: "one"
+      _tag: "Child"
       program: AnyProgram
       there: "always" | "sometimes"
       key: (state: State) => Opt.Option<unknown>
@@ -184,7 +184,7 @@ type Children<State> = Readonly<
       tell?: (state: State) => unknown
     }>
     | Readonly<{
-      kind: "byId"
+      _tag: "ChildById"
       program: AnyProgram
       listed: (state: State) => Iterable<unknown>
       flagged: boolean
@@ -196,8 +196,8 @@ type Children<State> = Readonly<
 
 type ProgramOf<C> = C extends { readonly program: infer P } ? P : never
 
-// Told by `kind` and the id `listening` takes, which the type declares whether or not the child has one.
-type ChildByIdOf<Id, P> = Readonly<{ kind: "byId"; program: P; listening?: (state: any, id: Id) => boolean }>
+// Told by `_tag` and the id `listening` takes, which the type declares whether or not the child has one.
+type ChildByIdOf<Id, P> = Readonly<{ _tag: "ChildById"; program: P; listening?: (state: any, id: Id) => boolean }>
 
 /**
  * Where a child's messages and commands, and the keys of its subscriptions, carry its id: only for children by id.
@@ -521,7 +521,7 @@ type Gathered = {
 type UntypedStep = Step<unknown, unknown, unknown, unknown>
 
 type UntypedChild = Readonly<{
-  kind: "one" | "byId"
+  _tag: "Child" | "ChildById"
   program: AnyProgram
   there?: "always" | "sometimes"
   key?: (own: unknown) => Opt.Option<unknown>
@@ -568,7 +568,7 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
   const isChildName = (tag: unknown): tag is string => typeof tag === "string" && Object.hasOwn(programs, tag)
   const field = (value: unknown, key: string): unknown => Predicate.hasProperty(value, key) ? value[key] : undefined
   const placeOf = (value: unknown): Place => ({ name: field(value, "_tag") as string, id: field(value, "id") })
-  const isById = (name: string) => childOf(name).kind === "byId"
+  const isById = (name: string) => childOf(name)._tag === "ChildById"
   const at = ({ name, id }: Place) => isById(name) ? { id } : {}
   const wrapMessage = (place: Place, instance: number) => (message: unknown) => ({
     _tag: place.name,
@@ -659,7 +659,7 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
     let started: Set<string> | undefined
     for (const name of names) {
       const child = childOf(name)
-      if (child.kind === "one") {
+      if (child._tag === "Child") {
         const wanted = (child.key as (own: unknown) => Opt.Option<unknown>)(gathered.own)
         const current = gathered.children[name] as Opt.Option<Entry>
         if (Opt.isNone(wanted)) {
@@ -786,7 +786,7 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
       const child = childOf(name)
       const tell = child.tell as (own: unknown) => unknown
       if (!started.has(name) && Opt.isSome(before) && Equal.equals(tell(before.value), tell(gathered.own))) continue
-      const ids: ReadonlyArray<unknown> = child.kind === "one"
+      const ids: ReadonlyArray<unknown> = child._tag === "Child"
         ? [undefined]
         : Arr.map(
           Arr.fromIterable((child.listed as (own: unknown) => Iterable<unknown>)(gathered.own)),
@@ -846,7 +846,7 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
   }
   const empty: Slots = mapOwn(
     programs,
-    (child): Slot => child.kind === "byId" ? HashMap.empty<unknown, Entry>() : Opt.none()
+    (child): Slot => child._tag === "ChildById" ? HashMap.empty<unknown, Entry>() : Opt.none()
   )
   // A start tells each child it starts, once every child of the first state has its first commands.
   const begin = (step: Step<unknown, unknown>): Step<unknown, unknown> => {
@@ -891,7 +891,7 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
     what: "model" | "output",
     read: (place: Place, entry: Entry) => unknown
   ) =>
-    childOf(name).kind === "byId"
+    childOf(name)._tag === "ChildById"
       ? (id: unknown) => read({ name, id }, there({ name, id }, entryAt(slots, { name, id }), what))
       : childOf(name).there === "always"
       ? () =>
@@ -1119,7 +1119,7 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> =>
   ({
     child: (
       program: AnyProgram,
-      place: Readonly<{
+      options: Readonly<{
         flags?: (state: unknown) => Opt.Option<unknown>
         there?: (state: unknown) => boolean
         key?: (state: unknown) => unknown
@@ -1127,10 +1127,10 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> =>
         tell?: (state: unknown) => unknown
       }> = {}
     ) => {
-      const { flags, key, listening, tell, there } = place
+      const { flags, key, listening, tell, there } = options
       const keyed = key === undefined ? () => present : (state: unknown) => Opt.some(key(state))
       return {
-        kind: "one",
+        _tag: "Child",
         program,
         there: flags === undefined && there === undefined ? "always" : "sometimes",
         key: flags ?? (there === undefined ? keyed : (state: unknown) => there(state) ? keyed(state) : Opt.none()),
@@ -1140,19 +1140,19 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> =>
     },
     childById: (
       program: AnyProgram,
-      place: Readonly<{
+      options: Readonly<{
         ids?: (state: unknown) => Iterable<unknown>
         flags?: (state: unknown) => Iterable<readonly [unknown, unknown]>
         listening?: (state: unknown, id: unknown) => boolean
         tell?: (state: unknown) => unknown
       }>
     ) => ({
-      kind: "byId",
+      _tag: "ChildById",
       program,
-      listed: place.flags ?? place.ids,
-      flagged: place.flags !== undefined,
-      ...(place.listening === undefined ? {} : { listening: place.listening }),
-      ...(place.tell === undefined ? {} : { tell: place.tell })
+      listed: options.flags ?? options.ids,
+      flagged: options.flags !== undefined,
+      ...(options.listening === undefined ? {} : { listening: options.listening }),
+      ...(options.tell === undefined ? {} : { tell: options.tell })
     }),
     make: (config: UntypedConfig) => make(undefined, config),
     withChildren: (children: Readonly<Record<string, UntypedChild>>) => ({
@@ -1194,7 +1194,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * program is an overload, whose body declares a program of `unknown` types.
    *
    * @param program - The child.
-   * @param place - When the child is there, what it starts from, when it listens and what it is told: functions of
+   * @param options - When the child is there, what it starts from, when it listens and what it is told: functions of
    * the parent's own state.
    * @returns The child, for `withChildren`.
    *
@@ -1221,7 +1221,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * program is checked as `child` checks it, and `tell` too.
    *
    * @param program - The program of each child.
-   * @param place - The ids of the children in a state, `listening`, which says whether the child at an id listens,
+   * @param options - The ids of the children in a state, `listening`, which says whether the child at an id listens,
    * and `tell`, what every child is told.
    * @returns The children, for `withChildren`.
    *
@@ -1295,10 +1295,10 @@ type Telling<State, P> = Readonly<{
   tell?: [ExternalOf<P>] extends [never] ? never : (state: State) => ExternalOf<P>
 }>
 
-// A child with flags is declared with them. On the place, and not on the program: inferred from `P & …`, `P` would
+// A child with flags is declared with them. In the options, and not on the program: inferred from `P & …`, `P` would
 // lose the name `Program<…>`, as `CheckedChild` says.
-type AlwaysPlace<State, P> = [FlagsOf<P>] extends [never] ? [
-    place?:
+type AlwaysOptions<State, P> = [FlagsOf<P>] extends [never] ? [
+    options?:
       & Readonly<{
         /** A value from the parent's state: another value, by `Equal`, starts the child again. */
         key?: (state: State) => unknown
@@ -1308,10 +1308,10 @@ type AlwaysPlace<State, P> = [FlagsOf<P>] extends [never] ? [
       & Listening<State>
       & Telling<State, P>
   ]
-  : [place: { readonly "a child with flags is declared with its flags": FlagsOf<P> }]
+  : [options: { readonly "a child with flags is declared with its flags": FlagsOf<P> }]
 
 /** The states where a child that may not be there is there, and what it starts from. */
-type SometimesPlace<State, P> = [FlagsOf<P>] extends [never] ? Readonly<{
+type SometimesOptions<State, P> = [FlagsOf<P>] extends [never] ? Readonly<{
     /** Whether the child is there in a state. */
     there: (state: State) => boolean
     /**
@@ -1330,7 +1330,7 @@ type SometimesPlace<State, P> = [FlagsOf<P>] extends [never] ? Readonly<{
 
 // Two forms, and no conditional type over them: an `Id` inferred from `ids` reaches `listening`, beside it in the same
 // object, only through types that hold it as they are.
-type IdsPlace<State, Id> = Readonly<{
+type IdsOptions<State, Id> = Readonly<{
   /** The ids of the children that are there. */
   ids: (state: State) => Iterable<Id>
   /** Whether the child at an id listens. Without it, every child does. */
@@ -1338,7 +1338,7 @@ type IdsPlace<State, Id> = Readonly<{
   flags?: never
 }>
 
-type FlagsPlace<State, Id, Flags> = Readonly<{
+type FlaggedIdsOptions<State, Id, Flags> = Readonly<{
   /** The ids of the children that are there, each with its flags: other flags start the child again. */
   flags: (state: State) => Iterable<readonly [Id, Flags]>
   /** Whether the child at an id listens. Without it, every child does. */
@@ -1353,7 +1353,7 @@ type FlagsChecked<P, Flagged extends boolean> = [FlagsOf<P>] extends [never]
   : { readonly "a child with flags is declared with its flags": FlagsOf<P> }
 
 /**
- * The function of `program` that declares a child alone: always there, or there in the states its place says.
+ * The function of `program` that declares a child alone: always there, or there in the states its options say.
  *
  * @group Types of the signatures
  * @see The guide, "Composition".
@@ -1361,11 +1361,11 @@ type FlagsChecked<P, Flagged extends boolean> = [FlagsOf<P>] extends [never]
 export type DeclareChild<T extends DeclaredTypes> = {
   <P extends AnyProgram>(
     program: CheckedChild<P>,
-    ...place: AlwaysPlace<Field<T, "state">, P>
+    ...options: AlwaysOptions<Field<T, "state">, P>
   ): Child<Field<T, "state">, P, "always">
   <P extends AnyProgram>(
     program: CheckedChild<P>,
-    place: SometimesPlace<Field<T, "state">, P> & Listening<Field<T, "state">> & Telling<Field<T, "state">, P>
+    options: SometimesOptions<Field<T, "state">, P> & Listening<Field<T, "state">> & Telling<Field<T, "state">, P>
   ): Child<Field<T, "state">, P, "sometimes">
 }
 
@@ -1378,11 +1378,14 @@ export type DeclareChild<T extends DeclaredTypes> = {
 export type DeclareChildById<T extends DeclaredTypes> = {
   <Id, P extends AnyProgram>(
     program: CheckedChild<P>,
-    place: IdsPlace<Field<T, "state">, Id> & FlagsChecked<P, false> & Telling<Field<T, "state">, P>
+    options: IdsOptions<Field<T, "state">, Id> & FlagsChecked<P, false> & Telling<Field<T, "state">, P>
   ): ChildById<Field<T, "state">, Id, P>
   <Id, P extends AnyProgram>(
     program: CheckedChild<P>,
-    place: FlagsPlace<Field<T, "state">, Id, FlagsOf<P>> & FlagsChecked<P, true> & Telling<Field<T, "state">, P>
+    options:
+      & FlaggedIdsOptions<Field<T, "state">, Id, FlagsOf<P>>
+      & FlagsChecked<P, true>
+      & Telling<Field<T, "state">, P>
   ): ChildById<Field<T, "state">, Id, P>
 }
 

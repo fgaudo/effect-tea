@@ -52,7 +52,7 @@ describe("simulate", () => {
     ))
     expect(simulation).toEqual({
       state: { isSaving: false, saved: 7 },
-      messages: [{ _tag: "Save" }, { _tag: "Saved", total: 7 }, { _tag: "Save" }, { _tag: "Saved", total: 7 }],
+      applied: [{ _tag: "Save" }, { _tag: "Saved", total: 7 }, { _tag: "Save" }, { _tag: "Saved", total: 7 }],
       commands: ["Store", "Store"],
       events: ["Done", "Done"],
       ignored: []
@@ -82,7 +82,7 @@ describe("simulate", () => {
     ))
     expect(simulation).toEqual({
       state: idle,
-      messages: [],
+      applied: [],
       commands: ["Store"],
       events: [],
       ignored: [{ _tag: "Saved", total: 7 }]
@@ -105,7 +105,7 @@ describe("simulate", () => {
     const simulation = await Effect.runPromise(
       simulate({ update: chained, runCommand, subscriptions: () => [] }, ["Start"], { state: {} })
     )
-    expect(simulation.messages).toEqual(["Start", "First", "Second"])
+    expect(simulation.applied).toEqual(["Start", "First", "Second"])
     expect(log).toEqual(["acquire A", "release A", "acquire B", "release B"])
   })
 
@@ -183,7 +183,7 @@ describe("simulate", () => {
       subscriptions: () => []
     }
     const simulating = simulate(counting, [], { state: { count: 0 } })
-    expectTypeOf<Effect.Success<typeof simulating>["messages"]>().toEqualTypeOf<
+    expectTypeOf<Effect.Success<typeof simulating>["applied"]>().toEqualTypeOf<
       ReadonlyArray<"Increment" | "Decrement">
     >()
   })

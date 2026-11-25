@@ -56,17 +56,17 @@ type FlagsOption<Flags> = [Flags] extends [never] ? {
 export type Fork<R> = (effect: Effect.Effect<void, never, R>) => Fiber.Fiber<void, unknown>;
 
 // @public
-export const Host: <State, Model, Message, Command = never, RC = never, RS = never, Flags = never, Key = never>(props: HostProps<State, Model, Message, Command, RC, RS, Flags, Key>) => ReactNode;
+export const Host: <State, Model, Message, Command = never, CommandServices = never, SubscriptionServices = never, Flags = never, Key = never>(props: HostProps<State, Model, Message, Command, CommandServices, SubscriptionServices, Flags, Key>) => ReactNode;
 
 // @public
-export type HostProps<State, Model, Message, Command, RC, RS, Flags, Key = never> = {
+export type HostProps<State, Model, Message, Command, CommandServices, SubscriptionServices, Flags, Key = never> = {
     readonly program: Program<{
         state: State;
         model: Model;
         message: Message;
         command: Command;
-        commandServices: RC;
-        subscriptionServices: RS;
+        commandServices: CommandServices;
+        subscriptionServices: SubscriptionServices;
         flags: Flags;
         key: Key;
     }>;
@@ -75,10 +75,10 @@ export type HostProps<State, Model, Message, Command, RC, RS, Flags, Key = never
     readonly options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>;
 } : {
     readonly options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>;
-}) & ([Exclude<RC | RS, Scope.Scope>] extends [never] ? {
+}) & ([Exclude<CommandServices | SubscriptionServices, Scope.Scope>] extends [never] ? {
     readonly fork?: Fork<never>;
 } : {
-    readonly fork: Fork<Exclude<RC | RS, Scope.Scope>>;
+    readonly fork: Fork<Exclude<CommandServices | SubscriptionServices, Scope.Scope>>;
 });
 
 // @public
@@ -138,12 +138,12 @@ interface RunOptions<State, Message, Command = unknown> {
 }
 
 // @public (undocumented)
-type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never, Output = never, Key = never> = {
+type Shape<State, Model, Message, Command, CommandServices, SubscriptionServices, Event, External, Flags = never, Output = never, Key = never> = {
     readonly init: Init<State, Command, Flags>;
     readonly update: Update<State, Message, Command, Event>;
     readonly subscriptions: Subscriptions<State, Key>;
     readonly makeModel: (state: State) => Model;
-} & WithRunCommand<Command, NoInfer<Message>, RC> & WithListen<Key, NoInfer<Message>, RS> & WithExternal<External, State, Command, Event> & WithOutput<Output, State>;
+} & WithRunCommand<Command, NoInfer<Message>, CommandServices> & WithListen<Key, NoInfer<Message>, SubscriptionServices> & WithExternal<External, State, Command, Event> & WithOutput<Output, State>;
 
 // @public
 type Step<State, Command = never, Event = never, Tell = never> = {

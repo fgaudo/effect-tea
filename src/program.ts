@@ -183,7 +183,19 @@ export type FlagsOption<Flags> = [Flags] extends [never] ? { readonly flags?: ne
 
 // A program's pieces, of the types given in a row. Kept to this module: the API and the rest of the library name a
 // program by `Program<{ … }>`, which gives these types by name.
-type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never, Output = never, Key = never> =
+type Shape<
+  State,
+  Model,
+  Message,
+  Command,
+  CommandServices,
+  SubscriptionServices,
+  Event,
+  External,
+  Flags = never,
+  Output = never,
+  Key = never
+> =
   & {
     readonly init: Init<State, Command, Flags>
     readonly update: Update<State, Message, Command, Event>
@@ -192,8 +204,8 @@ type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = neve
   }
   // Inferred from `update` alone: an answer of `runCommand` or a message of `listen` names one message, which would
   // otherwise narrow the messages of a program inferred by the function that takes it.
-  & WithRunCommand<Command, NoInfer<Message>, RC>
-  & WithListen<Key, NoInfer<Message>, RS>
+  & WithRunCommand<Command, NoInfer<Message>, CommandServices>
+  & WithListen<Key, NoInfer<Message>, SubscriptionServices>
   // A parameter: a program may be given a type that names fewer external messages than it takes, never more.
   & WithExternal<External, State, Command, Event>
   & WithOutput<Output, State>

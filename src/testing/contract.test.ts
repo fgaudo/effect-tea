@@ -136,7 +136,7 @@ describe("the testing tools and the run, on the same program and inputs", () => 
       })
     ))
     expect(result).toEqual(simulation.state)
-    expect(applied.map(({ message }) => message)).toEqual([...simulation.messages])
+    expect(applied.map(({ message }) => message)).toEqual([...simulation.applied])
     expect(applied.flatMap(({ commands }) => commands)).toEqual([...simulation.commands])
     expect(simulation.ignored).toEqual([])
   })

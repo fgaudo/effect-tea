@@ -34,6 +34,7 @@ version, and everything else, features included, the patch version.
   application waits for the run to end by awaiting it.
 - The bridge to React draws with React Native, with nothing more under Metro and Hermes, and the example
   `react-native` draws `counter` and `form` there ("Writing a bridge", "Coming from Elm or React").
+- `repeatable`, of `dispatchViolations`, is given the state too, `(message, state)`, as `inert` and `withheld` are.
 
 ### Changed
 
@@ -72,8 +73,10 @@ version, and everything else, features included, the patch version.
   alone ("Testing tools").
   Upgrade: `applyAll(update)(messages, from)` becomes `applyAll(update, messages, from)`, and
   `simulate(program)(messages, from)` becomes `simulate(program, messages, from)`.
-- **Breaking**: `Simulation`, what `simulate` succeeds with, is `Simulated`, as `Folded` is what `applyAll` returns.
-  Upgrade: `Simulation<State, Message>` becomes `Simulated<State, Message>`.
+- **Breaking**: `Simulation`, what `simulate` succeeds with, is `Simulated`, as `Folded` is what `applyAll` returns,
+  and it lists the messages that `update` accepted as `applied`, where it listed them as `messages`.
+  Upgrade: `Simulation<State, Message>` becomes `Simulated<State, Message>`, and a test reads its `applied` where it
+  read its `messages`.
 - **Breaking**: `Interpreter` is `WithRunCommand`, as `WithListen` names a program's `listen`, and `ExternalHandler` is
   no longer exported.
   Upgrade: `Interpreter<Command, Message, R>` becomes `WithRunCommand<Command, Message, R>`, and a type that named
@@ -91,6 +94,9 @@ version, and everything else, features included, the patch version.
   two compares them by value.
 - **Breaking**: `Applied` has no `revision`.
   Upgrade: an `onApplied` that reads it counts, from 0, the messages it hears whose `after` is not `before`.
+- **Breaking**: a `Child` has `_tag: 'Child'` in place of `kind: 'one'`, and a `ChildById` has `_tag: 'ChildById'` in
+  place of `kind: 'byId'`.
+  Upgrade: no program writes either. Code that read `kind` reads `_tag`.
 - **Breaking**: inputs are removed: `input`, `inputById`, `Input`, `InputById`, `DeclareInput`, `DeclareInputById`,
   `Written`, `placeViolations` and `PlaceViolation`. What an element holds or reports is a message that the model
   holds without its value, and that the view fills ("What an element gives").

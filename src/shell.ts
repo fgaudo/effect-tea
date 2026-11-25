@@ -139,10 +139,10 @@ export const scopedIn = (
  * subscription died of. `Channel.runForEach` would run the channel in a scope it makes and closes first, so that a
  * defect would wait for that release, while the run goes on applying messages.
  */
-const runSubscription = <Message, R, RS>(
+const runSubscription = <Message, R, RSend>(
   subscription: Subscription<Message, R>,
-  send: (message: Message) => Effect.Effect<void, never, RS>
-): Effect.Effect<Message, never, R | RS | Scope.Scope> =>
+  send: (message: Message) => Effect.Effect<void, never, RSend>
+): Effect.Effect<Message, never, R | RSend | Scope.Scope> =>
   Channel.toPull(subscription).pipe(
     // No yield of its own after each message, which made a pull of messages taken one by one three times slower: the
     // budget of operations of the runtime still yields the fiber (`Scheduler.MaxOpsBeforeYield`), and no invariant
@@ -157,13 +157,13 @@ const runSubscription = <Message, R, RS>(
  * `'subscription'` with the key (`scopedIn`), each message given to `send` as it comes, and the last to `last` once the
  * scope has closed. The tool decides only what `listen`, `send` and `last` do besides.
  */
-export const startFiber = <Message, R, RS, RL>(
+export const startFiber = <Message, R, RSend, RL>(
   deaths: Deaths,
   key: unknown,
   listen: () => Subscription<Message, R>,
-  send: (message: Message) => Effect.Effect<void, never, RS>,
+  send: (message: Message) => Effect.Effect<void, never, RSend>,
   last: (message: Message) => Effect.Effect<void, never, RL>
-): Effect.Effect<void, never, Exclude<R | RS, Scope.Scope> | RL> =>
+): Effect.Effect<void, never, Exclude<R | RSend, Scope.Scope> | RL> =>
   Effect.suspend(() => runSubscription(listen(), send)).pipe(
     scopedIn(deaths, "subscription", { key }),
     Effect.flatMap(last)
@@ -175,11 +175,11 @@ export const startFiber = <Message, R, RS, RL>(
  * closed, so that `update` never learns of a command whose resources are still open. The tool decides only when the
  * effect is made, and what `send` does besides.
  */
-export const commandFiber = <Message, R, RS>(
+export const commandFiber = <Message, R, RSend>(
   deaths: Deaths,
   effect: Effect.Effect<Opt.Option<Message>, never, R>,
-  send: (message: Message) => Effect.Effect<void, never, RS>
-): Effect.Effect<void, never, Exclude<R, Scope.Scope> | RS> =>
+  send: (message: Message) => Effect.Effect<void, never, RSend>
+): Effect.Effect<void, never, Exclude<R, Scope.Scope> | RSend> =>
   effect.pipe(scopedIn(deaths, "command"), Effect.flatMap(Opt.match({ onNone: () => Effect.void, onSome: send })))
 
 /**

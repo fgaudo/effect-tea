@@ -85,14 +85,23 @@ describe("dispatchViolations", () => {
     })).toEqual([])
   })
 
+  test("asks repeatable by the message and the state it checks in", () => {
+    // `Increment` repeats only from a count of 0, which the state after its first step no longer has.
+    const fromZero = (message: Message, state: State) => message === "Increment" && state.count === 0
+    expect(dispatchViolations(update, { state: closed, held: ["Increment"], repeatable: fromZero })).toEqual([])
+    expect(dispatchViolations(update, { state: { ...closed, count: 1 }, held: ["Increment"], repeatable: fromZero }))
+      .toEqual([{ _tag: "ActsTwice", message: "Increment" }])
+  })
+
   test("takes the state and the messages from update, and checks the record against them", () => {
     expectTypeOf(dispatchViolations(update, { state: closed, held: ["Opened"], candidates: ["Closed"] }))
       .toEqualTypeOf<ReadonlyArray<DispatchViolation<Message>>>()
     dispatchViolations(update, {
       state: closed,
       held: [],
-      repeatable: (message) => {
+      repeatable: (message, state) => {
         expectTypeOf(message).toEqualTypeOf<Message>()
+        expectTypeOf(state).toEqualTypeOf<State>()
         return false
       },
       inert: (message, state) => {

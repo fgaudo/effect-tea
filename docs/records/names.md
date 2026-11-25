@@ -1,7 +1,7 @@
 # The names of the API, read whole
 
 **Status:** decided on 25 November 2026, as step 86 of [`ROADMAP.md`](../../ROADMAP.md), by a session of Fable 5.2, by
-the values of "Deciding" in [`AGENTS.md`](../../AGENTS.md); step 87 applies it. Read: every name that a user writes, or
+the values of "Deciding" in [`AGENTS.md`](../../AGENTS.md); step 87 applied it. Read: every name that a user writes, or
 reads in a hover, in the five reports of `api/` at `3ca814c`, against the glossary: the exports, their members, the
 options, the literal values, the parameters and the type parameters. [`api-review.md`](api-review.md) decided the
 exports, and read a member only where a change touched one: no export is reopened here. One probe ran, of change 2, on

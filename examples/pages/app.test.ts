@@ -136,8 +136,8 @@ describe("pages", () => {
   })
 
   test("About receives its saying through the parent", async () => {
-    const { state, messages } = await Effect.runPromise(simulate(app, [aboutClicked], app.init))
-    expect(messages.map((message) => message._tag)).toEqual(["Clock", "About"])
+    const { state, applied } = await Effect.runPromise(simulate(app, [aboutClicked], app.init))
+    expect(applied.map((message) => message._tag)).toEqual(["Clock", "About"])
     expect(Opt.isSome(Opt.flatMap(state.children.About, (about) => about.state.maybeSaying))).toBe(true)
   })
 
