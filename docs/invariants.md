@@ -294,10 +294,14 @@ the engine and in the testing tools.
   - The run gives none of them: `drive` gives `settled`, `rehearse` all but `settled`, and `simulate` `stepped`,
     `listening` and `answering`. They add no premise, and each has a test in `engine.test.ts` and a mutation.
 - **The testing tools behave like the engine** where it is deterministic, with the test as the scheduler ("Testing
-  tools" in the guide). `rehearse` and `simulate` run on the engine itself (`Engine.build`), with the register of the
-  run, so the thunk, the jobs, the fibers, their roots and records, and the end are the engine's, held by its tests and
-  mutations. `drive` acts only as a user can, through `run` and the run's dispatch. When the engine or one tool changes,
-  keep the others in step: `src/testing/contract.test.ts` gives the same program and messages to each, and a difference
+  tools" in the guide), since a tool that plays a program runs it on the engine. `rehearse` and `simulate` run on the
+  engine itself (`Engine.build`), with the register of the run, so the thunk, the jobs, the fibers, their roots and
+  records, and the end are the engine's, held by its tests and mutations. `drive` acts only as a user can, through
+  `run` and the run's dispatch. A tool decides at most when a command runs, when a subscription's message is heard, and
+  what fails the test; it makes no step, no scope of a subscription or a command, and no site of a defect. The lint
+  holds its boundary with the engine: a module of `src/testing/`, its tests aside, takes of `core.ts` and `shell.ts`
+  only the names of the allow-list in `.oxlintrc.json`, by name, and a name added there is read against this rule.
+  `src/testing/contract.test.ts` gives the same program and messages to each tool and to the run, and a difference
   found is a `test.failing` there and an item of `ROADMAP.md` until it is fixed.
   - `rehearse` runs through the handle the run makes (`partsOf` in `run.ts`), and decides only what the test decides:
     when a command runs, and when a subscription's message is heard. A call that applies a message gives it to the

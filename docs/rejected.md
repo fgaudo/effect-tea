@@ -422,6 +422,18 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   November 2026, with a second opinion that ran 40 mutations: about 6 of 13 items have no `Violation`, and the CI would
   check names against a matrix it never runs. The mutations of the types name the items instead (`refuses`). _Reopen
   if_ the matrix runs in the CI, or the guide gathers every refusal in one list.
+- **The boundary of the testing tools in other forms**: a list of the names of `core.ts` and `shell.ts` refused to
+  `src/testing/`; the two files refused whole, with what it takes of them exported again by `engine.ts` and `run.ts`;
+  a script that reads the uses, as `tools/comments.ts` reads the doc comments; `no-restricted-properties` on
+  `Core.arrive`; and the same check refusing `effect/Inspectable` and `describeByTag` outside `testing/failure.ts`.
+  Weighed in step 54, 25 November 2026. A list of refused names holds only what it names: it let pass `init`,
+  `wrapDefects`, `record` and the other exports that make a step or a site of a defect, and named two that `shell.ts`
+  does not export. The second makes `engine.ts` a second door to the pure pieces, the third a tool to keep, and the
+  fourth misses a named import. The tools take instead the names of an allow-list, by name and from any depth of the
+  folder (`.oxlintrc.json`), so a new name is an edit of the boundary. The last needs an override of its own for
+  `failure.ts`, all of the rule written again, to guard how a value is named in an error, which `String` would pass all
+  the same. _Reopen if_ a tool is found to name a value by another function, or oxlint merges the options of a rule
+  across overrides.
 
 ## Parked, not rejected
 

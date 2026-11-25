@@ -14,7 +14,7 @@ import * as Fiber from "effect/Fiber"
 import * as Opt from "effect/Option"
 import * as Scope from "effect/Scope"
 import type { RunCommand } from "../command.ts"
-import * as Core from "../core.ts"
+import { type Arrived, endedWith, fromCommand, type Generation, type Source } from "../core.ts"
 import type * as Engine from "../engine.ts"
 import { commandFiber, type Deaths, stopping } from "../shell.ts"
 import * as Ledger from "./ledger.ts"
@@ -122,7 +122,7 @@ export interface Stage<State, Message, Command, Event, RC, Key, S, W> {
    * `ignored` otherwise. `told` is called by the job, once done.
    */
   readonly apply: (
-    source: Core.Source<Key>,
+    source: Source<Key>,
     message: Message,
     rejected: "fail" | "list",
     told?: () => void
@@ -156,10 +156,10 @@ export const make = <State, Message, Command, Event, RC, Key, S = never, W = nev
     runCommand: RunCommand<Command, Message, RC>
     listened?: (
       ledger: StageLedger<Message, Command, RC, S, W>,
-      gone: ReadonlyArray<readonly [Key, Core.Generation]>,
-      fresh: ReadonlyArray<readonly [Key, Core.Generation]>
+      gone: ReadonlyArray<readonly [Key, Generation]>,
+      fresh: ReadonlyArray<readonly [Key, Generation]>
     ) => StageLedger<Message, Command, RC, S, W>
-    accepted?: (message: Message, arrived: Extract<Core.Arrived<State, Command, Event>, { _tag: "Applied" }>) => void
+    accepted?: (message: Message, arrived: Extract<Arrived<State, Command, Event>, { _tag: "Applied" }>) => void
   }>
 ): Staging<State, Message, Command, Event, RC, Key, S, W> => {
   const { register, runCommand, listened: listenedTo = (ledger) => ledger, accepted = () => undefined } = config
@@ -180,7 +180,7 @@ export const make = <State, Message, Command, Event, RC, Key, S = never, W = nev
   const undelivered = new Set<Deferred.Deferred<void>>()
   // What the engine's thunk tells of the message `apply` gives it, read by `apply` as `send` returns: what it came to,
   // told only once its state is current, with its keys. Written only by `stepped`, on this stack.
-  let arrived: Opt.Option<Core.Arrived<State, Command, Event>> = Opt.none()
+  let arrived: Opt.Option<Arrived<State, Command, Event>> = Opt.none()
   const stepped = (step: Engine.Stepped<State, Command, Key, Event>) => {
     if (step._tag === "Arrived") {
       arrived = Opt.some(step.arrived)
@@ -204,7 +204,7 @@ export const make = <State, Message, Command, Event, RC, Key, S = never, W = nev
   // defect: `update` or `subscriptions` threw, which the engine recorded where it happened, or the run had died. A
   // defect of a later model is recorded by the engine where its listener reads it, and the step goes on whole.
   const apply = (
-    source: Core.Source<Key>,
+    source: Source<Key>,
     message: Message,
     rejected: "fail" | "list",
     told: () => void = () => undefined
@@ -280,7 +280,7 @@ export const make = <State, Message, Command, Event, RC, Key, S = never, W = nev
             (message: Message) =>
               submit(() => {
                 settle()
-                const then = outcomeOf(apply(Core.fromCommand, message, "list"))
+                const then = outcomeOf(apply(fromCommand, message, "list"))
                 return Effect.asVoid(Deferred.succeed(answer, then))
               }, Effect.void)
           ).pipe(
@@ -400,7 +400,7 @@ export const make = <State, Message, Command, Event, RC, Key, S = never, W = nev
         // the failure.
         Effect.tap((exit) => Exit.isSuccess(exit) ? Effect.exit(finish) : Effect.void),
         Effect.tap(end),
-        Effect.flatMap((exit) => Core.endedWith(deaths(), exit))
+        Effect.flatMap((exit) => endedWith(deaths(), exit))
       )
       return [result, owed] as const
     }))

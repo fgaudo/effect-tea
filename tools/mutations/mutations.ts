@@ -3186,7 +3186,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "drive ends with what the scenario ended with, before the defects",
     file: "src/testing/drive.ts",
-    from: "    return yield* Core.endedWith(deaths.all(), Opt.getOrElse(outcome, () => stopped))\n",
+    from: "    return yield* endedWith(deaths.all(), Opt.getOrElse(outcome, () => stopped))\n",
     to: "    return yield* Opt.getOrElse(outcome, () => stopped)\n",
     killedBy: [
       [

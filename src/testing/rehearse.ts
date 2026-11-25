@@ -11,7 +11,7 @@ import * as Exit from "effect/Exit"
 import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 import * as Scope from "effect/Scope"
-import * as Core from "../core.ts"
+import { fromDispatch, type Generation } from "../core.ts"
 import * as Engine from "../engine.ts"
 import { type AnyProgram, type FlagsOption, listenOf, type Program, runCommandOf } from "../program.ts"
 import { partsOf, readEach } from "../run.ts"
@@ -265,7 +265,7 @@ const rehearsing = Effect.fnUntraced(function*<
   // first call hears the first message, applied as `hear` would apply it, and told once its job is done; its last one
   // tells the calls still waiting that it has ended. A call interrupted once it is told is told all the same: what
   // the message applies, it applies whole.
-  const hearHeld = (key: Key, generation: Core.Generation) => {
+  const hearHeld = (key: Key, generation: Generation) => {
     while (true) {
       const found = Ledger.hear(stage.ledger, generation)
       if (Opt.isNone(found)) return
@@ -280,7 +280,7 @@ const rehearsing = Effect.fnUntraced(function*<
   // The subscription's fiber gives what it sends, applied in its thunk at once when a call waits for it, as the run's
   // applies it as it is sent, and waits for the next ask. Refused once the rehearsal has ended, it waits for the end to
   // stop it, since one that interrupts itself is a defect.
-  const sends = (key: Key, generation: Core.Generation, message: Message, last: boolean) =>
+  const sends = (key: Key, generation: Generation, message: Message, last: boolean) =>
     stage.submit(() => {
       stage.ledger = Ledger.send(stage.ledger, generation, { message, last })
       hearHeld(key, generation)
@@ -294,7 +294,7 @@ const rehearsing = Effect.fnUntraced(function*<
   // never by the engine's `send`, which would apply them as they come. Its last message follows the end of its scope,
   // as in the run. Every start the job begins appeared in a thunk before it; one the ledger had not would be asked by
   // nothing.
-  const listening = (key: Key, generation: Core.Generation): Effect.Effect<void> => {
+  const listening = (key: Key, generation: Generation): Effect.Effect<void> => {
     const [start, begun] = Ledger.begin(stage.ledger, generation)
     stage.ledger = begun
     if (Opt.isNone(start)) return Effect.never
@@ -314,7 +314,7 @@ const rehearsing = Effect.fnUntraced(function*<
   }
   // Told by the job once its stops have ended: the calls that waited on those starts as their key went away, and those
   // whose job found their key gone, fail as stopped, once what the start held is released.
-  const released = (gone: ReadonlyArray<readonly [Key, Core.Generation]>) => {
+  const released = (gone: ReadonlyArray<readonly [Key, Generation]>) => {
     const [told, next] = Ledger.release(stage.ledger, gone.map(([, generation]) => generation))
     stage.ledger = next
     for (const { heard } of told) Deferred.doneUnsafe(heard, Exit.succeed(stopped))
@@ -339,13 +339,13 @@ const rehearsing = Effect.fnUntraced(function*<
       const model = app.model()
       return Opt.match(select(model), {
         onNone: () => Effect.die(new Error("The model does not show what the test sends", { cause: model })),
-        onSome: (message) => stage.outcomeOf(stage.apply(Core.fromDispatch, message, "fail"), doesNothing(message))
+        onSome: (message) => stage.outcomeOf(stage.apply(fromDispatch, message, "fail"), doesNothing(message))
       })
     })
   // The program's keys are compared with the test's, by their `Equal`: a defect of theirs is in `subscriptions`, as
   // in the run. In a thunk: the key's start, or the effect the call ends with. The test's key stands for the program's
   // where the engine is given a message as a subscription's, whose key only says where it came from.
-  const startUnder = (key: unknown): Core.Generation | Effect.Effect<never> => {
+  const startUnder = (key: unknown): Generation | Effect.Effect<never> => {
     try {
       const found = HashMap.get(engine.active().keys, key as Key)
       return Opt.isSome(found) ? found.value : Effect.die(nothingListensUnder(key))
@@ -356,7 +356,7 @@ const rehearsing = Effect.fnUntraced(function*<
   }
   // In a thunk that has checked the end and found the start under the key in the current state: the start played,
   // unless `hearNext` runs it, and the message applied.
-  const play = (key: unknown, generation: Core.Generation, message: Message): Effect.Effect<void> => {
+  const play = (key: unknown, generation: Generation, message: Message): Effect.Effect<void> => {
     const scripted = Ledger.script(stage.ledger, generation)
     switch (scripted._tag) {
       case "Opened":
@@ -383,7 +383,7 @@ const rehearsing = Effect.fnUntraced(function*<
   // start, in a thunk that has checked the end and the register: the call waits on the start and asks it for a
   // message, the start it opens included, so that a later step that stops the start finds the call waiting. A call
   // that left before its job starts nothing: the test no longer asks for it.
-  const openFor = (generation: Core.Generation, call: CallOf, context: Context.Context<RSOf>): Opened => {
+  const openFor = (generation: Generation, call: CallOf, context: Context.Context<RSOf>): Opened => {
     const found = Ledger.opening(stage.ledger, generation, call)
     switch (found._tag) {
       case "Left":

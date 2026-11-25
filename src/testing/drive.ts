@@ -9,7 +9,7 @@ import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import * as Opt from "effect/Option"
 import type * as Scope from "effect/Scope"
-import * as Core from "../core.ts"
+import { endedWith } from "../core.ts"
 import type { Dispatch } from "../dispatch.ts"
 import type { RunOptions } from "../engine.ts"
 import type { FlagsOption, Program } from "../program.ts"
@@ -301,6 +301,6 @@ export const drive = Effect.fnUntraced(function*<
     // anything else, what the scenario ended with is dropped. Interrupted, the run dies of what its fibers die of as
     // they release what they hold, as when whoever runs it interrupts it: the defects first, in the order they died.
     const outcome = Exit.isSuccess(ended) ? ended.value : Opt.some(Exit.failCause(ended.cause))
-    return yield* Core.endedWith(deaths.all(), Opt.getOrElse(outcome, () => stopped))
+    return yield* endedWith(deaths.all(), Opt.getOrElse(outcome, () => stopped))
   }))
 })

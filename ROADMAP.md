@@ -28,52 +28,14 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Step 55 comes last, before the release that follows them both, so that one release carries every breaking change.
-
-### 54. The rule as a boundary: a tool decides when, never what
-
-**Model and effort.** Opus 5.5, `high`: a rule of `docs/invariants.md` said again, with the line of `change-engine`
-that links to it, each sentence checked against the code.
-
-**Depends on** no open step. Since steps 50 to 52, `src/testing/` uses none of the six: what it takes of `shell.ts` is
-`makeDeaths`, `startFiber`, `commandFiber` and `stopping` (`drive.ts`, `rehearse.ts`, `simulate.ts` and `stage.ts`),
-so the check passes once it is written.
-
-**Why.** After them, each tool that plays a program runs it on the engine, and "when the engine or one tool changes,
-keep the others in step" (`docs/invariants.md`, `change-engine`) is a duty with nothing left to keep.
-What keeps the tools aligned is then a structure, which a check can hold where a duty could not.
-
-**How.**
-
-1. A check, in `bun run lint`, that fails when a module of `src/testing/`, its tests aside, uses `Core.arrive`,
-   `Core.reconcile`, `diesIn`, `scopedIn`, `rootedIn` or `runSubscription`. The library's modules are imported as
-   namespaces, so `no-restricted-imports` cannot name a member: either `src/testing/` is forbidden `core.ts` and
-   `shell.ts` whole, and takes what it may use from `engine.ts` and `run.ts`, or a script reads the uses, as
-   `tools/comments.ts` reads the doc comments. The smaller of the two, seen to fail on a use put back by hand. A lead
-   to weigh: since step 53, a tool names a value in its errors by one function, `failure` in `testing/failure.ts`,
-   which throws nothing; the same check may refuse `Inspectable` and `describeByTag` in the other modules of
-   `src/testing/`, where it costs no more than a name.
-2. The rule said as it then is, in `docs/invariants.md` ("The testing tools behave like the engine"), its one place
-   since step 58, and in `change-engine` (point 4 of "Before the change") as a line that links to it: a tool that
-   plays a program runs it on the engine; it decides when a command runs, when a subscription's message is heard and
-   what fails the test; and it makes no step, no scope and no site of a defect. `AGENTS.md` names the invariants by a
-   link alone since step 58.
-3. The contract, `contract.test.ts`, read case by case: a case that gives a tool what the engine alone now does is
-   held by the engine's tests and mutations. Each stays as an alarm or goes, by "Deciding", and none goes that a
-   mutation still names as its killer.
-4. The guide's "Testing tools" says "as the run does" of each tool already: it changes only if a sentence is found
-   that the code no longer keeps, and then as `AGENTS.md` says.
-
-**Done when** the check runs in `bun run lint`, and was seen to fail on a use put back by hand; the two documents
-say the rule; each case of the contract is kept or removed, with its line in the commit; and `bun run comments`,
-`bun run lint`, `bun run test`, `bun run test:node` and `bun run mutations` pass.
+Step 55 comes before the release that follows it, so that one release carries every breaking change.
 
 ### 55. The review before the release
 
 **Model and effort.** Opus 5.5, `high`, by a reviewer that wrote none of the changes
 ([`premise-review`](.agents/skills/premise-review/SKILL.md)).
 
-**Depends on** step 54, and comes before the release that follows it. Step 64, the last of what step 61 decided
+**Depends on** no open step, and comes before the release that follows it. Step 64, the last of what step 61 decided
 ([`decisions-weighed.md`](docs/records/decisions-weighed.md), point 4), is done.
 
 **Why.** Steps 49 to 54 move a check from a tool to the engine, or take one away with the code it guarded: a premise
@@ -83,11 +45,22 @@ promises, and how the API is written. Step 57 made a state current only once its
 leaving the state as it was (`applyOne` in `engine.ts`, and `stepped`, which the stage of the tools reads), and added
 the premise of one channel run again, the first on the user's own value. Steps 62 to 64 each take an invariant away:
 a state that is an object, with a child's model kept by its instance since; the end's own report of the defects, read
-from the register alone since; and the rule of an input.
+from the register alone since; and the rule of an input. Step 54 made "the testing tools behave like the engine" a
+check of the lint (`.oxlintrc.json`: a tool takes of `core.ts` and `shell.ts` only the names of an allow-list, by
+name), and took out of `contract.test.ts` 22 cases of a tool that differed from a case kept only by what the program
+does in a site the engine owns. In five of them, `rehearse` and `simulate` stopping a command as the caller's or the
+interrupter's fiber, and `simulate` interrupted by whoever runs it as a command releases, the stop is the stage's own
+code (`stopping`, in the release of `runFirst` in `stage.ts`), held by `rehearse.test.ts`, `simulate.test.ts` and the
+mutation "a stage stops the command of an interrupted run with no mark of its own". Four that a rule of "Testing
+tools" names for `simulate` stayed. The review reads the list in its commit for any case it would have kept. Twelve
+cases of the run alone in `contract.test.ts`, listed in that commit too, lost their tool beside them and were kept as
+the reference of that reading: each one the review gives no tool case again is no contract, and goes to the run's
+boundary file (`run.test.ts`, `engine.test.ts` or `start.test.ts`), or out where `engine.test.ts` holds it already.
 
 **Done when** the review has read the engine and the testing tools over the changes since the last review; each
 finding is an item of "Open problems" with its `test.failing`; each place where the code or a document says otherwise
-is set right; `docs/premises.md` says what `simulate` rests on; and the checks of point 1 of "Releasing", in
+is set right; each of the twelve cases of the run alone has a tool's case beside it again, or has left
+`contract.test.ts`; `docs/premises.md` says what `simulate` rests on; and the checks of point 1 of "Releasing", in
 `release`, pass.
 
 ## For the owner

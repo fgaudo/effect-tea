@@ -714,9 +714,9 @@ describe("what the run dies of, and the tools fail on", () => {
     expect(diedIn(exit)).toBe("subscription")
   })
 
-  // A tool that runs in its caller's fiber stops a command as that fiber, which may have interrupted a fiber before: a
-  // command that joins it, as it is stopped, interrupts itself with the very fiber id of what it received. The run
-  // stops it from a fiber of its own, and is the reference.
+  // Whoever stops a command as its caller's fiber, which may have interrupted a fiber before, makes a command that
+  // joins it, as it is stopped, interrupt itself with the very fiber id of what it received: the run stops it with a
+  // mark of its own, which tells the two apart.
   const joinsOnceInterrupted = (started: Deferred.Deferred<void>, stale: Fiber.Fiber<never>) =>
     ({
       ...quitting,
@@ -748,25 +748,7 @@ describe("what the run dies of, and the tools fail on", () => {
     expect(diedIn(exit)).toBe("command")
   })
 
-  test("rehearse fails with a defect of a command joining, as its run is stopped, a fiber its caller interrupted", async () => {
-    const exit = await endedByTheFiberThatInterrupted((started, stale) =>
-      rehearse(
-        joinsOnceInterrupted(started, stale),
-        (rehearsal) => rehearsal.send(() => Opt.some("Go")).pipe(Effect.andThen(rehearsal.run(() => true)))
-      )
-    )
-    expect(diedIn(exit)).toBe("command")
-  })
-
-  test("simulate fails with a defect of a command joining, as it is stopped, a fiber its caller interrupted", async () => {
-    const exit = await endedByTheFiberThatInterrupted((started, stale) =>
-      simulate(joinsOnceInterrupted(started, stale), ["Go"], quitting.init)
-    )
-    expect(diedIn(exit)).toBe("command")
-  })
-
-  // A tool that runs a command in the fiber it runs in, as `simulate` did until it ran on the engine in November 2026,
-  // has whoever interrupts it stop the command as itself, which may have interrupted a fiber before.
+  // Likewise whoever interrupts the run, which may have interrupted a fiber before.
   const interruptedByTheFiberThatInterrupted = (
     running: (started: Deferred.Deferred<void>, stale: Fiber.Fiber<never>) => Effect.Effect<unknown>
   ) =>
@@ -785,23 +767,6 @@ describe("what the run dies of, and the tools fail on", () => {
       drive(
         joinsOnceInterrupted(started, stale),
         (driver) => driver.send(() => Opt.some("Go")).pipe(Effect.andThen(Effect.never))
-      )
-    )
-    expect(diedIn(exit)).toBe("command")
-  })
-
-  test("simulate fails with a defect of a command joining, as it is stopped, a fiber its interrupter interrupted", async () => {
-    const exit = await interruptedByTheFiberThatInterrupted((started, stale) =>
-      simulate(joinsOnceInterrupted(started, stale), ["Go"], quitting.init)
-    )
-    expect(diedIn(exit)).toBe("command")
-  })
-
-  test("rehearse fails with a defect of a command joining, as its run is stopped, a fiber its interrupter interrupted", async () => {
-    const exit = await interruptedByTheFiberThatInterrupted((started, stale) =>
-      rehearse(
-        joinsOnceInterrupted(started, stale),
-        (rehearsal) => rehearsal.send(() => Opt.some("Go")).pipe(Effect.andThen(rehearsal.run(() => true)))
       )
     )
     expect(diedIn(exit)).toBe("command")
@@ -920,21 +885,6 @@ describe("what the run dies of, and the tools fail on", () => {
     expect(diedIn(exit)).toBe("subscription")
   })
 
-  test("rehearse fails with a defect of a subscription interrupting itself as the fiber that stops it", async () => {
-    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
-      const started = yield* Deferred.make<void>()
-      return yield* rehearse(
-        forging(started),
-        Effect.fnUntraced(function*(rehearsal) {
-          yield* Effect.forkChild(rehearsal.hearNext("ticks"))
-          yield* Deferred.await(started)
-          yield* rehearsal.send(() => Opt.some("Seen"))
-        })
-      )
-    }))
-    expect(diedIn(exit)).toBe("subscription")
-  })
-
   // Each function of the program that a tool calls fails it in the site the run dies in, with what the run says of
   // it: `update` with the message it was given, by its tags.
   const said = (exit: Exit.Exit<unknown>) => {
@@ -1020,11 +970,6 @@ describe("what the run dies of, and the tools fail on", () => {
     expect(said(exit)).toEqual(["render", undefined])
   })
 
-  test("rehearse fails, as the run dies, in render, on a makeModel that throws", async () => {
-    const exit = await Effect.runPromiseExit(rehearse(modeling, (rehearsal) => rehearsal.model, { flags: 0 }))
-    expect(said(exit)).toEqual(["render", undefined])
-  })
-
   test("the run dies in init on an init that throws on its flags", async () => {
     const exit = await Effect.runPromiseExit(drive(starting, () => Effect.never, { flags: 0 }))
     expect(said(exit)).toEqual(["init", undefined])
@@ -1104,11 +1049,6 @@ describe("what the run dies of, and the tools fail on", () => {
     }
   )
 
-  test("simulate fails, as the run dies, in a command on a command that dies", async () => {
-    const exit = await Effect.runPromiseExit(simulate(exploding, ["Go"], exploding.init))
-    expect(diedIn(exit)).toBe("command")
-  })
-
   // A defect a command catches around a scope of its own is the command's, never the run's: it answers.
   const recovering: Program<{ state: Row; model: number; message: "Go" | "Saved"; command: "Save" }> = {
     init: { state: { seen: 0 } },
@@ -1130,22 +1070,6 @@ describe("what the run dies of, and the tools fail on", () => {
         return yield* driver.waitFor((seen) => seen === 1 ? Opt.some(seen) : Opt.none())
       })
     ))
-    expect(seen).toBe(1)
-  })
-
-  test("simulate applies, as the run does, the answer of a command that catches the defect of a scope of its own", async () => {
-    const { state } = await Effect.runPromise(simulate(recovering, ["Go"], recovering.init))
-    expect(state).toEqual({ seen: 1 })
-  })
-
-  test("rehearse applies, as the run does, the answer of a command that catches the defect of a scope of its own", async () => {
-    const seen = await Effect.runPromise(
-      rehearse(recovering, (rehearsal) =>
-        rehearsal.send(() => Opt.some<"Go" | "Saved">("Go")).pipe(
-          Effect.andThen(rehearsal.runAll),
-          Effect.andThen(rehearsal.model)
-        ))
-    )
     expect(seen).toBe(1)
   })
 
@@ -1171,21 +1095,6 @@ describe("what the run dies of, and the tools fail on", () => {
         return yield* driver.waitFor(() => Opt.none())
       })
     ))
-    expect(diedIn(exit)).toBe("command")
-  })
-
-  test("simulate fails, as the run dies, in a command on a release of a command that dies", async () => {
-    const exit = await Effect.runPromiseExit(simulate(releasing, ["Go"], releasing.init))
-    expect(diedIn(exit)).toBe("command")
-  })
-
-  test("rehearse fails, as the run dies, in a command on a release of a command that dies", async () => {
-    const exit = await Effect.runPromiseExit(
-      rehearse(
-        releasing,
-        (rehearsal) => rehearsal.send(() => Opt.some<"Go" | "Saved">("Go")).pipe(Effect.andThen(rehearsal.runAll))
-      )
-    )
     expect(diedIn(exit)).toBe("command")
   })
 
@@ -1236,41 +1145,13 @@ describe("what the run dies of, and the tools fail on", () => {
     expect(await witnessed("run", Effect.die(new Boom()))).toEqual({ seen: ["command"], ended: ["command"] })
   })
 
-  test("simulate gives, as the run does, what a command that dies releases its defect, in a command", async () => {
-    expect(await witnessed("simulate", Effect.die(new Boom()))).toEqual({ seen: ["command"], ended: ["command"] })
-  })
-
-  test("rehearse gives, as the run does, what a command that dies releases its defect, in a command", async () => {
-    expect(await witnessed("rehearse", Effect.die(new Boom()))).toEqual({ seen: ["command"], ended: ["command"] })
-  })
-
   test("the run gives what a command that interrupts itself releases a defect, in a command", async () => {
     expect(await witnessed("run", Effect.interrupt)).toEqual({ seen: ["command"], ended: ["command"] })
-  })
-
-  test("simulate gives, as the run does, what a command that interrupts itself releases a defect", async () => {
-    expect(await witnessed("simulate", Effect.interrupt)).toEqual({ seen: ["command"], ended: ["command"] })
-  })
-
-  test("rehearse gives, as the run does, what a command that interrupts itself releases a defect", async () => {
-    expect(await witnessed("rehearse", Effect.interrupt)).toEqual({ seen: ["command"], ended: ["command"] })
   })
 
   test("the run dies of two defects on a release that dies of the very defect of its command", async () => {
     const boom = new Boom()
     const { ended } = await witnessed("run", Effect.die(boom), () => Effect.die(boom))
-    expect(ended).toEqual(["command", "command"])
-  })
-
-  test("simulate fails, as the run dies, of two defects on a release that dies of that of its command", async () => {
-    const boom = new Boom()
-    const { ended } = await witnessed("simulate", Effect.die(boom), () => Effect.die(boom))
-    expect(ended).toEqual(["command", "command"])
-  })
-
-  test("rehearse fails, as the run dies, of two defects on a release that dies of that of its command", async () => {
-    const boom = new Boom()
-    const { ended } = await witnessed("rehearse", Effect.die(boom), () => Effect.die(boom))
     expect(ended).toEqual(["command", "command"])
   })
 
@@ -1507,11 +1388,6 @@ describe("a message whose tag throws as the defect of update is said", () => {
     ))
     expect(sites(exit)).toEqual(both)
   })
-
-  test("simulate fails with both, as the run dies", async () => {
-    const exit = await Effect.runPromiseExit(simulate(saying, [twice()], saying.init))
-    expect(sites(exit)).toEqual(both)
-  })
 })
 
 // Found by the sixth premise review of November 2026. The run dies of a `makeModel` that throws as a renderer reads
@@ -1676,11 +1552,6 @@ describe("a defect of makeModel", () => {
     const exit = await Effect.runPromiseExit(
       drive(both, (driver) => Effect.andThen(driver.send(() => Opt.some("Go")), Effect.never))
     )
-    expect(reasons(exit)[0]).toBe("subscriptions")
-  })
-
-  test("rehearse fails in subscriptions first, as the run dies, on a state whose model is a defect too", async () => {
-    const exit = await Effect.runPromiseExit(rehearse(both, (rehearsal) => rehearsal.send(() => Opt.some("Go"))))
     expect(reasons(exit)[0]).toBe("subscriptions")
   })
 
@@ -1867,37 +1738,10 @@ describe("a command or a subscription that a fiber of the program interrupts", (
     }
   )
 
-  test(
-    "rehearse fails with a defect, as the run dies, of a command a fiber of the program interrupts",
-    async () => {
-      const exit = await interruptedBy((interrupted) =>
-        rehearse(
-          commanding(interrupted),
-          (rehearsal) => rehearsal.send(() => Opt.some("Go")).pipe(Effect.andThen(rehearsal.run(() => true)))
-        )
-      )
-      expect(diedIn(exit)).toBe("command")
-    }
-  )
-
   test("the run dies with a defect of a subscription a fiber of the program interrupts", async () => {
     const exit = await interruptedBy((interrupted) => drive(listening(interrupted), () => Deferred.await(interrupted)))
     expect(diedIn(exit)).toBe("subscription")
   })
-
-  // The call is forked: with no defect, it would wait for ever for a last message that never comes.
-  test(
-    "rehearse fails with a defect, as the run dies, of a subscription a fiber of the program interrupts",
-    async () => {
-      const exit = await interruptedBy((interrupted) =>
-        rehearse(
-          listening(interrupted),
-          (rehearsal) => Effect.forkChild(rehearsal.hearNext("ticks")).pipe(Effect.andThen(Deferred.await(interrupted)))
-        )
-      )
-      expect(diedIn(exit)).toBe("subscription")
-    }
-  )
 
   // Found by the review of the testing tools of November 2026. The interrupter runs at once in the release of the
   // command's scope, where nothing interrupts the fiber: the interruption lands once the scope has closed, which only the
@@ -1983,8 +1827,8 @@ describe("a command or a subscription that a fiber of the program interrupts", (
     }
   )
 
-  // The same, as whoever runs the tool interrupts it while the release waits for `gate`: the tool stops the command
-  // with the run's mark, and the program's interruption lands beside it once the scope has closed.
+  // The same, as whoever runs the run interrupts it while the release waits for `gate`: the run stops the command
+  // with its mark, and the program's interruption lands beside it once the scope has closed.
   const gated = (began: Deferred.Deferred<void>, gate: Deferred.Deferred<void>): typeof releasing => ({
     ...releasing,
     runCommand: () =>
@@ -1999,15 +1843,13 @@ describe("a command or a subscription that a fiber of the program interrupts", (
         return Opt.some<"Go" | "Done">("Done")
       })
   })
-  const interruptedAsItReleases = (tool: "drive" | "simulate") =>
+  const interruptedAsItReleases = () =>
     Effect.runPromise(Effect.gen(function*() {
       const began = yield* Deferred.make<void>()
       const gate = yield* Deferred.make<void>()
       const program = gated(began, gate)
       const fiber = yield* Effect.forkChild(
-        tool === "simulate"
-          ? Effect.asVoid(simulate(program, ["Go"], program.init))
-          : drive(program, (driver) => driver.send(() => Opt.some("Go")).pipe(Effect.andThen(Effect.never)))
+        drive(program, (driver) => driver.send(() => Opt.some("Go")).pipe(Effect.andThen(Effect.never)))
       )
       yield* Deferred.await(began)
       yield* Effect.forkChild(Fiber.interrupt(fiber), { startImmediately: true })
@@ -2016,11 +1858,7 @@ describe("a command or a subscription that a fiber of the program interrupts", (
     }))
 
   test("the run dies with a defect of a command a fiber of the program interrupts as it releases, as whoever runs it interrupts it", async () => {
-    expect(await interruptedAsItReleases("drive")).toBe("command")
-  })
-
-  test("simulate fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, as whoever runs it interrupts it", async () => {
-    expect(await interruptedAsItReleases("simulate")).toBe("command")
+    expect(await interruptedAsItReleases()).toBe("command")
   })
 })
 

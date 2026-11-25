@@ -19,8 +19,9 @@ testing tools are `src/testing/`. How the engine keeps each guarantee is
 3. List the points where another fiber can run between a check and the act it guards (`docs/invariants.md`, "A check
    of what another fiber may change, and the act it guards, are one thunk"). Each leaves a test that fails without the
    check, deterministic, of the core or with a gate, and a mutation that takes the check out.
-4. When the engine or one tool changes, keep the others in step (`docs/invariants.md`, "The testing tools behave like
-   the engine").
+4. A tool that plays a program runs it on the engine: it decides at most when a command runs, when a subscription's
+   message is heard and what fails the test, and makes no step, no scope of a subscription or a command, and no site of
+   a defect (`docs/invariants.md`, "The testing tools behave like the engine").
 
 ## Tests
 
