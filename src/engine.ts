@@ -145,6 +145,8 @@ export interface RunOptions<State, Message, Command = unknown> {
    * Hears each message `update` rejects, which the run ignores.
    *
    * - It only watches: the message stays ignored.
+   * - It hears the answer that the library rejects for an instance of a child that is gone. It does not hear what a
+   *   subscription sent once its key is gone, which the run drops before `update`.
    * - It is a function, not an effect, and returns nothing. The types refuse one that returns a value.
    *   Declared apart, it needs the return type `undefined`: TypeScript gives it `void` otherwise, which they refuse.
    * - The run calls it in the step of each message, before the next one. A slow one holds up the whole program, and

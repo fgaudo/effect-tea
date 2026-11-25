@@ -22,9 +22,7 @@ import * as Hash from "effect/Hash"
  * button.addEventListener('click', () => dispatch({ _tag: 'Increment' }))
  * ```
  *
- * @see The guide, "View", "`dispatch` takes the program's messages".
- * @see The guide, "View", "A handler calls it as it is".
- * @see The guide, "View", "Sending applies the message".
+ * @see The guide, "View".
  */
 export type Dispatch<Message> = (message: Message) => void
 

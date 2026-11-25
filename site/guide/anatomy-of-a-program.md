@@ -11,10 +11,10 @@ detail, so start here.
 
 A program is a plain object, made with `program`. It has up to eight pieces:
 
-- `init` says where the program starts.
+- `init` says where the program starts: its first state, and the commands to start with.
 - `update` says how each message changes the state.
 - `makeModel` says what the view draws.
-- `runCommand` is there when the program has commands.
+- `runCommand` is there when the program has commands, and says how each one happens.
 - `external` is there when the program's parent may send it messages.
 - `output` is there when the program's parent may read a value of it.
 - `subscriptions` says what the program listens to in each state, as keys.
@@ -54,17 +54,6 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
 
 ## Rules
 
-| Piece           | What it does                                                                               | Needed                        |
-| --------------- | ------------------------------------------------------------------------------------------ | ----------------------------- |
-| `init`          | the first state and the commands to start with, or a function of its flags that makes them | always                        |
-| `update`        | `(message) => (state) =>` the next state, commands and events, or `reject`                 | when it has messages          |
-| `makeModel`     | `(state) =>` what the view draws, with the messages it sends                               | always                        |
-| `runCommand`    | how each command happens, as an Effect                                                     | when it has commands          |
-| `external`      | `(message) => (state) =>` the next state, commands and events, never `reject`              | when it has external messages |
-| `output`        | `(state) =>` the value that its parent reads of it                                         | when it has an output         |
-| `subscriptions` | `(state) =>` the keys of what it listens to, in an array                                   | when it listens               |
-| `listen`        | `(key) =>` the subscription of a key, as an Effect `Channel`                               | when it listens               |
-
 - **Its types are named first, then it is made**: `program<{ state: State; message: Message }>().make({ … })`. Besides
   `state`, the types may name these:
 
@@ -79,57 +68,21 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
   | `key`      | the keys of its subscriptions          |
   | `model`    | the program's model                    |
 
-  A type that the program does not name is a type that the program does not have. So:
+  A type that the program does not name is a type that the program does not have: a program that names no `message`
+  has no `update`, and one that names no `key` has no `subscriptions` and no `listen` in `make`. A model that is named
+  is checked, and one that is not named is inferred from `makeModel`. The services are never named: they are inferred
+  from `runCommand` and `listen`.
+- **Its type lists the types it is made of**: `Program<{ state; model; message }>`, with the others that it has. `make`
+  returns this type, and a function that takes a program names it. `StateOf<typeof program>`, `MessageOf` and the
+  others read a type back.
+- **The view is not part of it.** `start` gives your renderer an `App`: the model of the current state, and a notice of
+  each new state (see [running](./running.md)). What the renderer must keep to is in [view](./view.md).
+- **A program that cannot start the same way every time declares `flags`**, as in Elm, such as a page that shows the
+  product it was opened for. Its `init` is then a function of them: `init: ({ id }) => ({ state, commands })`. It is
+  pure, as `update` is (see [what is left to you](./guarantees.md#what-is-left-to-you)). A parent gives a child its
+  flags, from its own state (see [composition](./composition.md)), and `start` gives the root its own (see
+  [running](./running.md)).
+- **The types need `strict`.** The library's types are checked under the compiler option `strict` alone. Without
+  `strictFunctionTypes`, which `strict` turns on, the compiler accepts programs that it should refuse.
 
-  - A program that names no messages has no `update`, one that names no `external` messages has no `external`, one
-    that names no `output` has no `output`, and one that names no `key` has no `subscriptions` and no `listen` in
-    `make`.
-  - A program that raises an event it did not name does not compile.
-
-  A model that is named is checked. A model that is not named is inferred from `makeModel`. The services are never
-  named. They are inferred from `runCommand` and `listen`. A command's effect or a subscription written apart
-  names the services it needs in its own type, as `Execution<Message, R>` or `Subscription<Message, R>`. The program
-  that returns it then needs them: `CommandServicesOf` and `SubscriptionServicesOf` give what a program needs.
-
-- **Its type lists the types it is made of.** A program's type is `Program<{ state; model; message }>`. It also lists
-  `command`, `commandServices`, `key`, `subscriptionServices`, `event`, `external`, `flags` and `output` when the
-  program has them. `OutputOf<typeof program>` names its output, and `KeyOf<typeof program>` its keys.
-  `make` returns this type, and a function that takes a program names this type.
-- **The view is not part of it.** `start` gives your renderer an **`App`**, `{ model, subscribe, dispatch, die }`: the
-  model of the current state, and a notice of each new state. The library does not say how the renderer draws the model.
-  What the renderer must keep to is in [view](./view.md).
-- **A program that cannot start the same way every time declares `flags`**, as in Elm. For example, a page that shows
-  the product it was opened for declares flags.
-
-**What does not compile.** The compiler refuses one kind of program. It is refused before it can run: where it is
-typed `Program<…>`, or where a function takes it, as `child`, `start` or a testing tool. Which of these refuses it is
-unspecified.
-
-- A program written as an object without `subscriptions`. `make` takes no `subscriptions` for a program that names no
-  `key`, and the program it returns has them.
-
-**The types need `strict`.** The library's types are checked under the compiler option `strict` alone. Without
-`strictFunctionTypes`, which `strict` turns on, the compiler accepts programs that it should refuse. For example, it
-accepts a program typed with more `external` messages than the program takes.
-
-**`runCommand` is required exactly when the program has commands.** So every command has a `runCommand` that
-interprets it. `listen` is required exactly when the program has keys, so that every key has a `listen` that makes its
-subscription. In the same way, `external` is required exactly when the program has external messages (see
-[events and external messages](./events-and-external-messages.md#what-a-program-must-declare)).
-
-**A test makes a model as the run does.** The run makes the model of a state with `program.makeModel(state)`. A test can
-call `program.makeModel` the same way, on any state. It reads a program's output the same way, as
-`program.output(state)`: no tool reads the output of a program that has no parent.
-
-**What a program listens to.** `program.subscriptions(state)` is the keys of what the program listens to in `state`.
-It is what the run reconciles. For a program made without `subscriptions`, it is empty. `program.listen(key)` is the
-subscription of a key, which a test can take without a state that lists it. A parent lists the keys of each child's
-subscriptions as `{ _tag: <child>, instance, key }`. For children by id, the parent lists them as
-`{ _tag: <child>, id, instance, key }` (see [what the library derives](./composition.md#what-the-library-derives)).
-
-**A program with flags.** Its `init` is a function of the flags: `init: ({ id }) => ({ state, commands })`. It is
-pure, as `update` is: a child's `init` runs in its parent's `update` when a step starts the child (see
-[what is left to you](./guarantees.md#what-is-left-to-you)). Whoever starts the program gives the flags:
-
-- A parent gives them to its child, from its own state (see [composition](./composition.md#when-a-child-is-there)).
-- `start` gives them to the root (see [running](./running.md)).
+What the compiler refuses of a program is in the doc comments of `program` and of `Program`.

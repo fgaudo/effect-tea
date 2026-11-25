@@ -16,7 +16,7 @@ import { dual } from "effect/Function"
  * const step: Step<State, Command> = { state: { ...state, saving: true }, commands: [Command.Save({ name })] }
  * ```
  *
- * @see The guide, "Commands", "In short".
+ * @see The guide, "Commands".
  * @see The guide, "Events and external messages", "A child raises an event".
  * @see The guide, "Events and external messages", "What a step tells arrives after the step".
  */
@@ -57,7 +57,7 @@ export const reject: unique symbol = Symbol.for("@fgaudo/effect-tea/Rejected")
  * if (result === reject) return
  * ```
  *
- * @see The guide, "Update", "In short".
+ * @see The guide, "Update".
  */
 export type Rejected = typeof reject
 
@@ -70,7 +70,7 @@ export type Rejected = typeof reject
  *   state.count === 0 ? reject : { state: { count: state.count - 1 } }
  * ```
  *
- * @see The guide, "Update", "In short".
+ * @see The guide, "Update".
  */
 export type Transition<State, Command = never, Event = never, Tell = never> =
   | Step<State, Command, Event, Tell>
@@ -175,10 +175,7 @@ export const andThen: {
  *   message === 'Increment' ? { state: { count: state.count + 1 } } : { state: { count: state.count - 1 } }
  * ```
  *
- * @see The guide, "Update", "In short".
- * @see The guide, "Update", "Keep it pure".
- * @see The guide, "Update", "It may be called at any time".
- * @see The guide, "Update", "Never mutate the state".
+ * @see The guide, "Update".
  */
 export type Update<State, Message, Command = never, Event = never> = (
   message: Message

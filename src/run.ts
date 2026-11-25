@@ -53,7 +53,7 @@ export interface App<Model, Message> {
    * The program's dispatch: it applies the message before it returns. It is the very same function for the whole run.
    *
    * @see The guide, "Running", "The `dispatch` of the `App` is the very same function for the whole run".
-   * @see The guide, "View", "Sending applies the message".
+   * @see The guide, "View".
    */
   readonly dispatch: Dispatch<Message>
   /**

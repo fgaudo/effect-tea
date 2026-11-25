@@ -94,7 +94,8 @@ version, and everything else, features included, the patch version.
   renderer that draws after the next event leaves in the state, and whether a handler that the bridge to snabbdom drew
   still sends its message once the bridge is stopped.
 - The doc comments of the API now hold a part of what the library promises ("Guide", "What a page promises"): what a
-  parent refuses, and its defects, left "Composition" for them. "Structuring a program" is advice, and binds nothing.
+  parent refuses, and its defects, left "Composition" for them, and what a program refuses left "Anatomy of a
+  program". "Structuring a program" is advice, and binds nothing, as does the section "Advice" of a page.
 - The guide's "Inputs the user types into" is now "What an element gives": a fact with a value, as a scroll's end, is
   one message that the view fills ("What an element reports").
 - A value that the user writes belongs to the program whose rules use it: the parent's where it changes or locks it,

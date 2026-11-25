@@ -39,61 +39,32 @@ const makeModel = ({ draft }: State): { name: string; editor: Editor } => ({
 
 ## Rules
 
-**Its shape says what the view shows.** The model has a case for each state that the view tells apart. Each case holds
-only what makes sense in that case. This includes the messages of the case's controls, and the values that the view
-draws in that case.
-
-**Pick the case from the state, as `update` reads it.** Suppose that a model shows "Save" in a state where `update`
-rejects `SaveClicked`. Then the "Save" button does nothing. The run does not check this. A test checks it, with the
-[testing tools](./testing-tools.md), for any state that the test generates.
-
 **Messages live in the model.** Every message that a view can send is in the model that the view draws, as a value. A
 control sends the message that the program fixed for it.
 
-- Every value that an element holds or reports, the text of a field first, as the offset of a scroll, comes in a
-  message that the model holds without its value: `{ _tag: 'NameTyped' } as const`. The view fills each field that
-  is left with one value that the element or its event gives, copied as it is (see
-  [what an element gives](./what-an-element-gives.md)).
-- A view sends only the messages that the model holds. A view adds nothing to what it sends but the values that an
-  element or its event gives, as given: it never builds a message of the program itself.
+- A view sends only the messages that the model holds. It adds nothing to them but the values that an element or its
+  event gives: what the user types, or the offset of a scroll, comes in a message that the model holds without its
+  value, and the view fills (see [what an element gives](./what-an-element-gives.md)).
 - A control that chooses among fixed values, as the digits of a keypad, holds one message for each value: a list or a
-  record of messages. A function `(digit) => Message` would be a function in the model (see the next rule). The clock
-  of [`pages`](../../examples/pages/clock.ts) picks its format so: each case of its model holds the message that picks
+  record of messages. A function `(digit) => Message` would be a function in the model. The clock of
+  [`pages`](../../examples/pages/clock.ts) picks its format so: each case of its model holds the message that picks
   the other format.
-- Export `Message` as a type only, so that no view calls its constructors. The types do not stop a view from writing
-  a message whole, as a literal: that rule is the view's to keep.
-- The library does not enforce what a view keeps to above (see
-  [what is left to you](./guarantees.md#what-is-left-to-you)). What the library says about a model rests on it. A test
-  reads the messages of a program from its model, and fills a message held without its value with values that it
-  draws (see [testing](./testing.md)). So no test sees a message that a view built itself, nor a value that a view
-  computed.
+- Nothing enforces it (see [what is left to you](./guarantees.md#what-is-left-to-you)), and the testing tools rest on
+  it: they read the messages of a program from its model. A message that a view builds is one that no test sees.
 
-**A model is data.** A model holds no function. A model compares by value with `Equal`. The models of two equal states
-are equal.
+**Pick the case from the state, as `update` reads it.** A model that shows "Save" in a state where `update` rejects
+`SaveClicked` draws a button that does nothing. The run does not check this: a test does, with the
+[testing tools](./testing-tools.md).
 
-- Data need not be serializable. A plain object, an array, an `Option`, a `Data` class or a `HashMap` is data: `Equal`
-  compares each of them by what it holds.
-- The testing tools compare the messages of a model by value, with `Equal`, and a test checks that the models of two
-  equal states, built apart, are equal (see [testing](./testing.md)). A function made anew by each call of `makeModel`
-  would break both.
+**A model is data.** A model holds no function. A model compares by value with `Equal`, and the models of two equal
+states are equal. Data need not be serializable: a plain object, an array, an `Option`, a `Data` class or a `HashMap`
+is data. The testing tools compare models and their messages with `Equal`, which a function made anew by each call of
+`makeModel` would break.
 
-What a model shows, and what a view may decide, is in [structuring a program](./structuring-a-program.md).
+## Advice
 
-## Do and don't
-
-Each pair sums up a rule of this page. The rule itself is above.
-
-| Do                                                               | Don't                                                         |
-| ---------------------------------------------------------------- | ------------------------------------------------------------- |
-| Put every message that a view can send in the model, as a value. | Build a message of the program in the view.                   |
-| Pick the case of the model from the state, as `update` reads it. | Show a control in a state where `update` rejects its message. |
-| Let the view copy into a held message what the element gives.    | Compute in the view a value that the message carries.         |
-| Keep the model data, compared by value with `Equal`.             | Put a function in the model.                                  |
-
-```ts
-// Don't: a function, made anew by each call of makeModel
-const withFunction = (state: State) => ({ name: state.name, save: () => Message.SaveClicked() })
-
-// Do: the message itself, as a value
-const withMessage = (state: State) => ({ name: state.name, save: Message.SaveClicked() })
-```
+- **Give the model a case for each state that the view tells apart**, and in each case only what makes sense in it:
+  the messages of its controls, and the values that it draws. Then a view cannot send a message where the model holds
+  none. How much a view may decide is in [structuring a program](./structuring-a-program.md#model-and-view).
+- **Export `Message` as a type only**, so that no view calls its constructors. The types do not stop a view from
+  writing a message whole, as a literal.

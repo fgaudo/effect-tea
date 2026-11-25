@@ -420,9 +420,9 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   on a run alone, or the scheduler's reading becomes a premise with a test of its own.
 - **The guide tied to the inference matrix**, each item of "What does not compile" naming a `Violation`. Reasoned, 23
   November 2026, with a second opinion that ran 40 mutations: about 6 of 13 items have no `Violation`, and the CI would
-  check names against a matrix it never runs. The mutations of the types name the items instead (`refuses`), of
-  "Anatomy of a program" alone since 25 November 2026, when the list of "Composition" went to the doc comments.
-  _Reopen if_ the matrix runs in the CI, or the guide gathers every refusal in one list.
+  check names against a matrix it never runs. The mutations of the types named the items instead (`refuses`), until
+  the lists of "Composition" and of "Anatomy of a program" went to the doc comments, on 25 November 2026: no list of
+  the guide is left to name. _Reopen if_ the matrix runs in the CI, or the guide gathers every refusal in one list.
 - **The boundary of the testing tools in other forms**: a list of the names of `core.ts` and `shell.ts` refused to
   `src/testing/`; the two files refused whole, with what it takes of them exported again by `engine.ts` and `run.ts`;
   a script that reads the uses, as `tools/comments.ts` reads the doc comments; `no-restricted-properties` on

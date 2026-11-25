@@ -134,14 +134,14 @@ export class CompositionDefect extends Data.TaggedError("CompositionDefect")<Com
  *
  * The run dies with it as with any other defect, and it is the `cause` of the `ProgramDefect`. It lets a crash report
  * tell a broken rule of the program from any other error. Only `defect` makes one: a test or a crash report reads it,
- * and the types refuse a `new` of it.
+ * and the types refuse a `new` of it, or a class that extends it.
  *
  * @example
  * ```ts
  * expect(() => update(Message.Saved())(idle)).toThrow(InvariantDefect)
  * ```
  *
- * @see The guide, "Rejections and defects", "`defect` makes a bug loud".
+ * @see The guide, "Rejections and defects".
  * @see The guide, "Running", "Its `cause` is the defect itself".
  */
 export class InvariantDefect extends Data.TaggedError("InvariantDefect")<
@@ -175,8 +175,8 @@ export class InvariantDefect extends Data.TaggedError("InvariantDefect")<
  *     : defect('A save completed while nothing was saving')
  * ```
  *
- * @see The guide, "Rejections and defects", "`defect` makes a bug loud".
- * @see The guide, "Update", "A message that cannot arrive is a defect".
+ * @see The guide, "Rejections and defects".
+ * @see The guide, "Update".
  */
 export const defect = (reason: string): never => {
   throw new (InvariantDefect as unknown as Constructor<InvariantDefect, string>)(reason)

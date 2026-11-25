@@ -62,10 +62,8 @@ are tests of the types, named with `"typecheck"` (`["src/compose.test.ts", "<tes
 when `tsc`, run once on the copy, reports a diagnostic in its lines, and none may be there without the mutation. A
 killer is a test of the check, the one that refuses what the check refuses, written as a user writes. A kill is checked
 under TypeScript 7.0 alone, as in the CI. A check whose removal changes nothing that compiles has no mutation: it is
-listed, with why, at the head of the mutations of the types. A mutation of a check that holds an item of "What does
-not compile", in "Anatomy of a program", names it in its `refuses`, by its page and the words it starts with, which
-`bun run comments` checks as it checks `guarantees`. What a parent refuses is in the doc comments of `compose.ts`, and
-no list names it.
+listed, with why, at the head of the mutations of the types. What the checks refuse is in the doc comments of
+`program.ts` and `compose.ts`, and no list of the guide names it.
 
 ### A lead of the search
 

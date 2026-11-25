@@ -17,9 +17,11 @@ keeps.
 | `commands` | the commands that should happen | optional |
 | `events`   | the events for a parent         | optional |
 
-When the message makes no sense in that state, `update` returns `reject` instead. Commands say what should happen, and
-`runCommand` says how (see [anatomy of a program](./anatomy-of-a-program.md)). Events are for a parent (see
-[events and external messages](./events-and-external-messages.md)).
+When the message makes no sense in that state, `update` returns `reject` instead (see
+[rejections and defects](./rejections-and-defects.md)). Commands say what should happen, and `runCommand` says how
+(see [commands](./commands.md)). Events are for a parent (see
+[events and external messages](./events-and-external-messages.md)). How to shape the state and its messages is
+advice, in [structuring a program](./structuring-a-program.md).
 
 ## An example
 
@@ -30,38 +32,23 @@ The duration of the timer's tutorial (`examples/timer/duration.ts`). Its `update
 ## Rules
 
 - **Keep it pure.** `update` returns commands instead of running effects.
-- **It may be called at any time.** Never assume that `update` runs once per message. Never assume that it runs only
-  for a message that was sent. The testing tools call `update` on each message that a model holds, and often a second
-  time. They also call it on other messages that a test lists.
-- **Never mutate the state**, nested objects included. Return a new state.
-- **A message that cannot arrive is a defect.** If such a message arrives, that is a bug. `update` throws
-  `defect(reason)`, and the run dies (see [rejections and defects](./rejections-and-defects.md)).
+- **It may be called at any time.** Never assume that `update` runs once per message, or only for a message that was
+  sent. The testing tools call it on each message that a model holds, often twice, and on others that a test lists.
+- **Never mutate the state**, nested objects included. Return a new state. A copy of the state shares its nested
+  objects, so copy each one that you change:
 
-When `update` returns the very same state it was given, the same object or the same primitive value, no renderer is
-told of it: that rule is the `App`'s, in [running](./running.md#rules). How to shape the state and its messages is in
-[structuring a program](./structuring-a-program.md).
+  ```ts
+  // Mutates the state: the copy shares `items` with it, and `push` changes both
+  const mutating: Update<State, Message> = (message) => (state) => {
+    const next = { ...state }
+    next.items.push(message.item)
+    return { state: next }
+  }
 
-## Do and don't
-
-Each pair sums up a rule of this page. The rule itself is above.
-
-| Do                                                               | Don't                                                                            |
-| ---------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Return commands, and let `runCommand` say how they happen.       | Run an effect inside `update`.                                                   |
-| Return a new state, and copy each nested object that you change. | Change the state you were given, or an object inside it.                         |
-| Expect `update` to be called at any time.                        | Assume that `update` runs once per message, or only for a message that was sent. |
-| Throw `defect(reason)` for a message that cannot arrive.         | Return `reject` for a message that only a bug can bring.                         |
-
-```ts
-// Don't: the copy shares `items` with the state, so `push` mutates the state
-const mutating: Update<State, Message> = (message) => (state) => {
-  const next = { ...state }
-  next.items.push(message.item)
-  return { state: next }
-}
-
-// Do: return a new state, with a new array
-const copying: Update<State, Message> = (message) => (state) => ({
-  state: { ...state, items: [...state.items, message.item] }
-})
-```
+  // A new state, with a new array
+  const copying: Update<State, Message> = (message) => (state) => ({
+    state: { ...state, items: [...state.items, message.item] }
+  })
+  ```
+- **A message that cannot arrive is a defect.** `update` throws `defect(reason)`, and the run dies (see
+  [rejections and defects](./rejections-and-defects.md)).

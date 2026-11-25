@@ -24,44 +24,22 @@ the model holds: `on: { click: () => dispatch(model.more) }`.
 
 ## Rules
 
-- **`dispatch` takes the program's messages.** Sending a message is a call that returns nothing. It needs no services.
-- **A handler calls it as it is.** A handler of any renderer, a plain callback, calls `dispatch(message)`. Effect code
-  calls it in an `Effect.sync`: `Effect.sync(() => dispatch(message))`.
+- **`dispatch` is a plain function.** A handler of any renderer calls `dispatch(message)`. Effect code calls it in an
+  `Effect.sync`: `Effect.sync(() => dispatch(message))`.
 - **Sending applies the message.** When a handler returns, `update` has seen the handler's message, and the model is
-  the new one. What the message starts, its commands and its subscriptions, runs later, in the run, with the run's
-  services.
-  - A message sent while another is being applied is applied right after it, before the outer call returns. Two kinds
-    of code send one then: a renderer's listener, which the `App` tells of a new state, and code that a function of the
-    program wakes. Such a call may return before its message is applied.
-  - The program runs on the stack of whoever sends the message: a slow `update` holds the handler that sent it (see
-    [what is left to you](./guarantees.md#what-is-left-to-you)).
-- **What the program draws comes from its model.** The library gives the model of the current state. The bridge reads
-  it and draws it. Nothing else of the program is supported or advised. What the screen shows of the program comes
-  from one of two places:
-  - the model, which the view draws;
-  - the platform: a hover, the focus or an animation that the platform keeps by itself.
+  the new one. What the message starts, its commands and its subscriptions, runs later, in the run. The program runs
+  on the stack of the handler, so a slow `update` holds it up (see
+  [what is left to you](./guarantees.md#what-is-left-to-you)).
+- **What the program draws comes from its model.** Nothing else of the program is supported. What the screen shows of
+  the program comes from the model, which the view draws, or from the platform: a hover, the focus or an animation
+  that the platform keeps by itself. For the length of its own event, a text field shows what the user typed into it
+  (see [what an element gives](./what-an-element-gives.md)).
+  - A part of the page outside the bridge's `root`, such as the page's title, comes from the model too. Plain code over
+    the handle that `start` gives draws it, beside the bridge: it reads `app.model()` once, then again each time
+    `app.subscribe` tells it of a new state (see [running](./running.md)).
+- **Each bridge says what it draws beside the model.** The guarantees are of the program, and what a bridge adds of
+  the screen is its own promise (see [what a bridge does](./writing-a-bridge.md#what-a-bridge-does)). The bridge to
+  snabbdom draws the model and nothing else. With the bridge to React, the application's components may keep state of
+  their own, which React draws beside it, and which the program's testing tools do not see.
 
-  An element with a value of its own, such as a text field, shows the value of its model. For the length of its own
-  event, it shows what the user typed into it (see [what an element gives](./what-an-element-gives.md)).
-
-  A part of the page outside the bridge's `root`, such as the page's title, comes from the model too. Plain code over
-  the handle that `start` gives draws it: the code reads `app.model()` once, then again each time `app.subscribe` tells
-  it of a new state (see [running](./running.md)). That code draws beside the bridge, not in its place.
-- **Each bridge says what it draws beside the model.** The guarantees are of the program (see
-  [guarantees](./guarantees.md)). What a bridge adds of the screen is its own promise, and those of the package's
-  bridges are in [what a bridge does](./writing-a-bridge.md#what-a-bridge-does): the bridge to snabbdom draws the model
-  and nothing else, and with the bridge to React the application's components may keep state of their own, which React
-  draws beside it. The program's testing tools see only the program: what the application's components draw is the
-  application's to test.
-
-How a bridge is written, and what the bridges of the examples do and leave out, is in
-[writing a bridge](./writing-a-bridge.md).
-
-## Do and don't
-
-Each pair sums up a rule of this page. The rule itself is above.
-
-| Do                                                                 | Don't                                                              |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| Draw the program from its model alone.                             | Draw it from a copy of its state that a component keeps.           |
-| Expect `update` to have seen the message when the handler returns. | Expect `update` to see the message only after the handler returns. |
+How a bridge is written is in [writing a bridge](./writing-a-bridge.md).

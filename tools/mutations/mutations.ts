@@ -10,13 +10,6 @@ export type Mutation = Readonly<{
    * the bridges. `bun run comments` fails on a title the list does not have, and on an item no mutation names.
    */
   guarantees?: ReadonlyArray<string>
-  /**
-   * The items of "What does not compile", in the guide's "Anatomy of a program", that a check of the types holds a
-   * part of, each by its page and the words it starts with. `bun run comments` fails on words that start no item, or
-   * more than one, and on an item no mutation names. What a parent refuses is in the doc comments of `compose.ts`,
-   * and no list of the guide names it.
-   */
-  refuses?: ReadonlyArray<readonly [page: "Anatomy of a program", item: string]>
   /** The file it changes, from the root of the repository. */
   file: string
   /** What it replaces, which the file must hold exactly once, and with what. */
@@ -3572,8 +3565,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   // The types of a program (`src/program.ts`) and of a parent (`src/compose.ts`): each mutation takes a check of the
-  // types out, and the tests of the types that refuse what it lets through kill it, by `tsc`. A mutation names the
-  // items of "What does not compile", in "Anatomy of a program", that its check holds a part of (`refuses`).
+  // types out, and the tests of the types that refuse what it lets through kill it, by `tsc`. What they refuse is in
+  // the doc comments of `program.ts` and `compose.ts`, and no list of the guide names it.
   //
   // The checks that have none, since taking one out changes nothing that compiles, or lets through only a piece that
   // nothing calls:
@@ -3743,7 +3736,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a program is typed without subscriptions",
-    refuses: [["Anatomy of a program", "A program written as an object without `subscriptions`"]],
     file: "src/program.ts",
     from: "    readonly subscriptions: Subscriptions<State, Key>\n",
     to: "    readonly subscriptions?: Subscriptions<State, Key>\n",

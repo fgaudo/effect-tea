@@ -22,8 +22,7 @@ import type * as Channel from "effect/Channel"
  * )
  * ```
  *
- * @see The guide, "Subscriptions", "A subscription never ends in silence".
- * @see The guide, "Subscriptions", "An ended subscription is not restarted".
+ * @see The guide, "Subscriptions".
  * @see The guide, "Guarantees", "Subscriptions follow their keys".
  */
 export type Subscription<Message, R = never> = Channel.Channel<Message, never, Message, unknown, unknown, unknown, R>
@@ -39,7 +38,7 @@ export type Subscription<Message, R = never> = Channel.Channel<Message, never, M
  * const subscriptions: Subscriptions<State, 'ticks'> = (state) => state.phase._tag === 'Running' ? ['ticks'] : []
  * ```
  *
- * @see The guide, "Subscriptions", "Keys are compared by value, after every change of state:".
+ * @see The guide, "Subscriptions".
  * @see The guide, "Guarantees", "Subscriptions follow their keys".
  */
 export type Subscriptions<State, Key = unknown> = (state: State) => ReadonlyArray<Key>
@@ -60,7 +59,7 @@ export type Subscriptions<State, Key = unknown> = (state: State) => ReadonlyArra
  * const listen: Listen<Key, Message, Screen> = ({ dt }) => steps(dt)
  * ```
  *
- * @see The guide, "Subscriptions", "A subscription is made from its key alone".
+ * @see The guide, "Subscriptions".
  * @see The guide, "Running", "A key is shown whole".
  */
 export type Listen<Key, Message, R = never> = (key: Key) => Subscription<Message, R>

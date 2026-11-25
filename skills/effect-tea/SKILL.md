@@ -193,11 +193,10 @@ subscription is a `Channel` whose end value is a message, and is made from its k
 keys, as data, and `listen(key)` makes the subscription of one, without the state, so the key carries what it needs. A
 child answers an external message in `external`, in every state, never with `reject`. A parent is given no child's
 state: it reads what a child declares as its `output`, and the child's model in `makeModel` alone, and tells a child
-only its external messages, in the `tell` of a step. The guide, "Anatomy of a program", "What does not compile", lists
-more, and the doc comments of `program`, `child` and `childById` say what a parent refuses. The guide, "Anatomy of a
-program", "Its types are named first, then it is made". The guide, "Commands", "An execution cannot fail". The guide,
-"Subscriptions", "The type says all of it". The guide, "Subscriptions", "A subscription is made from its key alone".
-The guide, "Events and external messages", "A child answers its external messages in every state".
+only its external messages, in the `tell` of a step. The doc comments of `program`, `Program`, `child` and `childById`
+say what else the compiler refuses. The guide, "Anatomy of a program", "Its types are named first, then it is made".
+The guide, "Commands", "An execution cannot fail". The guide, "Subscriptions", "A subscription is made from its key
+alone". The guide, "Events and external messages", "A child answers its external messages in every state".
 
 ## Signs that the design went wrong
 
@@ -212,7 +211,7 @@ Each sign breaks the rule named after it.
 - A renderer written for one program, in place of a bridge's renderer. Code that draws the model outside the
   bridge's `root`, as the page's title, is beside the bridge, not in its place. The guide, "View", "What the program
   draws comes from its model".
-- A message built in a view, or `Message` exported as a value. The guide, "Model", "Messages live in the model".
+- A message built in a view, or `Message` exported as a value. The guide, "Model".
 - A message of what is typed that the view builds, in place of the one its model holds. The guide, "What an element
   gives", "Rules".
 - `defect` on a message of the view. The guide, "Rejections and defects", "What the view draws never rules a message

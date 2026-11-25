@@ -319,6 +319,10 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
      * function of its own state. For children by id, it takes the id first. It takes the children's outputs last, as
      * the child's step left them. A handler is pure, as `update` is: it runs in the parent's `update`.
      *
+     * Its step has no `reject`, which would take back the child's step: a handler that does not apply answers
+     * `{ state }`, and adds nothing to the child's step. Where that step kept the child's state too, the parent's
+     * state is the very same.
+     *
      * @see The guide, "Events and external messages", "The parent handles an event in `onEvent`".
      * @see The guide, "Events and external messages", "`onEvent`".
      * @see The guide, "Guarantees", "`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated".
@@ -332,6 +336,10 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
      * It is required exactly when a child has events. A handler takes the event, and returns the parent's step as a
      * function of its own state. For children by id, it takes the id first. It takes the children's outputs last, as
      * the child's step left them. A handler is pure, as `update` is: it runs in the parent's `update`.
+     *
+     * Its step has no `reject`, which would take back the child's step: a handler that does not apply answers
+     * `{ state }`, and adds nothing to the child's step. Where that step kept the child's state too, the parent's
+     * state is the very same.
      *
      * @see The guide, "Events and external messages", "The parent handles an event in `onEvent`".
      * @see The guide, "Events and external messages", "`onEvent`".
@@ -349,7 +357,7 @@ type UpdateOf<State, C, Own, Command, Event> = [Own] extends [never] ? Readonly<
      * It is required exactly when the program names messages of its own, in `program`. A parent's step tells its
      * children what to do in `tell`. A parent takes its children's outputs last, as they were before the step.
      *
-     * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
+     * @see The guide, "Anatomy of a program".
      */
     update: (message: Own, ...children: Reading<C>) => (state: State) => Transition<State, Command, Event, Tells<C>>
   }>
@@ -386,7 +394,7 @@ type OutputHandlerOf<State, C, Output> = [Output] extends [never] ? Readonly<{ o
      * something happened, and an output says what holds in a state. A parent's own `output` takes its children's
      * outputs last.
      *
-     * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
+     * @see The guide, "Anatomy of a program".
      * @see The guide, "Events and external messages", "A child may declare an `output`".
      * @see The guide, "Events and external messages", "A parent reads it as `children.Row.output(id)`".
      */
@@ -930,7 +938,7 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
  * - Each is the program's own: what its children bring is added to it.
  * - The services are never named: they are inferred from `runCommand`, `listen` and the children.
  *
- * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
+ * @see The guide, "Anatomy of a program".
  * @see The guide, "Composition".
  */
 type DeclaredTypes = Readonly<{
@@ -959,10 +967,10 @@ type DeclaredTypes = Readonly<{
  * makes it.
  *
  * Naming the types first lets `update`, `makeModel` and the rest be typed without annotations. The types also say
- * the program's own messages, commands, events, external messages, flags and keys. A type that the program does not name is
- * a type that the program does not have: a program that names no messages has no `update`. The model may be named
- * too. A model that is named is checked, and a model that is not named is inferred. The services are never named:
- * they are inferred.
+ * the program's own messages, commands, events, external messages, flags and keys. A type that the program does not
+ * name is a type that the program does not have: a program that names no messages has no `update`, and a step that
+ * raises an event that the program does not name does not compile. The model may be named too. A model that is named
+ * is checked, and a model that is not named is inferred. The services are never named: they are inferred.
  *
  * A child is any program. A parent declares its children with `withChildren`, before `make`. The parent's own state
  * says which children are there, and the library keeps them. A parent and its children talk only through events,
@@ -999,7 +1007,7 @@ type DeclaredTypes = Readonly<{
  * })
  * ```
  *
- * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
+ * @see The guide, "Anatomy of a program".
  * @see The guide, "Composition".
  */
 export const program = <T extends DeclaredTypes>(): ProgramMaker<T> =>
@@ -1052,7 +1060,7 @@ type Named<T, K extends "model", Inferred> = T extends { readonly [P in K]: infe
  * What `program<T>()` returns: the functions that declare a program's children, and make it.
  *
  * @group Types of the signatures
- * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
+ * @see The guide, "Anatomy of a program".
  * @see The guide, "Composition".
  */
 export interface ProgramMaker<T extends DeclaredTypes> {
@@ -1151,7 +1159,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * })
    * ```
    *
-   * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
+   * @see The guide, "Anatomy of a program".
    */
   readonly make: MakeProgram<T>
 }

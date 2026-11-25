@@ -19,10 +19,7 @@ import type * as Opt from "effect/Option"
  *   )
  * ```
  *
- * @see The guide, "Commands", "An execution cannot fail".
- * @see The guide, "Commands", "An expected failure becomes a message, as the success does".
- * @see The guide, "Commands", "An effect that only acts on the world answers `None`".
- * @see The guide, "Commands", "A defect (`Effect.die`, a thrown error) ends the run".
+ * @see The guide, "Commands".
  */
 export type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, never, R>
 
@@ -43,7 +40,6 @@ export type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, n
  * }
  * ```
  *
- * @see The guide, "Commands", "In short".
- * @see The guide, "Commands", "A command carries everything it needs".
+ * @see The guide, "Commands".
  */
 export type RunCommand<Command, Message, R = never> = (command: Command) => Execution<Message, R>

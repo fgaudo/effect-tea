@@ -13,7 +13,7 @@ import type { Step, Update } from "./update.ts"
  * ```
  *
  * @group Types of the signatures
- * @see The guide, "Anatomy of a program", "`runCommand` is required exactly when the program has commands".
+ * @see The guide, "Anatomy of a program".
  */
 export type WithRunCommand<Command, Message, R> = [Command] extends [never] ? object
   : { readonly runCommand: RunCommand<Command, Message, R> }
@@ -34,7 +34,7 @@ export const runCommandOf = <Command, Message, R>(
  * ```
  *
  * @group Types of the signatures
- * @see The guide, "Anatomy of a program", "`runCommand` is required exactly when the program has commands".
+ * @see The guide, "Anatomy of a program".
  */
 export type WithListen<Key, Message, R> = [Key] extends [never] ? object
   : { readonly listen: Listen<Key, Message, R> }
@@ -93,9 +93,11 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * - The view is not part of it: `start` gives the renderer an `App`, `{ model, subscribe, dispatch, die }`.
  * - `runCommand` is required exactly when the program has commands, `listen` exactly when it has keys, and `external`
  *   exactly when it has external messages.
- * - The run makes the model of a state with `makeModel(state)`. A test can call `makeModel` the same way, on any state.
- * - Every program has `subscriptions`. One that `make` makes without them listens to nothing. A test calls
- *   `subscriptions(state)` as the run does, on any state, and `listen(key)` for the subscription of a key.
+ * - The run makes the model of a state with `makeModel(state)`. A test can call `makeModel` the same way, on any state,
+ *   and `output(state)` for its output: no tool reads the output of a program that has no parent.
+ * - Every program has `subscriptions`: one written as an object without them does not compile. One that `make` makes
+ *   without them listens to nothing. A test calls `subscriptions(state)` as the run does, on any state, and
+ *   `listen(key)` for the subscription of a key.
  * - `update`, `external`, `makeModel`, `subscriptions` and `output` are pure, and so is an `init` that takes flags.
  *   No value given to the library, or taken from it, is mutated once made, nested objects included. The library
  *   reuses a child's model, and the keys of its subscriptions, while the child keeps the very same state: a child
@@ -112,13 +114,8 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * const started = (counter: Program<{ state: State; model: State; message: Message }>) => start(counter)
  * ```
  *
- * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
- * @see The guide, "Anatomy of a program", "The view is not part of it".
- * @see The guide, "Anatomy of a program", "What does not compile".
- * @see The guide, "Anatomy of a program", "`runCommand` is required exactly when the program has commands".
+ * @see The guide, "Anatomy of a program".
  * @see The guide, "Events and external messages", "`external` is required exactly when the program names external messages".
- * @see The guide, "Anatomy of a program", "A test makes a model as the run does".
- * @see The guide, "Anatomy of a program", "What a program listens to".
  * @see The guide, "Guarantees", "`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated".
  */
 export type Program<T extends ProgramTypes> = Shape<
@@ -164,7 +161,7 @@ type WithExternal<External, State, Command, Event> = [External] extends [never] 
  * const init: Init<State, never, number> = (start) => ({ state: { count: start } })
  * ```
  *
- * @see The guide, "Anatomy of a program", "A program with flags".
+ * @see The guide, "Anatomy of a program".
  */
 export type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, Command>
   : (flags: Flags) => Step<State, Command>
@@ -179,7 +176,7 @@ export type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, 
  * ```
  *
  * @group Types of the signatures
- * @see The guide, "Anatomy of a program", "A program with flags".
+ * @see The guide, "Anatomy of a program".
  */
 export type FlagsOption<Flags> = [Flags] extends [never] ? { readonly flags?: never }
   : { readonly flags: Flags }
@@ -238,7 +235,7 @@ export const startOf = <State, Command>(
  * type State = StateOf<typeof app>
  * ```
  *
- * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
+ * @see The guide, "Anatomy of a program".
  */
 export type StateOf<P> = FirstStepOf<P> extends Step<infer S, any> ? S : never
 /**
@@ -249,8 +246,7 @@ export type StateOf<P> = FirstStepOf<P> extends Step<infer S, any> ? S : never
  * type Model = ModelOf<typeof app>
  * ```
  *
- * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
- * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
+ * @see The guide, "Anatomy of a program".
  */
 export type ModelOf<P> = P extends { readonly makeModel: (state: any) => infer M } ? M : never
 /**
@@ -261,7 +257,7 @@ export type ModelOf<P> = P extends { readonly makeModel: (state: any) => infer M
  * type Message = MessageOf<typeof app>
  * ```
  *
- * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
+ * @see The guide, "Anatomy of a program".
  * @see The guide, "Composition".
  */
 export type MessageOf<P> = P extends { readonly update: (message: infer M) => any } ? M : never
@@ -289,7 +285,7 @@ type Answered<P, Piece extends "update" | "external", Key extends "commands" | "
  * type Command = CommandOf<typeof app>
  * ```
  *
- * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
+ * @see The guide, "Anatomy of a program".
  */
 export type CommandOf<P> = Listed<FirstStepOf<P>, "commands"> | Returned<P, "commands">
 /**
@@ -302,8 +298,7 @@ export type CommandOf<P> = Listed<FirstStepOf<P>, "commands"> | Returned<P, "com
  * type Flags = FlagsOf<typeof product>
  * ```
  *
- * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
- * @see The guide, "Anatomy of a program", "A program with flags".
+ * @see The guide, "Anatomy of a program".
  */
 export type FlagsOf<P> = P extends { readonly init: (flags: infer F) => any } ? F : never
 /**
@@ -316,8 +311,7 @@ export type FlagsOf<P> = P extends { readonly init: (flags: infer F) => any } ? 
  * type External = ExternalOf<typeof page>
  * ```
  *
- * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
- * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
+ * @see The guide, "Anatomy of a program".
  */
 export type ExternalOf<P> = P extends { readonly external: (message: infer E) => any } ? E : never
 /**
@@ -330,7 +324,7 @@ export type ExternalOf<P> = P extends { readonly external: (message: infer E) =>
  * type Output = OutputOf<typeof stopwatch>
  * ```
  *
- * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
+ * @see The guide, "Anatomy of a program".
  */
 export type OutputOf<P> = P extends { readonly output: (state: any) => infer O } ? O : never
 /**
@@ -343,7 +337,7 @@ export type OutputOf<P> = P extends { readonly output: (state: any) => infer O }
  * type Event = EventOf<typeof page>
  * ```
  *
- * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
+ * @see The guide, "Anatomy of a program".
  */
 export type EventOf<P> = Returned<P, "events">
 /**
@@ -356,8 +350,7 @@ export type EventOf<P> = Returned<P, "events">
  * type Services = CommandServicesOf<typeof app>
  * ```
  *
- * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
- * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
+ * @see The guide, "Anatomy of a program".
  */
 export type CommandServicesOf<P> = P extends { readonly runCommand: RunCommand<any, any, infer R> } ? R : never
 /**
@@ -370,8 +363,7 @@ export type CommandServicesOf<P> = P extends { readonly runCommand: RunCommand<a
  * type Services = SubscriptionServicesOf<typeof app>
  * ```
  *
- * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
- * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
+ * @see The guide, "Anatomy of a program".
  */
 export type SubscriptionServicesOf<P> = P extends { readonly listen: Listen<any, any, infer R> } ? R : never
 /**
@@ -385,7 +377,6 @@ export type SubscriptionServicesOf<P> = P extends { readonly listen: Listen<any,
  * type Key = KeyOf<typeof app>
  * ```
  *
- * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
- * @see The guide, "Anatomy of a program", "What a program listens to".
+ * @see The guide, "Anatomy of a program".
  */
 export type KeyOf<P> = P extends { readonly subscriptions: (state: never) => ReadonlyArray<infer K> } ? K : never
