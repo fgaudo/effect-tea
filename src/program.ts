@@ -85,9 +85,10 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * A program, of the types `T` names.
  *
  * `init` says where the program starts. `update` says how each message changes the state. `makeModel` says what the
- * view draws. `subscriptions` says what it listens to in each state, as keys, and `listen` makes the
- * subscription of a key. `runCommand` is there when the program has commands, `external` when its parent may send it messages, and `output` when its parent may read a value of it. A
- * program is made with `program`. `make` returns this type, and a function that takes a program names this type.
+ * view draws. `subscriptions` says what it listens to in each state, as keys, and `listen` makes the subscription of a
+ * key. `runCommand` is there when the program has commands, `external` when its parent may send it messages, and
+ * `output` when its parent may read a value of it. A program is made with `program`. `make` returns this type, and a
+ * function that takes a program names this type.
  *
  * - The view is not part of it: `start` gives the renderer an `App`, `{ model, subscribe, dispatch, die }`.
  * - `runCommand` is required exactly when the program has commands, `listen` exactly when it has keys, and `external`

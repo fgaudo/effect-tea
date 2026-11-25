@@ -260,11 +260,10 @@ const ignored: Arrived<never, never, never> = { _tag: "Ignored" }
 
 /**
  * Applies `message` to the current state, calling `update` unless `died` says the run has died or its start is gone.
- * A run that died applies no message, though its loop may take more until whoever runs it stops the loop, which may
- * run before the fiber that stops it. This is the only check of a death, and whoever calls it calls it in one
- * synchronous thunk, since the scheduler may yield at any other operation: no other fiber can die between the check and
- * the call, and a defect of `update` dies in `update`. The register is read first, so that a message taken once the
- * run has died is dead, whatever its start.
+ * A run that died applies no message, though messages may still be sent to it until whoever runs it ends it. This is
+ * the only check of a death, and whoever calls it calls it in one synchronous thunk, since the scheduler may yield at
+ * any other operation: no other fiber can die between the check and the call, and a defect of `update` dies in
+ * `update`. The register is read first, so that a message taken once the run has died is dead, whatever its start.
  */
 export const arrive = <State, Message, Command, Event, K>(
   update: Update<State, Message, Command, Event>,

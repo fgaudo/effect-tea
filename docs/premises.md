@@ -10,6 +10,12 @@ here, each with its own test, by [the rule](#the-rule) below: what a stable API 
 Each premise names what rests on it, what its dependency documents of it, and its test, in `test/premises.test.ts`
 unless it says otherwise, named after it, with what it fails with.
 
+The testing tools take no premise of a fork of their own: `drive` runs the run; `rehearse` runs the engine through the
+handle the run makes (`partsOf` in `run.ts`), and `simulate` builds it (`Engine.build`): both run its thunk, its
+jobs, its fibers and its end. So each rests on what the engine rests on, and on what `testing/stage.ts` adds, named
+below by `answering`. `simulate` runs no subscription, so the premises of a subscription's channel (`Channel.toPull`,
+one channel run afresh, `Stream.callback`) are none of its own.
+
 - **`HashMap` calls a key's `Equal` and `Hash` only within the call it is given the key in**, synchronously, never
   later: so `reconcile` compares keys all inside `'subscriptions'`, in the thunk that makes a state, in the run and in
   the tools. `FiberMap` compares its keys in a fiber's observer as well, which is why the run keeps its fibers by their
@@ -31,9 +37,9 @@ unless it says otherwise, named after it, with what it fails with.
   documented; that it is the forked one on its forker's stack is read in the source. Its tests, for
   `Effect.forkChild` with `startImmediately`, `FiberSet.run` and `FiberMap.run`, fail where it sees the forker.
 - **What the cleanup of `Effect.onExit` fails with comes after the cause of the effect**: so each fiber of the engine,
-  and `rehearse`, record what they die of in order, interrupted or not, merging no causes. That the cleanup runs however
-  the effect ends, and that the causes are merged, is documented; their order is read only in the source. Its tests are
-  of an effect that dies and of one that is interrupted.
+  in the run and in the tools, records what it dies of in order, interrupted or not, merging no causes. That the
+  cleanup runs however the effect ends, and that the causes are merged, is documented; their order is read only in the
+  source. Its tests are of an effect that dies and of one that is interrupted.
 - **`Scope.close` dies with every defect its finalizers die of, none merged by `Equal`**, those of the scopes forked
   from it included: so `scopedIn` records each defect of a release as a defect of its site. `Effect.scoped` is no such
   close: it joins with `Cause.combine`, which keeps one of two reasons equal by `Equal` (documented). The JSDoc of

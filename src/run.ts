@@ -281,7 +281,8 @@ export const readEach = <Model, Message>(
 
 /**
  * Starts a program, by plain code, with no fiber and no effect: it makes the first state and its keys, and calls
- * `init` with the flags for a program that has them. It gives the handle a renderer reads, and `run`, the effect that runs the program's effects.
+ * `init` with the flags for a program that has them. It gives the handle a renderer reads, and `run`, the effect that
+ * runs the program's effects.
  *
  * - A message sent before `run` starts is applied all the same, and its effects wait for `run`. So does the report of
  *   a defect: from the defect on, the program applies no message.

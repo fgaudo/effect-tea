@@ -611,8 +611,8 @@ type Message = Parameters<List["update"]>[0]
 
 /**
  * What the user does, on whatever model the renderer read last, when the scheduler lets them: `pick` chooses among the
- * controls drawn, so that every act does something; `twice` is a double tap; `pause` is how many turns of the
- * scheduler the user waits before.
+ * controls drawn, so that every act does something; `twice` is a double tap, a key and its undo on the element of the
+ * field; `pause` is how many turns of the scheduler the user waits before.
  */
 type Act = Readonly<{ pick: number; twice: boolean; pause: number; stale: Opt.Option<number> }>
 
@@ -734,15 +734,21 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
     forwardTo(app.dispatch, "Rows", first.id)(first.row.poke)
   })
   // A key typed into the element of the field, which shows what the current model holds, as a controlled element
-  // does: it sends the message that the model holds, filled with that value with the key, from a plain callback.
-  const typing = (pick: number): Control => (dispatch) =>
-    Effect.sync(() => {
-      const model = read("typing")
-      const message: Typed = { ...model.typed, value: typed(model.field.text, pick) }
-      events.push({ _tag: "Typed", message })
-      dispatch(message)
-      return message
-    })
+  // does: it sends the message that the model holds, filled with that value with the key, from a plain callback. Tapped
+  // twice, it is a key and its undo, which gives back the text the field held before: so a key of the search comes back
+  // while its earlier start still sends in enough scenarios for the test of what they reach to meet one on every seed.
+  const typing = (pick: number): Control => {
+    let before: string | undefined
+    return (dispatch) =>
+      Effect.sync(() => {
+        const model = read("typing")
+        const message: Typed = { ...model.typed, value: before ?? typed(model.field.text, pick) }
+        before = model.field.text
+        events.push({ _tag: "Typed", message })
+        dispatch(message)
+        return message
+      })
+  }
   let caller: Tracer.Span | undefined
   const fiber = yield* Effect.forkChild(
     Effect.gen(function*() {

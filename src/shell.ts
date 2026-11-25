@@ -39,8 +39,9 @@ export type Details = Readonly<{ key?: unknown }>
  * own is still a defect, as a defect would be. The defects are wrapped there too, so that those of an interrupted
  * effect are: what a subscription the run stopped dies with while it releases what it holds.
  */
-// The details are data, a key or nothing, so that saying where a defect happened throws nothing. `kept` says which of the interruptions the fiber received are no defect: all of them where whoever runs the program
-// may interrupt the fiber, those of the run alone in a fiber the run forks (`Core.byTheRun`, as `scopedIn` keeps).
+// The details are data, a key or nothing, so that saying where a defect happened throws nothing. `kept` says which of
+// the interruptions the fiber received are no defect: all of them where whoever runs the program may interrupt the
+// fiber, those of the run alone in a fiber the run forks (`Core.byTheRun`, as `scopedIn` keeps).
 const diesIn = (
   where: DefectSite,
   details: Details = {},
@@ -136,7 +137,7 @@ export const scopedIn = (
  * Runs a subscription, sending each of its messages, in the scope of the fiber that runs it, and returns its last
  * message: what the channel adds to that scope is released as it closes, after `scopedIn` has recorded what the
  * subscription died of. `Channel.runForEach` would run the channel in a scope it makes and closes first, so that a
- * defect would wait for that release, while the loop goes on applying messages.
+ * defect would wait for that release, while the run goes on applying messages.
  */
 const runSubscription = <Message, R, RS>(
   subscription: Subscription<Message, R>,
@@ -249,11 +250,11 @@ export const makeDeaths = (keeps: (defect: unknown) => boolean): Deaths => {
 }
 
 /**
- * What the fibers of a run get from the context of whoever ran it: the same, but for its span, seen by them as
- * an external one. Every log is also an event of the current span, kept in memory until the span is exported:
- * a fiber that lives as long as the run (the loop, a subscription), or one of its many
- * commands, would add to it for as long as the run lasts. An external span takes no events, and the spans
- * that commands and subscriptions open (`Effect.fn`) are still its children in the trace.
+ * What the fibers of a run get from the context of whoever ran it: the same, but for its span, seen by them as an
+ * external one. Every log is also an event of the current span, kept in memory until the span is exported: a fiber that
+ * lives as long as the run (the fiber of effects, a subscription), or one of its many commands, would add to it for as
+ * long as the run lasts. An external span takes no events, and the spans that commands and subscriptions open
+ * (`Effect.fn`) are still its children in the trace.
  */
 export const withExternalSpan = <R>(context: Context.Context<R>): Context.Context<R> => {
   const span = Context.getOrUndefined(context, Tracer.ParentSpan)

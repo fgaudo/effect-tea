@@ -2034,8 +2034,8 @@ describe("rehearse, as a call leaves while the fiber of effects is in a release"
 })
 
 // Found by the sixth premise review of November 2026, of the form of a command that answers while the rehearsal
-// ends: the request was in the loop's queue when the scenario returned, and the end interrupted it. A scenario that
-// returned lets the fiber of effects finish what it was offered before.
+// ends: the request was in the queue of the fiber of effects when the scenario returned, and the end interrupted it. A
+// scenario that returned lets the fiber of effects finish what it was offered before.
 describe("rehearse, as a fiber of the test's has sent a message when the scenario returns", () => {
   type Count = Readonly<{ count: number }>
 

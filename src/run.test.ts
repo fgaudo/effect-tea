@@ -2505,6 +2505,58 @@ describe("a self-interruption as the run interrupts", () => {
   )
 })
 
+// What a command holds is released once its defect says where: its scope closes with the exit the run dies with, a
+// defect for a command that interrupted itself too, and what the release dies of is the command's, not the renderer's
+// nor the run's own. So a release that dies of the very defect of its command is a second defect, which `Cause` would
+// take for the first before either said where.
+describe("the release of a command", () => {
+  type Releasing = Program<
+    { state: Count; model: Model; message: Message; command: Command; commandServices: Scope.Scope }
+  >
+  const sitesOf = (exit: Exit.Exit<unknown, unknown>): ReadonlyArray<unknown> =>
+    Exit.isFailure(exit)
+      ? exit.cause.reasons.map((reason) =>
+        Cause.isDieReason(reason) && reason.defect instanceof ProgramDefect ? reason.defect.where : reason._tag
+      )
+      : []
+  // Runs the command of `init`, `body` under a release that notes the site of each reason of the exit it is given,
+  // then does `release`: what the release saw, and what the run died of.
+  const witnessed = async (
+    body: Effect.Effect<Opt.Option<Message>, never, Scope.Scope>,
+    release: (exit: Exit.Exit<unknown, unknown>) => Effect.Effect<void> = () => Effect.void
+  ) => {
+    const seen: Array<unknown> = []
+    const program: Releasing = {
+      ...counter,
+      init: { state: { count: 0 }, commands: ["Boom"] },
+      runCommand: () =>
+        Effect.addFinalizer((exit) => Effect.andThen(Effect.sync(() => seen.push(...sitesOf(exit))), release(exit)))
+          .pipe(Effect.andThen(body))
+    }
+    const exit = await Effect.runPromiseExit(start(program).run)
+    return { seen, ended: sitesOf(exit) }
+  }
+
+  test("that dies, of a command that answers, is a defect in the command", async () => {
+    const { ended } = await witnessed(Effect.succeedSome<Message>("Increment"), () => Effect.die("release threw"))
+    expect(ended).toEqual(["command"])
+  })
+
+  test("of a command that dies is given its defect, in the command", async () => {
+    expect(await witnessed(Effect.die("boom"))).toEqual({ seen: ["command"], ended: ["command"] })
+  })
+
+  test("of a command that interrupts itself is given a defect, in the command", async () => {
+    expect(await witnessed(Effect.interrupt)).toEqual({ seen: ["command"], ended: ["command"] })
+  })
+
+  test("that dies of the very defect of its command is a second defect of the command", async () => {
+    const boom = new Error("boom")
+    const { ended } = await witnessed(Effect.die(boom), () => Effect.die(boom))
+    expect(ended).toEqual(["command", "command"])
+  })
+})
+
 // A command that interrupts itself is a defect ("Nothing ends in silence" in the guide), and its release is part of
 // it: a release that interrupts itself is one too, after the defect the command died of, in the order they happened.
 // Alone, without a defect before it, the run dies of it as one.
@@ -2608,6 +2660,51 @@ describe("an interruption made by another fiber of the program", () => {
     )
     const listening: Keyed = { ...counter, subscriptions: () => ["k"], listen: () => ending }
     expect(site(await endedWithin(start(listening).run))).toBe("subscription")
+  })
+
+  test("of a subscription, as it runs, is a defect in the subscription", async () => {
+    const interruptedAsItRuns = Effect.gen(function*() {
+      const self = yield* Effect.fiber
+      yield* Effect.forkDetach(Fiber.interrupt(self))
+      return yield* Effect.never
+    })
+    const listening: Keyed = {
+      ...counter,
+      subscriptions: () => ["k"],
+      listen: () => Channel.fromEffectDone(interruptedAsItRuns)
+    }
+    expect(site(await endedWithin(start(listening).run))).toBe("subscription")
+  })
+
+  // The release waits for `gate` once the interrupter has begun, and whoever runs the run interrupts it meanwhile: the
+  // run stops the command with its mark, and the program's interruption lands beside it once the scope has closed.
+  test("of a command, as its scope releases what it holds while whoever runs the run interrupts it, is a defect in the command", async () => {
+    const exit = await Effect.runPromise(Effect.gen(function*() {
+      const began = yield* Deferred.make<void>()
+      const gate = yield* Deferred.make<void>()
+      const program: Program<
+        { state: Count; model: Model; message: Message; command: Command; commandServices: Scope.Scope }
+      > = {
+        ...counter,
+        init: { state: { count: 0 }, commands: ["Ping"] },
+        runCommand: Effect.fnUntraced(function*() {
+          const self = yield* Effect.fiber
+          yield* Effect.addFinalizer(() =>
+            Effect.forkDetach(Fiber.interrupt(self), { startImmediately: true }).pipe(
+              Effect.andThen(Deferred.succeed(began, undefined)),
+              Effect.andThen(Deferred.await(gate))
+            )
+          )
+          return Opt.some<Message>("Increment")
+        })
+      }
+      const fiber = yield* Effect.forkChild(start(program).run)
+      yield* Deferred.await(began)
+      yield* Effect.forkChild(Fiber.interrupt(fiber), { startImmediately: true })
+      yield* Deferred.succeed(gate, undefined)
+      return yield* Fiber.await(fiber)
+    }))
+    expect(site(exit)).toBe("command")
   })
 })
 

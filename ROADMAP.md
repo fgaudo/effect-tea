@@ -28,48 +28,36 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Step 55 comes before the release that follows it, so that one release carries every breaking change.
+Step 65 comes before the release of 0.9.0, so that the release rests on a review of every change since the last one.
 
-### 55. The review before the release
+### 65. The review of what step 55 did not read
 
-**Model and effort.** Opus 5.5, `high`, by a reviewer that wrote none of the changes
+**Model and effort.** Opus 5.5, `high`, by reviewers that wrote none of the changes
 ([`premise-review`](.agents/skills/premise-review/SKILL.md)).
 
-**Depends on** no open step, and comes before the release that follows it. Step 64, the last of what step 61 decided
-([`decisions-weighed.md`](docs/records/decisions-weighed.md), point 4), is done.
+**Depends on** step 55, and comes before the release of 0.9.0.
 
-**Why.** Steps 49 to 54 move a check from a tool to the engine, or take one away with the code it guarded: a premise
-may leave with it, and no test fail. From step 52 on, `simulate` rests on the engine's premises, and no longer on
-those of a fork of its own. Step 56 made the guide promise only its rules, and steps 57 to 60 change what it
-promises, and how the API is written. Step 57 made a state current only once its keys are, a defect of `subscriptions`
-leaving the state as it was (`applyOne` in `engine.ts`, and `stepped`, which the stage of the tools reads), and added
-the premise of one channel run again, the first on the user's own value. Steps 62 to 64 each take an invariant away:
-a state that is an object, with a child's model kept by its instance since; the end's own report of the defects, read
-from the register alone since; and the rule of an input. Step 54 made "the testing tools behave like the engine" a
-check of the lint (`.oxlintrc.json`: a tool takes of `core.ts` and `shell.ts` only the names of an allow-list, by
-name), and took out of `contract.test.ts` 22 cases of a tool that differed from a case kept only by what the program
-does in a site the engine owns. In five of them, `rehearse` and `simulate` stopping a command as the caller's or the
-interrupter's fiber, and `simulate` interrupted by whoever runs it as a command releases, the stop is the stage's own
-code (`stopping`, in the release of `runFirst` in `stage.ts`), held by `rehearse.test.ts`, `simulate.test.ts` and the
-mutation "a stage stops the command of an interrupted run with no mark of its own". Four that a rule of "Testing
-tools" names for `simulate` stayed. The review reads the list in its commit for any case it would have kept. Twelve
-cases of the run alone in `contract.test.ts`, listed in that commit too, lost their tool beside them and were kept as
-the reference of that reading: each one the review gives no tool case again is no contract, and goes to the run's
-boundary file (`run.test.ts`, `engine.test.ts` or `start.test.ts`), or out where `engine.test.ts` holds it already.
+**Why.** The review of step 55, over the changes since the last review (`ce1ffd1`), read `engine.ts`, `shell.ts`,
+`core.ts` and `run.ts`, and of `src/testing/` `stage.ts`, `simulate.ts` and `rehearse.ts`, whole; `drive.ts` from
+`drive` on; and `docs/invariants.md`, `docs/premises.md` and three sections of the guide's "Testing tools". It did not
+read the rest of what changed since `ce1ffd1` (`git diff --stat ce1ffd1 <the commit of step 55> -- src test`):
+`compose.ts` and `dispatch.ts` of the engine, `program.ts` and `subscription.ts`, `driven` in `drive.ts`, `failure.ts`
+and `apply-all.ts` of the tools, and `test/premises.test.ts`; nor the guide's "Guarantees". A premise taken away there
+fails no test until a run meets the case.
 
-**Done when** the review has read the engine and the testing tools over the changes since the last review; each
+**Done when** the review has read those, its report in the step's commit or on a branch that the commit names; each
 finding is an item of "Open problems" with its `test.failing`; each place where the code or a document says otherwise
-is set right; each of the twelve cases of the run alone has a tool's case beside it again, or has left
-`contract.test.ts`; `docs/premises.md` says what `simulate` rests on; and the checks of point 1 of "Releasing", in
-`release`, pass.
+is set right; and the checks of point 1 of "Releasing", in `release`, pass. The next review reads the changes since
+the commit of this step.
 
 ## For the owner
 
 What leaves this machine, or decides what the project is ("Deciding" in `AGENTS.md`): an agent prepares it, and the
 owner does it.
 
-- **The release that follows step 55.** An agent prepares its commit and its tag (`release`) when the owner asks for
-  it, and the owner pushes them and publishes the package.
+- **The release of 0.9.0**, once step 65 is done. An agent prepares its commit and its tag (`release`) when the owner
+  asks for it, and the owner pushes them and publishes the package. The agent runs the checks of point 1 of
+  "Releasing" again only where a commit came after the last one on which they passed.
 - **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
   decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API. Until then,
   releases stay at 0.x.

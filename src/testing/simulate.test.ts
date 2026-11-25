@@ -144,6 +144,22 @@ describe("simulate", () => {
     expect(simulate({ update: counting, subscriptions: () => [] }, [], { state: idle })).toBeDefined()
   })
 
+  // Each start's fiber ends at once, its key still active: one that goes away has nothing left to stop, and one that
+  // comes back starts again.
+  test("plays a key that goes away and comes back, whose subscription never runs", async () => {
+    type Toggled = Readonly<{ on: boolean; n: number }>
+    const toggling = {
+      update: (message: "Toggle" | "Tick") => ({ on, n }: Toggled) =>
+        message === "Toggle" ? { state: { on: !on, n }, commands: ["Note" as const] } : { state: { on, n: n + 1 } },
+      runCommand: () => Effect.succeedSome<"Toggle" | "Tick">("Tick"),
+      subscriptions: ({ on }: Toggled) => on ? ["k"] : []
+    }
+    const { state } = await Effect.runPromise(
+      simulate(toggling, ["Toggle", "Tick", "Toggle", "Tick", "Toggle", "Toggle"], { state: { on: true, n: 0 } })
+    )
+    expect(state).toEqual({ on: true, n: 6 })
+  })
+
   test("takes a program without commands or events, written as a plain object", async () => {
     const counting = {
       init: { state: { count: 0 } },
