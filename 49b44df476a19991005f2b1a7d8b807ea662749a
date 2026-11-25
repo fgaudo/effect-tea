@@ -1,0 +1,44 @@
+Correction: this commit closes step 60, not step 61.
+
+Step 61 is 2255366. A resumed run of the roadmap's workflow committed the work of step 60
+under the message of step 61, and the commit was pushed before it was found. Its message
+should read:
+
+Close step 60: the API as step 59 decided
+
+Step 59 reviewed the API by its names and its surface (docs/records/api-review.md);
+this step applies its changes 1 to 4 and 6 to 8. Changes 9 to 11 are steps 62 to 64.
+
+- applyAll and simulate are called in one step, as every other tool is: the
+  messages and the state, or step, follow the first parameter, typed NoInfer, so
+  the types still come from update, or from the program, alone.
+- Simulation is Simulated, as Folded is what applyAll returns.
+- A piece a program has only when it has its type is With<Piece>: Interpreter is
+  WithRunCommand, Listener is WithListen, ExternalHandler is WithExternal and no
+  longer exported, and Shape's output is WithOutput, not exported.
+- Host takes its view as `view`, as Draw and drawInto do.
+- The reference lists the types that only name signatures last, under "Types of
+  the signatures".
+- The glossary has Ignored and `key` (of child), and Rehearsal says its run is not
+  the run start gives.
+- In prose a key is a subscription's: what `key` gives a child, and the keys of a
+  child's subscriptions, have words of their own.
+
+Decisions:
+- In the inference matrix, simulate and applyAll as takers both lose the line
+  that read what they take: called in one step, no function is left to read, and
+  their messages are NoInfer while the uses check update. As a use, simulate is
+  given no messages and a from typed never.
+- Refusals of simulate in the tests give it all three arguments, so that each
+  @ts-expect-error still fails on the program.
+- The mutations that quoted "a child with keys and no `listen`" quote the new
+  words of "Composition".
+- "Writing a bridge" titles its section messagesSentBy without code form: TypeDoc
+  anchors a heading of code alone as "#_", and the site build warned on the
+  guide's link to it.
+- bun run test:browsers ran Chromium and WebKit: Playwright's Firefox does not
+  start on this machine, and runs in the CI.
+- The roadmap no longer says that a step for Fable 5.2 runs on Opus 5.5: Fable
+  is available.
+
+Assisted-by: Claude Opus 5.5
