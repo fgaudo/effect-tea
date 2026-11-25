@@ -26,13 +26,14 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 86 to 90 come before the release of 0.9.0. The owner asked for them on 25 November 2026, with a bridge to React
-Native, which step 83 made: whether a view of React can have a `messagesSentBy`, and a reading of the names of the API
-(86, 87). Step 84 decided the first, after a spike ([`react-view-tests.md`](docs/records/react-view-tests.md)): it has
+Steps 87 to 90 come before the release of 0.9.0. The owner asked for them on 25 November 2026, with a bridge to React
+Native, which step 83 made: whether a view of React can have a `messagesSentBy`, and a reading of the names of the
+API. Step 84 decided the first, after a spike ([`react-view-tests.md`](docs/records/react-view-tests.md)): it has
 none, and step 85 showed the check with React's tools, in `bridges/react.test.ts` and
-`examples/react-native/views.test_jest.tsx`. Steps 88 to 90 are the agent's own proposals, which the owner may
-strike. The owner's fourth point has no step: the bridges stay in `bridges/` ([`rejected.md`](docs/rejected.md), "The
-bridges"). Step 82 decided what the bridge to React is on React Native
+`examples/react-native/views.test_jest.tsx`. Step 86 read the names ([`names.md`](docs/records/names.md)): five
+change, two of them with a break, and step 87 applies them. Steps 88 to 90 are the agent's own proposals, which the
+owner may strike. The owner's fourth point has no step: the bridges stay in `bridges/`
+([`rejected.md`](docs/rejected.md), "The bridges"). Step 82 decided what the bridge to React is on React Native
 ([`react-native.md`](docs/records/react-native.md)): `./react` as it is, with no entry and no peer of its own.
 `bun run test:react-native` checks it there, a job of the CI.
 
@@ -50,53 +51,35 @@ The next review of the premises ([`premise-review`](.agents/skills/premise-revie
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
 
-### 86. The names of the API, read whole
-
-**Model and effort.** Fable 5.2, `high`: it decides breaking changes of the API, by value 3.
-
-**Depends on** no open step: step 84 decided that the bridge to React gets no export for tests.
-
-**Why.** The owner asked that every name of the API, of a function, a field or a type, be right and coherent, before
-0.9.0: its breaking changes go out together. [`api-review.md`](docs/records/api-review.md) decided each of the 84
-exports on 24 November 2026, by the values of "Deciding", and read a field only where a change touched one. So the
-fields, the options, the literal values and the type parameters have not been read as a whole, nor what the steps
-since added.
-
-**How.** Read every name that a user writes, or reads in a hover, from the API reports (`api/*.api.md`), against the
-glossary: is it the glossary's word, has the same role the same form wherever it appears, and does it say what the
-thing is to a user. An export that `api-review.md` kept is changed only by an argument that the record did not weigh,
-which the new record names; the precedents of [`rejected.md`](docs/rejected.md), "The API", bind alike. Leads, which
-are questions and not findings:
-
-- what a declaration takes and what it makes: `ids` and `flags` in `childById`, `listed` and `flagged` in `ChildById`,
-  and `kind: 'one' | 'byId'`;
-- the state in what a run reports: `before` and `after` in `Applied`, `state` in `Ignored` and in `Instance`;
-- the literals of `DefectSite` beside the pieces they name: `'command'` for `runCommand`, `'subscription'` for
-  `listen`, `'render'`; and the fields of the defects, `where`, `cause`, `key`, `on`, `child`, `id`;
-- the type parameters that a hover shows, `RC`, `RS`, `RT`, `Ran`, `Heard`, beside `commandServices` and
-  `subscriptionServices` in `Program<{ … }>`;
-- what a `Rehearsal` and a `Driver` have: `send` and `dispatch`, `hear` and `hearNext`, `run` and `runAll`, and
-  `model`, an effect there and a function in `App`;
-- the options of the tools: `held`, `candidates`, `repeatable`, `inert` and `withheld` of `dispatchViolations`,
-  `patience` of `drive`, `element` and `event` of `reports`.
-
-**Done when** a record, `docs/records/names.md`, lists each name changed, the old and the new, with its reason; a name
-weighed and kept, which a reader would propose again, has an entry in `docs/rejected.md`; and step 87 names every
-change, or is removed where none is made.
-
 ### 87. The names that step 86 changed
 
-**Model and effort.** Opus 5.5, `medium`: each change is given word for word, and the compiler finds its places.
+**Model and effort.** Opus 5.5, `medium`: each change is given word for word, and the compiler, or a search, finds its
+places.
 
-**Depends on** step 86, which writes its list.
+**Depends on** no open step: its list is "What changes", in [`names.md`](docs/records/names.md).
 
-**How.** By [`change-api`](.agents/skills/change-api/SKILL.md): each name in `src/`, the bridges, the tests, the
-examples, the tools that quote the code (`tools/mutations/mutations.ts`, `tools/inference/`), the guide with its
-glossary, the tutorial, the skill and the README. The changelog has one `**Breaking**:` entry for each, whose
-`Upgrade:` gives the old spelling and the new, as those of step 60 do.
+**How.** By [`change-api`](.agents/skills/change-api/SKILL.md), the five changes of the record, each with the exact
+words that the record gives it:
 
-**Done when** the checks of `change-api` pass, with `bun run test:node`, `interleavings`, `test:browsers` and
-`mutations`, and no old name is left but in the changelog and in `docs/records/`.
+1. `applied`, for the `messages` of a `Simulated`, in the changelog's entry on `Simulated`;
+2. `_tag: 'Child'` and `_tag: 'ChildById'`, for the `kind` of a `Child` and of a `ChildById`;
+3. `repeatable`, of `dispatchViolations`, given the state, with a test of the tool that reads it;
+4. `options`, for the parameter `place` of `child` and of `childById`, and the four types `…Place` named `…Options`;
+5. `CommandServices`, `SubscriptionServices` and `R`, for the type parameters `RC`, `RS` and `RT`, with the three
+   local names that the record lists.
+
+Each in `src/`, the bridges, the tests, the examples, the tools that quote the code (`tools/mutations/mutations.ts`,
+`tools/inference/`), the guide with its glossary, the tutorial, the skill and the README. The compiler finds the places
+of 1 to 3. A search finds those of 4 and 5, which no compiler reports, and the record says which `place` and which
+`R` stay: read each match against it, and rename none by its spelling alone. The changelog's words are the record's:
+the entry on `Simulated` written again for 1, a `**Breaking**:` entry for 2, and the entry of 3 under "Added".
+Changes 4 and 5 have none.
+
+**Done when** `bun run typecheck`, `lint`, `test`, `comments`, `smoke` and `api --check` pass, with `bun run inference`,
+`bun run inference --run`, `test:node`, `interleavings`, `test:browsers`, `test:react-native` and `mutations`; the
+reports of `api/` are written again, and their diff holds the five changes and nothing else; and no old name is left
+but in the changelog and in `docs/`: no `kind` of a declaration, no `messages` of a `Simulated`, no type `…Place` but
+`Place` and `Placer`, and no `RC`, `RS`, `RT`, `RCOf` or `RSOf`.
 
 ### 88. A reader's check of an application in React Native
 
@@ -119,8 +102,8 @@ the skill's "Before it starts".
 
 **Model and effort.** Opus 5.5, `medium`, with the agent that upgrades as a subagent.
 
-**Depends on** step 87. Proposed by the agent. Where step 86 changes no name, this step goes back to a note of "Next,
-in order", for the release after 0.9.0.
+**Depends on** step 87. Proposed by the agent. Step 86 changed two names with a break, the `messages` of a `Simulated`
+and the `kind` of a declaration ([`names.md`](docs/records/names.md)).
 
 **Why.** The `Upgrade:` lines of step 87 are all that a user of the package has to follow its names. An application
 written before them shows whether they are enough.

@@ -373,6 +373,51 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   concept, for a member that no program writes and `stateOf` fills. Its doc comment says which of the two it holds.
   _Reopen if_ a child comes to have a `key` beside its flags (parked below), so that the member holds two values, or
   a test that reads `instance.key` takes it for a subscription's key.
+- **What `child` and `childById` take, mirrored in what they make**: `ids` and `flags` in a `ChildById`, for `listed`
+  and `flagged`, and `there` as a function in a `Child`; and another name for the `flags` of `childById`, which lists
+  each id with its flags. Reasoned, 25 November 2026, in step 86 ([`names.md`](records/names.md)): a `Child` and a
+  `ChildById` hold a declaration as the library reads it, with one function for whether a child is there and what it
+  starts from, and no program writes or reads their members. A mirror would have the types that read them decide by
+  which option is present. `flags` says in `childById` what it says in `child`: the flags of each child that is there.
+  _Reopen if_ a user comes to write a `Child` by hand, or to read one.
+- **One word for the state in `Applied` and in `Ignored`**: `state` for `after`, or `before` for the `state` of an
+  `Ignored`. Reasoned, in the same step: an applied message has two states and an ignored one has one. `state` beside
+  `before` would not say which of the two it is, and `before` alone would promise an `after`. _Reopen if_ a third
+  report of the run comes to hold a state.
+- **`'runCommand'` and `'listen'`, for the sites `'command'` and `'subscription'` of `DefectSite`; `'makeModel'`, apart
+  from `'render'`; and `site`, for `where`.** Reasoned, in the same step: a site is a moment of the run, not a function
+  of the program. `'update'` holds `onEvent` and a child's `external` too, and `'render'` holds `makeModel` because a
+  model is made as it is read, while a renderer draws. What dies in `'command'` is most often the effect that a command
+  became, as it runs, and seldom `runCommand` as it makes that effect; and `Origin` names the same two, `Command` and
+  `Subscription`. `'subscriptions'` and `'subscription'` differ by a letter, as the piece and what it lists do. `where`
+  is the question that the field answers, as `on` is, and `DefectSite` names its answers. _Reopen if_ a crash report or
+  a test is found to take `'subscription'` for `'subscriptions'`, or a user must tell a defect of `makeModel` from one
+  of the renderer where the `cause` does not say which it is.
+- **Other names in a `Rehearsal` and a `Driver`**: `listen`, for `hearNext`; `dispatch`, for `send`; and `model` as a
+  function, as an `App` has it. Reasoned, in the same step: `send` goes through the model, as a user does, and
+  `dispatch` is a `Dispatch<Message>` wherever it appears, so a `Driver` has both. `hear` says what was heard, and
+  `hearNext` hears what the subscription sends next: `listen` would give the name of the piece to a function of
+  another shape, as `runCommand` would for `run` (above). `model` is the model of the current state in each: a
+  function for plain code, which a renderer calls, and an effect in a scenario, where it fails with the program's
+  defect, as `state` and `pending` are effects. _Reopen if_ a reader takes `hear` for `hearNext`, or one object comes
+  to give a model both ways.
+- **`timeout`, for the `patience` of `drive`.** Reasoned, in the same step: beside a scenario, a timeout reads as the
+  limit of the whole scenario, which the test runner has, and `patience` is that of each wait: how long the driver, a
+  user, waits for a model. _Reopen if_ a reader sets `patience` to bound a scenario, or looks for it under `timeout`
+  and does not find it.
+- **Another name for the `subscribe` of an `App`** (`watch`, `onChange`), since a subscription, in the glossary, is a
+  program's. Reasoned, in the same step, within value 3 of "Deciding", as for the `run` of a `Rehearsal` (above): it is
+  the word of the contract that it fills. A bridge gives it as it is to React,
+  `useSyncExternalStore(app.subscribe, app.model)`, and the writer of a bridge looks for a store's `subscribe`. The two
+  meanings share no object: an `App` has no key and no `listen`, and a program no `subscribe`. _Reopen if_ a reader
+  takes `app.subscribe` for a way to start a subscription of the program.
+- **`onExternal`, for `external`, beside `onEvent`; and a plural noun for the `tell` of a step**, beside `commands` and
+  `events`. Reasoned, in the same step, where the owner's choice of `external`
+  ([`external-handler.md`](records/external-handler.md), "Decided") was weighed by the values: `external` has the
+  name of its type in `program<{ … }>`, as `output` has, and is one function of a message, as `update` is, where
+  `onEvent` is a record of handlers by child. `tell` is one word in a step and in a declaration, the guide's verb for
+  what a parent does: a step lists the commands and the events that it made, and tells its children. _Reopen if_ a
+  reader looks for `external` under `on…`, or takes the `tell` of a step for something else than a list.
 - **A link from a doc comment to the site.** Spiked, 16 November 2026: the site keeps no older release, so a hover would
   show the next release's promises; `tools/comments.ts` refuses one. _Reopen if_ the site keeps each release.
 - **A site that keeps each release.** Reasoned: infrastructure the owner declined for a rule of the documentation.
