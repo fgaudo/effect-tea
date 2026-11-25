@@ -907,25 +907,43 @@ describe("the instance of a child", () => {
 })
 
 describe("the children that the library keeps", () => {
-  test("init starts each child its first state lists, with its first commands, by the order of the names, then of the ids", () => {
+  test("init starts each child its first state lists, with its first commands, by the order of the names as JavaScript gives the keys, then of the ids as listed", () => {
     const Started = program<{ state: Readonly<{ ids: ReadonlyArray<number> }>; command: "Boot" }>()
     const started = Started.withChildren({
       Second: Started.childById(loader, { ids: (state) => state.ids }),
-      First: Started.child(loader)
+      "01": Started.child(loader),
+      First: Started.child(loader),
+      "4294967295": Started.child(loader),
+      "7": Started.child(loader),
+      "-1": Started.child(loader),
+      "2": Started.child(loader)
     }).make({
       init: { state: { ids: [3, 1] }, commands: ["Boot"] },
-      onEvent: { Second: () => (state) => ({ state }), First: () => (state) => ({ state }) },
+      onEvent: {
+        Second: () => (state) => ({ state }),
+        "01": () => (state) => ({ state }),
+        First: () => (state) => ({ state }),
+        "4294967295": () => (state) => ({ state }),
+        "7": () => (state) => ({ state }),
+        "-1": () => (state) => ({ state }),
+        "2": () => (state) => ({ state })
+      },
       runCommand: () => Effect.succeedNone,
       makeModel: () => null
     })
     const load: RowCommand = { _tag: "Load", label: "one" }
     expect(started.init.commands).toEqual([
       "Boot",
-      { _tag: "Second", id: 3, instance: 1, command: load },
-      { _tag: "Second", id: 1, instance: 2, command: load },
-      { _tag: "First", instance: 3, command: load }
+      { _tag: "2", instance: 1, command: load },
+      { _tag: "7", instance: 2, command: load },
+      { _tag: "Second", id: 3, instance: 3, command: load },
+      { _tag: "Second", id: 1, instance: 4, command: load },
+      { _tag: "01", instance: 5, command: load },
+      { _tag: "First", instance: 6, command: load },
+      { _tag: "4294967295", instance: 7, command: load },
+      { _tag: "-1", instance: 8, command: load }
     ])
-    expect(started.init.state.starts).toBe(3)
+    expect(started.init.state.starts).toBe(8)
   })
 
   test("a child that a step lists anew is started, with its first commands lifted with its number", () => {

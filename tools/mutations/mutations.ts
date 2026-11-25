@@ -836,7 +836,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/compose.test.ts",
-        "init starts each child its first state lists, with its first commands, by the order of the names, then of the ids"
+        "init starts each child its first state lists, with its first commands, by the order of the names as JavaScript gives the keys, then of the ids as listed"
       ]
     ]
   },

@@ -109,8 +109,11 @@ children that this step lists as it makes the program, so a child's `init` that 
 state. A parent with flags is started by `start`, or by its own parent, which then starts its children.
 
 **The order of the starts.** The children that one state lists anew are started by the order of their names in
-`withChildren`, then by the order of their ids. Their instances are numbered in that order: each start takes the next
-number, from 1 for the first child that the parent starts.
+`withChildren`, then by the order in which `ids`, or `flags`, lists their ids. The names are in the order that
+JavaScript gives the keys of an object: a name that is a whole number from 0 to 4294967294, written with no sign and no
+leading zero, such as `'2'`, comes first, from the smallest; the others, `'-1'`, `'01'` or `'4294967295'` among them,
+follow as they are written. Their instances are numbered in that order: each start takes the next number, from 1 for
+the first child that the parent starts.
 
 #### The parent's own pieces
 

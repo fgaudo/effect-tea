@@ -28,36 +28,19 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Step 65 comes before the release of 0.9.0, so that the release rests on a review of every change since the last one.
-
-### 65. The review of what step 55 did not read
-
-**Model and effort.** Opus 5.5, `high`, by reviewers that wrote none of the changes
-([`premise-review`](.agents/skills/premise-review/SKILL.md)).
-
-**Depends on** step 55, and comes before the release of 0.9.0.
-
-**Why.** The review of step 55, over the changes since the last review (`ce1ffd1`), read `engine.ts`, `shell.ts`,
-`core.ts` and `run.ts`, and of `src/testing/` `stage.ts`, `simulate.ts` and `rehearse.ts`, whole; `drive.ts` from
-`drive` on; and `docs/invariants.md`, `docs/premises.md` and three sections of the guide's "Testing tools". It did not
-read the rest of what changed since `ce1ffd1` (`git diff --stat ce1ffd1 <the commit of step 55> -- src test`):
-`compose.ts` and `dispatch.ts` of the engine, `program.ts` and `subscription.ts`, `driven` in `drive.ts`, `failure.ts`
-and `apply-all.ts` of the tools, and `test/premises.test.ts`; nor the guide's "Guarantees". A premise taken away there
-fails no test until a run meets the case.
-
-**Done when** the review has read those, its report in the step's commit or on a branch that the commit names; each
-finding is an item of "Open problems" with its `test.failing`; each place where the code or a document says otherwise
-is set right; and the checks of point 1 of "Releasing", in `release`, pass. The next review reads the changes since
-the commit of this step.
+None. The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the
+release after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps
+55 and 65 together read every change since `ce1ffd1`.
 
 ## For the owner
 
 What leaves this machine, or decides what the project is ("Deciding" in `AGENTS.md`): an agent prepares it, and the
 owner does it.
 
-- **The release of 0.9.0**, once step 65 is done. An agent prepares its commit and its tag (`release`) when the owner
-  asks for it, and the owner pushes them and publishes the package. The agent runs the checks of point 1 of
-  "Releasing" again only where a commit came after the last one on which they passed.
+- **The release of 0.9.0**, ready since step 65, which closed the review of every change since the last one. An agent
+  prepares its commit and its tag (`release`) when the owner asks for it, and the owner pushes them and publishes the
+  package. The checks of point 1 of "Releasing" passed on the commit that closed step 65: the agent runs them again
+  only where a commit came after it.
 - **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
   decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API. Until then,
   releases stay at 0.x.
