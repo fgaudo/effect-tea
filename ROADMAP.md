@@ -7,8 +7,6 @@ is removed, with the reason in the commit, and leaves its number unused. An item
 the same commit. How an item came to be is in a record of [`docs/records/`](docs/records), or in the commits, not
 here.
 
-A step for Fable 5.2 runs on Opus 5.5, `xhigh`, while Fable is not available.
-
 ## How the steps run
 
 One after another, in the order of "Next, in order", each in a context of its own (a workflow per step, or a session
