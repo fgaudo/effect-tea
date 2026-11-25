@@ -11,13 +11,13 @@ rules where a line here says less.
 
 ## A program and its pieces
 
-| Word        | What it is                                                                                                                                                                                    | Defined in                                        |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| **Program** | A plain object: `init`, `update`, `makeModel`, `subscriptions`, `runCommand` when it has commands, `external` when it has external messages, and `output` when its parent reads a value of it | [anatomy of a program](./anatomy-of-a-program.md) |
-| **State**   | What the program knows: any value, replaced and never mutated                                                                                                                                 | [anatomy of a program](./anatomy-of-a-program.md) |
-| **Message** | What `update` is given: a click the model holds, a command's answer, what a subscription sends                                                                                                | [update](./update.md)                             |
-| **Step**    | What `update` returns for a message it accepts: `{ state, commands?, events? }`                                                                                                               | [update](./update.md)                             |
-| **Flags**   | What a program starts from, when it cannot start the same way every time                                                                                                                      | [anatomy of a program](./anatomy-of-a-program.md) |
+| Word        | What it is                                                                                                                                                                                                               | Defined in                                        |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
+| **Program** | A plain object: `init`, `update`, `makeModel`, `subscriptions`, `listen` when it has keys, `runCommand` when it has commands, `external` when it has external messages, and `output` when its parent reads a value of it | [anatomy of a program](./anatomy-of-a-program.md) |
+| **State**   | What the program knows: any value, replaced and never mutated                                                                                                                                                            | [anatomy of a program](./anatomy-of-a-program.md) |
+| **Message** | What `update` is given: a click the model holds, a command's answer, what a subscription sends                                                                                                                           | [update](./update.md)                             |
+| **Step**    | What `update` returns for a message it accepts: `{ state, commands?, events? }`                                                                                                                                          | [update](./update.md)                             |
+| **Flags**   | What a program starts from, when it cannot start the same way every time                                                                                                                                                 | [anatomy of a program](./anatomy-of-a-program.md) |
 
 ## What the user sees
 
@@ -78,6 +78,5 @@ rules where a line here says less.
 | **Candidates** | The messages a user could ask for, which a test lists for `dispatchViolations`                                                                           | [testing tools](./testing-tools.md#dispatchviolations) |
 | **Withheld**   | The candidates a model leaves out on purpose                                                                                                             | [testing tools](./testing-tools.md#dispatchviolations) |
 | **Inert**      | The messages a model holds on purpose though their step does nothing                                                                                     | [testing tools](./testing-tools.md#dispatchviolations) |
-| **Violation**  | What `dispatchViolations` returns for a check that fails: `Rejected`, `Inert`, `ActsTwice` or `Missing`                                                  | [testing tools](./testing-tools.md#dispatchviolations) |
 | **Scenario**   | What a user does, played by a test: by `rehearse` without running the program, and by `drive` on the running program                                     | [testing tools](./testing-tools.md#rehearse)           |
 | **Rehearsal**  | What `rehearse` gives the scenario to act with, such as `send`, `run` and `hear`. Its `run` runs a pending command: it is not the run that `start` gives | [testing tools](./testing-tools.md#rehearse)           |

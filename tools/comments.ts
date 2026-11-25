@@ -3,15 +3,13 @@
 // after another, which
 // the declarations keep though the hover shows only the last, or `@privateRemarks`, which TypeDoc hides and the hover
 // shows. It fails on a link to the site, whose pages are those of the latest release and not of the version installed.
-// It fails on a block copied from the guide, as the comments once held. And a comment names the part of the guide it
-// follows with a line of its own:
+// It fails on a block copied from the guide, as the comments once held. And a comment names the page of the guide that
+// teaches its concept with a line of its own, by the page's `title`:
 //
-//   * @see The guide, "View", "Sending applies the message".
+//   * @see The guide, "View".
 //
-// where the first name is the page's `title`, and the second, which may be left out, a heading of that page or the
-// bold title a list item or a paragraph starts with, without its final period. It fails when the guide has no such
-// page, or no such section, or has it more than once: a renamed section shows here, and whoever changes one finds the
-// comments that follow it by its name.
+// It fails when the guide has no such page, or when the line names a section too: a page is written again as a whole,
+// and its sections with it, so a comment names no section. A renamed page shows here.
 //
 // It checks the titles the mutations (`tools/mutations/mutations.ts`) give of the items of "What you can rely on", in
 // "Guarantees": it fails on a title the list does not have, and on an item that no mutation names. That is a tripwire
@@ -117,7 +115,7 @@ const index = (items: ReadonlyArray<string>) =>
     ].join("\n")
   ).join("\n\n")
 
-const reference = /^\s*\* @see The guide, "([^"]+)"(?:, "([^"]+)")?\.$/
+const reference = /^\s*\* @see The guide, "([^"]+)"\.$/
 
 // What one file of `src/` or of `bridges/` breaks of the rules of the doc comments, by the pages of the guide.
 const problemsOfSource = (name: string, text: string, pages: ReadonlyMap<string, ReadonlyArray<string>>) => {
@@ -141,31 +139,23 @@ const problemsOfSource = (name: string, text: string, pages: ReadonlyMap<string,
       problems.push(`${name}:${at + 1} has \`@privateRemarks\`, which the declarations ship: write a \`//\` comment.`)
     }
     if (line.includes("fgaudo.github.io/effect-tea/")) {
-      problems.push(`${name}:${at + 1} links the site, which shows the latest release: name the guide's section.`)
+      problems.push(`${name}:${at + 1} links the site, which shows the latest release: name the guide's page.`)
     }
     if (line.includes("From the guide")) {
-      problems.push(`${name}:${at + 1} copies the guide: say it in the comment's own words, and name the section.`)
+      problems.push(`${name}:${at + 1} copies the guide: say it in the comment's own words, and name the page.`)
     }
     if (!/@see\b.*\bguide\b/i.test(line)) return
-    const [, page = "", section] = reference.exec(line) ?? []
-    const guide = pages.get(page)
-    if (guide === undefined) {
-      problems.push(`${name}:${at + 1} names the guide, but not as \`* @see The guide, "<page>", "<section>".\`.`)
-      return
-    }
-    if (section === undefined) return
-    const found = sectionsOf(guide, section)
-    if (found !== 1) {
-      problems.push(
-        `${name}:${at + 1}: "${page}", "${section}" is ${found === 0 ? "not there" : "there more than once"}.`
-      )
+    const [, page = ""] = reference.exec(line) ?? []
+    if (!pages.has(page)) {
+      problems.push(`${name}:${at + 1} names the guide, but not as \`* @see The guide, "<page>".\`, of a page it has.`)
     }
   })
   return problems
 }
 
-// The skill the package ships names the sections of the guide its rules sum up the same way, `The guide, "<page>",
-// "<section>"`, within its prose, where a name may be wrapped onto the next line. Inline code only shows the form.
+// The skill the package ships names the pages and the sections of the guide its rules sum up as `The guide, "<page>",
+// "<section>"`, the section optional, within its prose, where a name may be wrapped onto the next line. Inline code
+// only shows the form.
 const problemsOfSkill = (name: string, text: string, pages: ReadonlyMap<string, ReadonlyArray<string>>) => {
   const problems: Array<string> = []
   const prose = text.replace(/`[^`\n]*`/g, "``").replace(/\s+/g, " ")

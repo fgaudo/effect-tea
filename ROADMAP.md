@@ -26,18 +26,18 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 78, 79 and 68 to 72 come before the library is made known to others
-([`adoption.md`](docs/records/adoption.md)), and neither wait for the release of 0.9.0 ("For the owner") nor hold it:
-what is done before it goes out with it. Their order: first what reads the guide, now that it is made small (78),
-since every later step reads it or adds to it; then what may change the API between a parent and its children (79),
-and what may change a rule of the guide or show a cost of the API (68), which reads the API as step 79 leaves it; then
-what a first user meets (69, 70); then the two checks, which read the guide as those steps leave it (71, 72).
+Steps 79 and 68 to 72 come before the library is made known to others ([`adoption.md`](docs/records/adoption.md)),
+and neither wait for the release of 0.9.0 ("For the owner") nor hold it: what is done before it goes out with it.
+Their order: first what may change the API between a parent and its children (79), and what may change a rule of the
+guide or show a cost of the API (68), which reads the API as step 79 leaves it; then what a first user meets (69, 70);
+then the two checks, which read the guide as those steps leave it (71, 72).
 
 Step 73 decided the form of the smaller guide ([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md`
 holds it, under "What belongs here". The owner approved it on 25 November 2026, and steps 74 to 77 wrote every page by
 it: each has "In short", "An example", "Rules", and "Advice" where it advises, and its ceiling of words in
-`tools/comments.ts`. No page has a "Do and don't" any more, and no doc comment names a section of the guide, as step
-78 waits for. The guide went from 34,025 words to 21,841, most of what left it being in a doc comment, or in
+`tools/comments.ts`. A doc comment names a page of the guide, never a section, and `tools/comments.ts` refuses one
+that names a section; the skill, the index, the glossary, the tutorial and the README were read again against the
+smaller guide (step 78). The guide went from 34,025 words to 21,807, most of what left it being in a doc comment, or in
 "Guarantees", already. A promise withdrawn is a breaking change, whose changelog entry is the one that starts
 "**Breaking**: unspecified, and no longer promised". No link checker runs on the guide: a step that changes a heading
 reads each `](…#…)` into its page, before and after.
@@ -45,26 +45,6 @@ reads each `](…#…)` into its page, before and after.
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 78. What reads the guide, after it is made small
-
-**Model and effort.** Opus 5.5, `medium`.
-
-**Depends on** steps 73 to 77.
-
-**Why.** The skill sums up the guide, the tutorial and the README link to its sections, and the index says what a page
-promises and how it is laid out. Each says what the guide was.
-
-**How.** [`skills/effect-tea/SKILL.md`](skills/effect-tea/SKILL.md) is written again from the guide as it is. The
-index's "What a page promises" and "How a page is laid out" say the form of step 73: step 73 added the doc comments
-to the first and "Advice" to the second, and the line on "Do and don't" goes once no page has one. The glossary drops
-each word that the guide no longer uses. "Coming from Elm or React", the tutorial and the README keep only links that
-lead somewhere. Once no doc comment names a section of the guide, `tools/comments.ts` checks the page alone
-(`reference`, and `sectionsOf` for the sources), the skill names what its rules need, and `AGENTS.md` drops "but of a
-page that the roadmap has yet to write again" from its rule of a doc comment.
-
-**Done when** each of them is so, `bun run comments` passes, and the commit gives the words of the whole guide, and of
-the skill, before step 73 and now.
 
 ### 79. A condition that goes down from a parent to its children
 

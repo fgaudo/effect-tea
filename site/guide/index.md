@@ -67,7 +67,6 @@ Most pages have the same sections, in this order:
 - **Rules**: what the library does, and what your program must do. It is all that the page promises.
 - **Advice**: on some pages, how to design with the concept. It binds nothing: each piece gives its reason, and the
   case where it does not hold, where there is one.
-- **Do and don't**: on some pages, the rules summed up as pairs. The rules themselves are above it.
 
 Some pages end with a section of more examples, or of a reason. It explains, as the first two do.
 

@@ -318,10 +318,10 @@ entities on a server, whose state a database keeps. It is experimental, and not 
   that must catch the missing check passes.
 - `bun run interleavings` runs `src/interleaving.test.ts`, which `bun run test` leaves out. It searches random
   histories from a seed drawn on each run, and the CI runs it every day.
-- `bun run comments` checks the doc comments of `src/`, that each page or section of the guide that they and the skill
-  name exists, once, and that a page of the guide stays under its ceiling of words. It also checks that each item of
-  "What you can rely on", in the guide's "Guarantees", is named by a mutation, and `bun run guarantees` prints each
-  item with those mutations and the tests that kill them.
+- `bun run comments` checks the doc comments of `src/`, that each page of the guide that they name exists, that each
+  section that the skill names exists, once, and that a page of the guide stays under its ceiling of words. It also
+  checks that each item of "What you can rely on", in the guide's "Guarantees", is named by a mutation, and
+  `bun run guarantees` prints each item with those mutations and the tests that kill them.
 - `bun run inference` checks the types of programs written in each way they can be, with each supported TypeScript.
   It runs by hand, after a change of the types of `src/program.ts` or `src/compose.ts`. `bun run inference --run`
   plays the programs that compile with random messages, and fails on one that dies of a defect.

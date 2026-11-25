@@ -48,7 +48,7 @@ It sits between the state and the view.
 
 `program` makes the program. You name its types first, `program<{ state; model; message }>()`, and `make` checks each
 piece against them. The result is a plain object, a `Program<{ state; model; message }>`. `init` is the step that the
-program starts with: its first state, and the commands it starts, none here (see [model](../guide/model.md) and
+program starts with: its first state, and the commands it starts, none here (see
 [anatomy of a program](../guide/anatomy-of-a-program.md)).
 
 ## View

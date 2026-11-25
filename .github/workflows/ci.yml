@@ -26,7 +26,7 @@ jobs:
       # reaches, must show in the diff of the commit that makes it.
       - run: bun run api --check
       # The doc comments of the API are written by hand (`tools/comments.ts`): one that would ship a note meant for the
-      # implementation, links the site, or names a section the guide no longer has, fails here.
+      # implementation, links the site, or names a page the guide does not have, fails here.
       - run: bun run comments
       - run: bun install --frozen-lockfile
         working-directory: site

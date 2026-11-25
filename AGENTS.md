@@ -135,8 +135,8 @@ stay local ("Deciding"). One made with an AI agent ends with an `Assisted-by: <m
   change that passes it cuts a sentence, or raises the ceiling and says why in its commit.
 - **A doc comment specifies its export, in plain words**: what it is, how it is called, what it refuses and what it
   throws, in a screen at most. It names the page of the guide that teaches its concept with a line
-  `@see The guide, "<page>".`, never a link to the site, and never a section, but of a page that the roadmap has yet to
-  write again. Where a comment and that page say the same thing, a change of one rereads the other.
+  `@see The guide, "<page>".`, never a link to the site, and never a section. Where a comment and that page say the
+  same thing, a change of one rereads the other.
 - **The package ships its documentation, at its version**: the guide, the tutorial, the examples and the skill
   [`skills/effect-tea/SKILL.md`](skills/effect-tea/SKILL.md), which sums up the guide. Their links to the repository's
   files are relative, as the package holds them.
