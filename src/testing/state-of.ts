@@ -32,7 +32,7 @@ type StatesOf<Children> = {
  * const state = stateOf(app, { about: Opt.none() }, { Clock: { maybeNow: Opt.none(), format: 'Iso' } })
  * ```
  *
- * @see The guide, "Testing", "The model of any state".
+ * @see The guide, "Testing".
  */
 export const stateOf = <Own, Children>(
   program: Readonly<{ init: Step<Kept<Own, Children>, any> | ((flags: any) => Step<Kept<Own, Children>, any>) }>,

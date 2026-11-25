@@ -169,9 +169,9 @@ The run does not check these. A test does, with the tool named.
 - **The model holds what `update` accepts, all of it**, but what it withholds on purpose: `dispatchViolations`. The
   guide, "Testing tools", "dispatchViolations".
 - **Each control the model holds does something**, unless it is marked `inert`: `dispatchViolations`, with `Inert`.
-  The guide, "Testing tools", "Each message the model holds must do something".
+  The guide, "Testing tools", "dispatchViolations".
 - **A message sent twice from one model acts once**, unless it is marked `repeatable`: `dispatchViolations`, with
-  `ActsTwice`. The guide, "Testing tools", "Each message must act once when sent twice".
+  `ActsTwice`. The guide, "Testing tools", "dispatchViolations".
 - **A view sends only the messages its model holds**: your renderer's tools, as `messagesSentBy` for snabbdom. That
   tool gives a handler the `value` and the `checked` of its element, and what its third argument, `reports`, says the
   element and the event report. The guide, "Testing", "The view". The guide, "Model", "Messages live in the model".
@@ -179,7 +179,7 @@ The run does not check these. A test does, with the tool named.
 - **A message held without its value is filled by the reader too**, with values that the test draws, a text other
   than the one the model shows for what is typed, and the values at which it means nothing are exempted with `inert`.
   The guide, "Testing", "The reader".
-- **A rejection is asserted as `reject` itself**, with `toBe(reject)`. The guide, "Testing", "Do and don't".
+- **A rejection is asserted as `reject` itself**, with `toBe(reject)`. The guide, "Testing", "How a program is tested".
 - **A model is data, and holds no function**: `Equal.equals` on the models of two equal states built apart, never on
   one state used twice. The guide, "Model", "A model is data". The guide, "Testing", "That the model is data".
 
@@ -220,7 +220,7 @@ Each sign breaks the rule named after it.
   "Events and external messages", "Combining steps".
 - An `output` that gives a child's text for its parent to parse, or a lock of the parent copied into each child. The
   guide, "Structuring a program", "A value that the user writes belongs to the program whose rules use it".
-- A rejection asserted as "the state did not change". The guide, "Testing", "Do and don't".
+- A rejection asserted as "the state did not change". The guide, "Testing", "How a program is tested".
 - An attempt to cancel a command. The guide, "Commands", "Commands cannot be cancelled".
 - A `start` whose `run` is never run, outside a server: the program changes its state and does nothing else. The
   guide, "Guarantees", "Whoever starts a program runs it". The guide, "Running", "A program is started, then run".

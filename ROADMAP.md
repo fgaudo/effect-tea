@@ -26,66 +26,25 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 77 to 79 and 68 to 72 come before the library is made known to others
+Steps 78, 79 and 68 to 72 come before the library is made known to others
 ([`adoption.md`](docs/records/adoption.md)), and neither wait for the release of 0.9.0 ("For the owner") nor hold it:
-what is done before it goes out with it. Their order: first the guide made small (77 and 78), since every later step
-reads it or adds to it, and a promise withdrawn is a breaking change, which goes out with the others; then what may
-change the API between a parent and its children (79), and what may change a rule of the guide or show a cost of the
-API (68), which reads the API as step 79 leaves it; then what a first user meets (69, 70); then the two checks, which
-read the guide as those steps leave it (71, 72).
+what is done before it goes out with it. Their order: first what reads the guide, now that it is made small (78),
+since every later step reads it or adds to it; then what may change the API between a parent and its children (79),
+and what may change a rule of the guide or show a cost of the API (68), which reads the API as step 79 leaves it; then
+what a first user meets (69, 70); then the two checks, which read the guide as those steps leave it (71, 72).
 
-Step 73 decided the form of the smaller guide, and tried it on "Composition" and "Structuring a program"
-([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md` holds it, under "What belongs here". The owner read
-the two pages and approved the form on 25 November 2026, and step 74 wrote by it the seven pages of a program's
-pieces. Until step 78 the guide has both forms: a page not yet written again keeps its "Do and don't", and the
-comments that name its sections.
-
-Step 77 writes its pages again by that form, as steps 74 to 76 did theirs, a group in a step so that it fits one
-context: each sentence by the test of `AGENTS.md`. A sentence that moves to a doc comment is written there in the same
-commit, and the skill's rules that name a section changed are reread. What steps 73 to 76 leave to it, which their
-pages and commits show:
-
-- A page written again has "In short", "An example", "Rules", "Advice" where it advises, and a section that explains
-  where code teaches more than a rule, which says that it adds no rule ("More examples" of "Subscriptions"). It has
-  no "Do and don't": a pair of code that teaches stands with its rule or its advice. It keeps the headings that other
-  pages link.
-- A doc comment of the page's exports names the page alone, `@see The guide, "<page>".`, once. `bun run comments`
-  still checks a section where a comment names one, so a page is done one at a time. A comment keeps the lines that
-  name other pages.
-- The page gets its ceiling in `tools/comments.ts` (`ceilings`), at what it came to with room for a sentence or two.
-- `skills/effect-tea/SKILL.md` names sections of the guide: one that is renamed or goes is renamed there in the same
-  commit, or named by its page alone. Step 78 writes the skill again.
-- The count of sentences is of the page as it was: a sentence of prose, a bold title that ends with a period, a row of
-  a table or a block of code, each with where it went (the guide, a doc comment, unspecified, cut, advice or
-  explanation, its example).
-- Specification halves, and advice does not: "Composition" went from 3,616 words to 1,807, "Structuring a program"
-  from 2,136 to 1,836, the seven pages of step 74 from 6,774 to 4,270, the two of step 75 from 3,665 to 2,682, and
-  the three of step 76 from 9,349 to 5,439. Most of what left them was in a doc comment, or in "Guarantees", already.
-- A promise is withdrawn only at a corner that no user builds on. Its changelog entry is the one that starts
-  "**Breaking**: unspecified, and no longer promised", which each step adds to. What a sentence promised and no doc
-  comment says is written into the doc comment, rather than withdrawn, where a user builds on it.
-- No link checker runs on the guide: a step reads each `](…#…)` into its pages, before and after.
-
-**Done when** each page of its group is written again by the test; each promise withdrawn has its changelog entry, and
-its test is kept for an invariant or removed; the commit counts the sentences by where they went, and the words before
-and after; and `bun run typecheck`, `bun run lint`, `bun run test` and `bun run comments` pass.
+Step 73 decided the form of the smaller guide ([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md`
+holds it, under "What belongs here". The owner approved it on 25 November 2026, and steps 74 to 77 wrote every page by
+it: each has "In short", "An example", "Rules", and "Advice" where it advises, and its ceiling of words in
+`tools/comments.ts`. No page has a "Do and don't" any more, and no doc comment names a section of the guide, as step
+78 waits for. The guide went from 34,025 words to 21,841, most of what left it being in a doc comment, or in
+"Guarantees", already. A promise withdrawn is a breaking change, whose changelog entry is the one that starts
+"**Breaking**: unspecified, and no longer promised". No link checker runs on the guide: a step that changes a heading
+reads each `](…#…)` into its page, before and after.
 
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 77. Testing and its tools, by the form of step 73
-
-**Model and effort.** Opus 5.5, `high`.
-
-**Depends on** step 73, whose form the owner approved.
-
-**How**, by the form above, for "Testing" and "Testing tools", some 5,200 words. What each tool fails on, and what
-it ignores, is of its export: the doc comment is its place, and the page keeps how a program is tested. "Composition"
-sends a reader to "Testing" for the numbers of the instances, and for `stateOf`: "The number of an instance" is their
-one place, with the shapes of a child's commands and keys.
-
-**Done when**, as the form above says.
 
 ### 78. What reads the guide, after it is made small
 

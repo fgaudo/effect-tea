@@ -6,20 +6,28 @@ title: Testing tools
 
 ## In short
 
-This page is the reference of the testing tools of `@fgaudo/effect-tea/testing`. Come here with a question about one
-tool: its section says what the tool does, what fails the test and what the tool ignores. [Testing](./testing.md) says
-how a program is tested with them.
+This page says which tool of `@fgaudo/effect-tea/testing` answers which question, and how each one sees time. The doc
+comment of each tool says what it does, what fails the test and what it ignores. [Testing](./testing.md) says how a
+program is tested with them.
 
-- `applyAll` and `dispatchViolations` test `update` and the model as plain functions.
-- `simulate` and `rehearse` play a flow without running the program.
-- `drive` plays a scenario on the running program.
+| Tool                 | Use it to test                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `applyAll`           | `update`'s rules: apply messages, check the state, commands and events                                              |
+| `dispatchViolations` | that the model holds what `update` accepts, all of it, that each control does something, and a double tap acts once |
+| `simulate`           | a flow with its commands answered at once, without running the program                                              |
+| `rehearse`           | a user's scenario without running the program, the test deciding when each message arrives                          |
+| `drive`              | a user's scenario on the running program, subscriptions included                                                    |
 
-`simulate` and `rehearse` do not call `start`. Each calls the program's own functions itself, in an order that the tool
-or the test decides. The result is still an effect, which the test runs. When a tool runs a command or a subscription
-of the program, the test provides the services of that command or subscription: see [simulate](#simulate) and
-[rehearse](#rehearse).
+`applyAll` and `dispatchViolations` call `update` alone, and fail with its defect itself. `simulate` and `rehearse` do
+not call `start`: each calls the program's functions itself, in an order that the tool or the test decides, and is an
+effect that the test runs, with the services of what it runs. A defect of the program fails `simulate`, `rehearse` and
+`drive` with the `ProgramDefect` that the run dies with.
 
-The last sections of the rules give the edge cases of `simulate`, `rehearse` and `drive`.
+## An example
+
+The counter's user clicks +, + and −, on the running program (`examples/counter/counter.test.ts`):
+
+{@includeCode ../../examples/counter/counter.test.ts#drive}
 
 ## Rules
 
@@ -34,55 +42,31 @@ ignored, as when the program runs. In `drive`, time is real, so every rejection 
 | `rehearse`                          | fails the test                       | ignored, in `ignored` | ignored, in `ignored`         |
 | `drive`, and the program as it runs | ignored                              | ignored               | ignored                       |
 
-A tap on a model that the state has since moved past is a message applied to a later state. To test what the tap does
-in that later state, use `applyAll`, or `update` itself.
-
-### applyAll
-
-`applyAll` tests `update`'s rules. The test `counts up and down` in
-[how a program is tested](./testing.md#how-a-program-is-tested) uses it.
-
-- `applyAll` takes only the test's messages.
-- `applyAll` fails when `update` rejects one of those messages.
-- `applyAll` returns the last `state`, with the `commands` and the `events` of every step, each list in order.
+Assert `ignored` where dropping one of those messages would be a bug. A tap on a model that the state has since moved
+past is a message applied to a later state: to test what it does there, use `applyAll`, or `update` itself.
 
 ### dispatchViolations
 
-`dispatchViolations` tests three things: that the model holds what `update` accepts, all of it, that each control it
-holds does something, and that a double tap acts once. The test `the model holds what update accepts, all of it` in
-[how a program is tested](./testing.md#how-a-program-is-tested) uses it. `dispatchViolations` checks both ways:
+`dispatchViolations` checks a model against `update` in one state, both ways. Each message the model holds must be
+accepted (`Rejected`), must do something (`Inert`), and must act once when sent twice (`ActsTwice`). Each candidate that
+`update` accepts must be among those held (`Missing`). To do nothing is to leave the state equal by `Equal`, with no
+commands and no events: so keep states data. What the test gives it says what is meant:
 
-- **Each message the model holds must be accepted** (`Rejected`).
-- **Each message the model holds must do something** (`Inert`). Doing nothing means the same state by `Equal`, with no
-  commands and no events. A control that does nothing is shown in the wrong state, as one that `update` rejects is.
-  - Keep states data. A value without structural equality compares by reference.
-  - A message marked `repeatable` must do something too.
-  - The messages that the model holds on purpose though they do nothing are marked `inert`, by the message and the
-    state. An example is a tab that is already selected, where a tab bar shows every tab. Another is the messages of
-    a key, which no control sends: [`volume`](../../examples/volume/volume.test.ts) gives the tool those of its drag,
-    and a move to where the slider is does nothing.
-- **Each message must act once when sent twice** (`ActsTwice`). This means that a message sent again from the same model is
-  rejected, or does nothing, by the rule of `Inert`.
-  - Actions meant to repeat (a "+1") are marked `repeatable`.
-- **Each candidate `update` accepts must be among those held** (`Missing`), compared by `Equal`. The `candidates` are
-  what the test lists: what a user could ask for, the program's fixed messages. Two kinds of candidates are excepted:
-  - A candidate whose step does nothing, by the rule of `Inert`. A control that would do nothing is not a missing
-    control.
-  - The candidates `withheld` on purpose. An example is the controls of a page that another page covers: those
-    controls would act on the hidden state of the covered page.
-
-`dispatchViolations` takes `update` first. Then it takes one object: `state`, the state to check; `held`, the messages
-the model of that state holds; and, when the test needs them, `candidates`, `repeatable`, `inert` and `withheld`.
-
-Without candidates, `dispatchViolations` checks only the messages it is given.
-
-`dispatchViolations` returns a list of the violations it finds, empty when there is none. Each violation holds its kind
-(`_tag`: `Rejected`, `Inert`, `ActsTwice` or `Missing`) and the `message` that breaks the rule.
+- **`candidates`** are what a user could ask for: the program's fixed messages. Without them, only the messages held
+  are checked.
+- **`repeatable`** marks the messages meant to act again when sent twice, as a "+1".
+- **`inert`** marks, by the message and the state, a message held on purpose though it does nothing: a tab already
+  selected, where a tab bar shows every tab, or the messages of a key, which no control sends.
+  [`volume`](../../examples/volume/volume.test.ts) gives the tool those of its drag, and a move to where the slider is
+  does nothing.
+- **`withheld`** marks a candidate left out on purpose, as the controls of a page that another page covers, which would
+  act on the hidden state of the covered page.
 
 ### simulate
 
-`simulate` tests a flow with its commands answered at once, without running the program. `simulate` takes the program
-first. Then it takes the test's messages and the step to start from:
+`simulate` plays a flow without running the program, each command answered as soon as it runs. It starts from the step
+it is given, in place of the program's `init`, which it never calls, and takes the test's messages, those that a
+subscription would send among them: the subscriptions do not run, so it asks only for the services of the commands.
 
 ```ts
 const { state, commands, ignored } = yield * simulate(form, typedAndSaved, form.init).pipe(
@@ -90,30 +74,13 @@ const { state, commands, ignored } = yield * simulate(form, typedAndSaved, form.
 )
 ```
 
-- `simulate` starts from the step it is given, and calls no `init`.
-- `simulate` takes the test's messages. Those include the messages a subscription would send.
-- `simulate` asks only for the services of the commands. The subscriptions do not run, so `simulate` does not ask for
-  their services.
-- Each command runs after the commands started before it. So all the commands of one step answer before the commands
-  that their answers start. The program does the same when it runs commands that answer at once. All these commands run
-  before the next of the test's messages is applied.
-- Each command has a scope of its own, as when the program runs. The scope is closed before the command's message is
-  applied.
-- The program's subscriptions do not run. What `simulate` reads from them is under
-  [`simulate`, as the run dies](#simulate-as-the-run-dies).
-- `simulate` fails when `update` rejects one of the test's messages.
-- The command answers that `update` rejected are listed in `ignored`. Assert `ignored` when dropping one of those
-  answers would be a bug.
-- `simulate` succeeds with the last `state` and with these lists, each in order:
-  - `messages`: every message that `update` accepted, the test's and the commands' answers;
-  - `commands`: every command started, including those of the step it started from;
-  - `events`: every event that `update` raised;
-  - `ignored`.
-
 ### rehearse
 
-`rehearse` tests a user's scenario without running the program. In a rehearsal, the test decides when each command runs.
-So a test says what the user does while a save is under way, and when the save's answer arrives:
+`rehearse` plays a user's scenario without running the program, and nothing reaches `update` by itself. It starts from
+the program's `init`, and the scenario acts through a rehearsal: `send` sends what the current model shows, `run` and
+`runAll` run the pending commands, and `hear` and `hearNext` apply a subscription's message. A message is applied at
+once, in the call that sends it, as in the run. So a test says what the user does while a save is under way, and when
+the save's answer arrives:
 
 ```ts
 rehearse(
@@ -129,182 +96,39 @@ rehearse(
 )
 ```
 
-- **`rehearse` starts from the program's `init`.** A program with flags gets them as `start` does, in the options.
-- **`rehearse` acts through what the current model shows**, as `drive` does.
-- **Nothing reaches `update` by itself.**
-- **A message is applied at once**, in the call that sends it, as in the run. Its commands are pending once what it
-  stops has released what it held (see [messages that arrive together](#messages-that-arrive-together)).
-- **Each command waits until the test runs it** (`run`, `runAll`). A command runs through the program's `runCommand`,
-  with the services provided, in a scope of its own.
-  - `run` runs the oldest pending command that it matches.
-  - `runAll` runs the oldest pending command until none is left, including the commands that those commands start.
-- **A subscription's message is one the test says was heard** (`hear`), or the next one the subscription itself sends
-  (`hearNext`). Either message is heard only while the subscription's key is in the state.
-- **`rehearse` asks for the services of what the test runs.**
-  - `run` and `runAll` ask for the services of all the commands, whichever they run.
-  - `hearNext` asks for the services of all the subscriptions, whichever key it hears.
-  - A test that runs neither provides none.
-- What fails the test is under [what fails the test](#what-fails-the-test).
+- **A command left at the end fails the test.** A command cannot be cancelled, and its answer would still arrive: run
+  it, or `runAll`.
+- **A subscription is heard one way.** `hear` runs nothing: the test says what was heard, and answers for it.
+  `hearNext` runs the subscription, for as long as its key stays in the state, and hears its next message. A start of a
+  key is heard by one or the other, not both. Its key names the instance of a child, as its parent lists it (see
+  [the number of an instance](./testing.md#the-number-of-an-instance)).
 
 ### drive
 
-`drive` tests a user's scenario on the running program, subscriptions included.
+`drive` runs the program and plays a scenario on its models, subscriptions included. `send` waits for a model that
+shows the message and sends it, and `waitFor` waits for a model, the current one or a later one. A wait fails after
+`patience`, 2 seconds by default.
 
-- A program with flags gets them as `start` does, in the options.
-- `drive` takes the other options of `start` too, such as `onApplied` and `onIgnored` (see
-  [running](./running.md#options)).
-- `drive` sends what the models show, through the run's dispatch. `send` waits for a model on which it finds the
-  message, and sends it at once, as a control drawn from that model would: when `send` returns, `update` has seen the
-  message.
-- The program's commands run as soon as they start. To hold a command, give the program a service written by the
-  test. The service waits on a `Deferred` that the scenario completes.
-- A model shows neither that a command has started nor that a subscription has. To wait for one, give the program a
-  service written by the test that completes a `Deferred` when it is called, and have the scenario await it.
-- `drive` is told of every new state, as a renderer is, and reads the model of each one. A wait, `waitFor` or `send`,
-  looks at the current model and at later ones.
-- A wait that ends once a model shows a step does not wait for the step's commands. They start after it, and a
-  scenario that ends there may end the run before they start. To check what a command does, wait for a model that
-  shows its answer.
-- The scenario gets `model`, the model of the current state, and `dispatch`, the run's own, for a tap on a model that
-  the state has moved past since. After a defect of the program, `model` fails with the defect.
-- A wait that lasts longer than `patience` fails. `patience` is an option of `drive`, 2 seconds by default. It is
-  measured with the real clock, even under Effect's `TestClock`. The error it fails with has the latest model as its
-  `cause`.
-- Time in `drive` is real: a model may be past by the time its message arrives. So, as when the program runs, a
-  rejected message is ignored, and a scenario checks what it expects to see.
-- How `drive` ends is under [how `drive` ends](#how-drive-ends).
+- **Time is real.** A model may be past by the time its message arrives. So a rejected message is ignored, as in a run,
+  and a scenario checks what it expects to see.
+- **The state is ahead of its effects.** A step's commands start after it, so a scenario that ends once a model shows a
+  step may end the run before they start. To check what a command does, wait for a model that shows its answer.
 
-### Defects of the program
+## Advice
 
-A defect of the program fails `simulate`, `rehearse` and `drive`, as it ends the run when the program runs. These three
-tools fail with the `ProgramDefect` the run dies with, in the same `where`, with the same `on` or `key`. That holds
-wherever the tool calls the program: `init`, `update`, `makeModel`, `subscriptions`, a subscription, `runCommand`.
-(`simulate` calls no `init` and no `makeModel`, and runs no subscription.)
+**Hold a command of `drive` with a service of the test's.** Its commands run as soon as they start, and a model shows
+neither that a command has started nor that a subscription has. A service written by the test that waits on a
+`Deferred` holds a command until the scenario completes it, and one that completes a `Deferred` when it is called tells
+the scenario that it started. Where the order of the answers is what the test is about, `rehearse` says it with no
+service.
 
-**`applyAll` and `dispatchViolations` call `update` without a run**, and fail with the defect itself.
+**Under Effect's `TestClock`, move the clock while `hearNext` waits.** A subscription that sleeps waits for the test to
+move the clock, and time moved before it starts to sleep does not count: the test would wait until it times out. So
+race the call against a clock that keeps moving, as [`list`](../../examples/list/list.test.ts) does. A subscription
+that does not sleep needs none of it.
 
-### `simulate`, as the run dies
-
-- The subscriptions do not run, but `simulate` reads them on each new state, as the run does.
-- `simulate` fails on a state whose subscriptions are a defect, as the run dies of one. A key whose `Equal` throws
-  against a key of the state before is such a defect too.
-- `simulate` fails on a command that the program interrupts, itself or by another fiber, as the run dies of one.
-
-### `rehearse`, in detail
-
-#### What fails the test
-
-`rehearse` fails the test on:
-
-- a `send` that finds nothing to send on the model;
-- a message that `send` sends and `update` rejects: a control that the model shows and that its own state rejects;
-- a `run` that matches nothing;
-- a command left at the end (see [commands at the end](#commands-at-the-end));
-- a misuse of `hear` and `hearNext` (see [how a subscription is heard](#how-a-subscription-is-heard));
-- a defect of the program (see [after a defect of the program](#after-a-defect-of-the-program)).
-
-`rehearse` also fails, as the run dies:
-
-- on a state whose subscriptions are a defect. `rehearse` reads the subscriptions on each new state. A key whose `Equal`
-  throws against a key of the state before is such a defect too;
-- on a state whose model is a defect. `rehearse` makes the model on each new state, as a renderer that is told of
-  every state and reads each one does. It makes the first one whatever the first subscriptions did, as a renderer
-  reads it to draw;
-- on a command or a subscription that the program interrupts, itself or by another fiber.
-
-#### How a subscription is heard
-
-- A subscription's message is heard only while its key is in the state. Keys compare by value, as the run compares
-  them. A key of a child's subscriptions names the child's instance, as
-  `{ _tag: 'Clock', instance: 1, key: 'ticks' }` (see [the number of an instance](./testing.md#the-model-of-any-state)).
-- `hear` runs nothing. The test answers for what it says was heard, and for whether the subscription had ended.
-- `hear` on a key that has just appeared waits until the key's subscription would have started: once what the message
-  before it stopped has released what it held. It then looks the key up again, and fails the test when the key is no
-  longer in the current state.
-- `hearNext` runs the subscription:
-  1. The first time `hearNext` hears a key, it starts that key's subscription, with the services provided and in a
-     scope of its own, once what the messages before it stopped has released what it held. It makes the subscription
-     with the program's `listen`, from the key, as the run does.
-  2. `hearNext` keeps the subscription for as long as the key stays, as the run does. It does not matter which fiber
-     of the test heard the subscription first.
-  3. Each call of `hearNext` hears the subscription's next message, and succeeds with that message. The message waits
-     for the call.
-  4. The last message is the subscription's end value. After it, `hearNext` and `hear` do not hear that key until the
-     key goes away and comes back. A `hearNext` that was waiting at the same time as the one that heard the end fails
-     the test.
-- **Each start of a key is heard one way**, as the run hears one subscription for each. Both rules below hold until the
-  key goes away and comes back:
-  - Once `hearNext` runs the subscription of that start, `hear` fails the test on that key.
-  - Once `hear` has played that start, `hearNext` fails the test on that key.
-- **A key that goes away interrupts its subscription.** The end of the scenario interrupts the subscription too, and so
-  does the end of the rehearsal, however the rehearsal ends. Then:
-  - a defect in what the subscription releases fails the test;
-  - what the subscription sent that `update` has not seen is dropped, as the run drops it, and a `hearNext` still
-    waiting for it, or for its start, fails the test.
-- A subscription's message that no longer applies is ignored, as when the program runs, and listed in `ignored`.
-- **Under Effect's `TestClock`, move time while `hearNext` waits.** A subscription that sleeps does not wait for real
-  time. It waits for the test to move the clock. But time moved before the subscription starts to sleep does not count.
-  The test then waits until it times out. So race the call against a clock that keeps moving, as
-  [`list`](../../examples/list/list.test.ts) does with a run:
-
-  ```ts
-  const message = yield * rehearsal.hearNext("ticks").pipe(
-    Effect.raceFirst(Effect.forever(TestClock.adjust("1 second").pipe(Effect.andThen(Effect.yieldNow))))
-  )
-  ```
-
-#### Commands at the end
-
-- The test fails when a command is still pending or under way at the end, or when its `run` was interrupted before the
-  command answered. Commands cannot be cancelled, and the command's answer would still arrive.
-- A command is under way at the end if it is under way as the scenario ends.
-- A command is pending at the end if it is pending once what the test sent before is applied.
-- A command's message that no longer applies is ignored, as when the program runs, and listed in `ignored`.
-
-#### After a defect of the program
-
-1. A defect of the program fails the rehearsal whichever fiber of the test the defect reached, including a fiber that
-   nobody joins.
-2. The defect fails the rehearsal however the rehearsal ends, once what the defect stopped has released what it held.
-3. The defect comes first in the cause, before what the scenario ended with.
-4. A rehearsal that died checks nothing more about its commands.
-
-If the scenario catches the defect, with `Effect.exit` for example, the defect still fails the rehearsal. A test that
-expects a defect wraps `rehearse` itself.
-
-After a defect, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail with the defect. A `hearNext` or a `run`
-that is already waiting for its subscription or its command fails with it too, as nothing happens in a run that died.
-`state`, `pending`, `events` and `ignored` stay readable.
-
-#### Fibers the test forks or detaches
-
-- A call that fails the test fails the fiber that made the call: a `send` that the model does not show or that
-  `update` rejects, a `run` that matches nothing, a `hearNext` stopped while it waited.
-- So a call forked from the scenario must be joined, or its failure is lost, as in any effect.
-- A fiber that the test detaches from the scenario (`Effect.forkDetach`) is beyond the rehearsal's reach. What such a
-  fiber asks for after the rehearsal ended is interrupted, and a defect it meets then is lost.
-
-#### Messages that arrive together
-
-- Messages that arrive together, from fibers of the test, are applied one at a time, each at once, in the call that
-  sends it, as the run applies them.
-- A message does not wait for the release of the subscriptions that the message before it stopped. Its state, its
-  model and its events show at once. Its commands are pending, and a key it brings is heard, once that release has
-  ended. The call that sent it returns then. `send` selects on the model of the current state.
-- A message once sent is applied whole, even if the fiber that sent it is interrupted meanwhile, or the scenario
-  returns.
-- A rehearsal whose scenario returned finishes what the messages sent before still had to do: it returns once the
-  releases they wait for have ended. A rehearsal whose scenario failed or was interrupted stops at once, and what those
-  messages still had to do is not done.
-
-### How `drive` ends
-
-`drive` ends in two steps, once the scenario ends, or once whoever runs `drive` interrupts it:
-
-1. `drive` interrupts the run, and waits for it;
-2. `drive` fails, as the run dies, on a defect of what the program releases as it stops.
-
-A defect of the program comes first in the cause of `drive`, before what the scenario ended with. This holds for a
-defect while the scenario runs, and for a defect of what the program releases as it stops.
-
-A wait may still match a model read before a defect of a later model. `drive` ends with the defect first all the same.
+```ts
+const message = yield * rehearsal.hearNext("ticks").pipe(
+  Effect.raceFirst(Effect.forever(TestClock.adjust("1 second").pipe(Effect.andThen(Effect.yieldNow))))
+)
+```

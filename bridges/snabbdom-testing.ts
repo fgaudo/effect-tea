@@ -40,7 +40,7 @@ type Listener = Extract<NonNullable<On[string]>, (...args: never) => unknown>
  * expect(messagesSentBy(view, model, () => ({ element: { scrollTop: offset } }))).toEqual(messagesOf(model, offset))
  * ```
  *
- * @see The guide, "Testing", "The view".
+ * @see The guide, "Testing".
  * @see The guide, "Writing a bridge".
  */
 export const messagesSentBy = <Model, Message>(

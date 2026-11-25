@@ -11,7 +11,7 @@ import { reject, type Step, type Update } from "../update.ts"
  *   .toEqual([{ _tag: 'Rejected', message: 'Decrement' }])
  * ```
  *
- * @see The guide, "Testing tools", "dispatchViolations".
+ * @see The guide, "Testing tools".
  */
 export type DispatchViolation<Message> = {
   /**
@@ -53,8 +53,9 @@ const doesNothing = <State, Command, Event>(step: Step<State, Command, Event>, s
  * @param update - The program's `update`.
  * @param options - `state`, the state to check in; `held`, the messages the model of that state holds, as the test
  * reads them from `program.makeModel(state)`; `candidates`, what a user could ask for; `repeatable`, the messages
- * meant to act again when sent twice (a "+1"); `inert`, the messages a model may hold in a state though their step
- * does nothing there; `withheld`, the messages a model may leave out on purpose in a state.
+ * meant to act again when sent twice (a "+1"), which must still do something; `inert`, the messages a model may hold
+ * in a state though their step does nothing there; `withheld`, the messages a model may leave out on purpose in a
+ * state.
  * @returns Every violation it finds, so that a test asserts there are none.
  *
  * @example
@@ -67,8 +68,7 @@ const doesNothing = <State, Command, Event>(step: Step<State, Command, Event>, s
  * })).toEqual([])
  * ```
  *
- * @see The guide, "Testing tools", "dispatchViolations".
- * @see The guide, "Testing tools", "`applyAll` and `dispatchViolations` call `update` without a run".
+ * @see The guide, "Testing tools".
  */
 export const dispatchViolations = <State, Message, Command, Event>(
   update: Update<State, Message, Command, Event>,

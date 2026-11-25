@@ -85,7 +85,7 @@ export type Transition<State, Command = never, Event = never, Tell = never> =
  * ```
  *
  * @see The guide, "Events and external messages".
- * @see The guide, "Testing", "The tools".
+ * @see The guide, "Testing tools".
  */
 export type Folded<State, Command, Event, Tell = never> = {
   readonly state: State

@@ -101,10 +101,9 @@ same tools.
 What changes is the wrapping. Its messages for a child are `{ _tag: 'Timer', id, message }`. Its commands and the keys
 of its children's subscriptions also name the instance of the timer, the number of its start:
 `{ _tag: 'Timer', id, instance, command }` and `{ _tag: 'Timer', id, instance, key: 'ticks' }` (see
-[the number of an instance](../guide/testing.md#the-model-of-any-state)). That is what `timers.subscriptions`, `rehearsal.run` and `rehearsal.hear`
-see. The tests of
-[`examples/timer/timers.test.ts`](../../examples/timer/timers.test.ts)
-name its messages:
+[the number of an instance](../guide/testing.md#the-number-of-an-instance)). That is what `timers.subscriptions`,
+`rehearsal.run` and `rehearsal.hear` see. The tests of
+[`examples/timer/timers.test.ts`](../../examples/timer/timers.test.ts) name its messages:
 
 {@includeCode ../../examples/timer/timers.test.ts#messages}
 
@@ -153,7 +152,7 @@ An application that you built, and tested without a browser and without waiting 
 From here:
 
 - The other tools, `simulate` for a flow with its commands answered at once and `drive` for the running program,
-  are in [testing tools](../guide/testing-tools.md), with what each fails on and what it ignores.
+  are in [testing tools](../guide/testing-tools.md), and when a rejected message fails the test.
 - [Guarantees](../guide/guarantees.md) says what the library promises, and what is left to
   the program.
 - The other [examples](https://fgaudo.github.io/effect-tea/#examples) show what the timer does not: a failure as a

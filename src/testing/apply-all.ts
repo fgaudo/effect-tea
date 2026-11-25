@@ -17,8 +17,7 @@ import { unexpectedRejection } from "./failure.ts"
  * expect(applyAll(update, ['Increment', 'Increment', 'Decrement'], { count: 0 }).state).toEqual({ count: 1 })
  * ```
  *
- * @see The guide, "Testing tools", "applyAll".
- * @see The guide, "Testing tools", "`applyAll` and `dispatchViolations` call `update` without a run".
+ * @see The guide, "Testing tools".
  */
 export const applyAll = <State, Message, Command, Event>(
   update: Update<State, Message, Command, Event>,

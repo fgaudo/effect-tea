@@ -8,12 +8,15 @@ import * as fc from "fast-check"
 import { counter, type Message, type Model, update } from "./counter.ts"
 import { view } from "./view-snabbdom.ts"
 
-// What the model holds: the messages of its controls, a case at a time, in the order the view draws them, for the
-// test of the view below.
+// The reader is also the test of the view's, below.
+// #region reader
+// What the model holds: the messages of its controls, a case at a time, in the order the view draws them.
 const messagesOf = (model: Model): ReadonlyArray<Message> =>
   model._tag === "Counting" ? [model.decrement, model.increment] : [model.increment]
+// #endregion reader
 
 describe("counter", () => {
+  // #region update
   // `update` alone: pure, no runtime.
   test("counts up and down", () => {
     expect(applyAll(update, ["Increment", "Increment", "Decrement"], { count: 0 }).state).toEqual({ count: 1 })
@@ -36,6 +39,7 @@ describe("counter", () => {
       })).toEqual([])
     }))
   })
+  // #endregion update
 
   // Beyond what the library asks: that the view draws what its model holds, each control once. `messagesSentBy`,
   // beside the snabbdom bridge, is its way to see it without a DOM.
@@ -46,6 +50,7 @@ describe("counter", () => {
     }))
   })
 
+  // #region drive
   // The program as it runs, driven like a user would.
   test("a user clicks +, + and −", async () => {
     const count = await Effect.runPromise(drive(
@@ -61,4 +66,5 @@ describe("counter", () => {
     ))
     expect(count).toBe(1)
   })
+  // #endregion drive
 })

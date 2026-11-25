@@ -18,6 +18,8 @@ import * as Stage from "./stage.ts"
  * ```ts
  * const { state, commands, ignored } = yield* simulate(form, typedAndSaved, form.init)
  * ```
+ *
+ * @see The guide, "Testing tools".
  */
 export type Simulated<State, Message, Command = never, Event = never> = {
   /** The last state. */
@@ -37,12 +39,13 @@ export type Simulated<State, Message, Command = never, Event = never> = {
  *
  * - It takes the test's messages, including those a subscription would send. It fails when `update` rejects one of
  *   the test's messages.
- * - Each command runs after the commands started before it, in a scope of its own. All these commands answer before
- *   the next of the test's messages is applied.
+ * - Each command runs after the commands started before it, in a scope of its own, closed before its answer is
+ *   applied. So the commands of a step answer before those that their answers start, and all of them before the next
+ *   of the test's messages is applied.
  * - The command answers that `update` rejects are listed in `ignored`.
  * - Subscriptions do not run. It reads the subscriptions on each new state, and fails on a defect there, as the run
  *   dies of one. It asks only for the services of the commands.
- * - It fails on a command that interrupts itself, as the run dies of one.
+ * - It fails on a command that the program interrupts, itself or by another fiber, as the run dies of one.
  * - It starts from the step it is given, and calls no `init`.
  * - A defect of the program fails it with the `ProgramDefect` the run dies with.
  *
@@ -59,9 +62,7 @@ export type Simulated<State, Message, Command = never, Event = never> = {
  * const { state } = yield* simulate(form, typedAndSaved, form.init).pipe(Effect.provideService(Storage, working))
  * ```
  *
- * @see The guide, "Testing tools", "simulate".
- * @see The guide, "Testing tools", "`simulate`, as the run dies".
- * @see The guide, "Testing tools", "Defects of the program".
+ * @see The guide, "Testing tools".
  */
 export const simulate = Effect.fnUntraced(function*<State, Message, Command = never, Event = never, R = never>(
   program:

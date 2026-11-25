@@ -25,7 +25,7 @@ import { type Deaths, makeDeaths } from "../shell.ts"
  * const count = yield* driver.waitFor((model) => (model.count === 1 ? Opt.some(model.count) : Opt.none()))
  * ```
  *
- * @see The guide, "Testing tools", "drive".
+ * @see The guide, "Testing tools".
  */
 export type Driver<Model, Message> = {
   /** Waits for a model that `select` maps to `Some`, the current one or a later one, and returns that value. */
@@ -48,9 +48,14 @@ export type Driver<Model, Message> = {
  * ```ts
  * drive(program, scenario, { patience: '5 seconds' })
  * ```
+ *
+ * @see The guide, "Testing tools".
  */
 export interface DriveOptions<State, Message, Command = unknown> extends RunOptions<State, Message, Command> {
-  /** How long a wait of the scenario lasts before it fails: 2 seconds by default, measured with the real clock. */
+  /**
+   * How long a wait of the scenario lasts before it fails: 2 seconds by default, measured with the real clock, even
+   * under Effect's `TestClock`.
+   */
   readonly patience?: Duration.Input
 }
 
@@ -155,6 +160,8 @@ type Needed<Command, RC, Key, RS> = Exclude<
  * given; and its options: `flags`, when the program has them, `patience`, and the options of `RunOptions`.
  *
  * - It sends what the models show, through the run's dispatch. The program's subscriptions run.
+ * - It is told of each new state, as a renderer is, and reads the model of each one. So a defect of `makeModel` fails
+ *   it, as the run dies of one.
  * - A wait that lasts longer than `patience` fails. `patience` is 2 seconds by default, measured with the real clock.
  *   The error's `cause` is the latest model.
  * - Time in `drive` is real. A model may be past when its message arrives, so a rejected message is ignored, as in a
@@ -167,8 +174,10 @@ type Needed<Command, RC, Key, RS> = Exclude<
  *   service that completes a `Deferred` when it is called, and await it in the scenario.
  * - To start from another state, give it the program with another `init`.
  * - When the scenario ends, or when whoever runs `drive` interrupts it, `drive` interrupts the run and waits for it.
+ *   It then fails, as the run dies, on a defect of what the program releases as it stops.
  * - A defect of the program fails `drive` with the `ProgramDefect` the run dies with. The defect comes first in the
- *   cause, before what the scenario ended with.
+ *   cause, before what the scenario ended with, a defect of what it releases too, and also when a wait matched a
+ *   model read before it.
  *
  * @returns What `scenario` returns, once the program has stopped.
  *
@@ -183,9 +192,7 @@ type Needed<Command, RC, Key, RS> = Exclude<
  * )
  * ```
  *
- * @see The guide, "Testing tools", "drive".
- * @see The guide, "Testing tools", "How `drive` ends".
- * @see The guide, "Testing tools", "Defects of the program".
+ * @see The guide, "Testing tools".
  * @see The guide, "Running".
  */
 export const drive = Effect.fnUntraced(function*<

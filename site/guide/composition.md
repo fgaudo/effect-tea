@@ -86,7 +86,7 @@ A parent declares each child by name, in `withChildren`, with functions of the p
   `init` is then a function of them: `init: (flags) => ({ state, commands })`.
 - **The order of the starts.** The children that one state lists anew start in the order of their names in
   `withChildren`, then in the order in which `ids`, or `flags`, lists their ids. Each start takes the next number,
-  from 1. A test reads these numbers (see [testing](./testing.md)).
+  from 1. A test reads these numbers (see [the number of an instance](./testing.md#the-number-of-an-instance)).
 
 ### The parent's own pieces
 
@@ -101,7 +101,8 @@ A parent declares each child by name, in `withChildren`, with functions of the p
 ### What the library derives
 
 - **The parent's state** is its own state and the children that the library keeps. `StateOf<typeof app>` names it. A
-  test makes one with `stateOf`, or by folding messages from `init` (see [testing](./testing.md)).
+  test makes one with `stateOf`, or by folding messages from `init` (see
+  [the number of an instance](./testing.md#the-number-of-an-instance)).
 - **Each start of a child is an instance**, with a number of its own. A child started again is another instance.
 - **The parent's messages** are its own, plus `{ _tag: <child>, message }` for each child, and
   `{ _tag: <child>, id, message }` for children by id. `MessageOf<typeof app>` names them. The program that `make`

@@ -6,15 +6,22 @@ title: Testing
 
 ## In short
 
-This page shows you how to test a program, step by step, and which tool to use at each step. Most of a program is
-pure, so most tests need no runtime:
+This page shows how a program is tested, step by step. Most of a program is pure, so most of its tests need no
+runtime: `update` and the model are tested as plain functions, with `applyAll` and `dispatchViolations`. A flow is
+played without running the program, with `simulate` and `rehearse`, and a scenario on the running program with
+`drive`. [Testing tools](./testing-tools.md) says which tool answers which question.
 
-- `applyAll` and `dispatchViolations` test `update` and the model as plain functions.
-- `simulate` and `rehearse` play a flow without running the program.
-- `drive` plays a scenario on the running program.
+## An example
 
-The table under [the tools](#the-tools) says which tool answers which question. [Testing tools](./testing-tools.md)
-says what each tool does.
+The counter's tests (`examples/counter/counter.test.ts`). The reader lists the messages that a model holds, one case
+of the model at a time:
+
+{@includeCode ../../examples/counter/counter.test.ts#reader}
+
+Then `update` is tested with `applyAll`, a rejection with `toBe(reject)`, and the model of any count with
+`dispatchViolations`:
+
+{@includeCode ../../examples/counter/counter.test.ts#update}
 
 ## Rules
 
@@ -36,68 +43,42 @@ The tests of a program follow its shape, in four steps:
    [rejections and defects](./rejections-and-defects.md)). The steps above skip those pairs. Check them as defects:
    `expect(() => update(message)(state)).toThrow(InvariantDefect)`.
 
-Here are two tests of a counter. The first test checks `update` with `applyAll`. The second test checks the model with
-`dispatchViolations`, for any count:
-
-```ts
-// What the model holds: the messages of its controls, a case at a time, in the order the view draws them.
-const messagesOf = (model: Model): ReadonlyArray<Message> =>
-  model._tag === "Counting" ? [model.decrement, model.increment] : [model.increment]
-
-test("counts up and down", () => {
-  expect(applyAll(update, ["Increment", "Increment", "Decrement"], { count: 0 }).state).toEqual({ count: 1 })
-})
-
-// The model, for any count: every message it holds is accepted, and nothing `update` accepts is missing from
-// it. Both buttons are meant to repeat.
-test("the model holds what update accepts, all of it", () => {
-  fc.assert(fc.property(fc.nat(1_000), (count) => {
-    const state = { count }
-    expect(dispatchViolations(update, {
-      state,
-      held: messagesOf(counter.makeModel(state)),
-      candidates: ["Increment", "Decrement"],
-      repeatable: () => true
-    })).toEqual([])
-  }))
-})
-```
-
 ### The model of any state
 
 `program.makeModel(state)` makes a model as the run does. So a property test can read the model of any state.
 `program.subscriptions(state)` lists the keys of what the program listens to in that state, and `program.listen(key)`
-gives the subscription of a key. `program.output(state)` is what its
-parent would read of it: no tool reads the output of a program that has no parent.
+gives the subscription of a key. `program.output(state)` is what a parent would read of it.
 
-**A state of a parent** holds its own state and the children that the library keeps (see
+**That the model is data** is checked on two equal states built apart, drawn from the same seed, as
+[`form`](../../examples/form/form.test.ts) does. One state object used twice passes whatever its model holds, because a
+parent keeps each child's model while the child keeps its state:
+
+```ts
+const [one] = fc.sample(states, { seed, numRuns: 1 })
+const [other] = fc.sample(states, { seed, numRuns: 1 })
+if (one === undefined || other === undefined) throw new Error("nothing sampled")
+expect(Equal.equals(counter.makeModel(one), counter.makeModel(other))).toBe(true)
+```
+
+### The number of an instance
+
+A state of a parent holds its own state and the children that the library keeps (see
 [what the library derives](./composition.md#what-the-library-derives)). A test makes one with `stateOf`, of
-`@fgaudo/effect-tea/testing`: `stateOf(app, { about: Opt.none() }, { Clock: clock })`.
+`@fgaudo/effect-tea/testing`, or folds messages from `init` with `applyAll`:
+`stateOf(app, { about: Opt.none() }, { Clock: clock })`.
 
-- It starts each child that the own state lists, as `init` starts it, and puts it in the state given for it. A child
-  that is given no state is as it starts.
-- A state given for a child that the own state does not list is an error.
-- For a parent of parents, the state of a child that is a parent is itself made with `stateOf`.
-- A test can also fold messages from `init`, with `applyAll`.
-
-**The number of an instance.** A child's commands, as its parent's `update` returns them, name the instance that asked:
-`{ _tag: 'About', instance: 2, command }`. The keys of a child's subscriptions are listed as
-`{ _tag: <child>, instance, key }`, and `{ _tag: <child>, id, instance, key }` for children by id. The instances are
-numbered in the order the library starts them, from 1 (see
-[the order of the starts](./composition.md#how-a-parent-and-its-children-start)). In
+A child's commands, as its parent's `update` returns them, name the instance that asked:
+`{ _tag: 'About', instance: 2, command }`. The keys of a child's subscriptions are `{ _tag: <child>, instance, key }`,
+and `{ _tag: <child>, id, instance, key }` for children by id. The instances are numbered in the order the library
+starts them, from 1 (see [the order of the starts](./composition.md#how-a-parent-and-its-children-start)). In
 [`pages`](../../examples/pages/app.test.ts), the Clock that `init` starts is 1, and the About that a step opens next is
 2. A test that needs only the child reads the key's `_tag`, as `pages` does.
 
-**That the model is data** is checked on two equal states built apart. To get them, draw the same seed twice: call
-`fc.sample(states, { seed, numRuns: 1 })` two times. Then compare the two models with `Equal.equals`, as
-[`form`](../../examples/form/form.test.ts) does. If you use one state object twice, the check passes whatever its model
-holds, because a parent keeps each child's model while the child keeps its state.
-
 ### The reader
 
-**The reader is the test's own.** The reader is a function from a model to the messages that the model holds
-(`messagesOf` above). You write it one case of the model at a time. The library cannot write it, because a message in a
-model is a value like any other.
+**The reader is the test's own**: a function from a model to the messages that the model holds (`messagesOf` above),
+written one case of the model at a time. The library cannot write it, because a message in a model is a value like any
+other.
 
 **A message held without its value.** The reader takes the value as a parameter, `messagesOf(model, offset)`, and
 fills it into each message that the model holds without it, as the view does (see
@@ -108,108 +89,47 @@ fills it into each message that the model holds without it, as the view does (se
   [`stocktake`](../../examples/stocktake/stocktake.test.ts) do this.
 - Draw a value that the model does not show, with fast-check. A test that fills one value, as the one at which the
   message always acts, also passes an `update` that rejects the other values.
-- Give the same values to the test of the view, which fills them as the element would report them (see
-  [the view](#the-view)).
-- Exempt with `inert` the values at which the message means nothing: there, its step does nothing.
-- `Missing` compares whole messages, the value too. So fill the held messages and the `candidates` with the same
-  values.
+- Give the same values to the test of the view (see [the view](#the-view)).
+- Exempt with `inert` the values at which the message means nothing.
+- Fill the held messages and the `candidates` with the same values: `Missing` compares whole messages.
 
 [`volume`](../../examples/volume/volume.test.ts) does this, for a press with the point of the pointer and the place of
 its track.
 
-**Children.** A parent's reader calls the readers of its children. The parent's reader wraps what they return as the
-parent receives it: `{ _tag: 'Clock', message }`, with the `id` for children by id. The
-[`pages`](../../examples/pages/app.test.ts) and [`list`](../../examples/list/list.test.ts) examples do this. Where a
-child's model holds a message without its value, the parent's reader takes that value as a parameter too, and gives it
-to the child's reader.
+**Children.** A parent's reader calls the readers of its children, and wraps what they return as the parent receives
+it: `{ _tag: 'Clock', message }`, with the `id` for children by id, as [`pages`](../../examples/pages/app.test.ts) and
+[`list`](../../examples/list/list.test.ts) do. A value that a child's reader takes is a parameter of the parent's
+reader too.
 
 **The reader is complete only as far as the candidates go.** A reader that forgets a field of the model still passes
-`Rejected`, `Inert` and `ActsTwice`, because those three judge only what the reader returns. `Missing` finds the forgotten field
-when three things hold:
-
-1. `update` accepts the field's message in the state;
-2. the message would do something;
-3. the test lists the message among the `candidates`.
-
-**Keeping the candidates.** The examples whose messages are tagged list their candidates one tag of `Message` at a
-time. They keep the candidates in a record that the compiler checks against the type (`satisfies`), as
-[`timer`](../../examples/timer/timer.test.ts) does. With such a record, a new message does not compile until the test
-says what a user could ask for with it, even if that is nothing. This is the examples' way to keep the list. The library
-does not ask for it.
+`Rejected`, `Inert` and `ActsTwice`, which judge only what the reader returns. `Missing` finds the forgotten field when
+`update` accepts its message in the state, the message would do something, and the test lists it among the
+`candidates`.
 
 ### The view
 
-**That the view draws what its model holds is not checked here.** This means that the view draws each control once,
-through the right dispatch. You check it with your renderer's tools. For snabbdom, the package has one,
-`messagesSentBy`, in `@fgaudo/effect-tea/snabbdom/testing` ([`bridges/snabbdom-testing.ts`][messages]). It finds what a
-view sends, without a DOM. A test compares that with what its reader returns. The examples' tests do this, each with a
-reader that lists the messages in the order its view draws them. Where a handler reads what its element or its event
-reports, the test gives `messagesSentBy` the values that it gives its reader (see
-[`messagesSentBy`](./writing-a-bridge.md#messagessentby)). `messagesSentBy` is an example, and a bridge does not have
-to have one.
+**That the view draws what its model holds**, each control once and through the right dispatch, is checked with your
+renderer's tools. For snabbdom, `messagesSentBy`, of `@fgaudo/effect-tea/snabbdom/testing`, finds what a view sends
+without a DOM, and a test compares it with what its reader returns, in the order the view draws them. Where a handler
+reads what its element or its event reports, the test gives `messagesSentBy` the values that it gives its reader.
 
-**A program run under its renderer, in a DOM,** is run as the app runs it. First, the test file prepares the DOM:
+**A program run under its renderer, in a DOM,** is run as the app runs it. The test file registers a DOM, as happy-dom's
+`GlobalRegistrator.register()` does in a `beforeAll`. With snabbdom, which reads `window` as it loads, a file that sets
+`window` to `undefined` is loaded before the test's imports: with Bun, a `preload` of `bunfig.toml`, as
+[`bridges/snabbdom-preload.ts`](../../bridges/snabbdom-preload.ts) is for the package's own tests. Then the test:
 
-- The test file registers a DOM, as happy-dom's `GlobalRegistrator.register()` does in a `beforeAll`.
-- With snabbdom, a file that sets `window` to `undefined` is loaded before the test's imports, even when the test
-  registers a DOM. The reason is that snabbdom reads `window` when it loads. With Bun, this is a `preload` of
-  `bunfig.toml`, as [`bridges/snabbdom-preload.ts`][preload] is for the package's own tests.
-
-Then the test does these steps:
-
-1. It starts the program with `const { app, run } = start(program, options)`, draws `app` with
-   `drawInto(root, { app, view })`, and forks `run` with `Effect.runFork`, with its services provided. `drawInto`
-   empties `root` and draws the view into it, so the test finds what the view draws through `root`. The test may make
-   `root` with no parent, and may draw a second program into the same `root`, once it has stopped the first bridge.
-2. It acts on the page. Then it waits until the page shows what it expects, because a renderer may draw a new state
-   later. The bridge to snabbdom draws in a microtask after each new state, a message of its view's included: so the
-   test awaits a microtask after each event it dispatches. React renders as React schedules it. A message of a
-   subscription or the answer of a command may come later than a microtask: when the effects of a step start is
-   unspecified (see [guarantees](./guarantees.md#what-is-left-to-you)). So, for what they bring, the test looks at the
-   page again after each turn of the event loop (`setTimeout(resolve, 0)`), with a bound that only a failing test
-   reaches.
-3. At the end, it stops the bridge, interrupts the run's fiber, and waits for it (see
+1. starts the program with `start`, draws `app` into a `root`, and forks `run`, with its services provided;
+2. acts on the page, then waits until the page shows what it expects. The bridge to snabbdom draws in a microtask after
+   each new state, and React as React schedules it. A message of a subscription or the answer of a command may come
+   later (see [guarantees](./guarantees.md#what-is-left-to-you)): so the test looks at the page again after each turn
+   of the event loop (`setTimeout(resolve, 0)`), with a bound that only a failing test reaches;
+3. at the end, stops the bridge, interrupts the run's fiber, and waits for it (see
    [how the run ends](./running.md#how-the-run-ends)).
 
-The tests of the package's bridges go further (see [their tests](./writing-a-bridge.md#their-tests)). In those tests,
-the run's fibers go on when the test says.
+## Advice
 
-[preload]: ../../bridges/snabbdom-preload.ts
-[messages]: ../../bridges/snabbdom-testing.ts
-
-## Do and don't
-
-Each pair sums up a rule of this page. The rule itself is above.
-
-| Do                                                                              | Don't                                                                   |
-| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Assert a rejection with `toBe(reject)`.                                         | Assert a rejection as "the state did not change".                       |
-| Check that the model is data on two equal states built apart.                   | Check that the model is data on one state object used twice.            |
-| Check the pairs the invariants rule out apart, with `toThrow(InvariantDefect)`. | Expect a step or `reject` for a pair that the invariants rule out.      |
-| List the candidates, so that `Missing` can find a field the reader forgot.      | Count on `Rejected`, `Inert` and `ActsTwice` to find a forgotten field. |
-
-```ts
-// Don't: one state object used twice passes whatever its model holds
-const state = { count: 3 }
-expect(Equal.equals(counter.makeModel(state), counter.makeModel(state))).toBe(true)
-
-// Do: two equal states built apart, drawn from the same seed
-const [one] = fc.sample(states, { seed, numRuns: 1 })
-const [other] = fc.sample(states, { seed, numRuns: 1 })
-if (one === undefined || other === undefined) throw new Error("nothing sampled")
-expect(Equal.equals(counter.makeModel(one), counter.makeModel(other))).toBe(true)
-```
-
-## The tools
-
-From `@fgaudo/effect-tea/testing`:
-
-| Tool                                                          | Use it to test                                                                                                      |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| [`applyAll`](./testing-tools.md#applyall)                     | `update`'s rules: apply messages, check the state, commands and events                                              |
-| [`dispatchViolations`](./testing-tools.md#dispatchviolations) | that the model holds what `update` accepts, all of it, that each control does something, and a double tap acts once |
-| [`simulate`](./testing-tools.md#simulate)                     | a flow with its commands answered at once, without running the program                                              |
-| [`rehearse`](./testing-tools.md#rehearse)                     | a user's scenario without running the program, the test deciding when each command runs                             |
-| [`drive`](./testing-tools.md#drive)                           | a user's scenario on the running program, subscriptions included                                                    |
-
-What each tool does, what fails the test and what it ignores are in [testing tools](./testing-tools.md).
+**Keep the candidates in a record that the compiler checks.** The examples whose messages are tagged list their
+candidates one tag of `Message` at a time, in a record checked against the type with `satisfies`, as
+[`timer`](../../examples/timer/timer.test.ts) does. A new message then does not compile until the test says what a user
+could ask for with it, even if that is nothing. A program of a few messages that seldom change can list them in an
+array, as the counter does.
