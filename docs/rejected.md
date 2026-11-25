@@ -209,6 +209,29 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   step 61: the two would do one job, but a parent says from its own state when a child listens, as it says when the
   child is there, and each child that can be hidden would keep a state and an external message for it. _Reopen if_ a
   child must know that it does not listen, as one that waits for an end that its subscription sends.
+- **A value of its parent that a child reads**, the mirror of `output`: the child names its type, and its `update`,
+  `external`, `makeModel`, `subscriptions` and `output` take the value last. Spiked in the engine, 25 November 2026
+  (`examples/cart/given.ts` on `spike/condition-down`; [`condition-down.md`](records/condition-down.md)), and reasoned
+  for the rest. A child that reads cannot answer a change with a step, so one that must is told by hand again, and a
+  condition goes down two ways. It leaves no copy and costs least, for a name in `program`, a parameter on five
+  pieces, an option in `start` and in three tools, every reader of a program's types written again, and a program
+  that no longer runs alone. A `tell` declared from the parent's state was taken instead. _Reopen if_ a condition is
+  found that a child cannot keep a copy of, as one too large to tell each child, or a child must read it in its
+  `init`.
+- **A first step that tells its children.** Left in step 34 as what could be added with no break, and spiked on 25
+  November 2026, in two lines of the engine (`examples/cart/init-tells.ts` on `spike/condition-down`): of the three
+  rules of a condition handed down by hand, it removes the first value kept apart, which the declared `tell` removes
+  with the other two. _Reopen if_ a parent must tell a child a moment as the program starts, which neither the
+  child's flags nor a declared `tell` can say.
+- **A declared `tell` that takes the id of a child, and what a child was last told kept in its instance.** Spiked, 25
+  November 2026 ([`condition-down.md`](records/condition-down.md)). With the id, a step of the parent's own that
+  changes nothing costs a call and a comparison for each child: 1 ms at 10,000 children with a constant, 9 ms with a
+  literal, where one value for the children of a declaration costs 0.6 µs to 2.4 µs. Kept in each instance and
+  compared at each step, what was told also set right a state that another program made, as one saved under an older
+  `tell` and given back as `init`, at that same cost for each step: the call that tells keeps what it told, adds
+  nothing to the state, and leaves such a state as it is until the value changes. A condition of each child, as which
+  row is chosen, is told by hand. _Reopen if_ such a condition is handed down by hand in an application and its
+  telling is found wrong where its tests pass, or a state saved under another `tell` is found to mislead a program.
 - **`forEach`**, the n-ary `andThen`. Removed with the store, 22 November 2026: a parent lists what it tells in one
   `tell`, which `Arr.map` makes. `andThen` stays, the one place where two steps combine. _Reopen if_ a program must
   fold steps over items that each read the state before, and `andThen` in a reduce does not read well.
@@ -458,6 +481,14 @@ reopened goes back there; one decided against becomes an entry above.
   drawing it saved, and drawing a thousand rows again about 1 ms. The bridge to snabbdom skips a model that is the very
   one it drew last. _Reopen if_ a browser, or a heavier row, shows drawing an unchanged model to cost more than its
   comparison by `Equal`.
+- **A first step that carries events**, so that a parent may raise an event of its own as it starts. Deferred in
+  step 79, 25 November 2026, reasoned and not run ([`condition-down.md`](records/condition-down.md)): with a `tell`
+  declared from the state, a child may answer what it is told as it starts with an event, and its parent's handler may
+  raise one of the parent's own, which is a `CompositionDefect`, since `init` gives a state and commands alone. To
+  carry it, the `init` of every program, `Core.init` and each tool that starts a program would take events, and a
+  parent would handle those of the children that it starts. Added later, it turns a defect into a step, and breaks
+  nothing. _Reopen if_ a program is found whose child must answer what it is told as it starts with an event that its
+  parent passes on.
 - **A `key` beside the `flags` of a child**, so that it can start again from equal flags
   ([`kept-children.md`](records/kept-children.md), "Decided, under the store"). Deferred in step 59, 24 November 2026,
   reasoned ([`api-review.md`](records/api-review.md)): a child's flags are what it starts from, and other flags start
