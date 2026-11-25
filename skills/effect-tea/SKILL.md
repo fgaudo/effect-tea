@@ -73,7 +73,7 @@ it": each of its rows names the page that rules it.
 | a value that the user types, and a parent reads                  | a message of the program whose rules use it         |
 | what holds in a child, that its parent reads                     | the child's `output`                                |
 | what a child asks of its parent                                  | an event                                            |
-| a fact that several children must see as one                     | an external message, which the parent tells down    |
+| a fact that several children must see as one                     | `tell` in their declaration, an external message    |
 
 ## Rules that nothing checks
 
@@ -81,11 +81,11 @@ No type refuses a break of these, and most often the run goes on. So check each 
 "Guarantees", "What is left to you".
 
 - **The functions of a program are pure, and no value is ever mutated.** `update`, `external`, `makeModel`, `output`,
-  `subscriptions`, an `init` that takes flags, the handlers of `onEvent`, and `there`, `key`, `flags`, `ids` and
-  `listening` are pure. The library calls them when it chooses: never assume that `update` runs once per message. No
-  value given to the library, or taken from it, by a program or a test, is mutated once made, nested objects included.
-  A copy of the state shares its nested objects, so copy each one you change. The guide, "Update", "Keep it pure". The
-  guide, "Update", "It may be called at any time". The guide, "Update", "Never mutate the state".
+  `subscriptions`, an `init` that takes flags, the handlers of `onEvent`, and `there`, `key`, `flags`, `ids`,
+  `listening` and `tell` are pure. The library calls them when it chooses: never assume that `update` runs once per
+  message. No value given to the library, or taken from it, by a program or a test, is mutated once made, nested
+  objects included. A copy of the state shares its nested objects, so copy each one you change. The guide, "Update",
+  "Keep it pure". The guide, "Update", "It may be called at any time". The guide, "Update", "Never mutate the state".
 - **A model is data.** It holds no function, and the models of two equal states are equal by `Equal`. A control that
   picks among fixed values holds one message for each value, never a function `(digit) => Message`. The guide,
   "Model", "A model is data".
@@ -124,6 +124,10 @@ No type refuses a break of these, and most often the run goes on. So check each 
   that value is undefined. The guide, "Guarantees", "What is left to you".
 - **What must stay private is in a service, not in a key.** A key is shown whole, in a defect of its subscription and
   to `onApplied` and `onIgnored`. The guide, "Guarantees", "What must stay private is in a service, not in a key".
+- **A state that starts a program elsewhere is one that the program made.** A child declared with `tell` was last
+  told what its parent's state gives in the states that the program makes. One saved under another `tell`, and given
+  back as `init: { state }`, keeps what each child was told then, until the value changes. The guide, "Guarantees",
+  "A state that starts a program elsewhere is one that the program made".
 - **A function of the program never interrupts the fiber it runs in.** It runs where the library calls it: in the call
   of `start` or `make`, where a message is sent, or where the model is read. That may be any fiber, or none. One that
   interrupts the fiber of a command or a subscription is a defect of it; another fiber's interruption no defect
@@ -152,6 +156,9 @@ The library promises these, and a program that forgets them goes wrong.
   its `init`, as another instance. An answer reaches the instance that asked, or is rejected. A message of a view names
   no instance: where a click on an old row must not reach a new one, never reuse ids. The guide, "Composition", "Ids
   that come back".
+- **A child declared with `tell` was last told what its parent's state gives.** It is told the value as it starts,
+  and after each step of its parent it was last told what the state gives. The guide, "Guarantees", "A child was last
+  told what its parent's state gives".
 - **A defect ends the run, and the run does not log it.** The run dies with a `ProgramDefect`, whose `cause` is the
   defect and whose `where` says where. Reporting it, and what the user sees next, are the job of the app around the
   run. The guide, "Running", "The run never recovers from a defect, and does not log it".

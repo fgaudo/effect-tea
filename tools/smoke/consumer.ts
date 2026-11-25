@@ -1,8 +1,8 @@
 // A consumer of the packed package, run with Node and typechecked by `smoke.ts` under several TypeScript versions
 // and module resolutions. It instantiates the types of `program` (a child, children by id, with a key, flags and
-// `listening`, events and external messages told in a step, an output its parent reads, a parent of parents,
-// subscriptions made from their keys, a function over programs), checks that what they reject does not compile, and that the declarations of what it
-// exports can be emitted.
+// `listening`, events and external messages told in a step or declared, an output its parent reads, a parent of
+// parents, subscriptions made from their keys, a function over programs), checks that what they reject does not
+// compile, and that the declarations of what it exports can be emitted.
 import {
   andThen,
   type CommandServicesOf,
@@ -86,10 +86,11 @@ export const quiet = program<{ state: CounterState; model: CounterState; message
   })
 
 // Exported, as a package that publishes a program would: its declarations name what `child` and `childById` give. A
-// child always there, children by id, a child started again on another key, one there in some states, one with flags.
+// child always there, children by id, told a literal as each starts, a child started again on another key, one there in
+// some states, one with flags.
 export const children = {
   Main: child(counter),
-  Row: childById(counter, { ids: (state) => state.ids, listening: (_, id) => id > 0 }),
+  Row: childById(counter, { ids: (state) => state.ids, listening: (_, id) => id > 0, tell: () => ({ _tag: "Reset" }) }),
   Keyed: child(quiet, { key: (state) => state.fulls }),
   Shown: child(quiet, { there: (state) => state.fulls > 0, listening: (state) => state.fulls < 10 }),
   Greeter: child(greeter, { flags: (state) => state.opened })
@@ -154,6 +155,12 @@ withChildren(children).make({
   update: () => (state) => ({ state, tell: [{ _tag: "Keyed", message: { _tag: "Reset" } }] }),
   makeModel: () => null
 })
+
+// What a declaration tells is an external message of the child, and a child without one is told nothing.
+// @ts-expect-error
+childById(counter, { ids: (state) => state.ids, tell: () => ({ _tag: "Increment" }) })
+// @ts-expect-error
+child(quiet, { tell: () => ({ _tag: "Increment" }) })
 
 // A program with external messages and none of its own passes them on to its child, in its `external`.
 const relaying = program<{ state: Readonly<{ relayed: number }>; event: Full; external: Reset }>()

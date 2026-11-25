@@ -68,10 +68,10 @@ const ceilings: Readonly<Record<string, number>> = {
   "Rejections and defects": 900,
   "Composition": 1900,
   "Structuring a program": 1900,
-  "Events and external messages": 1450,
+  "Events and external messages": 1500,
   "What an element gives": 1350,
   "Running": 1800,
-  "Guarantees": 1900,
+  "Guarantees": 2000,
   "Writing a bridge": 2000,
   "Testing": 1300,
   "Testing tools": 1300

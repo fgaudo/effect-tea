@@ -133,6 +133,8 @@ export type Child<State, P, There extends "always" | "sometimes"> = {
   readonly key: (state: State) => Opt.Option<unknown>
   /** Whether the child's subscriptions run in a state where it is there. Without it, they always run. */
   readonly listening?: (state: State) => boolean
+  /** What the child is told in a state: as it starts, and so that it was last told what its parent's state gives. */
+  readonly tell?: (state: State) => ExternalOf<P>
 }
 
 /**
@@ -159,6 +161,11 @@ export type ChildById<State, Id, P> = {
   readonly flagged: boolean
   /** Whether the child at an id listens, in a state where it is there. Without it, every child does. */
   readonly listening?: (state: State, id: Id) => boolean
+  /**
+   * What each child is told in a state, one value for them all: as it starts, and so that it was last told what its
+   * parent's state gives.
+   */
+  readonly tell?: (state: State) => ExternalOf<P>
 }
 
 /** No children: what a program that declares none has. */
@@ -174,6 +181,7 @@ type Children<State> = Readonly<
       there: "always" | "sometimes"
       key: (state: State) => Opt.Option<unknown>
       listening?: (state: State) => boolean
+      tell?: (state: State) => unknown
     }>
     | Readonly<{
       kind: "byId"
@@ -181,6 +189,7 @@ type Children<State> = Readonly<
       listed: (state: State) => Iterable<unknown>
       flagged: boolean
       listening?: (state: State, id: never) => boolean
+      tell?: (state: State) => unknown
     }>
   >
 >
@@ -461,8 +470,10 @@ type Config<State, C, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, Externa
      * The first state and commands: a step, or, for a program with flags, the function that makes one from them.
      *
      * A parent's first step is of its own state. The library starts the children that this state lists, each with
-     * its first commands. The step raises no events and tells no child: a child is given what it starts from by its
-     * flags. The program's own flags are declared with its other types, in `program`.
+     * its first commands. The step raises no events and lists no `tell`: a child is given what it starts from by its
+     * flags, and is told what the `tell` of its declaration gives, once every child has its first commands. A
+     * handler of `onEvent` that runs then raises no event of the parent's own: one is a `CompositionDefect`, which
+     * names the child it answers. The program's own flags are declared with its other types, in `program`.
      *
      * A parent without flags starts its children as `make` makes it. So what a child's `init`, or a function of its
      * declaration, throws there, `make` throws. An id listed twice is one such case.
@@ -492,14 +503,19 @@ type Slots = Readonly<Record<string, Slot>>
  */
 type Lifted = ReadonlyArray<unknown>
 
-// What one call of `update`, `external` or `init` gathers: the parts of the state as they are replaced, and the
-// commands and the events of every step taken in it. It never leaves the call.
+// What one call of `update`, `external`, `init` or `stateOf` gathers: the parts of the state as they are replaced, and
+// the commands and the events of every step taken in it. It never leaves the call.
 type Gathered = {
   own: unknown
   starts: number
   children: Slots
   readonly commands: Array<unknown>
   readonly events: Array<unknown>
+  // The own state and the count of starts as the call began, `None` for a start, `init` or `stateOf`, and what the call
+  // has told each instance from the declared `tell`, by the instance's number: see `sync`.
+  readonly first: Opt.Option<unknown>
+  readonly began: number
+  readonly told: Map<number, unknown>
 }
 
 type UntypedStep = Step<unknown, unknown, unknown, unknown>
@@ -512,6 +528,7 @@ type UntypedChild = Readonly<{
   listed?: (own: unknown) => Iterable<unknown>
   flagged?: boolean
   listening?: (own: unknown, id?: unknown) => boolean
+  tell?: (own: unknown) => unknown
 }>
 
 type UntypedConfig = Readonly<{
@@ -535,8 +552,11 @@ export type Placer = (own: unknown, states: Readonly<Record<string, unknown>>) =
 // The key of a child that is there with no flags and no key.
 const present = Opt.some(undefined)
 
-// What a program without subscriptions of its own listens to.
+// What a program without subscriptions of its own listens to, and a step tells where it lists nothing.
 const none: ReadonlyArray<unknown> = []
+
+// The names that started no child.
+const nothing: ReadonlySet<string> = new Set()
 
 // One `make` for a program and for a parent: `children` is `undefined` for a program, whose state is its own alone.
 const make = (children: Readonly<Record<string, UntypedChild>> | undefined, config: UntypedConfig): unknown => {
@@ -578,8 +598,28 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
     })
   const open = (state: unknown): Gathered => {
     const whole = state as Kept<unknown, Slots>
-    return { own: whole.own, starts: whole.starts, children: whole.children, commands: [], events: [] }
+    return {
+      own: whole.own,
+      starts: whole.starts,
+      children: whole.children,
+      commands: [],
+      events: [],
+      first: Opt.some(whole.own),
+      began: whole.starts,
+      told: new Map()
+    }
   }
+  // What a start gathers: no child is there yet, and no child was told anything.
+  const opening = (own: unknown, commands: Array<unknown>): Gathered => ({
+    own,
+    starts: 0,
+    children: empty,
+    commands,
+    events: [],
+    first: Opt.none(),
+    began: 0,
+    told: new Map()
+  })
   // The very same state where nothing of it was replaced, so that it makes no new model.
   const close = (gathered: Gathered, before: unknown): Step<unknown, unknown, unknown> => {
     const was = before as Kept<unknown, Slots>
@@ -613,8 +653,10 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
   // The children that the parent's own state lists are there, each under the key it gives, and no other: one that it
   // no longer lists is dropped, one that it lists anew is started, and one whose key is another is another child.
   // Children by id whose `listed` gives the very same object for the own state of before are as they were: `listed`
-  // is pure, so the same object lists the same children, which the last reconciliation left there.
-  const reconcile = (gathered: Gathered, before: Opt.Option<unknown>) => {
+  // is pure, so the same object lists the same children, which the last reconciliation left there. It gives the names
+  // that started a child.
+  const reconcile = (gathered: Gathered, before: Opt.Option<unknown>): ReadonlySet<string> => {
+    let started: Set<string> | undefined
     for (const name of names) {
       const child = childOf(name)
       if (child.kind === "one") {
@@ -627,6 +669,7 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
             ...gathered.children,
             [name]: Opt.some(startAt(gathered, { name, id: undefined }, wanted.value))
           }
+          started = (started ?? new Set()).add(name)
         }
         continue
       }
@@ -645,6 +688,7 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
           } else {
             same = false
             HashMap.set(kept, id, startAt(gathered, { name, id }, key))
+            started = (started ?? new Set()).add(name)
           }
         }
       })
@@ -652,6 +696,7 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
         gathered.children = { ...gathered.children, [name]: next }
       }
     }
+    return started ?? nothing
   }
   const onEventAt = (place: Place, event: unknown, slots: Slots): (state: unknown) => UntypedStep => {
     const handle = onEvents[place.name]
@@ -670,21 +715,34 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
     }
     for (const command of result.commands ?? []) gathered.commands.push(wrapCommand(place, entry.instance)(command))
     for (const event of result.events ?? []) {
-      ownStep(gathered, onEventAt(place, event, gathered.children)(gathered.own))
+      const handled = onEventAt(place, event, gathered.children)(gathered.own)
+      // A start has no events: one that a handler raises there, in answer to what a child was told, has nowhere to go.
+      if (Opt.isNone(gathered.first) && handled.events !== undefined && handled.events.length > 0) {
+        const on = describeByTag(handled.events[0])
+        throw defectAt(
+          place,
+          `The parent raised the event ${
+            String(on)
+          } for "${place.name}" as the program starts, where no step takes events`,
+          on
+        )
+      }
+      ownStep(gathered, handled)
     }
   }
-  // A step of the parent's own code: its state, then the children that state lists, then what it tells them, in
-  // order, each to its end. What it tells is bound to the children that are there once the step is reconciled: a
-  // child that is not there then is the step's own mistake, a defect, and one that an earlier item of the same `tell`
-  // dropped or started again is told nothing.
+  // A step of the parent's own code: its state, then the children that state lists, then what the declared `tell`
+  // gives them, then what the step tells them, in order, each to its end. What the step tells is bound to the
+  // children that are there once the step is reconciled: a child that is not there then is the step's own mistake, a
+  // defect, and one that the declared `tell`, or an earlier item of the same `tell`, dropped or started again is told
+  // nothing.
   const ownStep = (gathered: Gathered, step: UntypedStep) => {
     const before = gathered.own
     gathered.own = step.state
     for (const command of step.commands ?? []) gathered.commands.push(command)
     for (const event of step.events ?? []) gathered.events.push(event)
-    if (!Object.is(step.state, before)) reconcile(gathered, Opt.some(before))
-    const tells = step.tell
-    if (tells === undefined || tells.length === 0) return
+    const changed = !Object.is(step.state, before)
+    const started = changed ? reconcile(gathered, Opt.some(before)) : nothing
+    const tells = step.tell ?? none
     const bound = Arr.map(tells, (tell) => {
       const place = placeOf(tell)
       const message = field(tell, "message")
@@ -697,18 +755,69 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
       }
       return [place, entry.value.instance, message] as const
     })
+    if (changed && tellers.length > 0) sync(gathered, Opt.some(before), started)
     for (const [place, instance, message] of bound) {
       const entry = entryAt(gathered.children, place)
       if (Opt.isNone(entry) || entry.value.instance !== instance) continue
-      // Unreachable through the types: a step tells a child only what its `external` takes, `never` for one without.
-      const answer = (childOf(place.name).program as Readonly<{
-        external?: (message: unknown) => (state: unknown) => Step<unknown, unknown, unknown>
-      }>).external
-      if (answer === undefined) {
-        const on = describeByTag(message)
-        throw defectAt(place, `The external message ${String(on)} to "${place.name}", which has no external`, on)
+      tellAt(gathered, place, entry.value, message)
+    }
+  }
+  // Unreachable through the types: a child is told only what its `external` takes, `never` for one without.
+  const tellAt = (gathered: Gathered, place: Place, entry: Entry, message: unknown) => {
+    const answer = (childOf(place.name).program as Readonly<{
+      external?: (message: unknown) => (state: unknown) => Step<unknown, unknown, unknown>
+    }>).external
+    if (answer === undefined) {
+      const on = describeByTag(message)
+      throw defectAt(place, `The external message ${String(on)} to "${place.name}", which has no external`, on)
+    }
+    childStep(gathered, place, entry, answer(message)(entry.state))
+  }
+  // What the declared `tell` gives the children: a child is told it as it starts, and again where it is another, by
+  // `Equal`, than the last it was told, in the order of the names, then of the ids as the own state lists them, each to
+  // its end, the value read from the own state as it is at the child's turn. No field of the state says what a child
+  // was told. Between two calls every child was told what the own state gives, where this program made the state, and
+  // `tell` is pure; within a call, `told` keeps it, and a child there as the call began was told what its first own
+  // state gives. So a name whose value is equal to the one of the own state before the step, and that started no child,
+  // is skipped, for two calls of `tell`: a child that an enclosing step of the call has not reached yet is told by it.
+  const tellers = Arr.filter(names, (name) => childOf(name).tell !== undefined)
+  const sync = (gathered: Gathered, before: Opt.Option<unknown>, started: ReadonlySet<string>) => {
+    for (const name of tellers) {
+      const child = childOf(name)
+      const tell = child.tell as (own: unknown) => unknown
+      if (!started.has(name) && Opt.isSome(before) && Equal.equals(tell(before.value), tell(gathered.own))) continue
+      const ids: ReadonlyArray<unknown> = child.kind === "one"
+        ? [undefined]
+        : Arr.map(
+          Arr.fromIterable((child.listed as (own: unknown) => Iterable<unknown>)(gathered.own)),
+          (item) => child.flagged === true ? (item as readonly [unknown, unknown])[0] : item
+        )
+      const held = Opt.map(gathered.first, tell)
+      // The last pair compared: the children of one name are most often told one value after one other.
+      let compared: readonly [unknown, unknown, boolean] | undefined
+      // The value of the own state as it is: read again only once a child's answer made the parent take a step.
+      let read: readonly [unknown, unknown] | undefined
+      for (const id of ids) {
+        const place = { name, id }
+        const entry = entryAt(gathered.children, place)
+        if (Opt.isNone(entry)) continue
+        const { instance } = entry.value
+        if (read === undefined || !Object.is(read[0], gathered.own)) read = [gathered.own, tell(gathered.own)]
+        const message = read[1]
+        const last = gathered.told.has(instance)
+          ? Opt.some(gathered.told.get(instance))
+          : instance > gathered.began
+          ? Opt.none()
+          : held
+        if (Opt.isSome(last)) {
+          if (compared === undefined || compared[0] !== last.value || compared[1] !== message) {
+            compared = [last.value, message, Equal.equals(last.value, message)]
+          }
+          if (compared[2]) continue
+        }
+        gathered.told.set(instance, message)
+        tellAt(gathered, place, entry.value, message)
       }
-      childStep(gathered, place, entry.value, answer(message)(entry.value.state))
     }
   }
   const update = (message: unknown) => (state: unknown) => {
@@ -739,16 +848,12 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
     programs,
     (child): Slot => child.kind === "byId" ? HashMap.empty<unknown, Entry>() : Opt.none()
   )
+  // A start tells each child it starts, once every child of the first state has its first commands.
   const begin = (step: Step<unknown, unknown>): Step<unknown, unknown> => {
     if (!composed) return step
-    const gathered: Gathered = {
-      own: step.state,
-      starts: 0,
-      children: empty,
-      commands: [...(step.commands ?? [])],
-      events: []
-    }
+    const gathered = opening(step.state, [...(step.commands ?? [])])
     reconcile(gathered, Opt.none())
+    if (tellers.length > 0) sync(gathered, Opt.none(), nothing)
     return {
       state: { own: gathered.own, starts: gathered.starts, children: gathered.children },
       commands: gathered.commands
@@ -815,9 +920,14 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
   const ownOf = (state: unknown) => composed ? (state as Kept<unknown, unknown>).own : state
   const ownExternal = config.external
   const ownOutput = config.output
+  // The state that a start makes, each child told as it starts, then each state given put in place of its child's.
   const placer: Placer = (own, states) => {
-    const gathered: Gathered = { own, starts: 0, children: empty, commands: [], events: [] }
+    const gathered = opening(own, [])
     reconcile(gathered, Opt.none())
+    if (tellers.length > 0) sync(gathered, Opt.none(), nothing)
+    if (!Object.is(gathered.own, own)) {
+      throw new Error("stateOf: a handler of onEvent gives another own state, in answer to what a child is told")
+    }
     for (const name of Object.keys(states)) {
       if (!Object.hasOwn(programs, name)) throw new Error(`stateOf: "${name}" is no child`)
       const given = states[name]
@@ -1014,16 +1124,18 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> =>
         there?: (state: unknown) => boolean
         key?: (state: unknown) => unknown
         listening?: (state: unknown) => boolean
+        tell?: (state: unknown) => unknown
       }> = {}
     ) => {
-      const { flags, key, listening, there } = place
+      const { flags, key, listening, tell, there } = place
       const keyed = key === undefined ? () => present : (state: unknown) => Opt.some(key(state))
       return {
         kind: "one",
         program,
         there: flags === undefined && there === undefined ? "always" : "sometimes",
         key: flags ?? (there === undefined ? keyed : (state: unknown) => there(state) ? keyed(state) : Opt.none()),
-        ...(listening === undefined ? {} : { listening })
+        ...(listening === undefined ? {} : { listening }),
+        ...(tell === undefined ? {} : { tell })
       }
     },
     childById: (
@@ -1032,13 +1144,15 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> =>
         ids?: (state: unknown) => Iterable<unknown>
         flags?: (state: unknown) => Iterable<readonly [unknown, unknown]>
         listening?: (state: unknown, id: unknown) => boolean
+        tell?: (state: unknown) => unknown
       }>
     ) => ({
       kind: "byId",
       program,
       listed: place.flags ?? place.ids,
       flagged: place.flags !== undefined,
-      ...(place.listening === undefined ? {} : { listening: place.listening })
+      ...(place.listening === undefined ? {} : { listening: place.listening }),
+      ...(place.tell === undefined ? {} : { tell: place.tell })
     }),
     make: (config: UntypedConfig) => make(undefined, config),
     withChildren: (children: Readonly<Record<string, UntypedChild>>) => ({
@@ -1068,6 +1182,10 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * - A child with flags is there where `flags` gives `Some`, and starts from them. Other flags start it again. It
    *   has no `key` beside them, so it does not start again from equal flags.
    * - `listening` says in which states its subscriptions run. Without it, they run whenever the child is there.
+   * - `tell` gives, from the parent's state, an external message that the child is told: as it starts, in the first
+   *   state too, and after each step of the parent's own, so that the child was last told what the parent's state
+   *   gives. It does not compile for a child without external messages, nor for a message that is not one of the
+   *   child's.
    *
    * A program with flags is declared with `flags`, and one without flags is declared without them. A child written
    * as an object, and not typed `Program<…>`, is checked as a program is: one whose steps list commands has a
@@ -1076,8 +1194,8 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * program is an overload, whose body declares a program of `unknown` types.
    *
    * @param program - The child.
-   * @param place - When the child is there, what it starts from, and when it listens: functions of the parent's own
-   * state.
+   * @param place - When the child is there, what it starts from, when it listens and what it is told: functions of
+   * the parent's own state.
    * @returns The child, for `withChildren`.
    *
    * @example
@@ -1096,12 +1214,15 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * - `children.Row(id)` is a row's model, and `forwardTo(dispatch, 'Row', id)` is the row's dispatch.
    * - Ids are compared by value, with `Equal`. An id listed twice is a defect, a `CompositionDefect`.
    * - A row removed, and listed again at the same id in a later step, is another instance, which starts again.
+   * - `tell` gives one external message for all the children, which each is told as `child` says, in the order of
+   *   the ids as `ids`, or `flags`, lists them. It takes no id.
    *
    * It takes `ids`, or `flags` for a program with flags, and does not compile without one, or with the other. The
-   * program is checked as `child` checks it.
+   * program is checked as `child` checks it, and `tell` too.
    *
    * @param program - The program of each child.
-   * @param place - The ids of the children in a state, and `listening`, which says whether the child at an id listens.
+   * @param place - The ids of the children in a state, `listening`, which says whether the child at an id listens,
+   * and `tell`, what every child is told.
    * @returns The children, for `withChildren`.
    *
    * @example
@@ -1162,6 +1283,18 @@ export interface ProgramMaker<T extends DeclaredTypes> {
 /** When a child's subscriptions run, among the states where it is there. Without it, in all of them. */
 type Listening<State> = Readonly<{ listening?: (state: State) => boolean }>
 
+// What a child is told in a state: an external message of its own, and nothing for a child that has none. A
+// conditional type, which the compiler resolves before it types the function: as a function type alone, a literal
+// that the function returns loses its tag (`_tag: string`), and needs `as const`.
+/** What a child is told from its parent's state. Without it, only what a step lists in `tell`. */
+type Telling<State, P> = Readonly<{
+  /**
+   * What the child is told in a state, an external message of its own: as it starts, and so that it was last told
+   * what its parent's state gives. One value for all the children of the declaration.
+   */
+  tell?: [ExternalOf<P>] extends [never] ? never : (state: State) => ExternalOf<P>
+}>
+
 // A child with flags is declared with them. On the place, and not on the program: inferred from `P & …`, `P` would
 // lose the name `Program<…>`, as `CheckedChild` says.
 type AlwaysPlace<State, P> = [FlagsOf<P>] extends [never] ? [
@@ -1173,6 +1306,7 @@ type AlwaysPlace<State, P> = [FlagsOf<P>] extends [never] ? [
         flags?: never
       }>
       & Listening<State>
+      & Telling<State, P>
   ]
   : [place: { readonly "a child with flags is declared with its flags": FlagsOf<P> }]
 
@@ -1231,7 +1365,7 @@ export type DeclareChild<T extends DeclaredTypes> = {
   ): Child<Field<T, "state">, P, "always">
   <P extends AnyProgram>(
     program: CheckedChild<P>,
-    place: SometimesPlace<Field<T, "state">, P> & Listening<Field<T, "state">>
+    place: SometimesPlace<Field<T, "state">, P> & Listening<Field<T, "state">> & Telling<Field<T, "state">, P>
   ): Child<Field<T, "state">, P, "sometimes">
 }
 
@@ -1244,11 +1378,11 @@ export type DeclareChild<T extends DeclaredTypes> = {
 export type DeclareChildById<T extends DeclaredTypes> = {
   <Id, P extends AnyProgram>(
     program: CheckedChild<P>,
-    place: IdsPlace<Field<T, "state">, Id> & FlagsChecked<P, false>
+    place: IdsPlace<Field<T, "state">, Id> & FlagsChecked<P, false> & Telling<Field<T, "state">, P>
   ): ChildById<Field<T, "state">, Id, P>
   <Id, P extends AnyProgram>(
     program: CheckedChild<P>,
-    place: FlagsPlace<Field<T, "state">, Id, FlagsOf<P>> & FlagsChecked<P, true>
+    place: FlagsPlace<Field<T, "state">, Id, FlagsOf<P>> & FlagsChecked<P, true> & Telling<Field<T, "state">, P>
   ): ChildById<Field<T, "state">, Id, P>
 }
 
@@ -1279,6 +1413,9 @@ export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T
    *   name, with its id for children by id: nothing else compiles there. Each is given once the step is taken and its
    *   children are there, in order, to the instance that is there then: one that an earlier item of the same `tell`
    *   dropped or started again, through what its parent did with an event, is told nothing, and it is no defect.
+   * - What the `tell` of a declaration gives is told before what the step lists, in the order of the names in
+   *   `withChildren`, then of the ids, each child to its end, from the parent's state as it is at the child's turn. A
+   *   child that an answer to it dropped or started again is told nothing of what the step lists.
    * - `init` is a step of the parent's own: the library starts the children that its state lists.
    * - The parent's commands need the services of its `runCommand` and of its children's commands, and its
    *   subscriptions those of its `listen` and of its children's subscriptions. Nothing names them: they are inferred.

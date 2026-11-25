@@ -17,9 +17,11 @@ type StatesOf<Children> = {
 /**
  * A state of a parent, for a test: the parent's own state, with the children it lists, each in the state given for it.
  *
- * - Each child that the own state lists is started, as the parent's `init` starts it, and then put in the state given
- *   for it. A child that is given no state is as it starts.
- * - A state given for a child that the own state does not list is an error.
+ * - Each child that the own state lists is started, and told what the `tell` of its declaration gives, as the parent's
+ *   `init` starts it, and then put in the state given for it. A child that is given no state is as it starts.
+ * - A state given for a child that the own state does not list is an error, and so is a handler of `onEvent` that
+ *   gives another object as the own state, equal or not, in answer to what a child is told. One that raises an event
+ *   of the parent's own is a `CompositionDefect`, as in `init`.
  * - For a parent of parents, the state of a child that is a parent is itself made with `stateOf`.
  *
  * @param program - The parent, made with `withChildren`.

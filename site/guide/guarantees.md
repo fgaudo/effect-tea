@@ -31,6 +31,9 @@ each bridge's to promise (see [view](./view.md#rules)).
 - **An answer reaches the instance that asked for it, or is rejected.** Each start of a child is an instance of its
   own, and its commands and its subscriptions name it. Where that instance is no longer there, its answer is rejected,
   even when the child, or a child at the same id, is there again.
+- **A child was last told what its parent's state gives.** A child declared with `tell` is told its value as it
+  starts, and is told it after the steps of its parent, so that once a step is taken, each such child was last told
+  the value of its parent's state (see [composition](./composition.md#when-a-child-is-there)).
 - **Subscriptions follow their keys.** A new state starts the subscription of each key it brings, and interrupts that
   of each key it takes away, by the rules of [subscriptions](./subscriptions.md#rules).
   - Both happen once that state is current, and before any start of a later state. A later message may be applied
@@ -104,14 +107,18 @@ each bridge's to promise (see [view](./view.md#rules)).
     values that `Equal` finds equal have the same `Hash`, and both give the same answer each time. Nothing checks
     them. Where one breaks them, what the library does with that value is undefined: which subscriptions and children
     it keeps, and which dispatch it gives a child.
+- **A state that starts a program elsewhere is one that the program made.** A child was last told what its parent's
+  state gives in the states that the program makes from its first step on. A state saved under another `tell`, as one
+  kept across a reload in development, and given back as `init: { state }`, keeps what each child was told then, until
+  the value changes (see [running](./running.md#rules)).
 - **What must stay private is in a service, not in a key.** A key is shown whole: in a defect of its subscription, and
   in the `origin` that `onApplied` and `onIgnored` hear.
 - **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated.** So are
-  an `init` that takes flags, the handlers of `onEvent`, and the functions that say which children are there and when
-  they listen: `there`, `key`, `flags`, `ids` and `listening`. The library calls them when it chooses. No value that a
-  program or a test gives the library, or that the library gives back, is mutated once it is made, nested objects
-  included: a state, a message, a command, an event, flags, a key, a model, an output, and what a testing tool
-  returns.
+  an `init` that takes flags, the handlers of `onEvent`, and the functions that say which children are there, when
+  they listen and what they are told: `there`, `key`, `flags`, `ids`, `listening` and `tell`. The library calls them
+  when it chooses. No value that a program or a test gives the library, or that the library gives back, is mutated
+  once it is made, nested objects included: a state, a message, a command, an event, flags, a key, a model, an
+  output, and what a testing tool returns.
 - **A function of the program never interrupts the fiber it runs in.** It runs where the library calls it: an `init`
   that takes flags, and the first `subscriptions`, in the call of `start`; the `init` of the children of a parent
   without flags in the call of `make`; `update`, `subscriptions` and the options where the message was sent;

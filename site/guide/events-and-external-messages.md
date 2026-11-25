@@ -11,8 +11,8 @@ events for its parent, a parent tells a child external messages, and a parent re
 output. The page [composition](./composition.md) shows how a parent declares its children.
 
 - A child raises an event to ask its parent for something. The parent handles the event in `onEvent`.
-- A parent tells a child an external message, in the `tell` of a step. The child answers it in its `external`, apart
-  from `update`, in every state.
+- A parent tells a child an external message, in the `tell` of a step, or of the child's declaration. The child
+  answers it in its `external`, apart from `update`, in every state.
 - A child may declare an `output`, a value of its state. Its parent reads it, and reads nothing else of the child.
 - When the parent takes a step of its own before another step, combine the two steps with `andThen`.
 
@@ -133,13 +133,23 @@ is most often not a child, but the parent's own state and messages (see
 [splitting a program](./structuring-a-program.md#splitting-a-program)). A part that has commands or subscriptions of
 its own may still be a child.
 
-If the parts are children, the operation is a fact that all the children see as one. The parent hands this fact down:
+If the parts are children, the operation is a fact that all the children see as one. The parent declares it with
+`tell`, which gives an external message of the child from the parent's state. Each child is told it as it starts,
+and after each step of the parent it was last told what the state gives. [`cart`](../../examples/cart/cart.ts) locks
+its rows from the payment on:
 
-- The parent tells each child an external message when the operation starts, and another when it ends. For children
-  by id, one `tell` lists an item for each id.
-- The child keeps the fact in its state.
+```ts
+Row: childById(Row.row, {
+  ids: (state) => state.ids,
+  tell: (state) => ({ _tag: "LockChanged", locked: isLocked(state) })
+})
+```
+
+- The child keeps the fact in its state, from its `external`.
 - While the fact holds, the child's `update` rejects what the child's view sends. The child's `update` still takes the
   answers of the child's commands.
 - While the fact holds, the child's model shows no controls.
 
-No example of the package shows this yet.
+A fact of each child alone, such as which row is chosen, is told by hand, since `tell` takes no id: in the `tell` of
+each step that changes it, and of each step that starts a child while it holds. A first step lists no `tell`, so a
+child of the first state is given the fact by its flags.

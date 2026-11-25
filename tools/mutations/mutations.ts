@@ -745,24 +745,24 @@ export const mutations: ReadonlyArray<Mutation> = [
       + "    }\n"
       + "    for (const command of result.commands ?? []) gathered.commands.push(wrapCommand(place, entry.instance)(command))\n"
       + "    for (const event of result.events ?? []) {\n"
-      + "      ownStep(gathered, onEventAt(place, event, gathered.children)(gathered.own))\n",
+      + "      const handled = onEventAt(place, event, gathered.children)(gathered.own)\n",
     to: "    const read = gathered.children\n"
       + "    if (!Object.is(result.state, entry.state)) {\n"
       + "      putAt(gathered, place, { instance: entry.instance, key: entry.key, state: result.state })\n"
       + "    }\n"
       + "    for (const command of result.commands ?? []) gathered.commands.push(wrapCommand(place, entry.instance)(command))\n"
       + "    for (const event of result.events ?? []) {\n"
-      + "      ownStep(gathered, onEventAt(place, event, read)(gathered.own))\n",
+      + "      const handled = onEventAt(place, event, read)(gathered.own)\n",
     killedBy: [["src/compose.test.ts", "a handler of onEvent reads the outputs as the child's step left them"]]
   },
   {
     name: "a handler of onEvent reads the outputs of before the earlier handlers of the child's step",
     file: "src/compose.ts",
     from: "    for (const event of result.events ?? []) {\n"
-      + "      ownStep(gathered, onEventAt(place, event, gathered.children)(gathered.own))\n",
+      + "      const handled = onEventAt(place, event, gathered.children)(gathered.own)\n",
     to: "    const read = gathered.children\n"
       + "    for (const event of result.events ?? []) {\n"
-      + "      ownStep(gathered, onEventAt(place, event, read)(gathered.own))\n",
+      + "      const handled = onEventAt(place, event, read)(gathered.own)\n",
     killedBy: [
       [
         "src/compose.test.ts",
@@ -807,8 +807,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a step of the parent's own is not reconciled",
     guarantees: ["A parent's children are those its own state lists"],
     file: "src/compose.ts",
-    from: "    if (!Object.is(step.state, before)) reconcile(gathered, Opt.some(before))\n",
-    to: "",
+    from: "    const started = changed ? reconcile(gathered, Opt.some(before)) : nothing\n",
+    to: "    const started = nothing\n",
     killedBy: [
       ["src/compose.test.ts", "a child that the step lists anew is started before it is told"],
       [
@@ -821,12 +821,252 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "init starts no child",
     guarantees: ["A parent's children are those its own state lists"],
     file: "src/compose.ts",
-    from: "      events: []\n    }\n    reconcile(gathered, Opt.none())\n    return {\n",
-    to: "      events: []\n    }\n    return {\n",
+    from: "    const gathered = opening(step.state, [...(step.commands ?? [])])\n    reconcile(gathered, Opt.none())\n",
+    to: "    const gathered = opening(step.state, [...(step.commands ?? [])])\n",
     killedBy: [
       [
         "src/compose.test.ts",
         "init starts each child its first state lists, with its first commands, by the order of the names as JavaScript gives the keys, then of the ids as listed"
+      ]
+    ]
+  },
+  {
+    name: "a first step tells no child what its declaration gives",
+    guarantees: ["A child was last told what its parent's state gives"],
+    file: "src/compose.ts",
+    from: "    if (tellers.length > 0) sync(gathered, Opt.none(), nothing)\n    return {\n",
+    to: "    return {\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "the children of the first state are told as they start, after the first commands of every child"
+      ],
+      [
+        "src/compose.test.ts",
+        "every child was last told what its parent's state gives, and never one value twice in a row"
+      ]
+    ]
+  },
+  {
+    name: "a step of the parent's own tells no child what its declaration gives",
+    guarantees: ["A child was last told what its parent's state gives"],
+    file: "src/compose.ts",
+    from: "    if (changed && tellers.length > 0) sync(gathered, Opt.some(before), started)\n",
+    to: "",
+    killedBy: [
+      ["src/compose.test.ts", "a child that starts later is told as it starts, and the others are told nothing"],
+      ["src/compose.test.ts", "a step that changes the value tells every child, and one that keeps it tells none"],
+      [
+        "src/compose.test.ts",
+        "every child was last told what its parent's state gives, and never one value twice in a row"
+      ]
+    ]
+  },
+  {
+    name: "a name whose value is equal is skipped where it started a child",
+    guarantees: ["A child was last told what its parent's state gives"],
+    file: "src/compose.ts",
+    from: "if (!started.has(name) && Opt.isSome(before) && ",
+    to: "if (Opt.isSome(before) && ",
+    killedBy: [
+      ["src/compose.test.ts", "a child that starts later is told as it starts, and the others are told nothing"],
+      [
+        "src/compose.test.ts",
+        "every child was last told what its parent's state gives, and never one value twice in a row"
+      ]
+    ]
+  },
+  {
+    name: "a name whose value is equal is read child by child where a child of another name started",
+    file: "src/compose.ts",
+    from: "if (!started.has(name) && Opt.isSome(before) && ",
+    to: "if (started.size === 0 && Opt.isSome(before) && ",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a name whose value is equal, and that started no child, costs two calls of its tell, whatever another name started"
+      ]
+    ]
+  },
+  {
+    name: "a name whose value is equal is read child by child",
+    file: "src/compose.ts",
+    from: "Equal.equals(tell(before.value), tell(gathered.own))) continue",
+    to: "Equal.equals(tell(before.value), tell(gathered.own)) && false) continue",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a name whose value is equal, and that started no child, costs two calls of its tell, whatever another name started"
+      ]
+    ]
+  },
+  {
+    name: "a child's last value is taken for the one the name compared first",
+    guarantees: ["A child was last told what its parent's state gives"],
+    file: "src/compose.ts",
+    from: "if (compared === undefined || compared[0] !== last.value || compared[1] !== message) {",
+    to: "if (compared === undefined) {",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child whose answer makes the parent change the value again: each child ends with the last one"
+      ],
+      [
+        "src/compose.test.ts",
+        "every child was last told what its parent's state gives, and never one value twice in a row"
+      ]
+    ]
+  },
+  {
+    name: "a child is told again the value it was told last",
+    file: "src/compose.ts",
+    from: "          if (compared[2]) continue\n",
+    to: "",
+    killedBy: [
+      ["src/compose.test.ts", "a child that starts later is told as it starts, and the others are told nothing"],
+      [
+        "src/compose.test.ts",
+        "a child whose answer makes the parent go back to the value of before: the others are told nothing"
+      ],
+      [
+        "src/compose.test.ts",
+        "every child was last told what its parent's state gives, and never one value twice in a row"
+      ]
+    ]
+  },
+  {
+    name: "a child is told the value of the own state as the name's turn began",
+    guarantees: ["A child was last told what its parent's state gives"],
+    file: "src/compose.ts",
+    from: "if (read === undefined || !Object.is(read[0], gathered.own)) read = ",
+    to: "if (read === undefined) read = ",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child whose answer makes the parent change the value again: each child ends with the last one"
+      ],
+      [
+        "src/compose.test.ts",
+        "every child was last told what its parent's state gives, and never one value twice in a row"
+      ]
+    ]
+  },
+  {
+    name: "what a call told a child is not kept",
+    guarantees: ["A child was last told what its parent's state gives"],
+    file: "src/compose.ts",
+    from: "        gathered.told.set(instance, message)\n",
+    to: "",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child whose answer makes the parent go back to the value of before: the others are told nothing"
+      ],
+      [
+        "src/compose.test.ts",
+        "every child was last told what its parent's state gives, and never one value twice in a row"
+      ]
+    ]
+  },
+  {
+    name: "a child that the call started is taken for one told what the first own state gives",
+    guarantees: ["A child was last told what its parent's state gives"],
+    file: "src/compose.ts",
+    from: "          : instance > gathered.began\n          ? Opt.none()\n          : held\n",
+    to: "          : held\n",
+    killedBy: [
+      ["src/compose.test.ts", "a child that starts later is told as it starts, and the others are told nothing"],
+      [
+        "src/compose.test.ts",
+        "every child was last told what its parent's state gives, and never one value twice in a row"
+      ]
+    ]
+  },
+  {
+    name: "a child there as the call began is taken for one told nothing",
+    file: "src/compose.ts",
+    from: "      first: Opt.some(whole.own),\n",
+    to: "      first: Opt.none(),\n",
+    killedBy: [
+      ["src/compose.test.ts", "a child that starts later is told as it starts, and the others are told nothing"],
+      [
+        "src/compose.test.ts",
+        "every child was last told what its parent's state gives, and never one value twice in a row"
+      ]
+    ]
+  },
+  {
+    name: "what a step lists in tell is bound after its declaration tells",
+    file: "src/compose.ts",
+    from: "    const tells = step.tell ?? none\n",
+    to: "    if (changed && tellers.length > 0) sync(gathered, Opt.some(before), started)\n"
+      + "    const tells = step.tell ?? none\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "what a step lists in tell is bound first: a child that an answer to the declaration dropped is told nothing"
+      ]
+    ]
+  },
+  {
+    name: "what a step lists in tell is told before what its declaration gives",
+    file: "src/compose.ts",
+    from: "    if (changed && tellers.length > 0) sync(gathered, Opt.some(before), started)\n"
+      + "    for (const [place, instance, message] of bound) {\n"
+      + "      const entry = entryAt(gathered.children, place)\n"
+      + "      if (Opt.isNone(entry) || entry.value.instance !== instance) continue\n"
+      + "      tellAt(gathered, place, entry.value, message)\n"
+      + "    }\n",
+    to: "    for (const [place, instance, message] of bound) {\n"
+      + "      const entry = entryAt(gathered.children, place)\n"
+      + "      if (Opt.isNone(entry) || entry.value.instance !== instance) continue\n"
+      + "      tellAt(gathered, place, entry.value, message)\n"
+      + "    }\n"
+      + "    if (changed && tellers.length > 0) sync(gathered, Opt.some(before), started)\n",
+    killedBy: [
+      ["src/compose.test.ts", "what the declaration tells is told before what the step lists in tell"]
+    ]
+  },
+  {
+    name: "an event that a handler raises as the program starts goes nowhere",
+    guarantees: ["Nothing ends in silence"],
+    file: "src/compose.ts",
+    from: "if (Opt.isNone(gathered.first) && handled.events !== undefined",
+    to: "if (false && handled.events !== undefined",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a handler that raises an event of the parent's own as the program starts is a CompositionDefect naming the child"
+      ],
+      [
+        "src/compose.test.ts",
+        "stateOf refuses a handler that gives another own state, and one that raises an event of the parent's own"
+      ]
+    ]
+  },
+  {
+    name: "stateOf tells no child what its declaration gives",
+    file: "src/compose.ts",
+    from: "    const gathered = opening(own, [])\n"
+      + "    reconcile(gathered, Opt.none())\n"
+      + "    if (tellers.length > 0) sync(gathered, Opt.none(), nothing)\n",
+    to: "    const gathered = opening(own, [])\n    reconcile(gathered, Opt.none())\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "stateOf tells the children it starts, and a state given for one replaces what it was told into"
+      ]
+    ]
+  },
+  {
+    name: "stateOf takes an own state that a handler changed",
+    file: "src/compose.ts",
+    from: "    if (!Object.is(gathered.own, own)) {\n",
+    to: "    if (false) {\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "stateOf refuses a handler that gives another own state, and one that raises an event of the parent's own"
       ]
     ]
   },
@@ -929,8 +1169,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "an external message to a child without external dies of a TypeError",
     guarantees: ["Nothing ends in silence"],
     file: "src/compose.ts",
-    from: "      if (answer === undefined) {\n",
-    to: "      if (false) {\n",
+    from: "    if (answer === undefined) {\n",
+    to: "    if (false) {\n",
     killedBy: [
       ["src/compose.test.ts", "a child without external takes no external message from its parent"]
     ]
@@ -3576,6 +3816,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   // - The `runCommand` and `listen` that `Lacking` asks of a child: the member under a key that no program has refuses
   //   the same children, and these two are for the error that names the missing piece.
   // - `Tells` for a child without external messages: its `message` would be `never`, which no `tell` can write either.
+  // - `Telling` for a child without external messages: its `tell` would return `never`, which only a function that
+  //   throws can.
   // - `there` required where a child alone may not be there: the overload of a child always there takes every place
   //   without `there`.
   // - `FlagsChecked` for children by id without flags declared with flags: their flags would be `never`, so only a list
@@ -3840,8 +4082,10 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a child alone of another state is taken",
     file: "src/compose.ts",
-    from: "      key: (state: State) => Opt.Option<unknown>\n      listening?: (state: State) => boolean\n",
-    to: "      key: (state: any) => Opt.Option<unknown>\n      listening?: (state: any) => boolean\n",
+    from: "      key: (state: State) => Opt.Option<unknown>\n      listening?: (state: State) => boolean\n"
+      + "      tell?: (state: State) => unknown\n",
+    to: "      key: (state: any) => Opt.Option<unknown>\n      listening?: (state: any) => boolean\n"
+      + "      tell?: (state: any) => unknown\n",
     killedBy: [
       [
         "src/compose.test.ts",
@@ -3854,9 +4098,9 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "children by id of another state are taken",
     file: "src/compose.ts",
     from: "      listed: (state: State) => Iterable<unknown>\n      flagged: boolean\n"
-      + "      listening?: (state: State, id: never) => boolean\n",
+      + "      listening?: (state: State, id: never) => boolean\n      tell?: (state: State) => unknown\n",
     to: "      listed: (state: any) => Iterable<unknown>\n      flagged: boolean\n"
-      + "      listening?: (state: any, id: never) => boolean\n",
+      + "      listening?: (state: any, id: never) => boolean\n      tell?: (state: any) => unknown\n",
     killedBy: [
       [
         "src/compose.test.ts",
@@ -4280,6 +4524,32 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "  : unknown\n",
     killedBy: [
       ["src/compose.test.ts", "a child with flags is declared with them", "typecheck"]
+    ]
+  },
+  {
+    name: "a declared tell gives any value",
+    file: "src/compose.ts",
+    from: "  tell?: [ExternalOf<P>] extends [never] ? never : (state: State) => ExternalOf<P>\n",
+    to: "  tell?: (state: State) => unknown\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a declared tell gives an external message of the child, a literal with no as const, and nothing to a child without",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a declared tell is typed as a function alone, whose literals lose their tags",
+    file: "src/compose.ts",
+    from: "  tell?: [ExternalOf<P>] extends [never] ? never : (state: State) => ExternalOf<P>\n",
+    to: "  tell?: (state: State) => ExternalOf<P>\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a declared tell gives an external message of the child, a literal with no as const, and nothing to a child without",
+        "typecheck"
+      ]
     ]
   }
 ]

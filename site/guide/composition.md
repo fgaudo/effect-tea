@@ -74,6 +74,10 @@ A parent declares each child by name, in `withChildren`, with functions of the p
   error (see [what is left to you](./guarantees.md#what-is-left-to-you)).
 - **`listening`** says in which states the child's subscriptions run. Without it, they run whenever the child is
   there. In the example above, `listening` stops the clock's ticks while About is open, and the clock keeps its state.
+- **`tell`** gives, from the parent's state, an external message that the child is told:
+  `childById(row, { ids, tell: (state) => ({ _tag: 'LockChanged', locked: isLocked(state) }) })`. The child is told
+  it as it starts, and after each step of the parent it was last told what the state gives (see
+  [a child that must wait for its parent](./events-and-external-messages.md#a-child-that-must-wait-for-its-parent)).
 
 ### How a parent and its children start
 
@@ -81,7 +85,8 @@ A parent declares each child by name, in `withChildren`, with functions of the p
   this state lists, from the child's `init`, with the child's first commands. So the program that `make` gives starts
   from the parent's whole state, with the children's first commands among its own.
 - **A step that lists a child anew starts it** in the same way, once the step is taken.
-- **A child is given what it starts from by its flags.** A first step tells its children nothing.
+- **A child is given what it starts from by its flags.** A first step lists no `tell`. A child declared with `tell` is
+  told what it gives as it starts, in the first state too, once every child has its first commands.
 - **A parent with flags of its own** names them with its other types, `program<{ state: State; flags: Flags }>()`. Its
   `init` is then a function of them: `init: (flags) => ({ state, commands })`.
 - **The order of the starts.** The children that one state lists anew start in the order of their names in

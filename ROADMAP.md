@@ -26,11 +26,10 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 80 and 68 to 72 come before the library is made known to others ([`adoption.md`](docs/records/adoption.md)),
-and neither wait for the release of 0.9.0 ("For the owner") nor hold it: what is done before it goes out with it.
-Their order: first what changes the API between a parent and its children (80), and what may change a rule of the
-guide or show a cost of the API (68), which reads the API as step 80 leaves it; then what a first user meets (69, 70);
-then the two checks, which read the guide as those steps leave it (71, 72).
+Steps 68 to 72 come before the library is made known to others ([`adoption.md`](docs/records/adoption.md)), and
+neither wait for the release of 0.9.0 ("For the owner") nor hold it: what is done before it goes out with it. Their
+order: first what may change a rule of the guide or show a cost of the API (68); then what a first user meets (69,
+70); then the two checks, which read the guide as those steps leave it (71, 72).
 
 Step 73 decided the form of the smaller guide ([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md`
 holds it, under "What belongs here". The owner approved it on 25 November 2026, and steps 74 to 77 wrote every page by
@@ -46,91 +45,14 @@ The next review of the premises ([`premise-review`](.agents/skills/premise-revie
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
 
-### 80. A `tell` declared from the parent's own state
-
-**Model and effort.** Opus 5.5, `high`: code of the engine that must keep its invariants, and types of `compose.ts`,
-each check with its mutation. The design is decided, by step 79 ([`condition-down.md`](docs/records/condition-down.md)).
-
-**Depends on** nothing open. It comes before step 68, whose page advises on a part that its parent locks.
-
-**Why.** A condition of a parent that its children must know while they live, as a lock while a payment runs, is
-handed down by hand ("Events and external messages", "A child that must wait for its parent"): the parent tells each
-child at each change, tells each child that starts later, and keeps the first value apart for the children of its
-first state, and nothing checks any of the three. Step 79 spiked four forms on one program, and took this one.
-
-**How.** By [`change-engine`](.agents/skills/change-engine/SKILL.md) and
-[`change-api`](.agents/skills/change-api/SKILL.md), written anew from `main`. The spike, `79a984e` on
-`spike/condition-down`, never to be merged, shows it: `sync` and `Telling` in `src/compose.ts`, `src/told.test.ts`,
-and `examples/cart/`, with the types that it takes and refuses in `examples/cart/tell-types.ts`. Its commits hold the
-two other forms too (`given`, and the `tell` of a first step), which are refused (`docs/rejected.md`): they are not
-written.
-
-- **The form.** `child` and `childById` take `tell`, beside `listening`: a function of the parent's own state that
-  gives an external message of the child, `tell: (state) => ({ _tag: "LockChanged", locked: isLocked(state) })`. It is
-  one value for the children of a declaration, and takes no id. It does not compile for a child without external
-  messages, nor for a message that is not one of the child's.
-- **What the library does.** It tells a child the value as the child starts, in the first state too, once every
-  child that the step starts has its first commands. After a step of the parent's own, it tells each child whose
-  last value was another, by `Equal`: in the order of the names, then of the ids as the state lists them, each to its
-  end, the value read from the state at the child's turn, and before what the step lists in `tell`. What the step
-  lists is bound first, to the children that are there once the step is reconciled: a child that an answer to the
-  declared `tell` dropped or started again is told nothing of it, as today. A child is told a value only where it is
-  another than the last it was told, also where its answer makes the parent change the value again, or back.
-- **What it keeps.** No field of the state: between two calls every child was told what the own state gives, and the
-  call keeps what it told, by the number of the instance, with the own state and the count of starts as it began.
-  A name whose value is equal, and none of whose children the step started, costs two calls of `tell`, whatever the
-  number of its children. The spike asks whether any child started, of any name: a child alone that starts beside
-  10,000 children by id that are told makes them all be read again, 750 µs for 2.5 µs. Count the starts by name.
-- **Its limit, to be written as a premise or under "What is left to you".** What a child was told is exact for a
-  state that this program made, with this `tell`. A state made otherwise, as one saved under an older `tell` and
-  given back as `init: { state }` ("Running"), is not set right until the value changes: `Kept` says already that
-  such a state is unspecified. The promise of "Guarantees" is of the states that follow the program's own first step.
-- **`stateOf`** tells the children that it starts, as a first step does, and a state given for a child replaces the
-  one it was told into, and counts as told. In the spike a handler of `onEvent` that a child's answer calls may
-  change the own state that `stateOf` was given, and an event of the parent's own is dropped in silence: `stateOf`
-  refuses the first with an error of its own, as it refuses a state for a child that is not listed, and the second as
-  a start does.
-- **The type** of `tell` is a conditional type, so that a literal keeps its tag with no `as const`
-  (`docs/rejected.md`, "A parent's children declared in the call of `make`"): it is checked with each TypeScript that
-  the package supports. With TypeScript 7.0.2 a wrong message of `childById` is reported as the error of the last
-  overload, at `ids`: look for a form that reports it at `tell`, and leave it where none is found. The spike checks a
-  child alone with flags only through a cast: the test of the types declares one in full.
-- **Decided by step 79, with its reasons in the record, and changed only for a new fact.** The name is `tell`, the
-  word of a step's `tell`. An event of the parent's own that a handler raises as the program starts, in answer to a
-  child's event, is a `CompositionDefect` that names that child, with its id: for a parent that a step of its own
-  parent starts, the defect is of that step. A first step that carries events is parked (`docs/rejected.md`).
-- **What it changes of what is written.** "`init` tells nothing" ([`kept-children.md`](docs/records/kept-children.md))
-  stands for the `tell` of a first step, and no longer for what runs in it: a child's `external` and the parent's
-  `onEvent` may. So these are read again, one sentence at a time against the old one: "A child is given what it
-  starts from by its flags. A first step tells its children nothing." in "Composition"; the doc comment of `init` in
-  `compose.ts`; and "After each step of the parent's own code" in `docs/invariants.md`.
-
-**Done when** each of these holds, and the checks of `AGENTS.md` for a change of the engine and of the API pass.
-
-- `tell` is in both declarations, with its doc comments, and `docs/invariants.md` says how the engine keeps what a
-  child was told, and `docs/premises.md` or "What is left to you" its limit.
-- The tests of the spike's `src/told.test.ts` are in `src/compose.test.ts`, with a property over random histories
-  where each answer raises an event and the handler changes the value, drops, starts again and adds children: every
-  child was last told what the own state gives, and never one value twice in a row. Each check that they rest on has
-  its mutation. A test of the types, with its mutation, holds what `tell` refuses and the literal that it takes.
-  `tools/smoke/consumer.ts` declares one, and `bun run inference` and `bun run smoke` pass.
-- "Guarantees" promises that a child is told the value as it starts, and at each change, so that it was last told
-  what its parent's state gives, with the test that checks it. That it is never told one value twice in a row is kept
-  by the engine and tested, and unspecified.
-- The guide says it: "Composition" for the declaration, and "A child that must wait for its parent" written again for
-  it, with the pattern by hand left for a condition of each child alone. The glossary and the skill follow, and
-  `bun run comments` passes.
-- An example shows it, with its test, by [`add-example`](.agents/skills/add-example/SKILL.md): the spike's cart cut to
-  what shows it, or a condition in an example that is there. The README's table says so.
-- `CHANGELOG.md` has its entry, an addition, with what a first step now runs, and `api/*.api.md` is written again.
-
 ### 68. A program too large for one module that is not split into children
 
 **Model and effort.** Opus 5.5, `high`: a page of the guide is a specification.
 
-**Depends on** step 73, which writes "Structuring a program" again, and step 80, which gives a parent a `tell`
-declared from its own state: the page's advice on a part that its parent locks is written as that step leaves the API.
-It comes before steps 69 to 72, since it alone of them may add a rule to the guide or show that the API must change.
+**Depends on** step 73, which writes "Structuring a program" again. Step 80 gave a parent a `tell` declared from its
+own state, which "A child that must wait for its parent" ("Events and external messages") and `examples/cart` show:
+the page's advice on a part that its parent locks is written by it. It comes before steps 69 to 72, since it alone of
+them may add a rule to the guide or show that the API must change.
 
 **Why.** "Structuring a program" says that a program lives in one module until it is too large, and then splits into
 children, and that a part that the parent reads is no child. So the guide has no page for a large program whose parts

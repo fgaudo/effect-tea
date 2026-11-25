@@ -46,16 +46,28 @@ the engine and in the testing tools.
   - What a parent tells is data of its step, `tell`, given to the children once the step's state is reconciled, in
     order, each to its end (`ownStep`). An item bound to an instance that an earlier item dropped or started again is
     told nothing.
+  - What the `tell` of a declaration gives is told to a child as it starts, and again where it is another, by `Equal`,
+    than the last the child was told (`sync`), once the step is reconciled and what it lists is bound, and before that
+    is told. No field of the state keeps what a child was told: between two calls every child was last told what the
+    own state gives, for a state that the program made, and within a call `told` keeps it, by the instance's number,
+    with the own state and the count of starts as the call began. So a name whose value is the one of the own state
+    before the step, and that started no child, is skipped for two calls of `tell`: a child that an enclosing step of
+    the call has not reached yet is told at its turn, and one that it has reached was told by the step whose change it
+    followed. A handler that raises an event of the parent's own in a start, `init` or `stateOf`, where no step takes
+    events, is a `CompositionDefect`.
   - The types enforce what a parent declares: `runCommand` exactly when it has commands of its own, `onEvent` exactly
-    when a child has events, `external` exactly when it names external messages, a `tell` only with what the child's
-    `external` takes, own subscriptions and commands that send only the parent's own messages (`RunCommandOf`), and no
-    own message or command named like a child. A program written without `Program<…>` has `unknown` types, read as
-    `never` (`Items` in `program.ts`), so that it opens none of these checks.
+    when a child has events, `external` exactly when it names external messages, a `tell`, of a step or of a
+    declaration, only with what the child's `external` takes, own subscriptions and commands that send only the
+    parent's own messages (`RunCommandOf`), and no own message or command named like a child. A program written
+    without `Program<…>` has `unknown` types, read as `never` (`Items` in `program.ts`), so that it opens none of
+    these checks.
 - **The children are those the parent's own state lists, and an answer reaches the instance that asked for it, or is
   rejected.** After each step of the parent's own code (`init`, `update`, `external`, a handler of `onEvent`), the
   library starts each child the own state lists anew, with its first commands, drops each it no longer lists, and
-  starts again one whose flags or key differ by `Equal` (`reconcile` in `compose.ts`). So the state stays the fold of
-  `update` over the messages, and the engine and the tools know nothing of children.
+  starts again one whose flags or key differ by `Equal` (`reconcile` in `compose.ts`), and gives the names that started
+  a child to `sync`. A first step runs a child's `external`, and the parent's `onEvent`, only through what a
+  declaration tells. So the state stays the fold of `update` over the messages, and the engine and the tools know
+  nothing of children.
   - Each start has a number, counted in the state (`starts`), which the child's lifted commands, answers and keys
     carry. A message whose number is not that of the child there is rejected, so a child closed and opened again, or
     started again in one step, never gets the answer of the one before. A message of a view carries no number, and

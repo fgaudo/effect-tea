@@ -10,25 +10,27 @@ import * as Fiber from "effect/Fiber"
 import { pipe } from "effect/Function"
 import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
+import * as fc from "fast-check"
 import { collectGarbage } from "../test/gc.test_helper.ts"
 import type { Execution } from "./command.ts"
 import { type Child, type ChildById, type Instance, program } from "./compose.ts"
 import { CompositionDefect, compositionDefect, defect } from "./defect.ts"
 import { type Dispatch, forwardTo } from "./dispatch.ts"
 import type { Ignored } from "./engine.ts"
-import type {
-  AnyProgram,
-  CommandOf,
-  CommandServicesOf,
-  EventOf,
-  ExternalOf,
-  FlagsOf,
-  MessageOf,
-  ModelOf,
-  OutputOf,
-  Program,
-  StateOf,
-  SubscriptionServicesOf
+import {
+  type AnyProgram,
+  type CommandOf,
+  type CommandServicesOf,
+  type EventOf,
+  type ExternalOf,
+  type FlagsOf,
+  type MessageOf,
+  type ModelOf,
+  type OutputOf,
+  type Program,
+  startOf,
+  type StateOf,
+  type SubscriptionServicesOf
 } from "./program.ts"
 import { start, type Started } from "./run.ts"
 import type { Subscription } from "./subscription.ts"
@@ -1113,6 +1115,382 @@ describe("what a parent tells its children", () => {
     ])
     expect(rowList.subscriptions(applyAll(rowList.update, [{ _tag: "Quieted" }], listening).state))
       .toEqual([])
+  })
+})
+
+describe("what a declaration tells its children", () => {
+  type Heard = Readonly<{ heard: ReadonlyArray<string> }>
+  type Said = Readonly<{ _tag: "Cond"; value: string }> | Readonly<{ _tag: "Poke" }>
+  // A child that keeps what it was told, in order. Told "b", it raises an event, and told "x", it runs a command.
+  const hearing = program<{
+    state: Heard
+    message: "Bump"
+    external: Said
+    event: "Bounced"
+    command: "First" | "Answered"
+  }>().make({
+    init: { state: { heard: [] }, commands: ["First"] },
+    update: () => () => reject,
+    external: (message) => (state): Step<Heard, "First" | "Answered", "Bounced"> => {
+      const value = message._tag === "Cond" ? message.value : "poke"
+      return {
+        state: { heard: [...state.heard, value] },
+        ...(value === "b" ? { events: ["Bounced"] } : {}),
+        ...(value === "x" ? { commands: ["Answered"] } : {})
+      }
+    },
+    runCommand: () => Effect.die("not run"),
+    makeModel: (state) => state
+  })
+  type Own = Readonly<{ condition: string; ids: ReadonlyArray<number>; bounces: number }>
+  type Message =
+    | Readonly<{ _tag: "Set"; condition: string }>
+    | Readonly<{ _tag: "Added"; id: number }>
+    | Readonly<{ _tag: "SetAndPoke"; condition: string; id: number }>
+    | Readonly<{ _tag: "Touched" }>
+  const Telling = program<{ state: Own; message: Message }>()
+  const parent = (first: Own, onBounce: (state: Own) => Own = (state) => state) =>
+    Telling.withChildren({
+      Kid: Telling.childById(hearing, {
+        ids: (state) => state.ids,
+        // A new object at each call: what was told is compared by value.
+        tell: (state) => ({ _tag: "Cond", value: state.condition })
+      })
+    }).make({
+      init: { state: first },
+      update: (message) => (state) => {
+        switch (message._tag) {
+          case "Set":
+            return { state: { ...state, condition: message.condition } }
+          case "Added":
+            return { state: { ...state, ids: [...state.ids, message.id] } }
+          case "SetAndPoke":
+            return {
+              state: { ...state, condition: message.condition },
+              tell: [{ _tag: "Kid", id: message.id, message: { _tag: "Poke" } }]
+            }
+          case "Touched":
+            return { state: { ...state } }
+        }
+      },
+      onEvent: { Kid: () => (state) => ({ state: { ...onBounce(state), bounces: state.bounces + 1 } }) },
+      makeModel: (state, children) => state.ids.map((id) => children.Kid(id).heard)
+    })
+  const start: Own = { condition: "a", ids: [1, 2], bounces: 0 }
+  const heard = (state: { readonly children: { readonly Kid: HashMap.HashMap<number, Instance<Heard>> } }) =>
+    [...HashMap.entries(state.children.Kid)].sort(([a], [b]) => a - b).map(([, kept]) => kept.state.heard)
+
+  test("the children of the first state are told as they start, after the first commands of every child", () => {
+    const app = parent({ ...start, condition: "x" })
+    expect(heard(app.init.state)).toEqual([["x"], ["x"]])
+    expect(app.init.commands).toEqual([
+      { _tag: "Kid", id: 1, instance: 1, command: "First" },
+      { _tag: "Kid", id: 2, instance: 2, command: "First" },
+      { _tag: "Kid", id: 1, instance: 1, command: "Answered" },
+      { _tag: "Kid", id: 2, instance: 2, command: "Answered" }
+    ])
+  })
+
+  test("a child that starts later is told as it starts, and the others are told nothing", () => {
+    const app = parent(start)
+    const { state } = accepted(app.update({ _tag: "Added", id: 3 })(app.init.state))
+    expect(heard(state)).toEqual([["a"], ["a"], ["a"]])
+  })
+
+  test("a step that changes the value tells every child, and one that keeps it tells none", () => {
+    const app = parent(start)
+    const { state: changed } = accepted(app.update({ _tag: "Set", condition: "c" })(app.init.state))
+    expect(heard(changed)).toEqual([["a", "c"], ["a", "c"]])
+    // Another own state, and an equal value in another object.
+    const { state: touched } = accepted(app.update({ _tag: "Touched" })(changed))
+    expect(heard(touched)).toEqual([["a", "c"], ["a", "c"]])
+    expect(touched.children).toBe(changed.children)
+  })
+
+  test("what the declaration tells is told before what the step lists in tell", () => {
+    const app = parent(start)
+    const { state } = accepted(app.update({ _tag: "SetAndPoke", condition: "c", id: 2 })(app.init.state))
+    expect(heard(state)).toEqual([["a", "c"], ["a", "c", "poke"]])
+  })
+
+  test("what a step lists in tell is bound first: a child that an answer to the declaration dropped is told nothing", () => {
+    // The first child, told "b", bounces, and the parent drops the second, which the step tells.
+    const app = parent(start, (state) => state.condition === "b" ? { ...state, ids: [1] } : state)
+    const { state } = accepted(app.update({ _tag: "SetAndPoke", condition: "b", id: 2 })(app.init.state))
+    expect(state.own.ids).toEqual([1])
+    expect(heard(state)).toEqual([["a", "b"]])
+  })
+
+  test("a child whose answer makes the parent change the value again: each child ends with the last one", () => {
+    // The first child, told "b", bounces, and the parent goes to "c" at once.
+    const app = parent(start, (state) => state.condition === "b" ? { ...state, condition: "c" } : state)
+    const { state } = accepted(app.update({ _tag: "Set", condition: "b" })(app.init.state))
+    expect(state.own).toEqual({ condition: "c", ids: [1, 2], bounces: 1 })
+    // The second child is told "c" once, and never "b", which no longer held at its turn.
+    expect(heard(state)).toEqual([["a", "b", "c"], ["a", "c"]])
+  })
+
+  test("a child whose answer makes the parent go back to the value of before: the others are told nothing", () => {
+    const app = parent(start, (state) => state.condition === "b" ? { ...state, condition: "a" } : state)
+    const { state } = accepted(app.update({ _tag: "Set", condition: "b" })(app.init.state))
+    expect(heard(state)).toEqual([["a", "b", "a"], ["a"]])
+  })
+
+  test("a child that raises an event as the program starts has it handled, in the first step", () => {
+    const app = parent({ ...start, condition: "b" })
+    expect(app.init.state.own.bounces).toBe(2)
+    expect(heard(app.init.state)).toEqual([["b"], ["b"]])
+  })
+
+  test("a child alone is told as it starts, and again when it starts again", () => {
+    type Alone = Readonly<{ open: Opt.Option<number>; condition: string }>
+    const Alone = program<{ state: Alone; message: "Opened" | "Reopened" }>()
+    const app = Alone.withChildren({
+      Kid: Alone.child(hearing, {
+        there: (state) => Opt.isSome(state.open),
+        key: (state) => state.open,
+        tell: (state) => ({ _tag: "Cond", value: state.condition })
+      })
+    }).make({
+      init: { state: { open: Opt.none(), condition: "a" } },
+      update: (message) => (state) => ({ state: { ...state, open: Opt.some(message === "Opened" ? 1 : 2) } }),
+      onEvent: { Kid: () => (state) => ({ state }) },
+      makeModel: (_, children) => children.Kid()
+    })
+    const opened = accepted(app.update("Opened")(app.init.state))
+    expect(app.makeModel(opened.state)).toEqual(Opt.some({ heard: ["a"] }))
+    const again = accepted(app.update("Reopened")(opened.state))
+    expect(app.makeModel(again.state)).toEqual(Opt.some({ heard: ["a"] }))
+    expect(again.commands).toEqual([{ _tag: "Kid", instance: 2, command: "First" }])
+  })
+
+  test("a name whose value is equal, and that started no child, costs two calls of its tell, whatever another name started", () => {
+    type Both = Readonly<{ condition: string; ids: ReadonlyArray<number>; others: ReadonlyArray<number> }>
+    const Both = program<{ state: Both; message: "OtherAdded" | "Touched" }>()
+    let calls = 0
+    let reads = 0
+    const app = Both.withChildren({
+      Kid: Both.childById(hearing, {
+        ids: (state) => {
+          reads += 1
+          return state.ids
+        },
+        tell: (state) => {
+          calls += 1
+          return { _tag: "Cond", value: state.condition }
+        }
+      }),
+      Other: Both.childById(hearing, { ids: (state) => state.others, tell: () => ({ _tag: "Poke" }) })
+    }).make({
+      init: { state: { condition: "a", ids: [1, 2, 3], others: [] } },
+      update: (message) => (state) =>
+        message === "Touched"
+          ? { state: { ...state } }
+          : { state: { ...state, others: [...state.others, state.others.length + 1] } },
+      onEvent: { Kid: () => (state) => ({ state }), Other: () => (state) => ({ state }) },
+      makeModel: () => null
+    })
+    // What a step that starts no child costs the name: its children are not read one by one.
+    const cost = (message: "OtherAdded" | "Touched") => {
+      calls = 0
+      reads = 0
+      const { state } = accepted(app.update(message)(app.init.state))
+      return { calls, reads, others: HashMap.size(state.children.Other) }
+    }
+    const touched = cost("Touched")
+    expect(touched).toEqual({ calls: 2, reads: touched.reads, others: 0 })
+    expect(cost("OtherAdded")).toEqual({ ...touched, others: 1 })
+  })
+
+  test("a handler that raises an event of the parent's own as the program starts is a CompositionDefect naming the child", () => {
+    const Raising = program<{ state: Own; event: "Up"; flags: string }>()
+    const raising = (state: Own) =>
+      Raising.withChildren({
+        Kid: Raising.childById(hearing, {
+          ids: (state) => state.ids,
+          tell: (state) => ({ _tag: "Cond", value: state.condition })
+        })
+      }).make({
+        init: (condition) => ({ state: { ...state, condition } }),
+        onEvent: { Kid: () => (state) => ({ state, events: ["Up"] }) },
+        makeModel: () => null
+      })
+    const expected = {
+      _tag: "CompositionDefect",
+      message: "The parent raised the event Up for \"Kid\" as the program starts, where no step takes events",
+      child: "Kid",
+      id: 1,
+      on: "Up"
+    }
+    const error = thrown(() => startOf(raising(start).init, "b"))
+    expect(error).toBeInstanceOf(CompositionDefect)
+    expect(error).toMatchObject(expected)
+    // The same, where a step of its own parent starts it: the defect is of that step.
+    const Outer = program<{ state: Readonly<{ open: boolean }>; message: "Opened"; event: "Up" }>()
+    const outer = Outer.withChildren({
+      Inner: Outer.child(raising(start), { flags: (state) => state.open ? Opt.some("b") : Opt.none() })
+    }).make({
+      init: { state: { open: false } },
+      update: () => () => ({ state: { open: true } }),
+      onEvent: { Inner: (event) => (state) => ({ state, events: [event] }) },
+      makeModel: () => null
+    })
+    expect(thrown(() => outer.update("Opened")(outer.init.state))).toMatchObject(expected)
+    // A value that raises nothing starts.
+    expect(heard(startOf(raising(start).init, "a").state as never)).toEqual([["a"], ["a"]])
+  })
+
+  test("stateOf tells the children it starts, and a state given for one replaces what it was told into", () => {
+    const app = parent(start)
+    const state = stateOf(app, { condition: "c", ids: [1, 2], bounces: 0 }, { Kid: [[2, { heard: ["given"] }]] })
+    expect(heard(state)).toEqual([["c"], ["given"]])
+    // The child whose state was given counts as told: a step that keeps the value tells it nothing.
+    expect(heard(accepted(app.update({ _tag: "Touched" })(state)).state)).toEqual([["c"], ["given"]])
+  })
+
+  test("stateOf refuses a handler that gives another own state, and one that raises an event of the parent's own", () => {
+    const app = parent(start)
+    expect(() => stateOf(app, { condition: "b", ids: [1], bounces: 0 })).toThrow(
+      "stateOf: a handler of onEvent gives another own state, in answer to what a child is told"
+    )
+    const Raising = program<{ state: Own; event: "Up" }>()
+    const raising = Raising.withChildren({
+      Kid: Raising.childById(hearing, {
+        ids: (state) => state.ids,
+        tell: (state) => ({ _tag: "Cond", value: state.condition })
+      })
+    }).make({
+      init: { state: start },
+      onEvent: { Kid: () => (state) => ({ state, events: ["Up"] }) },
+      makeModel: () => null
+    })
+    expect(thrown(() => stateOf(raising, { condition: "b", ids: [1], bounces: 0 }))).toBeInstanceOf(CompositionDefect)
+  })
+})
+
+describe("what a declaration tells its children, over random histories", () => {
+  // Each child, a child alone and children by id, answers what it is told with an event, and each event makes its
+  // parent take the next reaction of a script in its own state: change the value, add, drop or start again a child.
+  type Heard = Readonly<{ heard: ReadonlyArray<string> }>
+  type Cond = Readonly<{ _tag: "Cond"; value: string }>
+  const hearing = program<{ state: Heard; message: "Ping"; external: Cond; event: "Heard"; flags: number }>().make({
+    init: () => ({ state: { heard: [] } }),
+    update: () => (state) => ({ state, events: ["Heard"] }),
+    external: (message) => (state) => ({ state: { heard: [...state.heard, message.value] }, events: ["Heard"] }),
+    makeModel: (state) => state.heard
+  })
+  type Reaction =
+    | Readonly<{ _tag: "Set"; value: number }>
+    | Readonly<{ _tag: "Add"; id: number }>
+    | Readonly<{ _tag: "Drop"; id: number }>
+    | Readonly<{ _tag: "Restart"; id: number }>
+    | Readonly<{ _tag: "Solo" }>
+    | Readonly<{ _tag: "SoloOff" }>
+  type Own = Readonly<{
+    value: number
+    // Each id with its generation, its flags: another starts it again.
+    kids: ReadonlyArray<readonly [number, number]>
+    solo: Opt.Option<number>
+    script: ReadonlyArray<Reaction>
+  }>
+  type Message =
+    | Readonly<{ _tag: "Do"; reaction: Reaction }>
+    | Readonly<{ _tag: "Queued"; reactions: ReadonlyArray<Reaction> }>
+  const react = (reaction: Reaction) => (state: Own): Own => {
+    switch (reaction._tag) {
+      case "Set":
+        return { ...state, value: reaction.value }
+      case "Add":
+        return Arr.some(state.kids, ([id]) => id === reaction.id)
+          ? state
+          : { ...state, kids: [...state.kids, [reaction.id, 0] as const] }
+      case "Drop":
+        return { ...state, kids: Arr.filter(state.kids, ([id]) => id !== reaction.id) }
+      case "Restart":
+        return {
+          ...state,
+          kids: Arr.map(state.kids, ([id, flags]) => [id, id === reaction.id ? flags + 1 : flags] as const)
+        }
+      case "Solo":
+        return { ...state, solo: Opt.some(Opt.getOrElse(Opt.map(state.solo, (flags) => flags + 1), () => 0)) }
+      case "SoloOff":
+        return { ...state, solo: Opt.none() }
+    }
+  }
+  const next = (state: Own): Step<Own> =>
+    Arr.match(state.script, {
+      onEmpty: () => ({ state }),
+      onNonEmpty: ([reaction, ...script]) => ({ state: react(reaction)({ ...state, script }) })
+    })
+  const kidValue = (state: Own) => `k${state.value}`
+  const soloValue = (state: Own) => state.value >= 1 ? "high" : "low"
+  const Scripted = program<{ state: Own; message: Message; flags: Own }>()
+  const scripted = Scripted.withChildren({
+    Kid: Scripted.childById(hearing, {
+      flags: (state) => state.kids,
+      tell: (state) => ({ _tag: "Cond", value: kidValue(state) })
+    }),
+    Solo: Scripted.child(hearing, {
+      flags: (state) => state.solo,
+      tell: (state) => ({ _tag: "Cond", value: soloValue(state) })
+    })
+  }).make({
+    init: (state) => ({ state }),
+    update: (message) => (state) =>
+      message._tag === "Do"
+        ? { state: react(message.reaction)(state) }
+        : { state: { ...state, script: [...state.script, ...message.reactions] } },
+    onEvent: { Kid: () => next, Solo: () => next },
+    makeModel: () => null
+  })
+  const id = fc.integer({ min: 1, max: 4 })
+  const reaction: fc.Arbitrary<Reaction> = fc.oneof(
+    fc.integer({ min: 0, max: 2 }).map((value) => ({ _tag: "Set", value }) as const),
+    id.map((id) => ({ _tag: "Add", id }) as const),
+    id.map((id) => ({ _tag: "Drop", id }) as const),
+    id.map((id) => ({ _tag: "Restart", id }) as const),
+    fc.constant({ _tag: "Solo" } as const),
+    fc.constant({ _tag: "SoloOff" } as const)
+  )
+  const script = fc.array(reaction, { maxLength: 6 })
+  const first: fc.Arbitrary<Own> = fc.record({
+    value: fc.integer({ min: 0, max: 2 }),
+    kids: fc.uniqueArray(id, { maxLength: 4 }).map(Arr.map((id) => [id, 0] as const)),
+    solo: fc.boolean().map((there) => there ? Opt.some(0) : Opt.none()),
+    script
+  })
+  const message: fc.Arbitrary<MessageOf<typeof scripted>> = fc.oneof(
+    reaction.map((reaction) => ({ _tag: "Do", reaction }) as const),
+    script.map((reactions) => ({ _tag: "Queued", reactions }) as const),
+    id.map((id) => ({ _tag: "Kid", id, message: "Ping" }) as const),
+    fc.constant({ _tag: "Solo", message: "Ping" } as const)
+  )
+  // Every child was last told what the own state gives, and never one value twice in a row.
+  const agrees = (state: StateOf<typeof scripted>) => {
+    const told = (heard: ReadonlyArray<string>, value: string) => {
+      expect(heard.at(-1)).toBe(value)
+      expect(Arr.filter(heard, (said, at) => at > 0 && heard[at - 1] === said)).toEqual([])
+    }
+    const ascending = (ids: Iterable<number>) => [...ids].sort((a, b) => a - b)
+    expect(ascending(HashMap.keys(state.children.Kid))).toEqual(ascending(Arr.map(state.own.kids, ([id]) => id)))
+    for (const kept of HashMap.values(state.children.Kid)) told(kept.state.heard, kidValue(state.own))
+    expect(Opt.isSome(state.children.Solo)).toBe(Opt.isSome(state.own.solo))
+    for (const kept of Opt.toArray(state.children.Solo)) told(kept.state.heard, soloValue(state.own))
+  }
+
+  test("every child was last told what its parent's state gives, and never one value twice in a row", () => {
+    fc.assert(
+      fc.property(first, fc.array(message, { maxLength: 20 }), (flags, messages) => {
+        let state = startOf(scripted.init, flags).state
+        agrees(state)
+        for (const message of messages) {
+          const result = scripted.update(message)(state)
+          if (result !== reject) state = result.state
+          agrees(state)
+        }
+      }),
+      { numRuns: 300 }
+    )
   })
 })
 
@@ -2206,6 +2584,65 @@ describe("what the types reject", () => {
     expect(() => tested.update({ _tag: "Reset" })(tested.init.state)).toThrow(
       "The external message Tick to \"Plain\", which has no external"
     )
+  })
+
+  test("a declared tell gives an external message of the child, a literal with no as const, and nothing to a child without", () => {
+    type Locked = Readonly<{ _tag: "LockChanged"; locked: boolean }>
+    type Own = Readonly<{ ids: ReadonlyArray<number>; locked: boolean }>
+    const lockable = program<{ state: boolean; external: Locked }>().make({
+      init: { state: false },
+      external: (message) => () => ({ state: message.locked }),
+      makeModel: (state) => state
+    })
+    const flagged = program<{ state: boolean; external: Locked; flags: boolean }>().make({
+      init: (flags) => ({ state: flags }),
+      external: (message) => () => ({ state: message.locked }),
+      makeModel: (state) => state
+    })
+    const LOCKED: Locked = { _tag: "LockChanged", locked: true }
+    const { child, childById } = program<{ state: Own }>()
+    const ids = (state: Own) => state.ids
+    // Literals, with no `as const`: of each form of declaration, a branch for each value, and a value made apart.
+    const taken = [
+      childById(lockable, { ids, tell: (state) => ({ _tag: "LockChanged", locked: state.locked }) }),
+      childById(lockable, { ids, tell: () => ({ _tag: "LockChanged", locked: true }) }),
+      childById(lockable, { ids, tell: () => LOCKED }),
+      childById(lockable, {
+        ids,
+        tell: (state) => state.locked ? { _tag: "LockChanged", locked: true } : { _tag: "LockChanged", locked: false }
+      }),
+      childById(flagged, {
+        flags: (state) => Arr.map(state.ids, (id) => [id, false] as const),
+        tell: (state) => ({ _tag: "LockChanged", locked: state.locked })
+      }),
+      child(lockable, { tell: (state) => ({ _tag: "LockChanged", locked: state.locked }) }),
+      child(lockable, { key: (state) => state.ids, tell: (state) => ({ _tag: "LockChanged", locked: state.locked }) }),
+      child(lockable, {
+        there: (state) => state.locked,
+        tell: (state) => ({ _tag: "LockChanged", locked: state.locked })
+      }),
+      child(flagged, {
+        flags: (state) => state.locked ? Opt.some(true) : Opt.none(),
+        tell: (state) => ({ _tag: "LockChanged", locked: state.locked })
+      })
+    ]
+    // Refused: a message that is no external message of the child, of a tag or of a field. TypeScript 7.0.2 reports
+    // one of `childById` at `ids`, as the error of its last overload.
+    // @ts-expect-error: `Unlocked` is no external message of the child.
+    childById(lockable, { ids, tell: (state) => ({ _tag: "Unlocked", locked: state.locked }) })
+    // @ts-expect-error: `locked` is a boolean.
+    childById(lockable, { ids, tell: (state) => ({ _tag: "LockChanged", locked: String(state.locked) }) })
+    // @ts-expect-error: alone too.
+    child(lockable, { tell: () => ({ _tag: "Unlocked" }) })
+    // @ts-expect-error: and with flags.
+    child(flagged, { flags: () => Opt.some(true), tell: () => ({ _tag: "Unlocked" }) })
+    // A child that has no external messages is told nothing.
+    const silent = program<{ state: number }>().make({ init: { state: 0 }, makeModel: (state) => state })
+    // @ts-expect-error: by id.
+    childById(silent, { ids, tell: () => LOCKED })
+    // @ts-expect-error: alone.
+    child(silent, { tell: () => LOCKED })
+    expect(taken).toHaveLength(9)
   })
 
   test("a parent's own command answers with the parent's own messages, never with a child's", () => {

@@ -18,7 +18,7 @@ place?: Readonly<{
     key?: (state: State) => unknown;
     there?: never;
     flags?: never;
-}> & Listening<State>
+}> & Listening<State> & Telling<State, P>
 ] : [place: {
     readonly "a child with flags is declared with its flags": FlagsOf<P>;
 }];
@@ -74,6 +74,7 @@ export type Child<State, P, There extends "always" | "sometimes"> = {
     readonly there: There;
     readonly key: (state: State) => Opt.Option<unknown>;
     readonly listening?: (state: State) => boolean;
+    readonly tell?: (state: State) => ExternalOf<P>;
 };
 
 // @public
@@ -83,6 +84,7 @@ export type ChildById<State, Id, P> = {
     readonly listed: (state: State) => Iterable<unknown>;
     readonly flagged: boolean;
     readonly listening?: (state: State, id: Id) => boolean;
+    readonly tell?: (state: State) => ExternalOf<P>;
 };
 
 // @public (undocumented)
@@ -143,12 +145,14 @@ type Children<State> = Readonly<Record<string, Readonly<{
     there: "always" | "sometimes";
     key: (state: State) => Opt.Option<unknown>;
     listening?: (state: State) => boolean;
+    tell?: (state: State) => unknown;
 }> | Readonly<{
     kind: "byId";
     program: AnyProgram;
     listed: (state: State) => Iterable<unknown>;
     flagged: boolean;
     listening?: (state: State, id: never) => boolean;
+    tell?: (state: State) => unknown;
 }>>>;
 
 // @public (undocumented)
@@ -190,13 +194,13 @@ type Config<State, C, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, Externa
 // @public
 export type DeclareChild<T extends DeclaredTypes> = {
     <P extends AnyProgram>(program: CheckedChild<P>, ...place: AlwaysPlace<Field<T, "state">, P>): Child<Field<T, "state">, P, "always">;
-    <P extends AnyProgram>(program: CheckedChild<P>, place: SometimesPlace<Field<T, "state">, P> & Listening<Field<T, "state">>): Child<Field<T, "state">, P, "sometimes">;
+    <P extends AnyProgram>(program: CheckedChild<P>, place: SometimesPlace<Field<T, "state">, P> & Listening<Field<T, "state">> & Telling<Field<T, "state">, P>): Child<Field<T, "state">, P, "sometimes">;
 };
 
 // @public
 export type DeclareChildById<T extends DeclaredTypes> = {
-    <Id, P extends AnyProgram>(program: CheckedChild<P>, place: IdsPlace<Field<T, "state">, Id> & FlagsChecked<P, false>): ChildById<Field<T, "state">, Id, P>;
-    <Id, P extends AnyProgram>(program: CheckedChild<P>, place: FlagsPlace<Field<T, "state">, Id, FlagsOf<P>> & FlagsChecked<P, true>): ChildById<Field<T, "state">, Id, P>;
+    <Id, P extends AnyProgram>(program: CheckedChild<P>, place: IdsPlace<Field<T, "state">, Id> & FlagsChecked<P, false> & Telling<Field<T, "state">, P>): ChildById<Field<T, "state">, Id, P>;
+    <Id, P extends AnyProgram>(program: CheckedChild<P>, place: FlagsPlace<Field<T, "state">, Id, FlagsOf<P>> & FlagsChecked<P, true> & Telling<Field<T, "state">, P>): ChildById<Field<T, "state">, Id, P>;
 };
 
 // @public
@@ -688,6 +692,11 @@ export type SubscriptionServicesOf<P> = P extends {
 type TagsTaken<M, Names> = 0 extends 1 & M ? Names : M extends unknown ? "_tag" extends keyof M ? Extract<Names, M[keyof M & "_tag"]> | Extract<M[keyof M & "_tag"], Names> : Names extends unknown ? Readonly<{
     _tag: Names;
 }> extends M ? Names : never : never : never;
+
+// @public
+type Telling<State, P> = Readonly<{
+    tell?: [ExternalOf<P>] extends [never] ? never : (state: State) => ExternalOf<P>;
+}>;
 
 // @public
 type Tells<C> = {

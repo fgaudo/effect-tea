@@ -16,6 +16,13 @@ version, and everything else, features included, the patch version.
   ("Writing a bridge").
 - The bridge to snabbdom draws a node's `class`, `attrs` and `dataset` too, with snabbdom's modules of each, where it
   dropped them ("Writing a bridge", "The package's bridges").
+- `tell` in `child` and `childById`: a function of the parent's state that gives an external message of the child,
+  `tell: (state) => ({ _tag: 'LockChanged', locked: isLocked(state) })`, one value for the children of a declaration.
+  The library tells a child the value as it starts, and after each step of its parent, before what the step lists in
+  `tell`, so that the child was last told what its parent's state gives ("Guarantees", "A child was last told what
+  its parent's state gives"). So where a declaration has `tell`, a first step and `stateOf` run the child's `external`
+  and its parent's `onEvent`; a handler that raises an event of the parent's own there is a `CompositionDefect`, and
+  one that gives `stateOf` another own state than the one given is an error. The example `cart` shows it.
 
 ### Changed
 
