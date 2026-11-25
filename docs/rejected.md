@@ -578,3 +578,10 @@ reopened goes back there; one decided against becomes an entry above.
   again by other flags, or goes back to its first state on an external message. _Reopen if_ a program must start a
   child with flags again from equal flags in one step, and an external message cannot say it: the answers of its
   commands under way must be rejected, as a start rejects them.
+- **The check of step 87 on Firefox** (`bun run test:browsers`). Deferred by the owner on 26 November 2026: on the
+  machine of the step, Windows 11 build 26300, the Firefox of Playwright 1.65.1 (`firefox-1572`) does not start, even
+  installed again with `--force`. The event log says that the assembly `mozglue`, which `firefox.exe` depends on, could
+  not be found, though `mozglue.dll` is beside it; Smart App Control is off, and Code Integrity blocked nothing. The
+  tests pass on Chromium and WebKit, 294 of them, and step 87 renames, with no behaviour of a bridge changed.
+  _Reopen if_ Firefox starts on this machine (a newer Playwright, or a cause found with `sxstrace.exe`, which needs an
+  administrator), or the CI runs `test:browsers` on Firefox: then it runs once at the commit that closed step 87.
