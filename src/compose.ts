@@ -324,7 +324,7 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
      * state is the very same.
      *
      * @see The guide, "Events and external messages".
-     * @see The guide, "Guarantees", "`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated".
+     * @see The guide, "Guarantees".
      */
     onEvent?: OnEvents<State, C, Command, Event>
   }>
@@ -341,7 +341,7 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
      * state is the very same.
      *
      * @see The guide, "Events and external messages".
-     * @see The guide, "Guarantees", "`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated".
+     * @see The guide, "Guarantees".
      */
     onEvent: OnEvents<State, C, Command, Event>
   }>

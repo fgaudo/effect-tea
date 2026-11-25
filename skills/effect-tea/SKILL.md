@@ -135,9 +135,8 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   that outlives a component, start the program yourself and draw it with `Draw`. A run that dies is thrown to the
   nearest error boundary, or given to `reportError` when `Host` unmounts, or `<Activity>` hides it, before throwing it.
   A `makeModel` that throws reaches it once, as the run ends. The guide, "Writing a bridge", "With the bridge to React,
-  the run lives as long as the effect that starts it". The guide, "Guarantees", "With the bridge to React, the run lives
-  as long as the effect that starts it". The guide, "Writing a bridge", "With the bridge to React, a run that dies is
-  thrown to the nearest error boundary".
+  the run lives as long as the effect that starts it". The guide, "Writing a bridge", "With the bridge to React, a run
+  that dies is thrown to the nearest error boundary".
 - **A value that the user writes belongs to the program whose rules use it.** Where the parent changes it, locks it or
   submits it, what is typed is a message of the parent, with the row's id for rows, and a row is no child. Where only
   a child's rules use it, it is the child's, and the parent reads what the child concludes from it, through the
@@ -155,8 +154,7 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   there may end the run before the commands start. The guide, "Guarantees", "One message at a time, in the order they
   were sent". The guide, "Testing tools", "drive".
 - **What must stay private is in a service, not in a key.** A key is shown whole, in a defect of its subscription and
-  to `onApplied` and `onIgnored`. The guide, "Guarantees", "What must stay private is in a service, not in a key". The
-  guide, "Running", "A key is shown whole".
+  to `onApplied` and `onIgnored`. The guide, "Guarantees", "What must stay private is in a service, not in a key".
 - **A function of the program never interrupts the fiber it runs in.** An `init` that takes flags runs in the call of
   `start`, in the fiber of whoever starts the program, if any, and the children of a parent without flags start in the
   call of `make`. `update`, `subscriptions` and the options run where the message was sent, and `makeModel` where the model is

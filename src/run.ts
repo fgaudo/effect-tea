@@ -25,9 +25,8 @@ import type { Step } from "./update.ts"
  * }
  * ```
  *
- * @see The guide, "Running", "The renderer gets an `App`".
- * @see The guide, "Running", "A renderer reads the model when it draws".
- * @see The guide, "Writing a bridge", "The handle".
+ * @see The guide, "Running".
+ * @see The guide, "Writing a bridge".
  */
 export interface App<Model, Message> {
   /**
@@ -35,7 +34,7 @@ export interface App<Model, Message> {
    * read then gives the very same model. When `makeModel` throws, the defect is a defect in `'render'`, recorded once
    * while that state is the current one, and `model()` throws it.
    *
-   * @see The guide, "Guarantees", "A model is made only when it is read".
+   * @see The guide, "Guarantees".
    */
   readonly model: () => Model
   /**
@@ -44,15 +43,13 @@ export interface App<Model, Message> {
    * stopped during a notice is not told of it. One added during a notice is told from the next state. A listener that
    * throws is a defect in `'render'`, and the others are still told of that state.
    *
-   * @see The guide, "Running", "The renderer gets an `App`".
-   * @see The guide, "Running", "A listener added during a notice".
-   * @see The guide, "Running", "A listener that throws".
+   * @see The guide, "Running".
    */
   readonly subscribe: (listener: () => void) => () => void
   /**
    * The program's dispatch: it applies the message before it returns. It is the very same function for the whole run.
    *
-   * @see The guide, "Running", "The `dispatch` of the `App` is the very same function for the whole run".
+   * @see The guide, "Running".
    * @see The guide, "View".
    */
   readonly dispatch: Dispatch<Message>
@@ -62,8 +59,7 @@ export interface App<Model, Message> {
    * run calls it. A defect that `model()` threw, of `makeModel` or of `init`, is taken as it is, and stays one defect.
    * Once the run has ended, it throws back what the run's cause does not hold.
    *
-   * @see The guide, "Running", "The renderer gets an `App`".
-   * @see The guide, "Running", "Its `where` says where it happened".
+   * @see The guide, "Running".
    */
   readonly die: (thrown: unknown) => void
 }
@@ -75,12 +71,13 @@ export interface App<Model, Message> {
  *   starts is applied all the same, and its effects wait for `run`.
  * - `run` starts the subscriptions and the commands of the states, in their order, and dies with the defects of the
  *   program. It never succeeds: whoever runs the program ends it by interrupting `run`.
- * - A program started is run once: a second `run` dies. One whose `run` is interrupted before it begins is left as it
- *   was, and is never stopped.
+ * - A program started is run once: a second `run` dies. One whose `run` is interrupted before it begins is as one
+ *   never run: its messages are applied with no effect, it reports no defect, and it may still be run.
  * - Nothing checks that `run` runs. Until it does, no defect is reported: from a defect on, the program applies no
  *   message, and `run` dies of it once it runs.
  * - An `init` that takes flags and throws is a defect in `'init'`: the handle is made all the same, `model()` throws
- *   the defect, and `run` dies of it. The `init` of a parent without flags runs as `make` makes the parent.
+ *   the defect, and `run` dies of it. The `init` of a parent without flags runs as `make` makes the parent. A defect
+ *   in `subscriptions` on the first state is recorded as the program starts too, and `run` dies of it.
  *
  * @example
  * ```ts
@@ -89,9 +86,8 @@ export interface App<Model, Message> {
  * Effect.runFork(run)
  * ```
  *
- * @see The guide, "Running", "A program is started, then run".
- * @see The guide, "Running", "A defect in the `init` of a program with flags is recorded as the program starts".
- * @see The guide, "Guarantees", "Whoever starts a program runs it".
+ * @see The guide, "Running".
+ * @see The guide, "Guarantees".
  */
 export interface Started<Model, Message, R = never> {
   /** The handle a renderer reads. */
@@ -311,15 +307,8 @@ export const readEach = <Model, Message>(
  * Effect.runFork(run)
  * ```
  *
- * @see The guide, "Running", "In short".
- * @see The guide, "Running", "A program is started, then run".
- * @see The guide, "Guarantees", "Whoever starts a program runs it".
- * @see The guide, "Guarantees", "One message at a time, in the order they were sent".
- * @see The guide, "Guarantees", "Outdated clicks are harmless".
- * @see The guide, "Guarantees", "Nothing outlives what acquired it".
- * @see The guide, "Guarantees", "Logs do not pile up in a span".
- * @see The guide, "Guarantees", "Nothing ends in silence".
- * @see The guide, "Running", "Logs".
+ * @see The guide, "Running".
+ * @see The guide, "Guarantees".
  */
 export const start = <
   State,

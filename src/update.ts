@@ -44,7 +44,7 @@ export type Step<State, Command = never, Event = never, Tell = never> = {
  *     : { state: { ...state, save: { _tag: 'Saving' } }, commands: [Command.Save({ name: state.name })] }
  * ```
  *
- * @see The guide, "Guarantees", "Outdated clicks are harmless".
+ * @see The guide, "Guarantees".
  */
 export const reject: unique symbol = Symbol.for("@fgaudo/effect-tea/Rejected")
 /**

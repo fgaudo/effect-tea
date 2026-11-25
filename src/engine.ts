@@ -27,8 +27,7 @@ import type { Step, Update } from "./update.ts"
  *
  * `onApplied` and `onIgnored` hear it with each message.
  *
- * @see The guide, "Running", "`onApplied`".
- * @see The guide, "Running", "`onIgnored`".
+ * @see The guide, "Running".
  */
 export type Origin =
   | { readonly _tag: "Dispatch" }
@@ -54,7 +53,7 @@ export type Origin =
  * }
  * ```
  *
- * @see The guide, "Running", "`onApplied`".
+ * @see The guide, "Running".
  */
 export type Applied<State, Message, Command = never> = {
   /** The message. */
@@ -80,7 +79,7 @@ export type Applied<State, Message, Command = never> = {
  * }
  * ```
  *
- * @see The guide, "Running", "`onIgnored`".
+ * @see The guide, "Running".
  */
 export type Ignored<State, Message> = {
   /** The message. */
@@ -105,7 +104,7 @@ export type Ignored<State, Message> = {
  * })
  * ```
  *
- * @see The guide, "Running", "Options".
+ * @see The guide, "Running".
  */
 export interface RunOptions<State, Message, Command = unknown> {
   /**
@@ -134,11 +133,7 @@ export interface RunOptions<State, Message, Command = unknown> {
    * })
    * ```
    *
-   * @see The guide, "Running", "`onApplied`".
-   * @see The guide, "Running", "`onApplied` and `onIgnored` are functions, not effects".
-   * @see The guide, "Running", "The run calls `onApplied` and `onIgnored` in order".
-   * @see The guide, "Running", "Give slow work to a queue".
-   * @see The guide, "Running", "What the run still does after a defect".
+   * @see The guide, "Running".
    */
   readonly onApplied?: (applied: Applied<State, Message, Command>) => undefined
   /**
@@ -154,10 +149,7 @@ export interface RunOptions<State, Message, Command = unknown> {
    *   with the run.
    * - A defect in it ends the run.
    *
-   * @see The guide, "Running", "`onIgnored`".
-   * @see The guide, "Running", "`onApplied` and `onIgnored` are functions, not effects".
-   * @see The guide, "Running", "The run calls `onApplied` and `onIgnored` in order".
-   * @see The guide, "Running", "Give slow work to a queue".
+   * @see The guide, "Running".
    */
   readonly onIgnored?: (ignored: Ignored<State, Message>) => undefined
 }

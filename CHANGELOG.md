@@ -95,9 +95,10 @@ version, and everything else, features included, the patch version.
   still sends its message once the bridge is stopped.
 - The doc comments of the API now hold a part of what the library promises ("Guide", "What a page promises"): what a
   parent refuses, and its defects, left "Composition" for them, what a program refuses left "Anatomy of a program",
-  and what a parent's `tell` gives a child that an earlier item of the same `tell` dropped or started again left
-  "Events and external messages". "Structuring a program" is advice, and binds nothing, as does the section "Advice"
-  of a page.
+  what a parent's `tell` gives a child that an earlier item of the same `tell` dropped or started again left
+  "Events and external messages", and what a `ProgramDefect` names, what the `App` gives, and what each of the
+  package's bridges does left "Running" and "Writing a bridge". "Structuring a program" is advice, and binds nothing,
+  as does the section "Advice" of a page.
 - The guide's "Inputs the user types into" is now "What an element gives": a fact with a value, as a scroll's end, is
   one message that the view fills.
 - A value that the user writes belongs to the program whose rules use it: the parent's where it changes or locks it,

@@ -116,7 +116,7 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  *
  * @see The guide, "Anatomy of a program".
  * @see The guide, "Events and external messages".
- * @see The guide, "Guarantees", "`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated".
+ * @see The guide, "Guarantees".
  */
 export type Program<T extends ProgramTypes> = Shape<
   Field<T, "state">,

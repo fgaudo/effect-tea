@@ -23,7 +23,7 @@ import type * as Channel from "effect/Channel"
  * ```
  *
  * @see The guide, "Subscriptions".
- * @see The guide, "Guarantees", "Subscriptions follow their keys".
+ * @see The guide, "Guarantees".
  */
 export type Subscription<Message, R = never> = Channel.Channel<Message, never, Message, unknown, unknown, unknown, R>
 
@@ -39,7 +39,7 @@ export type Subscription<Message, R = never> = Channel.Channel<Message, never, M
  * ```
  *
  * @see The guide, "Subscriptions".
- * @see The guide, "Guarantees", "Subscriptions follow their keys".
+ * @see The guide, "Guarantees".
  */
 export type Subscriptions<State, Key = unknown> = (state: State) => ReadonlyArray<Key>
 
@@ -60,6 +60,6 @@ export type Subscriptions<State, Key = unknown> = (state: State) => ReadonlyArra
  * ```
  *
  * @see The guide, "Subscriptions".
- * @see The guide, "Running", "A key is shown whole".
+ * @see The guide, "Guarantees".
  */
 export type Listen<Key, Message, R = never> = (key: Key) => Subscription<Message, R>

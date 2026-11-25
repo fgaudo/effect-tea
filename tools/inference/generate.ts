@@ -872,7 +872,7 @@ const generate = (c: Case): ReadonlyArray<Part> => {
   ]
 }
 
-// The program started from another state, as "Running", "Starting from another state", writes it,
+// The program started from another state, as "Running" writes it,
 // `{ ...program, init: { state } }`, with a state saved before: given to every function but `simulate`, which takes
 // no `init` and is given a state in each call, and owed the first rule as the program it spreads is. Its flags are
 // gone with its `init`, and the rest of its types are the same.

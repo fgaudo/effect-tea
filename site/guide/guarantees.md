@@ -14,60 +14,45 @@ each bridge's to promise (see [view](./view.md#rules)).
 
 ## What you can rely on
 
-- **One message at a time, in the order they were sent.** A message is applied in the call that sends it. A message
-  sent while another is being applied, as a renderer's listener sends one, is applied right after it.
+- **One message at a time, in the order they were sent.** A message is applied in the call that sends it: a
+  dispatch's as it is sent, a subscription's as it is emitted, and a command's answer as the command ends, once its
+  scope has closed. A message sent while another is being applied, as a renderer's listener sends one, is applied
+  right after it.
   - The step of a message is its `update`, then `onApplied` or `onIgnored`, then the listeners of the `App`, once the
     new state is current.
   - What the step does in the world follows, in the order of the states: the subscriptions it stops and then those it
     starts, and the start of its commands. So the state is ahead of its effects: when a message has been applied, its
     commands may not have started yet.
-  - What a dispatch sends is applied as it is sent.
-  - A subscription's message is applied as it is emitted.
-  - A command's answer is applied as the command ends, once its scope has closed.
-- **Outdated clicks are harmless.** A message that `update` rejects is ignored: the state stays as it was.
-  - This holds however many messages came in between.
-- **A parent's children are those its own state lists.** The library keeps them, and gives the parent no child's state.
-  - A child that a step of the parent lists anew is started, with its first commands.
-  - A child that the parent's state no longer lists is dropped: its subscriptions stop, and a message for it is
-    rejected.
-  - Other flags, or another value of `key`, by `Equal`, start a child again, as another instance (see
-    [composition](./composition.md#when-a-child-is-there)).
+- **Outdated clicks are harmless.** A message that `update` rejects is ignored: the state stays as it was, however many
+  messages came in between.
+- **A parent's children are those its own state lists.** The library keeps them, starts each one that a step lists
+  anew, with its first commands, and drops each one that the state no longer lists. It gives the parent no child's
+  state. When a child is there, and when it starts again, is in [composition](./composition.md#when-a-child-is-there).
 - **An answer reaches the instance that asked for it, or is rejected.** Each start of a child is an instance of its
-  own, and the commands of an instance name it.
-  - Where that instance is no longer there, its answer is rejected, even when the child, or a child at the same id, is
-    there again.
-  - The subscriptions of an instance are under keys of that instance, so a child started again starts its
-    subscriptions again (see [what the library derives](./composition.md#what-the-library-derives)).
+  own, and its commands and its subscriptions name it. Where that instance is no longer there, its answer is rejected,
+  even when the child, or a child at the same id, is there again.
 - **Subscriptions follow their keys.** A new state starts the subscription of each key it brings, and interrupts that
   of each key it takes away, by the rules of [subscriptions](./subscriptions.md#rules).
   - Both happen once that state is current, and before any start of a later state. A later message may be applied
     first.
-  - When the key goes away, the subscription releases what it holds. The subscriptions that one state stops release
-    what they hold together, not one after the other.
+  - The subscriptions that one state stops release what they hold together, not one after the other.
   - From the moment the key is gone, nothing the subscription sent reaches `update`, even before it has been stopped,
     and even if the same key comes back later.
-- **Nothing outlives what acquired it.** Each command and each subscription has a scope of its own.
-  - What one of them acquires is released when it ends.
-  - When the run ends, what it acquires is released once it has been interrupted.
-  - What it acquires is never released while it still runs.
+- **Nothing outlives what acquired it.** Each command and each subscription has a scope of its own. What one of them
+  acquires is released when it ends, and never while it still runs. When the run ends, what it acquires is released
+  once it has been interrupted.
   - The next message does not wait for a release. The subscriptions and the commands of the next state do, so keep
     releases quick.
-- **Logs do not pile up in a span.** What the run's fibers log is not kept by the span of whoever runs it.
-  - Effect keeps each log as an event of the current span until that span ends.
-  - The span of whoever runs it is still the parent of the spans that commands and subscriptions open.
-- **Nothing ends in silence.** A subscription that ends sends one last message.
-  - A defect anywhere in the program ends the run. The run dies with it, as a `ProgramDefect` that says where it
-    happened.
-  - A program that was never run reports no defect until `run` runs, and `run` then dies of it
-    ([running](./running.md#rules)).
+- **Logs do not pile up in a span.** What the run's fibers log is not kept by the span of whoever runs it, which Effect
+  would keep until that span ends. That span is still the parent of the spans that commands and subscriptions open.
+- **Nothing ends in silence.** A subscription that ends sends one last message, and a defect anywhere in the program
+  ends the run. The run dies with it, as a `ProgramDefect` that says where it happened (see
+  [running](./running.md#when-a-defect-happens)).
   - A listener of the `App` that throws, a `makeModel` that throws, and what a renderer gives `die` are defects too, in
-    `'render'`. Once the run has ended, `die` throws back what the run's cause does not hold
-    ([running](./running.md#rules)).
+    `'render'`.
   - A command or a subscription that the program interrupts is a defect too: one that interrupts itself (with
-    `Effect.interrupt`, or by joining an interrupted fiber), or that another fiber of the program interrupts. Whether
-    one that interrupts itself while the run stops it is a defect is unspecified (see
-    [the defects in the cause](./running.md#the-defects-in-the-cause)).
-  - Only the run, and whoever runs it, interrupt them.
+    `Effect.interrupt`, or by joining an interrupted fiber), or that another fiber of the program interrupts. Only the
+    run, and whoever runs it, interrupt them.
 - **A model is made only when it is read.** While a state is the current one, its model is made once, however many
   times it is read. So every read gives the very same model, and a bridge need not draw it again.
   - A model that throws is a defect in `'render'`, recorded where the model is read, once while its state is the
@@ -75,57 +60,39 @@ each bridge's to promise (see [view](./view.md#rules)).
 
 ## What is left to you
 
-- **Whoever starts a program runs it.** Nothing checks that `run` runs. What a program that is never run does, and
-  does not, is in [running](./running.md#rules).
+- **Whoever starts a program runs it.** Nothing checks that `run` runs, and a program that is never run reports no
+  defect ([running](./running.md#rules)).
   - Leave a program unrun only where none of its effects is meant to run: on a server, to draw its first model.
   - Take `run` from what `start` gives, as `const { app, run } = start(program)`. A `run` that is never run is then a
     variable that is never used, which a linter can report. This helps, and checks nothing.
 - **Commands run to their end, or to the end of the run.** No change of state stops one, and `update` decides whether
   its answer still applies (see [commands](./commands.md#rules)).
 - **Nothing is bounded, and nothing times out.**
-  - The run applies every message as it is sent, and queues the effects of every state, however many wait. So the
-    effects may lag behind the state without a bound: a step's commands may start after messages that came after it,
-    and a subscription may start, and be stopped, for a key that is already gone.
-  - It starts every command, however many run.
+  - The run applies every message as it is sent, starts every command, and queues the effects of every state, however
+    many wait. So the effects may lag behind the state without a bound, and when they start is unspecified: a step's
+    commands may start after messages that came after it, and a subscription may start, and be stopped, for a key that
+    is already gone.
   - A message that a listener of the `App` sends is applied right after the step that told it (see
     [what you can rely on](#what-you-can-rely-on)). So a listener that answers each new state with a message that
-    makes another never lets the call return, and no defect says so. Only code that subscribes to the `App` itself, as
-    a bridge does, loops so within one call.
-  - It waits for each release for as long as it takes. One that never ends holds up the program, and no defect says
-    so.
-  - As it ends, the run waits for every release before it dies (see [how the run ends](./running.md#how-the-run-ends)).
-    So a release that never ends also holds back the defects that the run would die with.
-  - What is done does not pile up, but what waits is still kept, and so is what your program holds (see
-    [running](./running.md#rules)).
+    makes another never lets the call return, and no defect says so. Only code that subscribes to the `App` itself, as a bridge does, loops so within one call.
+  - The run waits for each release for as long as it takes, as it ends too (see
+    [how the run ends](./running.md#how-the-run-ends)). One that never ends holds up the program, and the defects that
+    the run would die with, and no defect says so.
 - **The program runs on the stack of whoever sends the message.** `update`, `subscriptions`, the options and the
   listeners of the `App` run in the call that sends the message: a handler of the view, a command's fiber, or a
-  subscription's. So does `makeModel`, when a renderer reads the model in that call, as the bridge to React may (below).
-  A slow one holds up the event that sent the message, and nothing bounds it.
-  - The effects of the step, its subscriptions and the start of its commands, follow in the run (see
-    [what you can rely on](#what-you-can-rely-on)). When they start is unspecified.
-  - An element that reports at each of its events, as a scroll does, runs a step at each, in its handler (see
-    [what an element gives](./what-an-element-gives.md#advice)).
-- **A renderer is told of every new state**, in the call that made it. One that draws later reads the latest model
-  when it draws (see [running](./running.md#rules)).
+  subscription's. So does `makeModel`, where a renderer reads the model in that call, as the bridge to React may. A
+  slow one holds up the event that sent the message, and nothing bounds it. An element that reports at each of its
+  events, as a scroll does, runs a step at each, in its handler (see
+  [what an element gives](./what-an-element-gives.md#advice)).
 - **A subscription that sends faster than the screen refreshes holds the run back.** The bridge to snabbdom draws once
   for each task, or listener that the browser calls, that brings a new state, and React renders a store's new states
   the same way. So the run goes no faster than one draw a task. Let such a subscription send its messages by batches,
   as a `Stream` grouped within a time does (`Stream.groupedWithin`).
-- **With the bridge to React, `makeModel` may run for each new state, in the call that sends its message.** React may
-  read the model as it is told of the new state, to compare it with the model before. So a slow `makeModel` may hold
-  up the event that sent the message too. When React reads the model is React's, and unspecified.
 - **The model holds what `update` accepts, all of it but what it withholds on purpose, and no control that does
-  nothing but what it holds on purpose.** The run does not check it.
-  - `dispatchViolations` checks it, in tests, on the messages a test reads from the model (see
-    [testing tools](./testing-tools.md)).
-  - That the view draws what its model holds is checked with your renderer's tools.
+  nothing but what it holds on purpose.** The run does not check it. `dispatchViolations` checks it in tests (see
+  [testing tools](./testing-tools.md)), and your renderer's tools check that the view draws what its model holds.
 - **A view sends only what its model holds**, and never builds a message itself, as [model](./model.md#rules) says. The
   library does not enforce it.
-- **What the screen shows beside the program's model.** The guarantees are of the program. Each bridge says what it
-  draws beside the model (see [view](./view.md#rules)).
-- **With the bridge to React, the run lives as long as the effect that starts it**, as
-  [the package's bridges](./writing-a-bridge.md#the-packages-bridges) says. For a state that outlives a component,
-  start the program yourself, and draw it with `Draw`.
 - **The advice of [structuring a program](./structuring-a-program.md).** The library enforces none of it: the shape of
   the state, a view that draws and does not decide, a value that the user writes held by the program whose rules use
   it. What it does enforce is that a parent is given no child's state.
@@ -138,52 +105,27 @@ each bridge's to promise (see [view](./view.md#rules)).
     them. Where one breaks them, what the library does with that value is undefined: which subscriptions and children
     it keeps, and which dispatch it gives a child.
 - **What must stay private is in a service, not in a key.** A key is shown whole: in a defect of its subscription, and
-  in the `origin` that `onApplied` and `onIgnored` hear (see [running](./running.md#when-a-defect-happens)).
+  in the `origin` that `onApplied` and `onIgnored` hear.
 - **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated.** So are
   an `init` that takes flags, the handlers of `onEvent`, and the functions that say which children are there and when
-  they listen: `there`, `key`, `flags`, `ids` and `listening`. The library calls them when it chooses. A child's
-  `external`, its `init` when a step of its parent starts it, and its parent's handlers of `onEvent` run in the
-  parent's `update`. No value that a program or a test gives the library, or that the library gives
-  back, is mutated once it is made, nested objects included: a state, a message, a command, an event, flags, a key, a
-  model, an output, and what a testing tool returns. The library reuses a child's model, and the keys of its
-  subscriptions, while the child keeps the very same state: a child started again makes its own.
-- **A function of the program never interrupts the fiber it runs in.** An `init` that takes flags, and `subscriptions`
-  on the first state, run in the call of `start`: in the fiber of whoever starts the program, or in no fiber at all. The
-  children of a parent without flags are started in the call of `make`, their `init` with them (see
-  [composition](./composition.md#how-a-parent-and-its-children-start)). `update`, `subscriptions` and the options run
-  where the message was sent: in a command's fiber, a subscription's, a fiber that calls the dispatch, or in no fiber at
-  all. `makeModel` runs where the model is read. A function could reach that fiber (`Fiber.getCurrent`). One that
-  interrupts the fiber of a command or of a subscription is a defect of that command or subscription, not of the
-  function. The run cannot tell an interruption of another fiber from one by whoever runs the program, so no defect says
-  that one happened.
+  they listen: `there`, `key`, `flags`, `ids` and `listening`. The library calls them when it chooses. No value that a
+  program or a test gives the library, or that the library gives back, is mutated once it is made, nested objects
+  included: a state, a message, a command, an event, flags, a key, a model, an output, and what a testing tool
+  returns.
+- **A function of the program never interrupts the fiber it runs in.** It runs where the library calls it: an `init`
+  that takes flags, and the first `subscriptions`, in the call of `start`; the `init` of the children of a parent
+  without flags in the call of `make`; `update`, `subscriptions` and the options where the message was sent;
+  `makeModel` where the model is read. That may be the fiber of whoever
+  starts the program, a command's, a subscription's, one that calls the dispatch, or no fiber at all. A function could
+  reach that fiber (`Fiber.getCurrent`). One that interrupts the fiber of a command or of a subscription is a defect of
+  that command or subscription, not of the function. The run cannot tell an interruption of another fiber from one by
+  whoever runs the program, so no defect says that one happened.
 
 ## How the tests check them
 
-The library's tests check each guarantee. The tests of the run check the guarantee of the order.
-
-[`src/interleaving.test.ts`][interleaving] checks it too, with most of the others. It runs them under random orders of
-clicks, texts typed into a controlled element (current and stale), command answers, subscription messages and ends,
-releases, defects, and interruptions by the program. It checks:
-
-- that messages are applied one at a time, each when the call that sends it returns, and that a message a listener
-  sends is the next one applied;
-- that outdated clicks leave the state as it was;
-- that an answer reaches the row that asked for it, or is rejected, when the row has been removed and added again;
-- that subscriptions follow their keys;
-- that what a subscription or a command acquires does not outlive it, and that the subscriptions a state
-  stops are released before any start of that state or a later one;
-- that what the run logs is not kept by the span of whoever runs it, and that this span stays the parent of the spans
-  opened in it;
-- that nothing ends in silence;
-- that a model is made only when it is read, once for each state that is read, and that a model read after a notice
-  is of the latest state;
-- that what is typed into a controlled element is never rejected, since the element sends what the current model
-  holds.
-
-It also checks that the run dies with each defect, and that from the first one on it applies no message (see
-[running](./running.md)).
-
-What a screen then shows of a controlled element is the business of the bridges, and their tests check it in a DOM
-(see [their tests](./writing-a-bridge.md#their-tests)).
+The library's tests check each guarantee. [`src/interleaving.test.ts`][interleaving] checks most of them at once,
+under random orders of clicks, texts typed into a controlled element, command answers, subscription messages and ends,
+releases, defects, and interruptions by the program. What a screen then shows of a controlled element is the business
+of the bridges, and their tests check it in a DOM (see [their tests](./writing-a-bridge.md#their-tests)).
 
 [interleaving]: https://github.com/fgaudo/effect-tea/tree/main/src/interleaving.test.ts

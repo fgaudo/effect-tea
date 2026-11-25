@@ -579,7 +579,7 @@ const describeAll = (tags: Names["tags"], values: ReadonlyArray<unknown>) =>
  * @see The guide, "Testing tools", "rehearse".
  * @see The guide, "Testing tools", "`rehearse`, in detail".
  * @see The guide, "Testing tools", "Defects of the program".
- * @see The guide, "Running", "Starting from another state".
+ * @see The guide, "Running".
  */
 export const rehearse = <
   P extends AnyProgram,

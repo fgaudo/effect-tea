@@ -18,101 +18,133 @@ drawInto(root, { app, view })
 Effect.runFork(run)
 ```
 
-A message is applied in the call that sends it. Its commands and its subscriptions follow, in the run. A
-defect anywhere ends the run too. The run dies, and reporting the crash is the job of the app around the run. Until
-`run` runs, no effect of the program runs, and no defect is reported.
+A message is applied in the call that sends it. Its commands and its subscriptions follow, in the run. A defect
+anywhere ends the run too. The run dies, and reporting the crash is the job of the app around the run. Until `run`
+runs, no effect of the program runs, and no defect is reported.
+
+## An example
+
+The list (`examples/list/main.ts`) starts its program in a browser, and reports the crash of its run. `Effect.runFork`
+reports nothing itself. An interruption of the fiber it returns, on `pagehide` for example, ends the run too, and is no
+crash:
+
+{@includeCode ../../examples/list/main.ts#run}
 
 ## Rules
 
-**Only a program without events starts.** There is no parent to handle the events.
+**A program is started, then run.** `start` makes the first state, and runs no effect. `run` starts the subscriptions
+and the commands of each state, in the order of the states. It never succeeds: it runs until it is interrupted, or
+until a defect ends it.
 
-**A program is started, then run.** `start` gives a `Started`, `{ app, run }`: `app`, the `App` a renderer reads, and
-`run`.
-
-- `start` makes the first state, and calls `init` with the flags for a program that has them. It starts no fiber, and
-  runs no effect.
-- `run` starts the subscriptions and the commands of each state, in the order of the states. It never succeeds: it
-  runs until it is interrupted, or until a defect ends it.
 - A message sent before `run` is applied all the same. Its effects wait for `run`.
-- A program started is run once. A second `run` dies. To run the program again, start it again.
-- A program that was never run is never stopped. Its state can still change, and no effect follows.
-- A program that was never run reports no defect. `run` dies of the defect once it runs. Meanwhile the defect is
-  recorded all the same: from it on, the program applies no message, so its state no longer changes. Nothing is
-  thrown to whoever sent the message, and nothing ends. Only `model()` throws a defect of `makeModel` or of `init`, to
-  whoever reads the model.
-- Both hold of a program whose `run` is interrupted before it begins, too.
-- Nothing checks that a program started is run (see [guarantees](./guarantees.md#what-is-left-to-you)).
+- A program that is never run is never stopped. Its state can still change, and no effect follows. It reports no
+  defect: from a defect on, it applies no message, and `run` dies of the defect once it runs. Only `model()` throws a
+  defect of `makeModel` or of `init`, to whoever reads the model. Nothing checks that a program started is run (see
+  [guarantees](./guarantees.md#what-is-left-to-you)).
 
-**The renderer gets an `App`**, `{ model, subscribe, dispatch, die }`:
-
-- `model()` is the model of the current state. It is made when it is read, once while that state is the current one.
-- `subscribe(listener)` tells `listener` of each new state, once it is the current one, and returns what stops it. No
-  listener is told of a rejected message, nor of the very same state. A stop takes effect at once: a listener stopped
-  while the listeners are told of a state is not told of it.
-  - **A listener added during a notice** is not told of that state. It is told from the next new state on. So a
-    listener that adds another each time it is told adds one per state, and the notice still ends.
-  - **A listener that throws** is a defect, in `'render'`. The other listeners are still told of that state.
-- `dispatch(message)` applies the message before it returns (see [view](./view.md#rules)).
-- `die(thrown)` takes what a renderer threw as it drew outside a listener, as in a microtask, where nothing of the
-  run calls it. From then on, the program applies no message, and `run` dies of it, in `'render'`. A defect that
-  `model()` threw, of `makeModel` or of `init`, is taken as it is, and stays one defect. Once `run` has ended, its
-  cause cannot take a new defect: `die` throws back what the cause does not hold, so that it is not lost.
-
-**The `dispatch` of the `App` is the very same function for the whole run.** So a view
-[memoized](./glossary.md#what-the-user-sees) on its dispatch is not drawn again because of the dispatch.
+**The renderer gets an `App`**, `{ model, subscribe, dispatch, die }`: the model of the current state, made when it is
+read; a notice of each new state, in the call that made it; the dispatch; and `die`, which takes what a renderer threw
+as it drew outside a listener. The dispatch is the very same function for the whole run, so a view
+[memoized](./glossary.md#what-the-user-sees) on it is not drawn again because of it. How a renderer reads them is in
+[writing a bridge](./writing-a-bridge.md).
 
 **A renderer reads the model when it draws.** A listener is told in the call that made the new state. So a renderer
 that waits for a microtask before it reads the model draws once the new states that a task, or a listener that the
-browser calls, made, as the bridge to snabbdom ([`bridges/snabbdom.ts`](../../bridges/snabbdom.ts)) does.
+browser calls, made, as the bridge to snabbdom does.
+
+**A program starts elsewhere from another first step**: `{ ...program, init: { state } }`, with the step's commands,
+if any. The state may be one that `onApplied` saved, or one kept across a reload in development. A test gives such a
+program to `drive` and `rehearse` the same way, and plays a session recorded with `onApplied` again with `applyAll`.
 
 **What is done does not pile up.** While the run goes on, it lets go of what a finished step used: its message and
-what `onApplied` heard of it, the state it replaced and that state's model, a command that ended, a subscription that
-was stopped or that ended, what they acquired, a listener that was removed, and a child that the parent's state no
-longer lists, with its model and its dispatch. The JavaScript engine then frees them when it chooses. What waits is
-still kept, and so is what your program holds.
+what `onApplied` heard of it, the state it replaced and that state's model, a command or a subscription that ended or
+was stopped, what they acquired, a listener that was removed, and a child that the parent's state no longer lists. The
+JavaScript engine then frees them when it chooses. What waits is still kept, and so is what your program holds.
 
 ### Options
 
 - **`flags`**: what the program starts from, for example the product a notification opened the app for. `flags` is
   required exactly when the program has flags.
-- **`onApplied`**: a function that hears every accepted message, for devtools or session recording. For each message,
-  `onApplied` hears:
-  - where the message came from (`origin`: a dispatch, a command, or a subscription with its key);
-  - the state before the message and the state after it;
-  - the commands decided for the message.
+- **`onApplied`** hears every message that `update` accepts: where it came from (`origin`: a dispatch, a command, or
+  a subscription with its key), the state before and after it, and its commands. It is for devtools, or to record a
+  session.
+- **`onIgnored`** hears every message that `update` rejects, with where it came from and the state it did not apply in.
+  It only watches: the message stays ignored. It is for devtools, or to count the taps that did nothing.
 
-  When `update` returns the very state it was given, `after` is `before`.
-- **`onIgnored`**: a function that hears every message that `update` rejected, with where the message came from and
-  the state it did not apply in. `onIgnored` only watches: the message stays ignored. Use `onIgnored` for devtools, or
-  to count the taps that did nothing.
+**The run calls `onApplied` and `onIgnored` as it calls `update`.** They are functions, not effects, and return
+nothing. The run calls them in the step of each message, before the next one, before the listeners of the `App` are
+told, and before the message's commands start. So they hear every message in order, and a slow one holds up the whole
+program, and the call that sent the message. A defect in one of them ends the run.
 
-**`onApplied` and `onIgnored` are functions, not effects.** The run calls them as it calls `update`, and they return
-nothing. The types refuse one that returns a value, an effect or a promise: what it returned would be lost.
+### When a defect happens
 
-So their return type is `undefined`, not `void`: a function typed `void` may still return an effect. A function
-written in the options needs no return type. A function declared apart needs one: TypeScript gives it `void`, which
-the types refuse. Write `: undefined`:
+A defect anywhere ends the run, which dies with a `ProgramDefect`. Its `cause` is the defect itself: an
+`InvariantDefect` for one thrown with `defect`. Its `where` says where it happened, which only the run knows
+(`DefectSite` lists each place), and `on` names the message of a defect in `update` by its tags, never its data. A
+command or a subscription dies when its effect ends with a defect, or when what its scope releases dies, once the
+scope has released all it holds.
+
+From the defect on, the run applies no message, and every defect is in the cause, each with where it happened.
+
+**The run never recovers from a defect, and does not log it.** Reporting the defect, and choosing what the user sees
+next, are the job of the app around the run. The screen keeps what was drawn last: show a crash screen, or run the
+program again.
+
+**The app around the run chooses what leaves the device.** The `cause` is whatever was thrown. The `key` of a
+`ProgramDefect` and the `id` of a `CompositionDefect` are the program's own values, as they are, and may hold data.
+
+### What the run still does after a defect
+
+A defect of `update`, `onApplied`, `onIgnored` or `subscriptions` stops its step before the new state is the current
+one: the state stays as it was, and no listener is told of the new one. A message that the run does not apply starts
+no command and no subscription, and `onApplied` does not hear it. So the run still does, at most, the step under way:
+
+- A message for which the run called `update` before the defect may still start its commands and the subscriptions of
+  its new keys, until the end stops the run. So `onApplied` may have heard a step whose model is never drawn and whose
+  commands never start.
+- That bound is nothing `update` can count on: for `update`, a command that died is a command that has not answered
+  yet. What a command or a subscription does once it has started is the program's business, until the run interrupts
+  it.
+- A renderer is no part of the run, and the run does not stop it. A model that the renderer reads after the defect is
+  still made, since `makeModel` is pure.
+
+### How the run ends
+
+When the run ends, because of a defect or of an interruption, it first stops applying messages: what is sent
+meanwhile is not applied. Then it stops its commands and its subscriptions, and waits until what they acquired is
+released. What the effects of a step had not started yet is not started. The rest of the order is unspecified. The end
+never begins inside a step: when a step meets a defect, the end begins once the call that applied it has told the
+listeners.
+
+A renderer is not stopped by the run: whoever started the program stops it, with what its bridge returns. A renderer
+that nothing stops still draws nothing new, since no state is made after the end.
+
+**Plain code stops a run, and waits for it,** with Effect's `Fiber.interrupt`, which ends once the run has ended: its
+commands and its subscriptions are stopped, and what they acquired is released.
 
 ```ts
-const onApplied = (applied: Applied<State, Message, Command>): undefined => {
-  session.push(applied)
+const fiber = Effect.runFork(run)
+const stop = (): Promise<void> => {
+  stopDrawing()
+  return Effect.runPromise(Fiber.interrupt(fiber))
 }
 ```
 
-**The run calls `onApplied` and `onIgnored` in order.** The run calls them in the step of each message, before it
-applies the next one, so that they hear every message in order. The run also calls `onApplied` before the listeners of
-the `App` are told, and before the message's commands start. So a slow `onApplied` or `onIgnored` holds up the whole
-program, and the call that sent the message. A defect in one of them ends the run, as any other defect does.
+### The defects in the cause
 
-**Give slow work to a queue.** An `onApplied` or an `onIgnored` with slow work to do, such as a devtools that sends
-each step away, gives that work to a queue:
+A defect met while the run ends joins the cause. The order of the defects in the cause is unspecified: rely on each
+defect being in the cause, not on its place. Whether two releases of one scope that die of defects equal by `Equal` are
+two defects is unspecified too, and so is whether a command or a subscription that interrupts itself while the run
+stops it dies of a defect.
 
-1. The option offers what it hears to an unbounded queue, with `Queue.offerUnsafe`, which takes it at once.
-2. A fiber of whoever runs the program takes each item from the queue, and does the work there. That fiber is where
-   to log what the option hears, too: the option runs no effect.
+## Advice
 
-That fiber is raced with the run. So the fiber ends with the run, and a defect in the fiber ends the run. What is still
-in the queue when the run ends is not reported.
+**Give slow work to a queue.** A devtools that sends each step away is slow work, which would hold up each step in
+`onApplied`. The option offers what it hears to an unbounded queue, with `Queue.offerUnsafe`, which takes it at once.
+A fiber raced with the run takes each item, and does the work. That fiber is also where to log what the options hear,
+since the run writes no log of its own and an option runs no effect: choose there what a line holds, since a message
+may hold data. The fiber ends with the run, and a defect in it ends the run. What is still in the queue when the run
+ends is not reported, which a devtools can afford, and a record that must be whole cannot.
 
 ```ts
 const main = Effect.gen(function*() {
@@ -131,186 +163,3 @@ const main = Effect.gen(function*() {
 **Work that must wait goes to the effects of the program.** An option cannot hold up the run to wait for something.
 What must wait, such as a command that may start only once its state is saved, is a command or a subscription that
 waits: wrap `runCommand` or a subscription, and leave the options to watch.
-
-### Logs
-
-The run writes no log of its own. To log each message, log what `onApplied` and `onIgnored` hear, in the fiber that
-takes it from the queue. Choose there what a line holds: a message may hold data.
-
-```ts
-const main = Effect.gen(function*() {
-  const heard = yield* Queue.unbounded<Applied<State, Message, Command>>()
-  const logging = Queue.take(heard).pipe(
-    Effect.flatMap(({ message }) => Effect.logDebug("Message", message._tag)),
-    Effect.forever
-  )
-  const { app, run } = start(program, {
-    onApplied: (applied) => {
-      Queue.offerUnsafe(heard, applied)
-    }
-  })
-  drawInto(root, { app, view })
-  yield* Effect.raceFirst(run, logging)
-})
-```
-
-Neither option hears a message that the run drops before `update`: one that a subscription sent once its key was gone.
-
-### Starting from another state
-
-A program starts where its `init` says. To start the program elsewhere, give `start` the program with another first
-step: `{ ...program, init: { state } }`, with the step's commands, if any.
-
-- The state may be one saved by `onApplied`, or one kept across a reload in development.
-- In a test, give the program to `drive` and `rehearse` the same way.
-- A session recorded with `onApplied` plays again the same way, with `applyAll` in a test.
-
-### When a defect happens
-
-A defect anywhere ends the run, which dies with a `ProgramDefect`:
-
-- **Its `cause` is the defect itself**: an `InvariantDefect` for one thrown with `defect`.
-- **Its `where` says where it happened**, which only the run knows:
-
-  | `where`           | Where the defect happened                                                                               |
-  | ----------------- | ------------------------------------------------------------------------------------------------------- |
-  | `'init'`          | In `init`, for a program that starts from flags.                                                        |
-  | `'update'`        | In `update`, `onEvent` included. The message it was given is in `on`, by its tags.                      |
-  | `'subscriptions'` | In `subscriptions`, the `Equal` and `Hash` of its keys included.                                        |
-  | `'subscription'`  | In a subscription. Its `key` is there as it is.                                                         |
-  | `'command'`       | In a command.                                                                                           |
-  | `'render'`        | In `makeModel`, wherever the model is read, in a listener of the `App`, and what a renderer gave `die`. |
-  | an option's name  | In that option.                                                                                         |
-
-  When the program logs something, a defect in that log is in the place the program logs from.
-
-  A function that a parent gives runs where the library needs it, and a defect in it is recorded there:
-
-  - in `'update'`: a child's `external`, a child's `init` when a step of its parent starts it, `there`, `key`, `flags`
-    and `ids`, and an output read in `update`;
-  - in `'subscriptions'`: `listening`, and a child's `subscriptions`;
-  - in `'render'`: a child's `makeModel`, and an output read in `makeModel`;
-  - in `'command'`: `runCommand` itself, as it makes the command's effect;
-  - in `'subscription'`: `listen` itself, as it makes the subscription, a child's `listen` too.
-
-**A key is shown whole.** A defect of a subscription holds its key as it is, where a defect names a message by its tags
-alone. `onApplied` and `onIgnored` hear the key too, in the `origin`. So what must stay private, as a token, goes in a
-service, not in a key.
-
-From the defect on, the run applies no message. Every defect is in the cause, each with where it happened (see
-[the defects in the cause](#the-defects-in-the-cause)). A program that was never run reports its defect only once
-`run` runs, and dies of it then (see [rules](#rules)).
-
-**A defect in the `init` of a program with flags is recorded as the program starts.** `start` still gives a handle.
-Its `model()` throws the defect, and its `run` dies of it. A program without flags starts from a step, which `start`
-does not make: the `init` of a parent without flags runs as the parent is made (see
-[composition](./composition.md#how-a-parent-and-its-children-start)). A defect in `subscriptions` on the first state is
-recorded as the program starts too, and `run` dies of it.
-
-**What throws outside the functions of the program is in the cause as it is.** The run's own code throws it, or a
-message's tags as the run reads them to say what a defect was on. It has no `where`, it is no `ProgramDefect`, and it
-ends the run as a defect does.
-
-Only the library makes a `ProgramDefect`: the run, and the testing tools that fail as the run dies. The app around the
-run reads one, and a test does too. The types refuse to build one, with `new` or with a class that extends it.
-
-**The run never recovers from a defect, and does not log it.** Reporting the defect, and choosing what the user sees
-next, are the job of the app around the run. The screen keeps what was drawn last: show a crash screen, or run the
-program again.
-
-**In a browser, start the run with `Effect.runFork`**, which reports nothing itself. An interruption of the fiber that
-`Effect.runFork` returns (on `pagehide`, for example) ends the run too. That interruption is not a crash:
-
-```ts
-const { app, run } = start(program, options)
-drawInto(root, { app, view })
-Effect.runFork(
-  run.pipe(
-    Effect.tapCause((cause) => Cause.hasInterruptsOnly(cause) ? Effect.void : reportCrash(cause))
-  )
-)
-```
-
-**The app around the run chooses what leaves the device.** The `cause` is whatever was thrown. The `key` of a
-`ProgramDefect` is the program's own value, as it is, and may hold data. The `id` of a `CompositionDefect` is also the
-program's own value, as it is, and may hold data.
-
-### How a message is named by its tags
-
-`on` names a message by its tags, never its data: `Home › Products › Deleted`.
-
-- A message or a command that is a string is its own tag, and appears whole. Data goes in a field of a tagged value.
-- A parent's wrapping is followed only to a tagged value. So the message of a child whose messages are strings appears
-  by the child's name alone: `{ _tag: 'Counter', message: 'Increment' }` appears as `Counter`. A string in a field
-  named `message` may be the program's own data.
-
-### How a command or a subscription dies
-
-1. It dies when its effect ends with a defect.
-2. What it wraps around its own code (`Effect.ensuring`, `Effect.onExit`, an `Effect.scoped` of its own) is part of its
-   effect. Such a wrapper runs before the effect ends, and may still catch the defect.
-3. What it acquired in the scope the run gives it (`Effect.acquireRelease`, `Effect.addFinalizer`, what a channel adds
-   to it) is released after that.
-4. If that release dies, what the release dies of becomes a defect once the scope has released all it holds. Until
-   then, the run goes on.
-
-### What the run still does after a defect
-
-- From the defect on, the run applies no message: the run does not call `update`.
-- A defect of `update`, `onApplied`, `onIgnored` or `subscriptions` stops its step before the new state is the current
-  one. The state stays as it was, and no listener is told of the new one.
-- A message that the run does not apply starts no command and no subscription, and `onApplied` does not hear the
-  message. So a session recorded with `onApplied` ends, at the latest, with the step that was under way at the defect.
-- That is a bound on what the run still does: at most the step under way. The bound is nothing `update` can count on.
-  For `update`, a command that died is a command that has not answered yet.
-- A message for which the run called `update` before the defect may still start its commands and the subscriptions of
-  its new keys, until the end stops the run.
-  - The end may stop the run before the message's subscriptions and commands start.
-  - So `onApplied` may have heard a step whose model is never drawn and whose commands never start.
-- Once a command or a subscription has started, what the command or the subscription does is the program's business,
-  until the run interrupts it.
-- This also holds in a run that died as it started, for example when a subscription of `init` dies.
-- A renderer is no part of the run, and the run does not stop it. A model that the renderer reads after the defect is
-  still made, since `makeModel` is pure and calling `makeModel` changes nothing in the program.
-
-### How the run ends
-
-When the run ends, because of a defect or of an interruption, it first stops applying messages: what is sent
-meanwhile is not applied. Then it stops its commands and its subscriptions, and waits until what they acquired is
-released. What the effects of a step had not started yet is not started. The rest of the order is unspecified.
-
-The end never begins inside a step: when a step meets a defect, the end begins once the call that applied it has told
-the listeners. On which stack the end begins is unspecified.
-
-A renderer is not stopped by the run: whoever started the program stops it, with what its bridge returns. A renderer
-that nothing stops still draws nothing new, since no state is made after the end.
-
-**Plain code stops a run, and waits for it,** with Effect's `Fiber.interrupt`, which ends once the run has ended: its
-commands and its subscriptions are stopped, and what they acquired is released.
-
-```ts
-const fiber = Effect.runFork(run)
-const stop = (): Promise<void> => {
-  stopDrawing()
-  return Effect.runPromise(Fiber.interrupt(fiber))
-}
-```
-
-### The defects in the cause
-
-- A defect met while the run ends joins the cause. Every defect is in it, each with where it happened.
-- The order of the defects in the cause is unspecified. Rely on each defect being in the cause, not on its place.
-- Two cases are unspecified too: whether two releases, in the scope that the run gives a command or a subscription,
-  that die of defects equal by `Equal` are two defects in the cause, and whether a command or a subscription that
-  interrupts itself while the run stops it, as in what it releases, dies of a defect.
-
-## Do and don't
-
-Each pair sums up a rule of this page. The rule itself is above.
-
-| Do                                                                      | Don't                                                                                 |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Report the crash in the app around the run.                             | Expect the run to log a defect, or to recover from it.                                |
-| Give the slow work of `onApplied` or `onIgnored` to an unbounded queue. | Do slow work in `onApplied` or `onIgnored`. It holds up the whole program.            |
-| In a browser, start the run with `Effect.runFork`.                      | Report an interruption of the run's fiber as a crash.                                 |
-| Choose what of the `cause` leaves the device.                           | Expect a `key` or an `id` to hold no data. Each is the program's own value, as it is. |

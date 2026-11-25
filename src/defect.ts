@@ -3,9 +3,14 @@ import * as Data from "effect/Data"
 /**
  * Where a defect happened, as a `ProgramDefect` says it in `where`.
  *
- * - `'update'` includes `onEvent`.
- * - `'subscriptions'` includes the `Equal` and `Hash` of the keys.
- * - `'render'` is `makeModel`, wherever the model is read, a listener of the `App`, and what a renderer gives `die`.
+ * - `'init'` is the `init` of a program that starts from flags.
+ * - `'update'` includes `onEvent`, a child's `external`, a child's `init` when a step of its parent starts it, `there`,
+ *   `key`, `flags`, `ids`, and an output read in `update`. The message is in `on`.
+ * - `'subscriptions'` includes the `Equal` and `Hash` of the keys, `listening`, and a child's `subscriptions`.
+ * - `'subscription'` is a subscription, and `listen` as it makes one, a child's too. The key is in `key`.
+ * - `'command'` is a command, and `runCommand` as it makes the command's effect.
+ * - `'render'` is `makeModel`, a child's too, wherever the model is read, an output read in `makeModel`, a listener of
+ *   the `App`, and what a renderer gives `die`.
  * - An option's name means that option.
  * - A defect in a log that the program writes is in the place it logs from.
  *
@@ -14,7 +19,7 @@ import * as Data from "effect/Data"
  * const report = (defect: ProgramDefect) => defect.where === 'update' ? `${defect.on}` : defect.where
  * ```
  *
- * @see The guide, "Running", "Its `where` says where it happened".
+ * @see The guide, "Running".
  */
 export type DefectSite =
   | "init"
@@ -61,23 +66,22 @@ type Fields = Readonly<{
  * the message.
  *
  * - `cause` is what was thrown: an `InvariantDefect` for one thrown with `defect`.
- * - `on` names the message by its tags. A message that is a string appears whole.
+ * - `on` names the message by its tags, never its data (`Home › Products › Deleted`). A message that is a string is
+ *   its own tag, and appears whole. A parent's wrapping is followed only to a tagged value, so the message of a child
+ *   whose messages are strings appears by the child's name alone.
  * - `key` is the subscription's key as it is. Like `cause`, it may hold the program's data.
  * - The run does not log the defect and does not recover from it. Report it, and choose what the user sees next.
  * - Only the library makes one: the run, and the testing tools that fail as the run dies. Read it, as a crash report
  *   or a test does: the types refuse a `new` of it.
+ * - What throws outside the functions of the program, in the run's own code or as the run reads a message's tags for
+ *   `on`, is in the run's cause as it is, with no `where`, and ends the run as a defect does.
  *
  * @example
  * ```ts
  * const where = (error: unknown) => error instanceof ProgramDefect ? error.where : 'outside the run'
  * ```
  *
- * @see The guide, "Running", "Its `cause` is the defect itself".
- * @see The guide, "Running", "When a defect happens".
- * @see The guide, "Running", "Its `where` says where it happened".
- * @see The guide, "Running", "How a message is named by its tags".
- * @see The guide, "Running", "The run never recovers from a defect, and does not log it".
- * @see The guide, "Running", "The app around the run chooses what leaves the device".
+ * @see The guide, "Running".
  */
 export class ProgramDefect extends Data.TaggedError("ProgramDefect")<Fields & Readonly<{ message: string }>> {
   private constructor(fields: Fields) {
@@ -120,8 +124,7 @@ type CompositionFields = Readonly<{
  *
  * @see The guide, "Composition".
  * @see The guide, "Events and external messages".
- * @see The guide, "Running", "How a message is named by its tags".
- * @see The guide, "Running", "The app around the run chooses what leaves the device".
+ * @see The guide, "Running".
  */
 export class CompositionDefect extends Data.TaggedError("CompositionDefect")<CompositionFields> {
   private constructor(fields: CompositionFields) {
@@ -142,7 +145,7 @@ export class CompositionDefect extends Data.TaggedError("CompositionDefect")<Com
  * ```
  *
  * @see The guide, "Rejections and defects".
- * @see The guide, "Running", "Its `cause` is the defect itself".
+ * @see The guide, "Running".
  */
 export class InvariantDefect extends Data.TaggedError("InvariantDefect")<
   Readonly<{

@@ -18,7 +18,7 @@
  *
  * @module @fgaudo/effect-tea/snabbdom
  *
- * @see The guide, "Writing a bridge", "The package's bridges".
+ * @see The guide, "Writing a bridge".
  */
 import type { App, Dispatch } from "@fgaudo/effect-tea"
 import * as Opt from "effect/Option"
@@ -86,14 +86,22 @@ const giveBack = (controlled: Map<Element, Controlled>): void => {
  *   message a handler of the view sends, whether it made a new state or not: once the code that sent it returns, and
  *   before the browser handles the next event. What a task, or a listener that the browser calls, sends until it
  *   returns is drawn once.
- * - A model that is the very one drawn last is not drawn again.
+ * - It draws each model whole, and nothing between two draws. A model that is the very one drawn last is not drawn
+ *   again.
  * - After each draw, an element drawn with a `value` or a `checked` in `props` is given it back where the element
- *   differs from it: what the user typed and the program rejected is taken back.
+ *   differs from it: what the user typed and the program rejected is taken back. The element is not replaced, and
+ *   keeps its focus, its caret and its selection.
  * - snabbdom never removes a prop. So a view gives a prop it changes in every state: `disabled: false` too.
  * - It draws a node's `class`, `props`, `attrs`, `dataset`, `style` and `on`, with snabbdom's modules of each. Unlike
  *   a prop, a class, an attribute or a data entry that a later vnode leaves out is removed.
+ * - What a listener sends while a patch runs, as a `blur` that the patch makes, is drawn after that patch, in a
+ *   microtask of its own.
  * - What a view or `makeModel` throws as it is drawn ends the run, the first draw's too: it draws nothing more, and
- *   the program's `run` dies of it, in `'render'`.
+ *   the program's `run` dies of it, in `'render'`. A draw that comes once the run has ended throws it out of its
+ *   microtask, as an error of the page.
+ * - The run does not stop it: whoever started the program calls what it returns, or does not. Once it is stopped, a
+ *   draw it asked for before is not made. Whether a handler of what it drew still sends its message then is
+ *   unspecified.
  *
  * @example
  * ```ts
@@ -102,10 +110,7 @@ const giveBack = (controlled: Map<Element, Controlled>): void => {
  * Effect.runFork(run)
  * ```
  *
- * @see The guide, "Writing a bridge", "The handle".
- * @see The guide, "Writing a bridge", "Handlers".
- * @see The guide, "Writing a bridge", "A controlled element".
- * @see The guide, "Writing a bridge", "The package's bridges".
+ * @see The guide, "Writing a bridge".
  * @see The guide, "What an element gives".
  */
 export const drawInto = <Model, Message>(root: Element, { app, view }: {

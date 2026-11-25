@@ -8,6 +8,7 @@ import { view } from "./view.ts"
 const root = document.getElementById("app")
 if (root === null) throw new Error("index.html has no #app element")
 
+// #region run
 const { app, run } = start(list)
 drawInto(root, { app, view })
 Effect.runFork(
@@ -16,3 +17,4 @@ Effect.runFork(
     Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause)))
   )
 )
+// #endregion run

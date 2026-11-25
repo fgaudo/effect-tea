@@ -186,7 +186,7 @@ type Needed<Command, RC, Key, RS> = Exclude<
  * @see The guide, "Testing tools", "drive".
  * @see The guide, "Testing tools", "How `drive` ends".
  * @see The guide, "Testing tools", "Defects of the program".
- * @see The guide, "Running", "Starting from another state".
+ * @see The guide, "Running".
  */
 export const drive = Effect.fnUntraced(function*<
   State,

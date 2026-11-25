@@ -72,7 +72,7 @@ holds, and its handler sends the message that its model holds for it, filled wit
 is applied in the call that sends it, so when the handler returns, the state holds what was typed, or has rejected it.
 
 How each bridge keeps the element so, and which elements it draws, is in
-[the package's bridges](./writing-a-bridge.md#the-packages-bridges): [`form`](../../examples/form) draws its field with
+[a controlled element](./writing-a-bridge.md#a-controlled-element): [`form`](../../examples/form) draws its field with
 snabbdom and with React.
 
 ### What an element reports
@@ -82,7 +82,7 @@ point of a press.
 
 - **A value that the program keeps is a message**, held and filled as any other. Nothing is promised of the element:
   the package's bridges give an element back its `value` and its `checked` alone (see
-  [the package's bridges](./writing-a-bridge.md#the-packages-bridges)).
+  [a controlled element](./writing-a-bridge.md#a-controlled-element)).
 - **What is there whatever is drawn is a subscription.** A value of an element that the view draws comes from its
   handler. The size of the window, or a key pressed anywhere on the page, comes from a subscription to a service (see
   [subscriptions](./subscriptions.md)).

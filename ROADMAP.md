@@ -26,9 +26,9 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 76 to 79 and 68 to 72 come before the library is made known to others
+Steps 77 to 79 and 68 to 72 come before the library is made known to others
 ([`adoption.md`](docs/records/adoption.md)), and neither wait for the release of 0.9.0 ("For the owner") nor hold it:
-what is done before it goes out with it. Their order: first the guide made small (76 to 78), since every later step
+what is done before it goes out with it. Their order: first the guide made small (77 and 78), since every later step
 reads it or adds to it, and a promise withdrawn is a breaking change, which goes out with the others; then what may
 change the API between a parent and its children (79), and what may change a rule of the guide or show a cost of the
 API (68), which reads the API as step 79 leaves it; then what a first user meets (69, 70); then the two checks, which
@@ -40,10 +40,10 @@ the two pages and approved the form on 25 November 2026, and step 74 wrote by it
 pieces. Until step 78 the guide has both forms: a page not yet written again keeps its "Do and don't", and the
 comments that name its sections.
 
-Each of steps 76 and 77 writes its pages again by that form, a group in a step, so that each step fits one context:
-each sentence by the test of `AGENTS.md`. A sentence that moves to a doc comment is written there in the same commit,
-and the skill's rules that name a section changed are reread. What steps 73 and 74 leave to each, which their pages
-and commits show:
+Step 77 writes its pages again by that form, as steps 74 to 76 did theirs, a group in a step so that it fits one
+context: each sentence by the test of `AGENTS.md`. A sentence that moves to a doc comment is written there in the same
+commit, and the skill's rules that name a section changed are reread. What steps 73 to 76 leave to it, which their
+pages and commits show:
 
 - A page written again has "In short", "An example", "Rules", "Advice" where it advises, and a section that explains
   where code teaches more than a rule, which says that it adds no rule ("More examples" of "Subscriptions"). It has
@@ -59,48 +59,20 @@ and commits show:
   a table or a block of code, each with where it went (the guide, a doc comment, unspecified, cut, advice or
   explanation, its example).
 - Specification halves, and advice does not: "Composition" went from 3,616 words to 1,807, "Structuring a program"
-  from 2,136 to 1,836, the seven pages of step 74 from 6,774 to 4,270, and the two of step 75 from 3,665 to 2,682.
-  Most of what left them was in a doc comment, or in "Guarantees", already.
+  from 2,136 to 1,836, the seven pages of step 74 from 6,774 to 4,270, the two of step 75 from 3,665 to 2,682, and
+  the three of step 76 from 9,349 to 5,439. Most of what left them was in a doc comment, or in "Guarantees", already.
 - A promise is withdrawn only at a corner that no user builds on. Its changelog entry is the one that starts
   "**Breaking**: unspecified, and no longer promised", which each step adds to. What a sentence promised and no doc
   comment says is written into the doc comment, rather than withdrawn, where a user builds on it.
 - No link checker runs on the guide: a step reads each `](…#…)` into its pages, before and after.
 
-**Done when** each page of the group is written again by the test; each promise withdrawn has its changelog entry, and
+**Done when** each page of its group is written again by the test; each promise withdrawn has its changelog entry, and
 its test is kept for an invariant or removed; the commit counts the sentences by where they went, and the words before
 and after; and `bun run typecheck`, `bun run lint`, `bun run test` and `bun run comments` pass.
 
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 76. Running, guarantees and bridges, by the form of step 73
-
-**Model and effort.** Opus 5.5, `high`.
-
-**Depends on** step 73, whose form the owner approved.
-
-**How**, by the form above, for "Running", "Guarantees" and "Writing a bridge", some 9,300 words. "What you can
-rely on" is the list of the promises of a run, and the mutations name its items (`guarantees`, in `tools/mutations/`):
-an item is withdrawn only by `change-engine`, and one that stays keeps its title, or the mutations that name it change
-with it.
-
-What step 73 leaves here: "A parent's children are those its own state lists" and "An answer reaches the instance
-that asked for it, or is rejected" are said in "Composition" too ("When a child is there", "What the library
-derives"), which links `#what-you-can-rely-on` and `#what-is-left-to-you`: each sentence has one place, and the
-other links. "Running" and "Guarantees" send a reader to `composition.md#how-a-parent-and-its-children-start` for
-the children that `make` starts: that now stands in the doc comment of `init` (`src/compose.ts`), and the page
-says only that the program's `init` holds the whole first state. The item on "Structuring a program", in "What is
-left to you", calls it advice since step 73.
-
-What step 74 leaves here: "Subscriptions" no longer says that a key is shown whole, and "Guarantees" ("What must
-stay private is in a service, not in a key") and "Running" ("A key is shown whole") both still do: one keeps it, and
-the other links. What `onIgnored` hears of a late message, which a table of "Rejections and defects" said, is now in
-its doc comment (`src/engine.ts`), and "Running" need not say it again. The pages of step 74 link
-`guarantees.md#what-you-can-rely-on` and `#what-is-left-to-you`, `running.md` and `view.md#rules`.
-
-**Done when**, as the form above says, with `bun run test:node` and `bun run interleavings` where a test of the
-engine changed.
 
 ### 77. Testing and its tools, by the form of step 73
 

@@ -71,7 +71,10 @@ const ceilings: Readonly<Record<string, number>> = {
   "Composition": 1900,
   "Structuring a program": 1900,
   "Events and external messages": 1450,
-  "What an element gives": 1350
+  "What an element gives": 1350,
+  "Running": 1800,
+  "Guarantees": 1900,
+  "Writing a bridge": 2000
 }
 
 const problemsOfCeilings = (pages: ReadonlyMap<string, ReadonlyArray<string>>) =>
