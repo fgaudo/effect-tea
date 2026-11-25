@@ -118,7 +118,7 @@ type Parts<State, Model, Message, R, Key> = Readonly<{
  * that runs the engine itself gives what its fibers run and what it is told, and reads its models through the handle,
  * as a renderer does.
  */
-export const partsOf = <State extends object, Model, Message, Command, RC, RS, Flags, Key, Event, R>(
+export const partsOf = <State, Model, Message, Command, RC, RS, Flags, Key, Event, R>(
   program: Program<{
     state: State
     model: Model
@@ -194,7 +194,7 @@ export const partsOf = <State extends object, Model, Message, Command, RC, RS, F
   let last: Opt.Option<Made<State, Model>> = Opt.none()
   const model = (): Model => {
     const { state } = engine.current()
-    const current = Opt.isSome(last) && last.value.state === state ? last.value : make(state)
+    const current = Opt.isSome(last) && Object.is(last.value.state, state) ? last.value : make(state)
     last = Opt.some(current)
     if (current.made) return current.model
     throw current.defect
@@ -209,7 +209,7 @@ export const partsOf = <State extends object, Model, Message, Command, RC, RS, F
  * and one interrupted before it begins leaves the program as it was, not stopped. `settled` is called as each call
  * that applies messages returns, once its step is done (`Engine.build`).
  */
-export const startWith = <State extends object, Model, Message, Command, RC, RS, Flags, Key>(
+export const startWith = <State, Model, Message, Command, RC, RS, Flags, Key>(
   program: Program<{
     state: State
     model: Model
@@ -326,7 +326,7 @@ export const readEach = <Model, Message>(
  * @see The guide, "Running", "Logs".
  */
 export const start = <
-  State extends object,
+  State,
   Model,
   Message,
   Command = never,

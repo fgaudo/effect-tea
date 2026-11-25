@@ -19,7 +19,7 @@ place?: Readonly<{
     key?: (state: State) => unknown;
     there?: never;
     flags?: never;
-}> & Listening<State> & ObjectState<StateOf<P>>
+}> & Listening<State>
 ] : [place: {
     readonly "a child with flags is declared with its flags": FlagsOf<P>;
 }];
@@ -193,13 +193,13 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, Exte
 // @public
 export type DeclareChild<T extends DeclaredTypes> = {
     <P extends AnyProgram>(program: CheckedChild<P>, ...place: AlwaysPlace<Field<T, "state">, P>): Child<Field<T, "state">, P, "always">;
-    <P extends AnyProgram>(program: CheckedChild<P>, place: SometimesPlace<Field<T, "state">, P> & Listening<Field<T, "state">> & ObjectState<StateOf<P>>): Child<Field<T, "state">, P, "sometimes">;
+    <P extends AnyProgram>(program: CheckedChild<P>, place: SometimesPlace<Field<T, "state">, P> & Listening<Field<T, "state">>): Child<Field<T, "state">, P, "sometimes">;
 };
 
 // @public
 export type DeclareChildById<T extends DeclaredTypes> = {
-    <Id, P extends AnyProgram>(program: CheckedChild<P>, place: IdsPlace<Field<T, "state">, Id> & FlagsChecked<P, false> & ObjectState<StateOf<P>>): ChildById<Field<T, "state">, Id, P>;
-    <Id, P extends AnyProgram>(program: CheckedChild<P>, place: FlagsPlace<Field<T, "state">, Id, FlagsOf<P>> & FlagsChecked<P, true> & ObjectState<StateOf<P>>): ChildById<Field<T, "state">, Id, P>;
+    <Id, P extends AnyProgram>(program: CheckedChild<P>, place: IdsPlace<Field<T, "state">, Id> & FlagsChecked<P, false>): ChildById<Field<T, "state">, Id, P>;
+    <Id, P extends AnyProgram>(program: CheckedChild<P>, place: FlagsPlace<Field<T, "state">, Id, FlagsOf<P>> & FlagsChecked<P, true>): ChildById<Field<T, "state">, Id, P>;
 };
 
 // @public
@@ -207,7 +207,7 @@ export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field
 
 // @public
 type DeclaredTypes = Readonly<{
-    state: object;
+    state: unknown;
     model?: unknown;
     message?: unknown;
     command?: unknown;
@@ -255,11 +255,6 @@ export type ExternalOf<P> = P extends {
 export type Field<T, K extends string> = T extends {
     readonly [P in K]: infer V;
 } ? V : never;
-
-// @public (undocumented)
-type Fielded<State> = 0 extends 1 & State ? unknown : [keyof State] extends [never] ? [Extract<Primitive, State>] extends [never] ? unknown : {
-    readonly "a program keeps its state in an object": State;
-} : unknown;
 
 // @public (undocumented)
 type Fields = Readonly<{
@@ -458,7 +453,7 @@ type ListenOf<State, OwnKey, Message, Heard> = [OwnKey] extends [never] ? Readon
 // @public
 export type MakeParent<T extends DeclaredTypes, C extends Children<Field<T, "state">>> = <Model, I extends Inputs<Field<T, "state">> = None, Ran = never, Heard = never>(config: Config<Field<T, "state">, C, NoInfer<I>, Field<T, "message">, Field<T, "command">, Field<T, "event">, Named<T, "model", Model>, Ran, Heard, Field<T, "key">, Field<T, "external">, Field<T, "flags">, Field<T, "output">> & Readonly<{
     inputs?: I;
-}> & ObjectState<Field<T, "state">>) => Program<Present<{
+}>) => Program<Present<{
     state: Kept<Field<T, "state">, KeptOf<C>>;
     model: Named<T, "model", Model>;
     message: Field<T, "message"> | ChildMessages<C> | InputMessages<I>;
@@ -475,7 +470,7 @@ export type MakeParent<T extends DeclaredTypes, C extends Children<Field<T, "sta
 // @public
 export type MakeProgram<T extends DeclaredTypes> = <Model, I extends Inputs<Field<T, "state">> = None, Ran = never, Heard = never>(config: Config<Field<T, "state">, None, NoInfer<I>, Field<T, "message">, Field<T, "command">, Field<T, "event">, Named<T, "model", Model>, Ran, Heard, Field<T, "key">, Field<T, "external">, Field<T, "flags">, Field<T, "output">> & Readonly<{
     inputs?: I;
-}> & ObjectState<Field<T, "state">>) => Program<Present<{
+}>) => Program<Present<{
     state: Field<T, "state">;
     model: Named<T, "model", Model>;
     message: Field<T, "message"> | InputMessages<I>;
@@ -536,11 +531,6 @@ type None = Readonly<Record<never, never>>;
 type NoShared<C, I> = [keyof C & keyof I] extends [never] ? unknown : Readonly<{
     "an input takes the name of a child": keyof C & keyof I;
 }>;
-
-// @public
-export type ObjectState<State> = [State] extends [object] ? Fielded<State> : {
-    readonly "a program keeps its state in an object": State;
-};
 
 // @public
 type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Event>] extends [never] ? Readonly<{
@@ -618,13 +608,10 @@ type PlacementById<State, Id, A> = Readonly<{
 type Present<T> = Extract<{
     [K in keyof T as K extends "state" | "model" | "message" ? K : [T[K]] extends [never] ? never : K]: T[K];
 }, {
-    state: object;
+    state: unknown;
     model: unknown;
     message: unknown;
 }>;
-
-// @public (undocumented)
-type Primitive = string | number | bigint | boolean | symbol;
 
 // @public
 export type Program<T extends ProgramTypes> = Shape<Field<T, "state">, Field<T, "model">, Field<T, "message">, Field<T, "command">, Field<T, "commandServices">, Field<T, "subscriptionServices">, Field<T, "event">, Field<T, "external">, Field<T, "flags">, Field<T, "output">, Field<T, "key">>;
@@ -633,8 +620,8 @@ export type Program<T extends ProgramTypes> = Shape<Field<T, "state">, Field<T, 
 export const program: <T extends DeclaredTypes>() => ProgramMaker<T>;
 
 // @public (undocumented)
-type ProgramChecked<P> = ObjectState<StateOf<P>> & Program<{
-    state: StateOf<P> & object;
+type ProgramChecked<P> = Program<{
+    state: StateOf<P>;
     model: ModelOf<P>;
     message: MessageOf<P>;
     command: CommandOf<P>;
@@ -675,7 +662,7 @@ type ProgramOf<C> = C extends {
 
 // @public
 type ProgramTypes = Readonly<{
-    state: object;
+    state: unknown;
     model: unknown;
     message: unknown;
     command?: unknown;
@@ -729,7 +716,7 @@ export interface RunOptions<State, Message, Command = unknown> {
 }
 
 // @public (undocumented)
-type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never, Output = never, Key = never> = ObjectState<State> & {
+type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never, Output = never, Key = never> = {
     readonly init: Init<State, Command, Flags>;
     readonly update: Update<State, Message, Command, Event>;
     readonly subscriptions: Subscriptions<State, Key>;
@@ -748,7 +735,7 @@ type SometimesPlace<State, P> = [FlagsOf<P>] extends [never] ? Readonly<{
 }>;
 
 // @public
-export const start: <State extends object, Model, Message, Command = never, RC = never, RS = never, Flags = never, Key = never, External = never, Output = never>(program: Program<{
+export const start: <State, Model, Message, Command = never, RC = never, RS = never, Flags = never, Key = never, External = never, Output = never>(program: Program<{
     state: State;
     model: Model;
     message: Message;

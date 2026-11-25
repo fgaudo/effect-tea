@@ -160,9 +160,8 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   twin markers. _Reopen if_ a misspelled name can make a broken program compile.
 - **Checks that hold for a type parameter**, so that a function over any program declares it a child. Probed with
   `tsc`, 17 November 2026: a rule "exactly when" over a deferred conditional accepts nothing, and making it hold would
-  rework every reader of `Program`. Such a function is an overload over erased types ("Composition"), and a state that
-  is a type parameter in `make` is refused (`MakeProgram`). _Reopen if_ a library of components over this one needs
-  such functions often.
+  rework every reader of `Program`. Such a function is an overload over erased types ("Composition"). _Reopen if_ a
+  library of components over this one needs such functions often.
 - **`DeclareChild<State>` in place of `DeclareChild<T>`**, and the same for its kin. Spiked, 18 November 2026: the types
   are the same, but a state written `Readonly<{ … }>` loses its name in the declarations, and the smoke test's count
   failed. _Reopen if_ TypeScript keeps the name of an alias of an alias when it prints it.

@@ -106,8 +106,8 @@ child tested alone would then promise what the program does not.
 Such a message is applied, and its handler adds nothing to it:
 
 - `onApplied` hears it with the commands of the child's own step, and no others;
-- `onApplied` hears it with the state it came to: the very same state, the same object, when the child's step kept
-  the child's state and the handler returns the one it was given.
+- `onApplied` hears it with the state it came to: the very same state, the same object or the same primitive value,
+  when the child's step kept the child's state and the handler returns the one it was given.
 
 A completion promises something about the child's state, not about the parent's state. An event raised for a
 completion rules out a state of the parent only where the parent's own state promises it too.

@@ -89,12 +89,6 @@ the engine and in the testing tools.
     notices (`if (queued) return`) has no mutation: a second one draws the model drawn last, which patches nothing.
   - No check holds an event that the program's own code dispatches before a draw (`element.click()`, `focus()`), whose
     handler runs on the view of before the notice: `bridges/browser.test.ts` shows it in real browsers.
-- **Every program keeps its state in an object**, replaced and never mutated, so that any program can be a child: a
-  parent keeps a child's model by its state object, and a primitive has no identity to keep it by. The types enforce
-  it (`ObjectState` in `program.ts`, checked by `Program`, `program`, `make`, `child`, `childById`, `start` and the
-  tools); `make` checks its config, whose program carries the marker `start` asks for (`MakeProgram`). A program run
-  alone needs no object, and is not checked; a child's state is checked where a parent reads it for a model
-  (`modelOf`), as a `CompositionDefect` that names the child.
 - **A dispatch is a function, and needs no services**: it applies its message on its caller's stack, and records what
   the program throws there (`attempt` and `recordThrown` in `engine.ts`, `record` of `Deaths` in `shell.ts`), never
   throwing it to the caller, whose fiber would take it for its own. No fiber is made for a message nor for a defect, so
@@ -224,11 +218,11 @@ the engine and in the testing tools.
 
 ## What the engine keeps for itself
 
-- **A child's model is kept by its state object, and its lifted keys by its instance** (`modelsOf` and `lifted` in
-  `compose.ts`), for as long as that object lives: they rely on `makeModel` and `subscriptions` being pure and on states
-  never mutated, and hold nothing of the run nor of a place, so runs and children that share a state share them. The
+- **A child's model and its lifted keys are kept by its instance** (`models` and `lifted` in `compose.ts`), for as
+  long as that object lives: they rely on `makeModel` and `subscriptions` being pure and on states never mutated. The
   instance is at one place, and replaced with the child's state, so its keys carry its place and its number with no
-  check. A lifted key holds no subscription. Never add a cache for primitive states, which nothing could let go of.
+  check, and an instance kept with the very same state keeps the very same model, whatever value the state is. A lifted
+  key holds no subscription.
 - **A state that changes no key costs a lookup for each key** (`reconcile` in `core.ts`): where no key appeared and
   every active key was found, none went either, and the active ones are left the very same. Whether a key is active is
   asked once, for that shortcut and for the starts, so that no check stands in front of another. A key that stays is

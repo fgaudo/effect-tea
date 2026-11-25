@@ -57,7 +57,7 @@ export const dispatchViolations: <State, Message, Command, Event>(update: Update
 }>) => ReadonlyArray<DispatchViolation<Message>>;
 
 // @public
-export const drive: <State extends object, Model, Message, Command = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never, Key = never, External = never, Output = never>(program: Program<{
+export const drive: <State, Model, Message, Command = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never, Key = never, External = never, Output = never>(program: Program<{
     state: State;
     model: Model;
     message: Message;
@@ -90,11 +90,6 @@ type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, never, R
 type Field<T, K extends string> = T extends {
     readonly [P in K]: infer V;
 } ? V : never;
-
-// @public (undocumented)
-type Fielded<State> = 0 extends 1 & State ? unknown : [keyof State] extends [never] ? [Extract<Primitive, State>] extends [never] ? unknown : {
-    readonly "a program keeps its state in an object": State;
-} : unknown;
 
 // @public
 type FlagsOption<Flags> = [Flags] extends [never] ? {
@@ -163,11 +158,6 @@ type Listened<P, T> = P extends {
 type Needed<Command, RC, Key, RS> = Exclude<([Command] extends [never] ? never : RC) | ([Key] extends [never] ? never : RS), Scope.Scope>;
 
 // @public
-type ObjectState<State> = [State] extends [object] ? Fielded<State> : {
-    readonly "a program keeps its state in an object": State;
-};
-
-// @public
 type Origin = {
     readonly _tag: "Dispatch";
 } | {
@@ -213,15 +203,12 @@ export const placeViolations: {
     }>): ReadonlyArray<PlaceViolation<State, A, Id>>;
 };
 
-// @public (undocumented)
-type Primitive = string | number | bigint | boolean | symbol;
-
 // @public
 type Program<T extends ProgramTypes> = Shape<Field<T, "state">, Field<T, "model">, Field<T, "message">, Field<T, "command">, Field<T, "commandServices">, Field<T, "subscriptionServices">, Field<T, "event">, Field<T, "external">, Field<T, "flags">, Field<T, "output">, Field<T, "key">>;
 
 // @public
 type ProgramTypes = Readonly<{
-    state: object;
+    state: unknown;
     model: unknown;
     message: unknown;
     command?: unknown;
@@ -249,7 +236,7 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
 };
 
 // @public
-export const rehearse: <P extends AnyProgram, State extends object, Model, Message, Command = never, Event = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never, Key = never>(program: P & Program<{
+export const rehearse: <P extends AnyProgram, State, Model, Message, Command = never, Event = never, RC = never, RS = never, A = unknown, E = never, RT = never, Flags = never, Key = never>(program: P & Program<{
     state: State;
     model: Model;
     message: Message;
@@ -277,7 +264,7 @@ interface RunOptions<State, Message, Command = unknown> {
 }
 
 // @public (undocumented)
-type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never, Output = never, Key = never> = ObjectState<State> & {
+type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never, Output = never, Key = never> = {
     readonly init: Init<State, Command, Flags>;
     readonly update: Update<State, Message, Command, Event>;
     readonly subscriptions: Subscriptions<State, Key>;
@@ -291,7 +278,7 @@ export const simulate: <State, Message, Command = never, Event = never, R = neve
     update: Update<State, Message, Command, Event>;
 }> & WithRunCommand<Command, NoInfer<Message>, R> & Readonly<{
     subscriptions: Subscriptions<State, unknown>;
-}> & ObjectState<State>, messages: readonly NoInfer<Message>[], from: Step<NoInfer<State>, NoInfer<Command>>) => Effect.Effect<Simulated<State, Message, Command, Event>, never, Exclude<R, Scope.Scope>>;
+}>, messages: readonly NoInfer<Message>[], from: Step<NoInfer<State>, NoInfer<Command>>) => Effect.Effect<Simulated<State, Message, Command, Event>, never, Exclude<R, Scope.Scope>>;
 
 // @public
 export type Simulated<State, Message, Command = never, Event = never> = {

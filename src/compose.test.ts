@@ -32,7 +32,7 @@ import type {
   StateOf,
   SubscriptionServicesOf
 } from "./program.ts"
-import { start } from "./run.ts"
+import { start, type Started } from "./run.ts"
 import type { Subscription } from "./subscription.ts"
 import { applyAll } from "./testing/apply-all.ts"
 import { drive } from "./testing/drive.ts"
@@ -404,20 +404,6 @@ describe("compose", () => {
     })
   })
 
-  // Only a cast, or a caller without TypeScript, gets a primitive state past the types.
-  test("a child alone whose state is not an object is a defect that names it, in its model", () => {
-    const Holder = program<{ state: object }>()
-    const holding = Holder.withChildren({ Ticker: Holder.child(ticker) }).make({
-      init: { state: {} },
-      makeModel: (_, children) => children.Ticker()
-    })
-    const state = stateOf(holding, {}, { Ticker: "ticks" as unknown as Ticks })
-    expect(() => holding.makeModel(state)).toThrow(compositionDefect({
-      message: "The state of \"Ticker\" is a string, where a program keeps its state in an object",
-      child: "Ticker"
-    }))
-  })
-
   test("a program made without subscriptions listens to nothing, in any state", () => {
     const silent = program<{ state: Ticks; message: Tick }>().make({
       init: { state: noTicks },
@@ -463,17 +449,33 @@ describe("compose", () => {
     expectTypeOf<Model["maybeRight"]>().toEqualTypeOf<Opt.Option<CounterModel>>()
   })
 
-  // A model depends only on its state: what tells the two children apart is the dispatch each one's view gets.
-  test("one program as two children, in the very same state object, has one model", () => {
-    const model = app.makeModel(withRight)
-    expect(Opt.getOrThrow(model.maybeRight)).toBe(model.left)
-    const { sent, dispatch } = recording<AppMessage>()
-    forwardTo(dispatch, "Left")(model.left.increment)
-    forwardTo(dispatch, "Right")(model.left.increment)
-    expect(sent).toEqual([
-      { _tag: "Left", message: CounterMessage.Increment() },
-      { _tag: "Right", message: CounterMessage.Increment() }
-    ])
+  // Both start in the very same state object, the counter's `init`, as two instances.
+  test("a child's model is the same object while its instance keeps its state, through a step of another child too, and a child started again makes its own", () => {
+    type Shown = Readonly<{ right: boolean }>
+    type Toggle = Readonly<{ _tag: "Toggle" }>
+    const Shown = program<{ state: Shown; message: Toggle }>()
+    const toggling = Shown.withChildren({
+      Left: Shown.child(counter),
+      Right: Shown.child(counter, { there: (state) => state.right })
+    }).make({
+      init: { state: { right: true } },
+      update: () => (state) => ({ state: { right: !state.right } }),
+      onEvent: { Left: () => (state) => ({ state }), Right: () => (state) => ({ state }) },
+      makeModel: (_, children) => ({ left: children.Left(), right: children.Right() })
+    })
+    const toggle: Toggle = { _tag: "Toggle" }
+    const first = toggling.makeModel(toggling.init.state)
+    const right = Opt.getOrThrow(first.right)
+    expect(right).not.toBe(first.left)
+    const bumped =
+      accepted(toggling.update({ _tag: "Left", message: CounterMessage.Increment() })(toggling.init.state)).state
+    expect(Opt.getOrThrow(toggling.makeModel(bumped).right)).toBe(right)
+    expect(toggling.makeModel(bumped).left).not.toBe(first.left)
+    const again = accepted(toggling.update(toggle)(accepted(toggling.update(toggle)(bumped)).state)).state
+    expect(stateAt(again.children.Right)).toBe(stateAt(toggling.init.state.children.Right))
+    const restarted = Opt.getOrThrow(toggling.makeModel(again).right)
+    expect(restarted).not.toBe(right)
+    expect(restarted.count).toBe(right.count)
   })
 })
 
@@ -481,14 +483,6 @@ describe("children by id", () => {
   test("a message reaches the child with its id, and only that one", () => {
     const result = accepted(list.update({ _tag: "Rows", id: 2, message: CounterMessage.Increment() })(rows(1, 2)))
     expect(countsOf(result.state)).toEqual([0, 1])
-  })
-
-  test("children that share one state object share its model, and their dispatch adds their id", () => {
-    const [first, second] = list.makeModel(rows(1, 2))
-    expect(first?.model).toBe(second?.model)
-    const { sent, dispatch } = recording<MessageOf<typeof list>>()
-    forwardTo(dispatch, "Rows", 2)(CounterMessage.Increment())
-    expect(sent).toEqual([{ _tag: "Rows", id: 2, message: CounterMessage.Increment() }])
   })
 
   test("a child's model is kept while its state is the same object, when another child changes", () => {
@@ -615,21 +609,6 @@ describe("children by id", () => {
     }).make({ init: { state: { ids: [7, 8], listening: [7] } }, makeModel: () => null })
     expect(some.subscriptions(some.init.state)).toEqual([{ _tag: "Tickers", id: 7, instance: 1, key: "ticks" }])
     expect(some.update({ _tag: "Tickers", id: 8, message: { _tag: "Tick" } })(some.init.state)).not.toBe(reject)
-  })
-
-  // Only a cast, or a caller without TypeScript, gets a primitive state past the types.
-  test("a child whose state is not an object is a defect that names it and its id, in its model", () => {
-    const Tickers = program<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
-    const counting = Tickers.withChildren({ Tickers: Tickers.childById(ticker, { ids: (state) => state.ids }) }).make({
-      init: { state: { ids: [] } },
-      makeModel: (state, children) => state.ids.map((id) => children.Tickers(id))
-    })
-    const state = stateOf(counting, { ids: [7] }, { Tickers: [[7, 0 as unknown as Ticks]] })
-    expect(() => counting.makeModel(state)).toThrow(compositionDefect({
-      message: "The state of \"Tickers\" is a number, where a program keeps its state in an object",
-      child: "Tickers",
-      id: 7
-    }))
   })
 
   test("the model of a child at an id that is not there is a defect that names it and its id", () => {
@@ -2020,6 +1999,117 @@ describe("a child started again while its command waits", () => {
   })
 })
 
+describe("a state that is any value", () => {
+  // A program whose state is a number: each `Increment` adds one.
+  type Increment = "Increment"
+  const counting = program<{ state: number; message: Increment }>().make({
+    init: { state: 0 },
+    update: () => (count) => ({ state: count + 1 }),
+    makeModel: (count) => count
+  })
+
+  /** Runs a program started, sends `messages`, and gives the first model drawn that `done` holds of. */
+  const drawnUntil = <Model, Message>(
+    { app, run }: Started<Model, Message>,
+    messages: ReadonlyArray<Message>,
+    done: (model: Model) => boolean
+  ): Promise<Model> => {
+    const found = Deferred.makeUnsafe<Model>()
+    const draw = () => {
+      const model = app.model()
+      if (done(model)) Deferred.doneUnsafe(found, Exit.succeed(model))
+    }
+    app.subscribe(draw)
+    for (const message of messages) app.dispatch(message)
+    return Effect.runPromise(Effect.raceFirst(run, Deferred.await(found)))
+  }
+
+  test("a program whose state is a number runs alone", async () => {
+    expect(await drawnUntil(start(counting), ["Increment", "Increment"], (count) => count === 2)).toBe(2)
+  })
+
+  test("a program whose state is a number runs as a child", async () => {
+    const Holder = program<{ state: Readonly<{ label: string }> }>()
+    const holding = Holder.withChildren({ Count: Holder.child(counting) }).make({
+      init: { state: { label: "count" } },
+      makeModel: (state, children) => ({ label: state.label, count: children.Count() })
+    })
+    const message = { _tag: "Count", message: "Increment" } as const
+    const model = await drawnUntil(start(holding), [message, message], ({ count }) => count === 2)
+    expect(model).toEqual({ label: "count", count: 2 })
+  })
+
+  test("a program whose state is a number runs by id", async () => {
+    const Holder = program<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
+    const holding = Holder.withChildren({ Counts: Holder.childById(counting, { ids: (state) => state.ids }) }).make({
+      init: { state: { ids: [1, 2] } },
+      makeModel: (state, children) => state.ids.map((id) => children.Counts(id))
+    })
+    const message = { _tag: "Counts", id: 2, message: "Increment" } as const
+    const model = await drawnUntil(start(holding), [message, message], (counts) => counts[1] === 2)
+    expect(model).toEqual([0, 2])
+  })
+
+  test("a program's state is any value, however it is written", () => {
+    const written = {
+      init: { state: 0 },
+      update: () => (count: number) => ({ state: count + 1 }),
+      subscriptions: () => [],
+      makeModel: (count: number) => count
+    }
+    const typed: Program<{ state: number; model: number; message: Tick }> = written
+    const named = program<{ state: string }>().make({ init: { state: "" }, makeModel: (text) => text })
+    const { child, childById } = program<{ state: Ticks }>()
+    expect(child(written)).toBeDefined()
+    expect(childById(written, { ids: (): ReadonlyArray<number> => [] })).toBeDefined()
+    expect(() => start(written)).toBeDefined()
+    expect(simulate(written, [], written.init)).toBeDefined()
+    expect(rehearse(written, () => Effect.void)).toBeDefined()
+    expect(drive(written, () => Effect.void)).toBeDefined()
+    expect([typed, written, named]).toHaveLength(3)
+  })
+
+  test("a state without fields is a state as any other: as written, by make, and where a program is a child", () => {
+    type Empty = Record<never, never>
+    const empty = {
+      init: { state: {} },
+      update: () => (state: Empty) => ({ state }),
+      subscriptions: () => [],
+      makeModel: () => null
+    }
+    const typed: Program<{ state: Empty; model: null; message: never }> = empty
+    expect(() => start(empty)).toBeDefined()
+    expect(simulate(empty, [], empty.init)).toBeDefined()
+    expect(rehearse(empty, () => Effect.void)).toBeDefined()
+    expect(drive(empty, () => Effect.void)).toBeDefined()
+    expect(program<{ state: Empty }>().make({ init: { state: {} }, makeModel: () => null })).toBeDefined()
+    const Hollow = program<{ state: Empty }>()
+    const hollowChildren = { Ticker: Hollow.child(ticker) }
+    expect(Hollow.withChildren(hollowChildren).make({ init: { state: {} }, makeModel: () => null })).toBeDefined()
+    const { child, childById } = program<{ state: Ticks }>()
+    expect(child(empty)).toBeDefined()
+    expect(childById(empty, { ids: (): ReadonlyArray<number> => [] })).toBeDefined()
+    expect(typed).toBe(empty)
+  })
+
+  test("a state that is a type parameter compiles in make, whole or in a field of the state", () => {
+    const whole = <S>(state: S) => program<{ state: S }>().make({ init: { state }, makeModel: () => null })
+    const widened = <S extends object>(state: S) =>
+      program<{ state: S & Readonly<{ open: boolean }> }>().make({
+        init: { state: { ...state, open: false } },
+        makeModel: () => null
+      })
+    const held = <A>(items: ReadonlyArray<A>) =>
+      program<{ state: Readonly<{ items: ReadonlyArray<A> }> }>().make({
+        init: { state: { items } },
+        makeModel: () => null
+      })
+    expect(whole(1).init).toEqual({ state: 1 })
+    expect(widened({ id: 1 }).init).toEqual({ state: { id: 1, open: false } })
+    expect(held([1]).init).toEqual({ state: { items: [1] } })
+  })
+})
+
 // Each `@ts-expect-error` is the test: if the types accepted the mistake, the typecheck would fail.
 describe("what the types reject", () => {
   // A program written as a plain object, without `Program<…>`: no `external`, so nothing a parent may send.
@@ -2075,34 +2165,6 @@ describe("what the types reject", () => {
     expect(() => telling.update("Go")(telling.init.state)).toThrow("which is not in this state")
   })
 
-  // A parent keeps a child's model by its state object: a number or a string has no identity to keep it by.
-  test("a program keeps its state in an object, however it is written", () => {
-    const counting = {
-      init: { state: 0 },
-      update: () => (count: number) => ({ state: count + 1 }),
-      subscriptions: () => [],
-      makeModel: (count: number) => count
-    }
-    // @ts-expect-error: a number is no object.
-    const typed: Program<{ state: number; model: number; message: Tick }> = counting
-    // @ts-expect-error: nor is a string, a parent's included.
-    expect(program<{ state: string }>()).toBeDefined()
-    const { child, childById } = program<{ state: Ticks }>()
-    // @ts-expect-error: a child's state is an object.
-    expect(child(counting)).toBeDefined()
-    // @ts-expect-error: a child's by id too.
-    expect(childById(counting, { ids: (): ReadonlyArray<number> => [] })).toBeDefined()
-    // @ts-expect-error: and so is the state of the program that starts.
-    expect(() => start(counting)).toBeDefined()
-    // @ts-expect-error: or that a testing tool takes.
-    expect(simulate(counting, [], counting.init)).toBeDefined()
-    // @ts-expect-error: `rehearse` too.
-    expect(rehearse(counting, () => Effect.void)).toBeDefined()
-    // @ts-expect-error: and `drive`.
-    expect(drive(counting, () => Effect.void)).toBeDefined()
-    expect([typed, counting]).toHaveLength(2)
-  })
-
   test("a program written as an object makes its model from its own state", () => {
     const widened = { ...plain, makeModel: ({ more, ticks }: Ticks & Readonly<{ more: number }>) => ticks + more }
     // @ts-expect-error: its state has no `more`.
@@ -2144,61 +2206,6 @@ describe("what the types reject", () => {
     const listening = { ...silent, subscriptions: () => [] }
     expect([child(listening), childById(listening, ids)]).toHaveLength(2)
     expect([typed, silent]).toHaveLength(2)
-  })
-
-  test("a state without fields holds a number too: refused as written, by make, and where a program is a child", () => {
-    type Empty = Record<never, never>
-    const empty = {
-      init: { state: {} },
-      update: () => (state: Empty) => ({ state }),
-      subscriptions: () => [],
-      makeModel: () => null
-    }
-    // @ts-expect-error: a type without fields holds a number too.
-    const typed: Program<{ state: Empty; model: null; message: never }> = empty
-    // @ts-expect-error: so a program written as an object does not start with it.
-    expect(() => start(empty)).toBeDefined()
-    // @ts-expect-error: nor does a testing tool take it.
-    expect(simulate(empty, [], empty.init)).toBeDefined()
-    // @ts-expect-error: `rehearse` neither.
-    expect(rehearse(empty, () => Effect.void)).toBeDefined()
-    // @ts-expect-error: nor `drive`.
-    expect(drive(empty, () => Effect.void)).toBeDefined()
-    // @ts-expect-error: nor does `make`, whose program would run with a number as its state.
-    expect(program<{ state: Empty }>().make({ init: { state: 0 }, makeModel: () => null })).toBeDefined()
-    const Hollow = program<{ state: Empty }>()
-    const hollowChildren = { Ticker: Hollow.child(ticker) }
-    // @ts-expect-error: nor the `make` of a parent, whose own state would be a number.
-    expect(Hollow.withChildren(hollowChildren).make({ init: { state: {} }, makeModel: () => null })).toBeDefined()
-    const { child, childById } = program<{ state: Ticks }>()
-    // @ts-expect-error: nor `child`, where it would be a defect.
-    expect(child(empty)).toBeDefined()
-    // @ts-expect-error: by id too.
-    expect(childById(empty, { ids: (): ReadonlyArray<number> => [] })).toBeDefined()
-    const bare = program<{ state: object }>().make({ init: { state: {} }, makeModel: () => null })
-    const kept: Program<{ state: object; model: null; message: never }> = bare
-    expect(child(bare)).toBeDefined()
-    expect([typed, kept]).toHaveLength(2)
-  })
-
-  test("a state that is a type parameter does not compile in make, and a parameter in a field of the state does", () => {
-    // A number could be that parameter, and the compiler cannot decide whether it is one.
-    const whole = <S extends object>(state: S) =>
-      // @ts-expect-error: the state is the parameter.
-      program<{ state: S }>().make({ init: { state }, makeModel: () => null })
-    const widened = <S extends object>(state: S) =>
-      // @ts-expect-error: the state is the parameter, and more.
-      program<{ state: S & Readonly<{ open: boolean }> }>().make({
-        init: { state: { ...state, open: false } },
-        makeModel: () => null
-      })
-    const held = <A>(items: ReadonlyArray<A>) =>
-      program<{ state: Readonly<{ items: ReadonlyArray<A> }> }>().make({
-        init: { state: { items } },
-        makeModel: () => null
-      })
-    expect([whole, widened]).toHaveLength(2)
-    expect(held([1]).init).toEqual({ state: { items: [1] } })
   })
 
   test("a child without external takes no external message from its parent", () => {

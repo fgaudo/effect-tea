@@ -189,7 +189,7 @@ type Needed<Command, RC, Key, RS> = Exclude<
  * @see The guide, "Running", "Starting from another state".
  */
 export const drive = Effect.fnUntraced(function*<
-  State extends object,
+  State,
   Model,
   Message,
   Command = never,

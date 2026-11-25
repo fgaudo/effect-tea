@@ -1272,7 +1272,6 @@ type ObjectViolation =
   | "externalCommandsUnrun"
   | "missingListen"
   | "wrongListen"
-  | "primitiveState"
   | "wrongInitState"
   | "missingSubscriptions"
   | "missingOnEvent"
@@ -1284,7 +1283,6 @@ const brokenPiece: Readonly<Record<ObjectViolation, Piece>> = {
   externalCommandsUnrun: "external",
   missingListen: "listen",
   wrongListen: "listen",
-  primitiveState: "state",
   wrongInitState: "init",
   missingSubscriptions: "subscriptions",
   missingOnEvent: "onEvent",
@@ -1305,11 +1303,10 @@ const keyOf = (subs: Subs) => subs === "emits" ? "'own'" : subs === "silent" ? "
 const objectEntries = (o: ObjectCase): ReadonlyArray<readonly [Piece, string]> => {
   const v = o.violation
   const has = (name: ObjectName) => o.named.has(name)
-  const primitive = v === "primitiveState"
-  const S = primitive ? "number" : "SNone"
+  const S = "SNone"
   const a = (type: string) => (o.annotate ? `: ${type}` : "")
-  const n = primitive ? "state" : "state.n"
-  const st = (value: string) => primitive ? value : `{ n: ${value} }`
+  const n = "state.n"
+  const st = (value: string) => `{ n: ${value} }`
   const commands = has("command") ? ", commands: [save]" : ""
   const events = has("event") ? ", events: [saved]" : ""
   const initState = v === "wrongInitState" ? "{ n: '0' }" : st(has("flags") ? "flags" : "0")
@@ -1382,7 +1379,7 @@ const objectTypes = (o: ObjectCase): Types => {
   const key = keyOf(o.subs)
   const spread = o.form === "spread"
   return {
-    state: o.violation === "primitiveState" ? "number" : spread ? "SNone" : "{ n: number }",
+    state: spread ? "SNone" : "{ n: number }",
     model: spread ? "MNone" : "{ count: number }",
     message: "Own",
     command: has("command") ? "Cmd" : "never",
@@ -1473,7 +1470,6 @@ const objectViolations: ReadonlyArray<
   { violation: "externalCommandsUnrun", named: ["external"], subs: "none" },
   { violation: "missingListen", named: [], subs: "emits" },
   { violation: "wrongListen", named: [], subs: "emits" },
-  { violation: "primitiveState", named: [], subs: "none" },
   // Contextual, the state of `update` is the one `init` gives: nothing names another.
   { violation: "wrongInitState", named: [], subs: "none", annotatedOnly: true },
   { violation: "missingSubscriptions", named: [], subs: "none" },
@@ -1542,14 +1538,22 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
   const services: Exactly<SubscriptionServicesOf<typeof made>, Lock | Feed> = true
   return services`
   },
-  // A state type without fields is refused: `state: object` is the empty state.
+  // A state is any value: a type without fields, and a number.
   ...["{}", "Readonly<{}>", "Record<never, never>"].map((type) => ({
     id: `special.state-without-fields.${type}`,
-    valid: false,
-    body: `  const made = program<{ state: ${type} }>().make({ init: { state: 0 }, makeModel: () => null })
+    valid: true,
+    body: `  const made = program<{ state: ${type} }>().make({ init: { state: {} }, makeModel: () => null })
   const used = program<{ state: OuterOwn }>().child(made)
   return used`
   })),
+  {
+    id: "special.state-number",
+    valid: true,
+    body: `  const made = program<{ state: number }>().make({ init: { state: 0 }, makeModel: (n) => n })
+  const state: Exactly<StateOf<typeof made>, number> = true
+  const used = program<{ state: OuterOwn }>().child(made)
+  return [state, used]`
+  },
   {
     id: "special.state-object",
     valid: true,

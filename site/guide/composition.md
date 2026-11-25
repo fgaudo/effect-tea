@@ -186,9 +186,9 @@ From these declarations, the library derives the parent's state, messages, comma
 Three more facts hold for children and inputs:
 
 - **A child's model is kept.** `children.Clock()` in `makeModel` is the child's model. It is the same object while the
-  child's state is the same object. So a renderer can skip redrawing it (see `thunk` in
-  [`pages`](../../examples/pages/view.ts)). A number or a string has no identity by which a model could be kept. This
-  is why a program's state is always an object.
+  child keeps the very same state: a step that returns the state it was given, and a step of another program, leave it
+  as it is. A child started again is another instance, with a model of its own. So a renderer can skip redrawing it
+  (see `thunk` in [`pages`](../../examples/pages/view.ts)).
 - **A test reads a child's subscriptions by key.** `app.subscriptions(state)` lists
   `{ _tag: 'Clock', instance: 1, key: 'ticks' }` when the Clock of the first start ticks (see [testing](./testing.md)).
 - **The rule of an input.** A write is stored, in the form that the input declares, wherever the input's place is
@@ -225,12 +225,11 @@ of it. Here is what the compiler can check there, and what it cannot.
   - flags, when the child starts from them;
   - a `runCommand`, when the child has commands.
 - For a type parameter, such as `P` in `<P extends AnyProgram>(p: P) => …`, the compiler cannot decide what the child
-  needs. So `child`, `childById` and `withChildren` do not compile there. Nor does `make` for a state that is a type
-  parameter (see [what does not compile](./anatomy-of-a-program.md#rules)).
+  needs. So `child`, `childById` and `withChildren` do not compile there.
 - A wrapper around content, such as a dialog, is better as a child beside the content than as a parent of it. The
   parent of both is then a program like any other.
 - You can still write a function over any program. The function's signature names the types. The function's body makes
-  the parent from a program whose types are `object` and `unknown`, as below.
+  the parent from a program whose types are all `unknown`, as below.
 - The compiler checks the body. It does not check that the signature says what the body makes.
 
 ```ts
@@ -239,10 +238,10 @@ type Dialog<S> = Kept<Readonly<{ open: boolean }>, { readonly Content: Opt.Optio
 type DialogModel<M> = Readonly<{ open: boolean; content: M }>
 type InDialog<Msg> = Toggle | Readonly<{ _tag: "Content"; message: Msg; instance?: number }>
 
-export function inDialog<S extends object, M, Msg>(
+export function inDialog<S, M, Msg>(
   content: Program<{ state: S; model: M; message: Msg }>
 ): Program<{ state: Dialog<S>; model: DialogModel<M>; message: InDialog<Msg> }>
-export function inDialog(content: Program<{ state: object; model: unknown; message: unknown }>) {
+export function inDialog(content: Program<{ state: unknown; model: unknown; message: unknown }>) {
   const dialog = program<{ state: Readonly<{ open: boolean }>; message: Toggle }>()
   return dialog.withChildren({ Content: dialog.child(content) }).make({
     init: { state: { open: false } },
@@ -260,8 +259,6 @@ export function inDialog(content: Program<{ state: object; model: unknown; messa
   when one of its subscriptions starts;
 - a child with events and no handler in `onEvent` that reaches the program through a cast. The defect comes when the
   child raises an event;
-- a child whose state is not an object, which only a cast lets into the program. The defect comes when the child's model
-  is made;
 - children by id whose `ids` or `flags` lists one id twice. In an `init` that is a step, `make` throws it, as the module
   that makes the parent loads;
 - the model or the output of a child that is not there: of an id that the parent's state does not list, or of a child

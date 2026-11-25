@@ -93,17 +93,17 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   meant to run, as on a server. Write `const { app, run } = start(program)`, so that a linter can report a `run` left
   unused. The guide, "Guarantees", "Whoever starts a program runs it". The guide, "Running", "A program is started,
   then run".
-- **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated.** So are
-  an `init` that takes flags, the handlers of `onEvent`, the `get`, the `set` and the `store` of an input and an `at`
-  that is a function of the id, and `there`, `key`, `flags`, `ids` and `listening`, which say which children are there
-  and when they listen. `update` may be called at any time: never assume it runs once per message. A child's
-  `external`, its `init` when a step of its parent starts it, its parent's handlers of `onEvent`, and the `get`, the
-  `set` and the `store` of a write run in the parent's `update`. No value given to the library, or taken from it, is
-  mutated once made, nested objects included: a state, a message, a command, an event, flags, a key, a model, an
-  output. The library reuses a child's model and the keys of its subscriptions while the child's state is the same
-  object. The guide, "Guarantees", "What is left to you". The guide, "Update", "Keep it pure". The guide, "Update",
-  "It may be called at any time". The guide, "Update", "Never mutate the state".
-  The guide, "Events and external messages", "A child answers its external messages in every state".
+- **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated.** So are an
+  `init` that takes flags, the handlers of `onEvent`, the `get`, the `set` and the `store` of an input and an `at` that
+  is a function of the id, and `there`, `key`, `flags`, `ids` and `listening`, which say which children are there and
+  when they listen. `update` may be called at any time: never assume it runs once per message. A child's `external`, its
+  `init` when a step of its parent starts it, its parent's handlers of `onEvent`, and the `get`, the `set` and the
+  `store` of a write run in the parent's `update`. No value given to the library, or taken from it, is mutated once
+  made, nested objects included: a state, a message, a command, an event, flags, a key, a model, an output. The library
+  reuses a child's model, and the keys of its subscriptions, while the child keeps the very same state: a child started
+  again makes its own. The guide, "Guarantees", "What is left to you". The guide, "Update", "Keep it pure". The guide,
+  "Update", "It may be called at any time". The guide, "Update", "Never mutate the state". The guide, "Events and
+  external messages", "A child answers its external messages in every state".
 - **One state machine per concern, and no flags.** Each concern is a union with a case per state. Each case holds only
   what exists in it. What follows from the state is computed in `makeModel`, not kept. The guide, "Structuring a
   program", "One state machine per concern, no flags". The guide, "Structuring a program", "No derived data in the
@@ -194,18 +194,17 @@ The run does not check these. A test does, with the tool named.
 
 ## What the compiler refuses
 
-A break of these rules does not compile, so they need no remembering. A state is always an object, never a number or a
-string. A program names its types, then is made, and a type it does not name is one it does not have. An execution
-cannot fail: an expected failure becomes a message. A subscription is a `Channel` whose end value is a message, and is
-made from its key alone: `subscriptions(state)` lists keys, as data, and `listen(key)` makes the subscription of one,
-without the state, so the key carries what it needs. A child answers an external message in `external`, in every state,
-never with `reject`. A parent is given no child's state: it reads only what a child declares as its `output`, and tells
-a child only its external messages, in the `tell` of a step. The guide lists the rest: The guide, "Anatomy of a
-program", "What does not compile". The guide, "Composition", "What does not compile, and what is a defect". The guide,
-"Anatomy of a program", "Its state is always an object". The guide, "Anatomy of a program", "Its types are named first,
-then it is made". The guide, "Commands", "An execution cannot fail". The guide, "Subscriptions", "The type says all of
-it". The guide, "Subscriptions", "A subscription is made from its key alone". The guide, "Events and external messages",
-"A child answers its external messages in every state".
+A break of these rules does not compile, so they need no remembering. A program names its types, then is made, and a
+type it does not name is one it does not have. An execution cannot fail: an expected failure becomes a message. A
+subscription is a `Channel` whose end value is a message, and is made from its key alone: `subscriptions(state)` lists
+keys, as data, and `listen(key)` makes the subscription of one, without the state, so the key carries what it needs. A
+child answers an external message in `external`, in every state, never with `reject`. A parent is given no child's
+state: it reads only what a child declares as its `output`, and tells a child only its external messages, in the `tell`
+of a step. The guide lists the rest: The guide, "Anatomy of a program", "What does not compile". The guide,
+"Composition", "What does not compile, and what is a defect". The guide, "Anatomy of a program", "Its types are named
+first, then it is made". The guide, "Commands", "An execution cannot fail". The guide, "Subscriptions", "The type says
+all of it". The guide, "Subscriptions", "A subscription is made from its key alone". The guide, "Events and external
+messages", "A child answers its external messages in every state".
 
 ## Signs that the design went wrong
 

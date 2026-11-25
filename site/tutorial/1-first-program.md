@@ -20,8 +20,7 @@ a number of minutes. Two things can happen, a click on either button:
 
 {@includeCode ../../examples/timer/duration.ts#state}
 
-The state is always an object, `{ minutes }` rather than a number. That way any program can later become a child as it
-is, as the timer of step 2 does in step 3 (see [anatomy of a program](../guide/anatomy-of-a-program.md)).
+A state may be any value, a number too (see the [glossary](../guide/glossary.md)). This one is an object, `{ minutes }`.
 
 ## Update
 

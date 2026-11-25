@@ -352,7 +352,7 @@ const withStorage = (storage: Storage["Service"]): Fork<Storage> => (effect) =>
 
 // `createElement` does not infer the types of a generic component, as JSX does: a function of its props does.
 const host = <
-  State extends object,
+  State,
   Model,
   Message,
   Command = never,

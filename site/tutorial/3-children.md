@@ -47,8 +47,8 @@ What the parent gets from the declaration:
   `instance` names the start of the timer that asked (see
   [what the library derives](../guide/composition.md#what-the-library-derives)).
 - **Its subscriptions:** each running timer's `'ticks'`, under `['Timer', id, instance, 'ticks']`.
-- **Its children's models:** `children.Timer(id)` in `makeModel`. It is the same object while the timer's state is
-  the same object.
+- **Its children's models:** `children.Timer(id)` in `makeModel`. It is the same object while the timer keeps the very
+  same state. A timer started again is another instance, with a model of its own.
 
 A timer that is not there takes no message. So a click on a removed timer, from a model drawn before, is rejected: the
 rule of step 1, with nothing more to write.

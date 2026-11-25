@@ -93,7 +93,7 @@ numbered in the order the library starts them, from 1 (see
 **That the model is data** is checked on two equal states built apart. To get them, draw the same seed twice: call
 `fc.sample(states, { seed, numRuns: 1 })` two times. Then compare the two models with `Equal.equals`, as
 [`form`](../../examples/form/form.test.ts) does. If you use one state object twice, the check passes whatever its model
-holds, because a parent keeps a child's model for each state object.
+holds, because a parent keeps each child's model while the child keeps its state.
 
 ### The reader
 

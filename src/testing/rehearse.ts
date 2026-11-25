@@ -184,7 +184,7 @@ type Start<R> = Readonly<{ begun: Deferred.Deferred<void>; asks: Asks<R> }>
 
 // The rehearsal itself: `rehearse`, below, gives it its types (`Commanded`).
 const rehearsing = Effect.fnUntraced(function*<
-  State extends object,
+  State,
   Model,
   Message,
   Command = never,
@@ -549,7 +549,7 @@ const describeAll = (values: ReadonlyArray<unknown>) =>
  */
 export const rehearse = <
   P extends AnyProgram,
-  State extends object,
+  State,
   Model,
   Message,
   Command = never,

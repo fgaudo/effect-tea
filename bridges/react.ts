@@ -82,7 +82,7 @@ export type Fork<R> = (effect: Effect.Effect<void, never, R>) => Fiber.Fiber<voi
  *
  * @see The guide, "Running", "Options".
  */
-export type HostProps<State extends object, Model, Message, Command, RC, RS, Flags, Key = never> =
+export type HostProps<State, Model, Message, Command, RC, RS, Flags, Key = never> =
   & {
     /** The program to start and run. */
     readonly program: Program<{
@@ -180,7 +180,7 @@ const report = (error: unknown): void => {
  * @see The guide, "Writing a bridge", "With the bridge to React, a run that dies is thrown to the nearest error boundary".
  */
 export const Host = <
-  State extends object,
+  State,
   Model,
   Message,
   Command = never,

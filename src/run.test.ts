@@ -175,15 +175,14 @@ describe("the handle a renderer gets", () => {
     expect({ made, same }).toEqual({ made: [2], same: true })
   })
 
-  // A program run alone needs no object for its state, and is not checked (`docs/invariants.md`): a state that is
-  // `undefined` is not the one `model()` last made a model of, before it has made any.
-  test("a model is made of a state that is undefined, as only a cast or plain JavaScript writes it", async () => {
-    const blank = {
+  // A state that is `undefined` is not the one `model()` last made a model of, before it has made any.
+  test("a model is made of a state that is undefined", async () => {
+    const blank: Program<{ state: undefined; model: Model; message: Message }> = {
       init: { state: undefined },
       update: () => () => reject,
       subscriptions: () => [],
-      makeModel: (state: undefined) => ({ count: state === undefined ? -1 : 0 })
-    } as unknown as Program<{ state: Count; model: Model; message: Message }>
+      makeModel: (state) => ({ count: state === undefined ? -1 : 0 })
+    }
     const { app, run } = start(blank)
     const fiber = Effect.runFork(run)
     let model: unknown
@@ -194,6 +193,23 @@ describe("the handle a renderer gets", () => {
     }
     expect(wheres(await interrupted(fiber))).toEqual([])
     expect(model).toEqual({ count: -1 })
+  })
+
+  test("a model is made once for a state that is NaN", async () => {
+    const made: Array<number> = []
+    const nan: Program<{ state: number; model: number; message: "Same" }> = {
+      init: { state: Number.NaN },
+      update: () => (state) => ({ state }),
+      subscriptions: () => [],
+      makeModel: (state) => (made.push(state), state)
+    }
+    const { app, run } = start(nan)
+    const fiber = Effect.runFork(run)
+    const first = app.model()
+    app.dispatch("Same")
+    const second = app.model()
+    expect(wheres(await interrupted(fiber))).toEqual([])
+    expect({ made, first, second }).toEqual({ made: [Number.NaN], first: Number.NaN, second: Number.NaN })
   })
 
   test("a listener is told of each new state, and a model read in it is of the latest state", async () => {

@@ -70,6 +70,14 @@ version, and everything else, features included, the patch version.
 - **Breaking**: `Host` takes its view as `view`, as `Draw` and `drawInto` do, where it took it as `children`;
   `HostProps` has `view` in place of `children` ("Writing a bridge").
   Upgrade: `<Host program={counter}>{view}</Host>` becomes `<Host program={counter} view={view} />`.
+- **Breaking**: `ObjectState` is removed: a program's state is any value, a number or a string too, and a state that
+  is a type parameter compiles in `make`.
+  Upgrade: drop `ObjectState` where a signature names it.
+- **Breaking**: a child's model is kept while the child keeps the very same state, and no longer by its state object:
+  two children in the very same state object make a model each, and a child started again in the state object it had
+  makes its model anew.
+  Upgrade: a view changes nothing, and draws such a child once more. A test that expected the very same model of the
+  two compares them by value.
 - The guide promises only what stands under "Rules", under "What you can rely on" and in the types; the rest explains,
   and what it does not promise is unspecified, with no entry here when it changes ("Guide", "What a page promises").
   "Precisely" is gone. Now promised, under the "Rules" of its page: all that a page held under "Precisely" or said it

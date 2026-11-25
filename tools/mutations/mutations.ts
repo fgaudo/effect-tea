@@ -170,7 +170,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "the very same state is taken for a new one",
     guarantees: ["A model is made only when it is read"],
     file: "src/core.ts",
-    from: "const changed = result.state !== current.state",
+    from: "const changed = !Object.is(result.state, current.state)",
     to: "const changed = true",
     killedBy: [
       [
@@ -182,6 +182,14 @@ export const mutations: ReadonlyArray<Mutation> = [
       ["src/engine.test.ts", "its commands still run"],
       ["src/run.test.ts", "a message that leaves the very same state is heard too, with an unchanged revision"]
     ]
+  },
+  {
+    name: "the very same state is told by ===, which takes NaN for a new state",
+    guarantees: ["A model is made only when it is read"],
+    file: "src/core.ts",
+    from: "!Object.is(result.state, current.state)",
+    to: "result.state !== current.state",
+    killedBy: [["src/core.test.ts", "a state that is NaN, given back, is the very same state"]]
   },
   {
     name: "scopedIn wraps again what it wrapped",
@@ -578,11 +586,13 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a child's model is made anew for a state it was made for",
     guarantees: ["A model is made only when it is read"],
     file: "src/compose.ts",
-    from: "    if (kept.has(childState)) return kept.get(childState)\n",
+    from: "    if (models.has(entry)) return models.get(entry)\n",
     to: "",
     killedBy: [
-      ["src/compose.test.ts", "one program as two children, in the very same state object, has one model"],
-      ["src/compose.test.ts", "children that share one state object share its model, and their dispatch adds their id"],
+      [
+        "src/compose.test.ts",
+        "a child's model is the same object while its instance keeps its state, through a step of another child too, and a child started again makes its own"
+      ],
       ["src/compose.test.ts", "in a run, a nested child that did not change keeps its model from one state to the next"]
     ]
   },
@@ -634,20 +644,6 @@ export const mutations: ReadonlyArray<Mutation> = [
         "src/compose.test.ts",
         "a child's keys are kept while its instance is the same object, and made again for a new state"
       ]
-    ]
-  },
-  {
-    name: "a child's state that is not an object dies of the WeakMap's TypeError",
-    guarantees: ["Nothing ends in silence"],
-    file: "src/compose.ts",
-    from: "    if (!Predicate.isObjectKeyword(childState)) {\n",
-    to: "    if (false) {\n",
-    killedBy: [
-      [
-        "src/compose.test.ts",
-        "a child whose state is not an object is a defect that names it and its id, in its model"
-      ],
-      ["src/compose.test.ts", "a child alone whose state is not an object is a defect that names it, in its model"]
     ]
   },
   {
@@ -2284,7 +2280,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a model is made again for the state it was made for",
     guarantees: ["A model is made only when it is read"],
     file: "src/run.ts",
-    from: "Opt.isSome(last) && last.value.state === state ? last.value : make(state)",
+    from: "Opt.isSome(last) && Object.is(last.value.state, state) ? last.value : make(state)",
     to: "make(state)",
     killedBy: [
       ["src/run.test.ts", "a model is made only when read, once for each state"],
@@ -2295,11 +2291,17 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a model is taken as made of a state that is undefined before any is made",
     guarantees: ["A model is made only when it is read"],
     file: "src/run.ts",
-    from: "Opt.isSome(last) && last.value.state === state",
-    to: "Opt.getOrUndefined(last)?.state === state",
-    killedBy: [
-      ["src/run.test.ts", "a model is made of a state that is undefined, as only a cast or plain JavaScript writes it"]
-    ]
+    from: "Opt.isSome(last) && Object.is(last.value.state, state)",
+    to: "Object.is(Opt.getOrUndefined(last)?.state, state)",
+    killedBy: [["src/run.test.ts", "a model is made of a state that is undefined"]]
+  },
+  {
+    name: "the state a model was made of is told by ===, which takes NaN for a new state",
+    guarantees: ["A model is made only when it is read"],
+    file: "src/run.ts",
+    from: "Object.is(last.value.state, state) ? last.value",
+    to: "last.value.state === state ? last.value",
+    killedBy: [["src/run.test.ts", "a model is made once for a state that is NaN"]]
   },
   {
     name: "a model's defect is not recorded where the model is read",
@@ -3707,13 +3709,10 @@ export const mutations: ReadonlyArray<Mutation> = [
   // The checks that have none, since taking one out changes nothing that compiles, or lets through only a piece that
   // nothing calls:
   //
-  // - `Fielded`'s branch for `any`: `keyof any` has members, so the branch after it lets `any` through too.
   // - `TagsTaken`'s branch for `any`: a conditional type over `any` takes both its branches, and gives `any`, which is
   //   refused as `Names` is.
   // - The `runCommand` and `listen` that `Lacking` asks of a child: the member under a key that no program has refuses
   //   the same children, and these two are for the error that names the missing piece.
-  // - `ObjectState` on the place of `child` and `childById`, in each form: `CheckedChild` refuses the same states,
-  //   through `ProgramChecked`. It was there before `CheckedChild` was.
   // - `Tells` for a child without external messages: its `message` would be `never`, which no `tell` can write either.
   // - `there` required where a child alone may not be there: the overload of a child always there takes every place
   //   without `there`.
@@ -3867,74 +3866,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "a state that is no object is let through",
-    refuses: [["Anatomy of a program", "A state that is a number or a string"]],
-    file: "src/program.ts",
-    from: "export type ObjectState<State> = [State] extends [object] ? Fielded<State>\n"
-      + "  : { readonly \"a program keeps its state in an object\": State }\n",
-    to: "export type ObjectState<State> = [State] extends [object] ? Fielded<State>\n  : unknown\n",
-    killedBy: [
-      ["src/compose.test.ts", "a program keeps its state in an object, however it is written", "typecheck"],
-      [
-        "src/compose.test.ts",
-        "a state that is a type parameter does not compile in make, and a parameter in a field of the state does",
-        "typecheck"
-      ],
-      ["src/testing/simulate.test.ts", "takes only a program that keeps its state in an object", "typecheck"]
-    ]
-  },
-  {
-    name: "a state without fields is let through",
-    refuses: [["Anatomy of a program", "A state whose type has no fields"]],
-    file: "src/program.ts",
-    from: "[Extract<Primitive, State>] extends [never] ? unknown\n"
-      + "    : { readonly \"a program keeps its state in an object\": State }\n",
-    to: "[Extract<Primitive, State>] extends [never] ? unknown\n    : unknown\n",
-    killedBy: [
-      [
-        "src/compose.test.ts",
-        "a state without fields holds a number too: refused as written, by make, and where a program is a child",
-        "typecheck"
-      ],
-      [
-        "src/compose.test.ts",
-        "a state that is a type parameter does not compile in make, and a parameter in a field of the state does",
-        "typecheck"
-      ]
-    ]
-  },
-  {
-    name: "a state typed object is refused as a state without fields",
-    refuses: [["Anatomy of a program", "A state whose type has no fields"]],
-    file: "src/program.ts",
-    from: "[Extract<Primitive, State>] extends [never] ? unknown",
-    to: "[State] extends [never] ? unknown",
-    killedBy: [
-      [
-        "src/compose.test.ts",
-        "a state without fields holds a number too: refused as written, by make, and where a program is a child",
-        "typecheck"
-      ]
-    ]
-  },
-  {
-    name: "a program typed Program is not checked for its state",
-    refuses: [["Anatomy of a program", "A state that is a number or a string"], [
-      "Anatomy of a program",
-      "A state whose type has no fields"
-    ]],
-    file: "src/program.ts",
-    from: "  & ObjectState<State>\n  & {\n    readonly init: Init<State, Command, Flags>\n",
-    to: "  & {\n    readonly init: Init<State, Command, Flags>\n",
-    killedBy: [
-      [
-        "src/compose.test.ts",
-        "a state without fields holds a number too: refused as written, by make, and where a program is a child",
-        "typecheck"
-      ]
-    ]
-  },
-  {
     name: "a program's makeModel takes any state",
     file: "src/program.ts",
     from: "    readonly makeModel: (state: State) => Model\n",
@@ -3984,23 +3915,6 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/run.test.ts",
         "a program a parent could hold starts too: its external and its output are checked, and never called",
-        "typecheck"
-      ]
-    ]
-  },
-  {
-    name: "a child is not checked for its state",
-    refuses: [["Anatomy of a program", "A state that is a number or a string"], [
-      "Anatomy of a program",
-      "A state whose type has no fields"
-    ]],
-    file: "src/compose.ts",
-    from: "  & ObjectState<StateOf<P>>\n  & Program<{\n",
-    to: "  & Program<{\n",
-    killedBy: [
-      [
-        "src/compose.test.ts",
-        "a state without fields holds a number too: refused as written, by make, and where a program is a child",
         "typecheck"
       ]
     ]
@@ -4561,49 +4475,6 @@ export const mutations: ReadonlyArray<Mutation> = [
         "a program has subscriptions and listen exactly when it names keys of its own",
         "typecheck"
       ]
-    ]
-  },
-  {
-    name: "make takes a state without fields",
-    refuses: [["Anatomy of a program", "A state whose type has no fields"]],
-    file: "src/compose.ts",
-    from: "    & ObjectState<Field<T, \"state\">>\n) => Program<\n  Present<{\n    state: Field<T, \"state\">\n",
-    to: ") => Program<\n  Present<{\n    state: Field<T, \"state\">\n",
-    killedBy: [
-      [
-        "src/compose.test.ts",
-        "a state without fields holds a number too: refused as written, by make, and where a program is a child",
-        "typecheck"
-      ],
-      [
-        "src/compose.test.ts",
-        "a state that is a type parameter does not compile in make, and a parameter in a field of the state does",
-        "typecheck"
-      ]
-    ]
-  },
-  {
-    name: "the make of a parent takes a state without fields",
-    refuses: [["Anatomy of a program", "A state whose type has no fields"]],
-    file: "src/compose.ts",
-    from: "    & ObjectState<Field<T, \"state\">>\n) => Program<\n  Present<{\n    state: Kept<",
-    to: ") => Program<\n  Present<{\n    state: Kept<",
-    killedBy: [
-      [
-        "src/compose.test.ts",
-        "a state without fields holds a number too: refused as written, by make, and where a program is a child",
-        "typecheck"
-      ]
-    ]
-  },
-  {
-    name: "program takes a state that is no object",
-    refuses: [["Anatomy of a program", "A state that is a number or a string"]],
-    file: "src/compose.ts",
-    from: "  /** Its own state, an object. */\n  state: object\n",
-    to: "  /** Its own state, an object. */\n  state: unknown\n",
-    killedBy: [
-      ["src/compose.test.ts", "a program keeps its state in an object, however it is written", "typecheck"]
     ]
   },
   {

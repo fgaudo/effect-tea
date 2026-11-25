@@ -44,8 +44,8 @@ export type Origin =
  *
  * A program without commands leaves `Command` as `never`.
  *
- * The first state is revision 0, and each new one the next. When `update` returns the same object it was given, the
- * revision stays as it was.
+ * The first state is revision 0, and each new one the next. When `update` returns the very same state it was given, the
+ * same object or the same primitive value, the revision stays as it was.
  *
  * @example
  * ```ts

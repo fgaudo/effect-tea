@@ -37,8 +37,8 @@ The duration of the timer's tutorial (`examples/timer/duration.ts`). Its `update
 - **A message that cannot arrive is a defect.** If such a message arrives, that is a bug. `update` throws
   `defect(reason)`, and the run dies (see [rejections and defects](./rejections-and-defects.md)).
 
-When `update` returns the very same state it was given, the same object, no renderer is told of it: that rule is the
-`App`'s, in [running](./running.md#rules). How to shape the state and its messages is in
+When `update` returns the very same state it was given, the same object or the same primitive value, no renderer is
+told of it: that rule is the `App`'s, in [running](./running.md#rules). How to shape the state and its messages is in
 [structuring a program](./structuring-a-program.md).
 
 ## Do and don't

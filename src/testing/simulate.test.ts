@@ -201,10 +201,12 @@ describe("simulate", () => {
     expect(simulate(counting, [], { state: { count: 0 } })).toBeDefined()
   })
 
-  test("takes only a program that keeps its state in an object", () => {
+  test("takes a program whose state is a number", async () => {
     const counting: Update<number, "Increment"> = () => (count) => ({ state: count + 1 })
-    // @ts-expect-error: a number is no object.
-    expect(simulate({ update: counting, subscriptions: () => [] }, [], { state: 0 })).toBeDefined()
+    const simulated = await Effect.runPromise(
+      simulate({ update: counting, subscriptions: () => [] }, ["Increment", "Increment"], { state: 0 })
+    )
+    expect(simulated.state).toBe(2)
   })
 
   test("a rejection of one of the messages fails, naming it", async () => {

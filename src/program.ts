@@ -45,8 +45,8 @@ export const listenOf = <Key, Message, R>(program: WithListen<Key, Message, R>):
 
 /** The types of a program, by name: `state`, `model` and `message` always, the others only when it has them. */
 type ProgramTypes = Readonly<{
-  /** Its state, an object. */
-  state: object
+  /** Its state. */
+  state: unknown
   /** What its view draws. */
   model: unknown
   /** The messages its `update` takes. */
@@ -90,9 +90,6 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * program is made with `program`. `make` returns this type, and a function that takes a program names this type.
  *
  * - The view is not part of it: `start` gives the renderer an `App`, `{ model, subscribe, dispatch, die }`.
- * - Its state is an object. A program written as an object and typed `Program<…>` does not compile otherwise: with a
- *   state that is a number or a string, or with a state type without fields, such as `{}`. `make` refuses the state
- *   without fields too.
  * - `runCommand` is required exactly when the program has commands, `listen` exactly when it has keys, and `external`
  *   exactly when it has external messages.
  * - The run makes the model of a state with `makeModel(state)`. A test can call `makeModel` the same way, on any state.
@@ -100,7 +97,8 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  *   `subscriptions(state)` as the run does, on any state, and `listen(key)` for the subscription of a key.
  * - `update`, `external`, `makeModel`, `subscriptions` and `output` are pure, and so is an `init` that takes flags.
  *   No value given to the library, or taken from it, is mutated once made, nested objects included. The library
- *   reuses a child's model and the keys of its subscriptions while the child's state is the same object.
+ *   reuses a child's model, and the keys of its subscriptions, while the child keeps the very same state: a child
+ *   started again makes its own.
  *
  * @example
  * ```ts
@@ -185,40 +183,9 @@ export type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, 
 export type FlagsOption<Flags> = [Flags] extends [never] ? { readonly flags?: never }
   : { readonly flags: Flags }
 
-/**
- * The check that a program keeps its state in an object. It is `unknown` when the program does. Otherwise it is a
- * property that no program has, so that the program does not compile.
- *
- * A parent keeps a child's model while the child's state is the same object. A number or a string has no identity
- * by which a model could be kept. A state that is a number or a string is refused by `Program<…>`, `program`,
- * `child`, `childById`, `start` and the testing tools that take a program. A type without fields, such as `{}`, holds a
- * number too, so name the type of a state without fields `object`. `make` refuses a type without fields, and a state
- * that is a type parameter, since the compiler cannot decide whether it holds a number.
- *
- * @example
- * ```ts
- * type Checked = ObjectState<number> // { readonly 'a program keeps its state in an object': number }
- * ```
- *
- * @group Types of the signatures
- * @see The guide, "Anatomy of a program", "What does not compile".
- * @see The guide, "Anatomy of a program", "Its state is always an object".
- * @see The guide, "Composition", "A child's model is kept".
- */
-export type ObjectState<State> = [State] extends [object] ? Fielded<State>
-  : { readonly "a program keeps its state in an object": State }
-// Only a type without fields: one with a field that a primitive has too, `{ length: number }`, is a state as any other.
-// `any` is let through, as before.
-type Fielded<State> = 0 extends 1 & State ? unknown
-  : [keyof State] extends [never] ? [Extract<Primitive, State>] extends [never] ? unknown
-    : { readonly "a program keeps its state in an object": State }
-  : unknown
-type Primitive = string | number | bigint | boolean | symbol
-
 // A program's pieces, of the types given in a row. Kept to this module: the API and the rest of the library name a
 // program by `Program<{ … }>`, which gives these types by name.
 type Shape<State, Model, Message, Command, RC, RS, Event, External, Flags = never, Output = never, Key = never> =
-  & ObjectState<State>
   & {
     readonly init: Init<State, Command, Flags>
     readonly update: Update<State, Message, Command, Event>

@@ -362,6 +362,14 @@ describe("a message against the state", () => {
     expect(arrived._tag === "Applied" && arrived.next).toBe(current)
   })
 
+  test("a state that is NaN, given back, is the very same state", () => {
+    const update: Update<number, "Stay"> = () => () => ({ state: Number.NaN })
+    const nan = { state: Number.NaN, revision: 3 }
+    const arrived = arrive(update, nan, noneActive, fromDispatch, "Stay", alive)
+    expect(arrived).toEqual({ _tag: "Applied", next: nan, changed: false, commands: [], events: [] })
+    expect(arrived._tag === "Applied" && arrived.next).toBe(nan)
+  })
+
   test("a message update rejects is ignored", () => {
     const { update } = counting()
     expect(arrive(update, current, noneActive, fromDispatch, "Refuse", alive)).toEqual({ _tag: "Ignored" })

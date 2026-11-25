@@ -294,7 +294,8 @@ export const arrive = <State, Message, Command, Event, K>(
   if (source._tag === "Subscription" && !active.starts.has(source.generation)) return dropped
   const result = update(message)(current.state)
   if (result === reject) return ignored
-  const changed = result.state !== current.state
+  // `Object.is`, since a state may be NaN.
+  const changed = !Object.is(result.state, current.state)
   return {
     _tag: "Applied",
     next: changed ? { state: result.state, revision: current.revision + 1 } : current,

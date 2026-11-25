@@ -97,24 +97,16 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
   `command`, `commandServices`, `key`, `subscriptionServices`, `event`, `external`, `flags` and `output` when the
   program has them. `OutputOf<typeof program>` names its output, and `KeyOf<typeof program>` its keys.
   `make` returns this type, and a function that takes a program names this type.
-- **Its state is always an object**: `{ count }` rather than `count`. So any program can become a child as it is (see
-  [composition](./composition.md)).
 - **The view is not part of it.** `start` gives your renderer an **`App`**, `{ model, subscribe, dispatch, die }`: the
   model of the current state, and a notice of each new state. The library does not say how the renderer draws the model.
   What the renderer must keep to is in [view](./view.md).
 - **A program that cannot start the same way every time declares `flags`**, as in Elm. For example, a page that shows
   the product it was opened for declares flags.
 
-**What does not compile.** The compiler refuses three kinds of program. Each is refused before it can run: where it is
-made, where it is typed `Program<…>`, or where a function takes it, as `child`, `start` or a testing tool. Which of
-these refuses it is unspecified.
+**What does not compile.** The compiler refuses one kind of program. It is refused before it can run: where it is
+typed `Program<…>`, or where a function takes it, as `child`, `start` or a testing tool. Which of these refuses it is
+unspecified.
 
-- A state that is a number or a string.
-- A state whose type has no fields, such as `{}`. Such a type holds a number too, so name the type of a state without
-  fields `object`.
-  - A state that is a type parameter, such as `S` in `<S extends object>(state: S) => program<{ state: S }>()`, is
-    refused too: the compiler cannot decide that `S` holds no number. A type parameter in a field of the state, such
-    as `A` in `{ items: ReadonlyArray<A> }`, compiles.
 - A program written as an object without `subscriptions`. `make` takes no `subscriptions` for a program that names no
   `key`, and the program it returns has them.
 

@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect"
 import type * as Scope from "effect/Scope"
 import * as Core from "../core.ts"
 import * as Engine from "../engine.ts"
-import { type ObjectState, runCommandOf, type WithRunCommand } from "../program.ts"
+import { runCommandOf, type WithRunCommand } from "../program.ts"
 import { makeDeaths } from "../shell.ts"
 import type { Subscriptions } from "../subscription.ts"
 import type { Step, Update } from "../update.ts"
@@ -72,8 +72,7 @@ export const simulate = Effect.fnUntraced(function*<State, Message, Command = ne
     & Readonly<{ update: Update<State, Message, Command, Event> }>
     // Inferred from `update` alone, as in `Program<…>`.
     & WithRunCommand<Command, NoInfer<Message>, R>
-    & Readonly<{ subscriptions: Subscriptions<State, unknown> }>
-    & ObjectState<State>,
+    & Readonly<{ subscriptions: Subscriptions<State, unknown> }>,
   messages: ReadonlyArray<NoInfer<Message>>,
   from: Step<NoInfer<State>, NoInfer<Command>>
 ): Effect.fn.Return<Simulated<State, Message, Command, Event>, never, Exclude<R, Scope.Scope>> {

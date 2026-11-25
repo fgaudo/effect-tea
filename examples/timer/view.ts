@@ -63,8 +63,8 @@ export const timerView: View<Timer.Model, Timer.Message> = (model, dispatch) => 
 // #endregion timer
 
 // #region timers
-// A timer's model is the same object while its state is, and `forwardTo` gives it the same dispatch every
-// time it is drawn: `thunk` draws again only the timer that changed.
+// A timer's model is the same object while the timer keeps the very same state, and `forwardTo` gives it the same
+// dispatch every time it is drawn: `thunk` draws again only the timer that changed.
 export const view: View<Timers.Model, Timers.Message> = (model, dispatch) =>
   h("main", [
     h("button", { on: { click: () => dispatch(model.add) } }, "Add a timer"),

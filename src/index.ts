@@ -43,7 +43,6 @@ export type {
   KeyOf,
   MessageOf,
   ModelOf,
-  ObjectState,
   OutputOf,
   Program,
   StateOf,

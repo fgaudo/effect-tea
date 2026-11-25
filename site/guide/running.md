@@ -83,7 +83,7 @@ still kept, and so is what your program holds.
   - the commands decided for the message.
 
   The first state is revision 0, and each new state is the next revision. When `update` returns the very state it was
-  given, the same object, the message leaves the revision as it was.
+  given, the same object or the same primitive value, the message leaves the revision as it was.
 - **`onIgnored`**: a function that hears every message that `update` rejected, with where the message came from and
   the state it did not apply in. `onIgnored` only watches: the message stays ignored. Use `onIgnored` for devtools, or
   to count the taps that did nothing.

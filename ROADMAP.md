@@ -46,88 +46,18 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 62 to 64 apply what step 61 decided on 24 November 2026, when it weighed the decisions taken before the charter,
-and the invariants, by the values of "Deciding" ([`decisions-weighed.md`](docs/records/decisions-weighed.md)). Steps 62
-and 63 come before the steps of the engine, 53 and 54, since step 62 changes `rehearse.ts`. Step 64 comes after them: it
-is the largest, and may stop with a report, so their fixes do not wait for it. Step 55 comes last, before the release
-that follows them all, so that one release carries every breaking change.
-
-### 62. A program's state is any value
-
-**Model and effort.** Opus 5.5, `high`: the types of `program.ts` and `compose.ts`, with their mutations, and an
-invariant that goes.
-
-**Depends on** no open step. Step 60 named the pieces of `Shape` `WithRunCommand`, `WithListen`, `WithExternal` and
-`WithOutput`, and left `ObjectState` as it is, with its refusals, which now call `simulate` in one step. Step 61
-decided it ([`decisions-weighed.md`](docs/records/decisions-weighed.md), point 1), and change 9 of
-[`api-review.md`](docs/records/api-review.md) spells what the API loses. It comes before step 53, since it changes the
-type parameters of `rehearse.ts`.
-
-**Why.** A program kept its state in an object so that a parent could keep a child's model by it. Since the library
-keeps the children, each has an instance, which is replaced with the child's state and keeps its lifted keys already.
-Kept there too, a model asks nothing of the state: the rule, its type, its nine checks and its defect serve nothing.
-
-**How.** By `change-api` and `change-engine`, in this order, since each is checked before the next:
-
-1. **The model, by the instance** (`src/compose.ts`). `modelOf` keeps a child's model in a `WeakMap` of `make`, by
-   its instance, as `liftedAt` keeps its keys. The cache by program and by state object (`models`, `modelsOf`) goes,
-   with the defect of a state that is no object and its two tests. One test takes the place of the two of a shared
-   model ("one program as two children, in the very same state object, has one model", and "children that share one
-   state object share its model, and their dispatch adds their id"): a child's model is the same object while its
-   instance keeps its state, through a step of another child too, and a child started again makes its own. The
-   mutation "a child's model is made anew for a state it was made for" is written again on the new cache, and "a
-   child's state that is not an object dies of the WeakMap's TypeError" goes. `bun run test` passes with the types as
-   they are.
-2. **The types**, as change 9 spells them. The tests of the types that refused a state take it now, each as a user
-   writes it: a number alone, as a child and by id, `{}`, and a state that is a type parameter in `make`
-   (`src/compose.test.ts`, `src/testing/simulate.test.ts`, `tools/smoke/consumer.ts`, and the case of
-   `tools/inference/generate.ts` on a state without fields). Eight mutations of the types held the rule, and go, each
-   by its name, since other mutations stand between them in `tools/mutations/mutations.ts`: "a state that is no object
-   is let through", "a state without fields is let through", "a state typed object is refused as a state without
-   fields", "a program typed Program is not checked for its state", "a child is not checked for its state", "make
-   takes a state without fields", "the make of a parent takes a state without fields" and "program takes a state that
-   is no object". The line of the mutations' header on the places of `child` and `childById` goes with them. Then
-   `bun run typecheck`, `bun run inference`, `bun run inference --run` and `bun run mutations`.
-3. **The very same state is told by `Object.is`**, in `Core.arrive` and in the slot of `src/run.ts`, as in
-   `compose.ts`: a state may be `NaN` now. A test of each holds it, with its mutation.
-4. **The guide**, one section at a time, each sentence checked against the old one.
-   - "Anatomy of a program": "Its state is always an object" goes, and one kind of program is left under "What does
-     not compile", one written as an object without `subscriptions`.
-   - The glossary's **State** is "What the program knows: any value, replaced and never mutated".
-   - "Composition", "A child's model is kept", says: "It is the same object while the child keeps the very same
-     state: a step that returns the state it was given, and a step of another program, leave it as it is. A child
-     started again is another instance, with a model of its own." Its sentences on a number or a string go. "What is a
-     defect" loses the child whose state is not an object. "A function that makes a parent of any program" loses the
-     sentence on `make` and a state that is a type parameter, and its example names `S` with no bound, and a program
-     whose types are all `unknown`.
-   - Where a page says "the same object" of the state after a step ("Update", "Running", "Rejections and defects"),
-     it says the very same state: the same object, or the same primitive value.
-   - A sentence on a child's model takes the words of "Composition", never that rule, which would promise what the
-     new cache does not keep. In "Guarantees", "What is left to you": "The library reuses a child's model, and the
-     keys of its subscriptions, while the child keeps the very same state: a child started again makes its own." In
-     "Testing", one state object used twice passes "because a parent keeps each child's model while the child keeps
-     its state", where it said "for each state object".
-   - The skill, the tutorial ("Children", on its children's models), the README and the doc comments follow
-     (`Program`, `Models`, `App`), by `bun run comments`, a child's model in the words of "Composition" there too.
-5. **The documents.** In `docs/invariants.md`, "Every program keeps its state in an object" goes, and "A child's model
-   is kept by its state object, and its lifted keys by its instance" says both by its instance, with no sentence on a
-   cache for primitive states. In `docs/rejected.md`, "Checks that hold for a type parameter" loses its clause on a
-   state that is a type parameter in `make`. The changelog takes the two entries that change 9 words, each a
-   `**Breaking**:` with its `Upgrade:` (`release`): the second withdraws a promise of "A child's model is kept", which
-   said the same object while the child's state is the same object.
-
-**Done when** a program whose state is a number runs alone, as a child and by id, in a test of each; `ObjectState` is
-named in no file but `CHANGELOG.md` and those of `docs/records/`; and `bun run typecheck`, `bun run lint`,
-`bun run test`, `bun run test:node`, `bun run interleavings`, `bun run comments`, `bun run build`,
-`bun run api --check` once `bun run api` has written the reports, `bun run smoke` with the count that its comment
-explains, `bun run inference`, `bun run mutations` and `bun run test:browsers` pass, and the site builds with no
-warning (`cd site && bun install && bun run build`).
+Steps 63 and 64 apply what step 61 decided on 24 November 2026, when it weighed the decisions taken before the charter,
+and the invariants, by the values of "Deciding" ([`decisions-weighed.md`](docs/records/decisions-weighed.md)), whose
+first point step 62 applied. Step 63 comes before the steps of the engine, 53 and 54, since it changes the end of the
+engine, which `stage.ts` ends a tool by. Step 64 comes after them: it is the largest, and may stop with a report, so
+their fixes do not wait for it. Step 55 comes last, before the release that follows them all, so that one release
+carries every breaking change.
 
 ### 63. The engine keeps no count: the end reads the register, and a state has no revision
 
 **Model and effort.** Opus 5.5, `high`: the end of a run, which "Nothing ends in silence" rests on.
 
-**Depends on** step 62 for the order alone: both change `src/run.ts`. Step 61 decided it
+**Depends on** no open step. Step 61 decided it
 ([`decisions-weighed.md`](docs/records/decisions-weighed.md), points 2 and 3), and change 10 of
 [`api-review.md`](docs/records/api-review.md) spells what the API loses.
 
@@ -151,7 +81,10 @@ and `Core.endedWith` then drops them from the cause, since the run and each tool
    what is left of the premises of how the failures of cleanups combine.
 3. **The revision**, as change 10 spells it. `Applied` loses `revision`, `src/core.ts` loses `Revision` and
    `Revisioned`, and the engine's `current` gives the state. A test that read a revision reads the states, or what the
-   listeners were told, and "the very same state is taken for a new one" keeps a killer in each of its files. The item
+   listeners were told, and "the very same state is taken for a new one" keeps a killer in each of its files. Step 62
+   made `Core.arrive` tell the very same state by `Object.is`, since a state may be `NaN`: its test, "a state that is
+   NaN, given back, is the very same state" (`src/core.test.ts`), gives `arrive` a revision, and the doc comment of
+   `Applied` and "Running", "Options", say of the revision "the same object or the same primitive value". The item
    of "Any time" on saving each state says "the state" where it said "the state and its revision".
 4. **The documents.** `docs/invariants.md` says how the end is kept now, where it said "Each defect is reported once,
    in that order: by the run as soon as one dies, and by the end". The guide and the changelog change for the revision
@@ -166,10 +99,10 @@ and `Core.endedWith` then drops them from the cause, since the run and each tool
 
 **Model and effort.** Opus 5.5, `high`: a fix by its form, in the largest tool.
 
-**Depends on** steps 62 and 63, which come before it: step 62 changes the type parameters of `rehearse.ts`, and step
-63 the end of the engine, which `stage.ts` ends a tool by. Step 52 left the code where it stays, what `rehearse` and
-`simulate` share in `src/testing/stage.ts`, and what `rehearse` hears in `rehearse.ts`. It waits because only a key
-whose printing throws, or a message whose tag does, meets it.
+**Depends on** step 63, which comes before it: it changes the end of the engine, which `stage.ts` ends a tool by. Step
+62 took `State extends object` out of the type parameters of `rehearse.ts`. Step 52 left the code where it stays, what
+`rehearse` and `simulate` share in `src/testing/stage.ts`, and what `rehearse` hears in `rehearse.ts`. It waits because
+only a key whose printing throws, or a message whose tag does, meets it.
 
 **Why.** Two findings of "Open problems", of one form: a value of the program, or of the test, printed where what it
 throws is not the call's. `released`, the job of a `hearNext` and `openFor` build an `Error` with
@@ -234,8 +167,8 @@ say the rule; each case of the contract is kept or removed, with its line in the
 **Model and effort.** Opus 5.5, `high`: a page of the guide is a specification, and a concept leaves `compose.ts` with
 its checks.
 
-**Depends on** step 62, which changes the types of `program.ts` and `compose.ts`, and comes after steps 53 and
-54, so that their fixes do not wait for the largest step. Step 61 decided it
+**Depends on** steps 53 and 54, which come before it, so that their fixes do not wait for the largest step. Step 62
+made a program's state any value, in the types of `program.ts` and `compose.ts`. Step 61 decided it
 ([`decisions-weighed.md`](docs/records/decisions-weighed.md), point 4), and change 11 of
 [`api-review.md`](docs/records/api-review.md) spells what the API loses.
 
@@ -372,7 +305,7 @@ day; the two searches of point 2 leave what it says; and `bun run typecheck`, `b
 **Model and effort.** Opus 5.5, `high`, by a reviewer that wrote none of the changes
 ([`premise-review`](.agents/skills/premise-review/SKILL.md)).
 
-**Depends on** steps 62, 63, 53, 54 and 64, and comes before the release that follows them.
+**Depends on** steps 63, 53, 54 and 64, and comes before the release that follows them.
 
 **Why.** Steps 49 to 54 move a check from a tool to the engine, or take one away with the code it guarded: a premise
 may leave with it, and no test fail. From step 52 on, `simulate` rests on the engine's premises, and no longer on

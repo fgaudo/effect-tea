@@ -157,7 +157,7 @@ each bridge's to promise (see [view](./view.md#rules)).
   write run in the parent's `update`. No value that a program or a test gives the library, or that the library gives
   back, is mutated once it is made, nested objects included: a state, a message, a command, an event, flags, a key, a
   model, an output, and what a testing tool returns. The library reuses a child's model, and the keys of its
-  subscriptions, while the child's state is the same object.
+  subscriptions, while the child keeps the very same state: a child started again makes its own.
 - **A function of the program never interrupts the fiber it runs in.** An `init` that takes flags, and `subscriptions`
   on the first state, run in the call of `start`: in the fiber of whoever starts the program, or in no fiber at all. The
   children of a parent without flags are started in the call of `make`, their `init` with them (see

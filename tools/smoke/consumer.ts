@@ -535,13 +535,21 @@ const sheet = sheets.make({
 // @ts-expect-error
 const unnamed: MessageOf<typeof sheet> = { _tag: "Count", message: { _tag: "Written", value: "1" } }
 
-// A state without fields holds a number too, and so may a state that is a type parameter: `make` refuses both.
-// @ts-expect-error
-program<{ state: {} }>().make({ init: { state: 0 }, makeModel: () => null })
+// A state is any value: a number, alone, as a child and by id, a state without fields, and a type parameter.
+export const numbered = program<{ state: number; message: "Increment" }>().make({
+  init: { state: 0 },
+  update: () => (count) => ({ state: count + 1 }),
+  makeModel: (count) => count
+})
+const counters = program<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
+export const numberedParent = counters.withChildren({
+  Count: counters.child(numbered),
+  Counts: counters.childById(numbered, { ids: (state) => state.ids })
+}).make({ init: { state: { ids: [] } }, makeModel: (_, children) => children.Count() })
 
-export const generic = <S extends object>(state: S) =>
-  // @ts-expect-error
-  program<{ state: S }>().make({ init: { state }, makeModel: () => null })
+export const fieldless = program<{ state: {} }>().make({ init: { state: {} }, makeModel: () => null })
+
+export const generic = <S>(state: S) => program<{ state: S }>().make({ init: { state }, makeModel: () => null })
 
 // A function over any program: its signature names the types, its body makes the parent of a program of erased types.
 type DialogOwn = Readonly<{ open: boolean }>
@@ -549,14 +557,14 @@ type DialogModel<M> = Readonly<{ open: boolean; content: M }>
 type Toggle = Readonly<{ _tag: "Opened" }> | Readonly<{ _tag: "Closed" }>
 type InDialog<Msg> = Toggle | Readonly<{ _tag: "Content"; message: Msg; instance?: number }>
 
-export function inDialog<S extends object, M, Msg>(
+export function inDialog<S, M, Msg>(
   content: Program<{ state: S; model: M; message: Msg }>
 ): Program<{
   state: Kept<DialogOwn, { readonly Content: Opt.Option<Instance<S>> }>
   model: DialogModel<M>
   message: InDialog<Msg>
 }>
-export function inDialog(content: Program<{ state: object; model: unknown; message: unknown }>) {
+export function inDialog(content: Program<{ state: unknown; model: unknown; message: unknown }>) {
   const dialog = program<{ state: DialogOwn; message: Toggle }>()
   return dialog.withChildren({ Content: dialog.child(content) }).make({
     init: { state: { open: false } },

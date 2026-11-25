@@ -27,7 +27,6 @@ import {
   type KeyOf,
   type MessageOf,
   type ModelOf,
-  type ObjectState,
   type OutputOf,
   type Program,
   startOf,
@@ -116,31 +115,27 @@ type PlacementById<State, Id, A> =
 
 // A child is checked as a program of the types read back from it: a child written as an object, and not typed
 // `Program<…>`, is checked by nothing else. So its `external` answers with a step, never `reject`, its `output` reads
-// its own state, and its `runCommand` is there when its steps list commands, `external`'s included. Its pieces are
-// those of `Program<…>`, which takes only a state that is an object: the state read back is any type, which `& object`
-// lets through, and `ObjectState` refuses where it is not an object. Kept to this module, as the `Shape` of `Program`
-// is to its own: a consumer's declarations spell it out.
-type ProgramChecked<P> =
-  & ObjectState<StateOf<P>>
-  & Program<{
-    state: StateOf<P> & object
-    model: ModelOf<P>
-    message: MessageOf<P>
-    command: CommandOf<P>
-    commandServices: CommandServicesOf<P>
-    subscriptionServices: SubscriptionServicesOf<P>
-    event: EventOf<P>
-    external: ExternalOf<P>
-    flags: FlagsOf<P>
-    output: OutputOf<P>
-    key: KeyOf<P>
-  }>
+// its own state, and its `runCommand` is there when its steps list commands, `external`'s included. Kept to this
+// module, as the `Shape` of `Program` is to its own: a consumer's declarations spell it out.
+type ProgramChecked<P> = Program<{
+  state: StateOf<P>
+  model: ModelOf<P>
+  message: MessageOf<P>
+  command: CommandOf<P>
+  commandServices: CommandServicesOf<P>
+  subscriptionServices: SubscriptionServicesOf<P>
+  event: EventOf<P>
+  external: ExternalOf<P>
+  flags: FlagsOf<P>
+  output: OutputOf<P>
+  key: KeyOf<P>
+}>
 
 // What a child lacks for that check, `unknown` where it lacks nothing. A child that runs commands has a `runCommand`, a
 // member, for the error that names it; `WithRunCommand` is `object` for one that runs none, and `unknown` is needed
-// instead: see `CheckedChild`. The rest of the check is held under a key no program has, as `ObjectState` does: as
-// members, its types, read from a `P` not inferred yet, would type the functions of a child written in the call, and
-// its `listen` would make subscriptions of `unknown` messages.
+// instead: see `CheckedChild`. The rest of the check is held under a key no program has: as members, its types, read
+// from a `P` not inferred yet, would type the functions of a child written in the call, and its `listen` would make
+// subscriptions of `unknown` messages.
 type Lacking<P> = P extends ProgramChecked<P> ? unknown
   :
     & ([CommandOf<P>] extends [never] ? unknown : WithRunCommand<CommandOf<P>, unknown, unknown>)
@@ -428,7 +423,8 @@ type ChildSubscriptionServices<C> = { [K in keyof C]: SubscriptionServicesOf<Pro
  *   defect, a `CompositionDefect`.
  * - A child that declares an `output` gives it beside its model, read in the same way: `children.Row.output(id)`.
  *
- * A child's model is the same object while the child's state is the same object.
+ * A child's model is the same object while the child keeps the very same state. A child started again is another
+ * instance, with a model of its own.
  *
  * @example
  * ```ts
@@ -666,18 +662,6 @@ type Config<State, C, I, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, Exte
     /** What the program draws, from its own state and its children's models. */
     makeModel: (state: State, children: Models<C>) => Model
   }>
-
-// `makeModel` is pure, so a program's model depends on its state alone: it is kept for as long as that state
-// object lives, whoever shows it (two children that share a state, or two runs).
-const models = new WeakMap<object, WeakMap<object, unknown>>()
-
-const modelsOf = (program: object) => {
-  const found = models.get(program)
-  if (found !== undefined) return found
-  const kept = new WeakMap<object, unknown>()
-  models.set(program, kept)
-  return kept
-}
 
 // The own enumerable string keys of a record alone, in the order of `Object.keys`, as the spread and `Object.hasOwn`
 // of `make` read them: `Record.map` and `Record.keys` do not say which keys they visit.
@@ -1035,19 +1019,13 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
     lifted.set(entry, keys)
     return keys
   }
-  // The types require an object, by which a child's model is kept: only a cast, or a caller without TypeScript, gets a
-  // primitive this far, which a `WeakMap` would refuse with a `TypeError`.
+  // A child's model, kept by its instance as its keys are: `makeModel` is pure, so the very same state has the very same
+  // model. `has`, since a model may be `undefined`.
+  const models = new WeakMap<Entry, unknown>()
   const modelOf = (place: Place, entry: Entry) => {
-    const { program } = childOf(place.name)
-    const childState = entry.state
-    if (!Predicate.isObjectKeyword(childState)) {
-      const kind = childState === null || childState === undefined ? String(childState) : `a ${typeof childState}`
-      throw defectAt(place, `The state of "${place.name}" is ${kind}, where a program keeps its state in an object`)
-    }
-    const kept = modelsOf(program)
-    if (kept.has(childState)) return kept.get(childState)
-    const model = program.makeModel(childState)
-    kept.set(childState, model)
+    if (models.has(entry)) return models.get(entry)
+    const model = childOf(place.name).program.makeModel(entry.state)
+    models.set(entry, model)
     return model
   }
   const there = (place: Place, entry: Opt.Option<Entry>, what: "model" | "output"): Entry =>
@@ -1211,8 +1189,8 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
  * @see The guide, "Composition", "The parent's own types".
  */
 type DeclaredTypes = Readonly<{
-  /** Its own state, an object. */
-  state: object
+  /** Its own state. */
+  state: unknown
   /** What its view draws. Inferred from `makeModel` when it is not named. */
   model?: unknown
   /** Its own messages, those its `update` takes, if it has any: a program that names none has no `update`. */
@@ -1281,7 +1259,6 @@ type DeclaredTypes = Readonly<{
  * ```
  *
  * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
- * @see The guide, "Anatomy of a program", "What does not compile".
  * @see The guide, "Composition", "In short".
  * @see The guide, "Composition", "The parent's messages".
  * @see The guide, "Composition", "The parent's commands".
@@ -1492,7 +1469,6 @@ type AlwaysPlace<State, P> = [FlagsOf<P>] extends [never] ? [
         flags?: never
       }>
       & Listening<State>
-      & ObjectState<StateOf<P>>
   ]
   : [place: { readonly "a child with flags is declared with its flags": FlagsOf<P> }]
 
@@ -1551,7 +1527,7 @@ export type DeclareChild<T extends DeclaredTypes> = {
   ): Child<Field<T, "state">, P, "always">
   <P extends AnyProgram>(
     program: CheckedChild<P>,
-    place: SometimesPlace<Field<T, "state">, P> & Listening<Field<T, "state">> & ObjectState<StateOf<P>>
+    place: SometimesPlace<Field<T, "state">, P> & Listening<Field<T, "state">>
   ): Child<Field<T, "state">, P, "sometimes">
 }
 
@@ -1564,11 +1540,11 @@ export type DeclareChild<T extends DeclaredTypes> = {
 export type DeclareChildById<T extends DeclaredTypes> = {
   <Id, P extends AnyProgram>(
     program: CheckedChild<P>,
-    place: IdsPlace<Field<T, "state">, Id> & FlagsChecked<P, false> & ObjectState<StateOf<P>>
+    place: IdsPlace<Field<T, "state">, Id> & FlagsChecked<P, false>
   ): ChildById<Field<T, "state">, Id, P>
   <Id, P extends AnyProgram>(
     program: CheckedChild<P>,
-    place: FlagsPlace<Field<T, "state">, Id, FlagsOf<P>> & FlagsChecked<P, true> & ObjectState<StateOf<P>>
+    place: FlagsPlace<Field<T, "state">, Id, FlagsOf<P>> & FlagsChecked<P, true>
   ): ChildById<Field<T, "state">, Id, P>
 }
 
@@ -1641,12 +1617,8 @@ export type DeclareInputById<T extends DeclaredTypes> = <Id, A>(
 /**
  * The function of `program` that makes a program without children from its pieces.
  *
- * A state whose type has no fields, such as `{}`, does not compile, since such a type holds a number too: name it
- * `object`.
- *
  * @group Types of the signatures
  * @see The guide, "Composition", "The parent's own messages, commands and subscriptions".
- * @see The guide, "Anatomy of a program", "What does not compile".
  */
 export type MakeProgram<T extends DeclaredTypes> = <
   Model,
@@ -1672,10 +1644,6 @@ export type MakeProgram<T extends DeclaredTypes> = <
       Field<T, "output">
     >
     & Readonly<{ inputs?: I }>
-    // On the config, as for a program written by hand: the program `make` returns carries the marker of `Program`,
-    // which the check of `run` and of the testing tools asks for, so a state that holds a number would get past them.
-    // A state that is a type parameter stays deferred here, and does not compile (`docs/rejected.md`).
-    & ObjectState<Field<T, "state">>
 ) => Program<
   Present<{
     state: Field<T, "state">
@@ -1697,7 +1665,6 @@ export type MakeProgram<T extends DeclaredTypes> = <
  *
  * @group Types of the signatures
  * @see The guide, "Composition", "The parent's own messages, commands and subscriptions".
- * @see The guide, "Anatomy of a program", "What does not compile".
  */
 export type MakeParent<T extends DeclaredTypes, C extends Children<Field<T, "state">>> = <
   Model,
@@ -1724,7 +1691,6 @@ export type MakeParent<T extends DeclaredTypes, C extends Children<Field<T, "sta
       Field<T, "output">
     >
     & Readonly<{ inputs?: I }>
-    & ObjectState<Field<T, "state">>
 ) => Program<
   Present<{
     state: Kept<Field<T, "state">, KeptOf<C>>
@@ -1751,5 +1717,5 @@ type Needs<Own, Children> = unknown extends Children ? unknown : unknown extends
 // consumer names 39 types of its programs as `never`.
 type Present<T> = Extract<
   { [K in keyof T as K extends "state" | "model" | "message" ? K : [T[K]] extends [never] ? never : K]: T[K] },
-  { state: object; model: unknown; message: unknown }
+  { state: unknown; model: unknown; message: unknown }
 >
