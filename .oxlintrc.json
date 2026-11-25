@@ -4,7 +4,9 @@
     "typeAware": true
   },
   "plugins": ["typescript", "import", "oxc", "eslint", "unicorn"],
-  "ignorePatterns": ["**/dist", "api", ".claude", ".mutants", ".inference", "scratch"],
+  // `examples/react-native` is linted by none: its types are React Native's, which `bun run test:react-native`
+  // (`tools/react-native/check.ts`) installs in a project of its own, and typechecks the example against.
+  "ignorePatterns": ["**/dist", "api", ".claude", ".mutants", ".inference", "scratch", "examples/react-native"],
   "rules": {
     "typescript/no-deprecated": "error",
     "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],

@@ -5,11 +5,12 @@
 // returns, as a controlled element asks. No store of frames, no `flushSync`, no animation frame, and no rule of the
 // library's for a controlled element. Two components: `Host`, which starts the program as it first renders and runs it
 // while it is mounted, and `Draw`, which draws a program the application starts itself, from its `App`.
-// Checked with react 19.3.1, the start of its peer range, and react-dom of the same version in its tests; the daily job
-// runs them with the newest React 19. It imports `react` alone, and no renderer of React.
+// Checked with react 19.3.0, the start of its peer range, and react-dom of the same version in its tests; the daily job
+// runs them with the newest React 19. It imports `react` alone, and no renderer of React. On React Native it is checked
+// by `bun run test:react-native` (`docs/records/react-native.md`).
 /**
- * The bridge to React: draws a program with React 19.3.1 or a newer 19.x, which you install beside the package. It
- * imports `react` alone, and no renderer of React.
+ * The bridge to React: draws a program with React 19.3.0 or a newer 19.x, which you install beside the package. It
+ * imports `react` alone, and no renderer of React: it draws with React DOM, and with React Native.
  *
  * @module @fgaudo/effect-tea/react
  *

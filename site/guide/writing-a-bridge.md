@@ -99,11 +99,13 @@ Every bridge does what follows. [An example](#an-example) shows how the package'
   holds for it, filled with what the element holds.
 - **After each draw, the element shows the value of its model.** A bridge whose renderer sets a value only where its
   own tree changed gives each controlled element its value back after each draw, where the element differs from it.
+  React Native keeps it late (see [what is left out](#what-is-left-out)).
 - **Each new state is drawn before the browser handles the next event**, as React renders a store. So is each message
   that a handler sends, whether it made a new state or not. Otherwise a handler runs on a view older than the state: a
   key is typed over a value that the program has replaced since, and its message carries the old value back. A
-  renderer whose elements live in another thread breaks this rule. A lock by the shape of the state still rejects such
-  a key, as it rejects any message that does not apply (see [what an element gives](./what-an-element-gives.md#rules)).
+  renderer whose elements live in another thread breaks this rule, as React Native does. There, lock by the shape of
+  the state: it rejects such a key, as it rejects any message that does not apply (see
+  [what an element gives](./what-an-element-gives.md#rules)).
 - **The renderer keeps an element drawn in the same place from one draw to the next**, as snabbdom and React do.
   Otherwise the element is made anew, and loses its focus, its caret and its selection.
 
@@ -111,17 +113,19 @@ Every bridge does what follows. [An example](#an-example) shows how the package'
 
 The package has two bridges, each an entry of its own, and each small, a start for a bridge of your own:
 
-- `@fgaudo/effect-tea/snabbdom`, with `drawInto`, and `messagesSentBy` in `@fgaudo/effect-tea/snabbdom/testing`;
+- `@fgaudo/effect-tea/snabbdom`, with `drawInto`, and `messagesSentBy` in `@fgaudo/effect-tea/snabbdom/testing`,
+  which your bridge need not have;
 - `@fgaudo/effect-tea/react`, with `Host`, which starts a program and runs it while it is mounted, and `Draw`, which
   draws a program that the application starts itself, as `<Draw app={app} view={view} />`.
 
-A bridge needs its renderer, which you install beside the package: `snabbdom` 3.6.4 or a newer 3.x, or `react` 19.3.1
-or a newer 19.x. The bridge to React imports `react` alone, and no renderer of React. Each bridge names the type of its
+A bridge needs its renderer, which you install beside the package: `snabbdom` 3.6.4 or a newer 3.x, or `react` 19.3.0
+or a newer 19.x. The bridge to React imports `react` alone, and no renderer of React: it draws with React DOM, and with
+React Native, a `TextInput` as React Native's documentation draws a controlled one. Each bridge names the type of its
 views, `View<Model, Message>`, runs `dispatch` from any event of a native element, and draws any native controlled
 element as its renderer's own documentation draws it.
 
 [`counter`](../../examples/counter) and [`form`](../../examples/form) draw their programs with both bridges, one under
-the other.
+the other, and [`react-native`](../../examples/react-native) draws them on React Native.
 
 **snabbdom never removes a prop.** So a view of the bridge to snabbdom gives a prop it changes in every state:
 `disabled: false` where a button is enabled, as the view of [`form`](../../examples/form/view-snabbdom.ts) does.
@@ -134,8 +138,9 @@ the program again from `init`. For a state that outlives a component, start the 
 `Draw`.
 
 **With the bridge to React, a run that dies is thrown to the nearest error boundary**, as `Host` renders. One that
-`Host` can no longer throw, as it unmounts, is given to `reportError` instead. What is thrown is `Cause.squash` of what
-the run ended with, which keeps one defect. To see the whole cause, wrap the run in the `fork` that you give `Host`.
+`Host` can no longer throw, as it unmounts, is reported instead: with `reportError` where there is one, as in a
+browser. What is thrown is `Cause.squash` of what the run ended with, which keeps one defect. To see the whole cause,
+wrap the run in the `fork` that you give `Host`.
 
 **With the bridge to React, `Host` and `Draw` draw the first model on a server**, where no effect runs, and nothing of
 `init` starts. `hydrateRoot` keeps the elements the server drew, where the client draws the same model. `Host` makes
@@ -145,14 +150,6 @@ hydrated it. With `Draw`, the program you started must still have the state the 
 **With the bridge to React, a new state is drawn at once, in a transition too.** React renders a store's change in no
 transition, even inside `startTransition`.
 
-### messagesSentBy
-
-`messagesSentBy(view, model, reports?)`, in `@fgaudo/effect-tea/snabbdom/testing`, finds what a snabbdom view sends,
-without a DOM. Each listener gets an element that holds the `value` and the `checked` that the view drew, so a
-controlled element sends the value its model holds. What else a handler reads, of its element and of its event, the
-test gives in `reports`. It is one way to check that a view sends what its model holds (see
-[testing](./testing.md#the-reader)), and no part of what a bridge must do.
-
 ## What is left out
 
 The package's bridges promise nothing of what follows:
@@ -160,6 +157,8 @@ The package's bridges promise nothing of what follows:
 - **A value the element changes by itself**, as when a text field strips the line breaks from the value it is given,
   or when a range narrows its bounds below its value. The element shows the value it made until the user types again,
   and `update` stores what the element sends then.
+- **With React Native, what a `TextInput` shows until its native view takes the value of its model.** A key that the
+  state rejects may show until then.
 - **A form's reset**, by a reset button or `form.reset()`. A program may empty a field by leaving `''` in its state.
 - **With React, a value typed into what a server drew, before React hydrates it.** React gives the element the value
   of the first model, and sends no `onChange`.
@@ -189,3 +188,6 @@ A bridge of your own can start from them. To run them on it:
 - have a test file register a DOM, as [`bridges/snabbdom.test.ts`](../../bridges/snabbdom.test.ts) does;
 - give `bridgeTests` a `Bridge`: your `drawInto`, the views of their scenarios drawn with your renderer, and
   `drawn`, which a test awaits after each act of the user, so that your bridge has drawn what the act made.
+
+The bridge to React is tested on React Native too, under jest, with the views of
+[`examples/react-native`](../../examples/react-native), by `bun run test:react-native`.

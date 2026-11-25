@@ -26,12 +26,12 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 83 to 90 come before the release of 0.9.0. The owner asked for them on 25 November 2026: a bridge to React
-Native (83), whether a view of React can have a `messagesSentBy` (84, 85), and a reading of the names of the API
-(86, 87). Steps 88 to 90 are the agent's own proposals, which the owner may strike. The owner's fourth point has no
-step: the bridges stay in `bridges/` ([`rejected.md`](docs/rejected.md), "The bridges"). Step 82 decided what the
+Steps 84 to 90 come before the release of 0.9.0. The owner asked for them on 25 November 2026, with a bridge to React
+Native, which step 83 made: whether a view of React can have a `messagesSentBy` (84, 85), and a reading of the names of
+the API (86, 87). Steps 88 to 90 are the agent's own proposals, which the owner may strike. The owner's fourth point has
+no step: the bridges stay in `bridges/` ([`rejected.md`](docs/rejected.md), "The bridges"). Step 82 decided what the
 bridge to React is on React Native ([`react-native.md`](docs/records/react-native.md)): `./react` as it is, with no
-entry and no peer of its own.
+entry and no peer of its own. `bun run test:react-native` checks it there, a job of the CI.
 
 Step 73 decided the form of the smaller guide ([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md`
 holds it, under "What belongs here". The owner approved it on 25 November 2026, and steps 74 to 77 wrote every page by
@@ -47,64 +47,17 @@ The next review of the premises ([`premise-review`](.agents/skills/premise-revie
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
 
-### 83. React Native, named and checked
-
-**Model and effort.** Opus 5.5, `high`: a tool of the checks, and sentences of the guide that promise.
-
-**Depends on** no other step. [`react-native.md`](docs/records/react-native.md) decides it, point by point, and the
-spike `89217b6` on `spike/react-native` holds the files that it ran, with a README of its commands.
-
-**How.** By [`add-example`](.agents/skills/add-example/SKILL.md) and [`release`](.agents/skills/release/SKILL.md). No
-export changes, and no entry or peer is added.
-
-- **The tool.** `tools/react-native/check.ts`, run as `bun run test:react-native`, on `tools/cli.ts` as
-  `tools/smoke/smoke.ts` is. It packs the package, and installs it with npm in a project of its own with
-  `react-native` 0.88.1, `@react-native/jest-preset` and `@react-native/metro-config` of that version,
-  `@testing-library/react-native` 14, `test-renderer`, and `jest` 29.7, the version of the `babel-jest` that the preset
-  depends on. `--react-native <version>` installs another. There it typechecks the example, runs its tests with jest,
-  bundles its application with Metro for iOS and for Android, with the default profile and with `hermes-stable`, and
-  compiles each bundle with the `hermesc` of `hermes-compiler`, which has a binary for Linux, macOS and Windows.
-  `hermesc` compiles what React Native's Babel preset made of `dist/`, so it holds only that Hermes takes it: the
-  spike saw it refuse nothing. A job `react-native` of `.github/workflows/ci.yml` runs the tool, and
-  `.github/workflows/renderers-latest.yml` at the newest React Native. The README's "Development" says what it runs,
-  and "Checks" in `AGENTS.md` when.
-- **The example.** `examples/react-native/`: the views of `counter` and of `form`, an `App.tsx` that draws both with
-  `Host`, and their tests, in a file that `bun test` does not take (`views.test_jest.tsx`). `tsc -p examples` and
-  oxlint leave the folder out, each by one glob, with a comment that names the tool. `add-example` and
-  `examples/README.md` say so. The form's field is a `TextInput` with `value` and `onChangeText`, not `editable` while
-  it saves, with no handler.
-- **The tests.** The six of the spike. They are what holds that the bridge draws with a renderer of React other than
-  React DOM, and that a lock by the shape of the state rejects what a handler of an older view sends. Under jest
-  `TextInput` is a mock, which draws a host element with the props that the view wrote: a test there checks nothing of
-  what the native view holds, and none is written as if it did.
-- **The guide**, within the ceilings of its pages. In "Writing a bridge": the rules "After each draw, the element
-  shows the value of its model" and "Each new state is drawn before the browser handles the next event" name React
-  Native as a renderer that keeps neither at once; "The package's bridges" says that the bridge to React draws with
-  React Native, a `TextInput` as its own documentation draws a controlled one; and "What is left out" says that, with
-  React Native, what a `TextInput` shows until the native view takes the model's value is the element's. "Their
-  tests" names the tool. A sentence that promises has a test of the six, or is not written.
-- **The rest.** The module's doc comment in `bridges/react.ts` names React Native; the README says that the package
-  needs nothing under Metro and Hermes, and that under jest `effect` and the package go through
-  `transformIgnorePatterns`; the skill and "Coming from Elm or React" name React Native; the changelog has its entry.
-- **The range of `react`.** Run `bun run test` and `bun run test:browsers` with `react` and `react-dom` at 19.3.0, the
-  React of React Native 0.88.1's renderer. Where they pass, the range starts there, in `peerDependencies` and
-  `devDependencies`, with the opening comment of `bridges/react.ts`, the guide, the README and a changelog entry.
-  Where they fail, a sentence of the README says that the bridge needs 19.3.1.
-
-**Done when** `bun run typecheck`, `lint`, `test`, `test:browsers`, `comments`, `smoke` and `test:react-native` pass,
-and the tool was seen to fail twice: in jest, on a view that sends nothing on a press, and in Metro, on a `static {}`
-block put into the installed `dist/`, which React Native's Babel preset refuses.
-
 ### 84. Whether a test can find what a view of React sends
 
 **Model and effort.** Fable 5.2, `high`: a precedent is reopened, and the ways left pull against "Only stable APIs",
 a small API and a new peer.
 
-**Depends on** step 83: the renderer of tests that its tool installs is the second way below. Step 82 kept React
-Native, its jest preset and `test-renderer` out of the lockfile ([`react-native.md`](docs/records/react-native.md),
-3): the second way brings `test-renderer` into it, or runs in the tool's project alone. Under the jest preset
-`TextInput` is a mock, whose host element holds the props that the view wrote. `Pressable` is not mocked there: what
-its host element holds of `onPress` was not read.
+**Depends on** no open step. Step 83 made `bun run test:react-native` (`tools/react-native/check.ts`): its project
+installs `test-renderer` 1, the renderer of tests that is the second way below, with `@testing-library/react-native` 14,
+and `--keep` leaves the project for a spike. Step 82 kept React Native, its jest preset and `test-renderer` out of the
+lockfile ([`react-native.md`](docs/records/react-native.md), 3): the second way brings `test-renderer` into it, or runs
+in the tool's project alone. Under the jest preset `TextInput` is a mock, whose host element holds the props that the
+view wrote. `Pressable` is not mocked there: what its host element holds of `onPress` was not read.
 
 **Why.** The owner asked whether React and React Native can have a `messagesSentBy`. Only snabbdom has one, where a
 view returns its whole tree as data; the guide leaves a view of React to "your renderer's tools" ("Testing", "The
@@ -115,8 +68,8 @@ item 1): it called components without React, and told `memo` and `forwardRef` by
 are new. Snabbdom's was kept then as an example, and is an entry of the package now, `./snabbdom/testing`, so the same
 role has a form for one bridge and none for the other (value 3). And a render by a renderer of tests was not tried.
 
-**How.** A spike on `examples/counter/view-react.tsx`, `examples/form/view-react.tsx` and the views of step 83, and a
-record, `docs/records/react-view-tests.md`. Three ways:
+**How.** A spike on `examples/counter/view-react.tsx`, `examples/form/view-react.tsx` and
+`examples/react-native/views.tsx`, and a record, `docs/records/react-view-tests.md`. Three ways:
 
 1. **A walk that calls no component.** The handlers are the function props named `on…` of the elements that the view
    returns, and of their `children`; a component is a leaf, whose own props are read. It needs React's public API
@@ -155,7 +108,7 @@ the skill, the API report and the changelog.
 
 **Model and effort.** Fable 5.2, `high`: it decides breaking changes of the API, by value 3.
 
-**Depends on** steps 83 and 85, whose exports it reads too.
+**Depends on** step 85, whose exports it reads too.
 
 **Why.** The owner asked that every name of the API, of a function, a field or a type, be right and coherent, before
 0.9.0: its breaking changes go out together. [`api-review.md`](docs/records/api-review.md) decided each of the 84
@@ -203,15 +156,15 @@ glossary, the tutorial, the skill and the README. The changelog has one `**Break
 
 **Model and effort.** Opus 5.5, `medium`, with the reader and the examiner as subagents.
 
-**Depends on** steps 83 and 87: the reader reads the package that 0.9.0 ships. Proposed by the agent.
+**Depends on** step 87: the reader reads the package that 0.9.0 ships. Proposed by the agent.
 
 **Why.** Step 81 met the reader who has an application in React, in a DOM. No check of
 [`guide-reader`](.agents/skills/guide-reader/SKILL.md) has met one on React Native, whom the package names from step
 83 on.
 
 **How.** A check of the package with acceptance tests, by the skill. The program is a part of an application in React
-Native, whose user types into a `TextInput`, sets a `Switch` and presses, run with jest as the tool of step 83 runs its
-example. Keep the reader's project beside `D:/Project/effect-tea-readers/booking-react`.
+Native, whose user types into a `TextInput`, sets a `Switch` and presses, run with jest as `tools/react-native/check.ts`
+runs `examples/react-native`. Keep the reader's project beside `D:/Project/effect-tea-readers/booking-react`.
 
 **Done when** the check has run, what it found is fixed or is a step here, and its entry is in the list of step 3 of
 the skill's "Before it starts".
@@ -239,7 +192,7 @@ passes its own tests and the acceptance tests, and each gap of the changelog is 
 
 **Model and effort.** Opus 5.5, `high`, with its readers as subagents: it is a review.
 
-**Depends on** steps 83, 85 and 87, so that it reads the sentences and the names that 0.9.0 ships. Proposed by the
+**Depends on** steps 85 and 87, so that it reads the sentences and the names that 0.9.0 ships. Proposed by the
 agent: until 25 November 2026 it was due before the release after 0.9.0, and 0.9.0 did not wait for it.
 
 **Why.** Two facts are new. 0.9.0 now waits for steps that break the API, and a promise that the reading withdraws is
@@ -249,13 +202,15 @@ or of an example, before the library is made known.
 **How.** By [`promise-reading`](.agents/skills/promise-reading/SKILL.md): the promises against the tests, and the
 guide's rules against the examples. It reads everything: the one reading before it
 ([`promises-and-tests.md`](docs/records/promises-and-tests.md), at `b6db847`) read the guide alone, which steps 56 and
-73 to 78 wrote again since, and nothing has read a doc comment or an example. It reads the guide as steps 70, 81, 83
-and 85 left it: "Writing a bridge" promises what the bridge to React does under hydration and transitions, and the doc
+73 to 78 wrote again since, and nothing has read a doc comment or an example. It reads the guide as steps 70, 81, 83 and
+85 left it: "Writing a bridge" promises what the bridge to React does under hydration and transitions, and the doc
 comment of `Host` what it does under Fast Refresh, each held by a test that runs in the browsers
-(`bridges/react.test.ts`, `bridges/fast-refresh.test.ts`). Of the API's reports it reads the diff since `v0.8.0`. A
-trial of its two briefs, on "Commands" and on three examples, reported six gaps of "Commands", which the session did
-not check against the tests: the reader's table is not kept, and the reading finds them again. A comment of an example
-that names a section of a page may name one that steps 73 to 78 took away, as one of `examples/bounce/bounce.ts` did.
+(`bridges/react.test.ts`, `bridges/fast-refresh.test.ts`); what it says of React Native is held by
+`examples/react-native/views.test_jest.tsx`, which `bun run test:react-native` runs. Of the API's reports it reads the
+diff since `v0.8.0`. A trial of its two briefs, on "Commands" and on three examples, reported six gaps of "Commands",
+which the session did not check against the tests: the reader's table is not kept, and the reading finds them again. A
+comment of an example that names a section of a page may name one that steps 73 to 78 took away, as one of
+`examples/bounce/bounce.ts` did.
 
 **Done when** the reading has run by the skill, and each finding is fixed, or is an item of "Open problems" with its
 `test.failing`. The readings after it read the changes since the commit that ends it.
@@ -349,9 +304,11 @@ owner left them here on 25 November 2026, while the steps of "Next, in order" ar
 
 - **What a real browser has not run of the bridges.** The bridges' tests run in Chromium, Firefox and WebKit
   (`bun run test:browsers`, a job of the CI). Firefox runs in the CI alone: on the owner's Windows machine, Playwright's
-  Firefox does not start ("side-by-side configuration is incorrect"), so the tests of hydration, transitions and Fast Refresh
-  that step 70 added ran in Chromium and WebKit, and run in Firefox after the owner's push. An IME is driven in Chromium
-  alone, through its protocol: Playwright drives none in Firefox or WebKit, so a composition there is not run.
+  Firefox does not start ("side-by-side configuration is incorrect"), so the tests of hydration, transitions and Fast
+  Refresh that step 70 added ran in Chromium and WebKit, and run in Firefox after the owner's push. So do all the
+  bridges' tests at React 19.3.0, which step 83 made the start of the peer range and the lockfile's version. An IME is
+  driven in Chromium alone, through its protocol: Playwright drives none in Firefox or WebKit, so a composition there
+  is not run.
 - **A benchmark that runs in the CI.** Many children, many messages per second, to keep what a message costs the event
   that sends it, and a model made only when it is read, from regressing. `bun run bench`
   (`tools/bench/subscriptions.ts`) measures a parent's subscriptions only, and `tools/bench/writes.ts`, run by hand,

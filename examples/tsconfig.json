@@ -6,5 +6,8 @@
     "customConditions": ["bun"],
     "jsx": "react-jsx"
   },
-  "include": ["."]
+  "include": ["."],
+  // Typechecked against React Native's types by `bun run test:react-native` (`tools/react-native/check.ts`), which
+  // installs them in a project of its own.
+  "exclude": ["react-native"]
 }

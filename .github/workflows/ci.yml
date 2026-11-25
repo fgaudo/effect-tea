@@ -90,3 +90,21 @@ jobs:
           node-version: 24
       - run: bun install --frozen-lockfile
       - run: bun run smoke
+
+  # The bridge to React on React Native (`tools/react-native/check.ts`): the tarball installed with npm beside React
+  # Native, the views of `examples/react-native` typechecked and tested with jest, and their application bundled with
+  # Metro for iOS and Android and compiled with `hermesc`. None of it is in the lockfile.
+  react-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.5
+      # jest and Metro run on Node.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - run: bun run test:react-native

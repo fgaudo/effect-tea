@@ -1,11 +1,11 @@
 name: Renderers latest
 
-# The renderers are optional peers of the bridges with a caret (`^19.3.1` for React, `^3.6.4` for snabbdom), wider than
+# The renderers are optional peers of the bridges with a caret (`^19.3.0` for React, `^3.6.4` for snabbdom), wider than
 # Effect's tilde (`AGENTS.md`), and the bridges are developed, and what they rest on of their renderer tested, at the
 # version of the lockfile alone (`docs/premises.md`). This runs the bridges' tests, those of the premises on the
 # renderers among them, on happy-dom and in real browsers, and the examples' at the newest versions the ranges accept,
-# so that a minor that breaks a bridge is known the day after it is published. A failure here is a lead for a fix of
-# the bridge, or for a narrower range, not a red commit.
+# and the check of React Native at its newest version, so that a minor that breaks a bridge is known the day after it
+# is published. A failure here is a lead for a fix of the bridge, or for a narrower range, not a red commit.
 on:
   schedule:
     - cron: '7 4 * * *'
@@ -14,7 +14,7 @@ on:
 jobs:
   newest:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
@@ -34,3 +34,5 @@ jobs:
       # And in real browsers, as the CI runs them.
       - run: bunx playwright install --with-deps chromium firefox webkit
       - run: bun run test:browsers
+      # And on the newest React Native, with the newest React installed above.
+      - run: bun run test:react-native --react-native latest

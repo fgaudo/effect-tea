@@ -31,8 +31,10 @@ its title, and a heading or a bold title of that page. Where this file says less
     `messagesSentBy` in `@fgaudo/effect-tea/snabbdom/testing`. It needs `snabbdom` 3.6.4 or a newer 3.x installed
     beside the package.
   - `@fgaudo/effect-tea/react` ([`bridges/react.ts`](../../bridges/react.ts)), with `Host`, which starts a program and
-    runs it while it is mounted, and `Draw`, which draws a program that you start yourself. It needs `react` 19.3.1 or a
-    newer 19.x, and imports nothing else of React.
+    runs it while it is mounted, and `Draw`, which draws a program that you start yourself. It needs `react` 19.3.0 or a
+    newer 19.x, and imports nothing else of React: it draws with React DOM, and with React Native. On React Native, a
+    handler may run on a view older than the state: lock what is typed by the shape of the state. The guide,
+    "Writing a bridge", "What a bridge does".
   - For another renderer, write a bridge. The guide, "Writing a bridge", "What a bridge does". Its tests can start
     from those of the package, [`bridges/bridge.test_suite.ts`](../../bridges/bridge.test_suite.ts).
 

@@ -31,6 +31,11 @@ for each renderer. Their `main.tsx` starts the program once and draws it with bo
 do not change with the renderer. Both draw the `App` that `start` gives, snabbdom's with `drawInto` and React's with
 `Draw`. The other examples are drawn with snabbdom alone, by a `view.ts`, and started by a `main.ts`.
 
+[`react-native/`](react-native) draws the programs of `counter/` and `form/` on React Native: their views, an
+`App.tsx` that draws both with `Host`, and their tests, in `views.test_jest.tsx`. `bun run test:react-native` installs
+React Native in a project of its own, and runs them there with jest. `bun test`, the typecheck and oxlint leave the
+folder out.
+
 ## The bridges
 
 The library draws nothing. A view is drawn through a bridge, an entry of the package, with its renderer installed
@@ -40,7 +45,7 @@ beside it (`snabbdom`, or `react` and `react-dom`). The bridges' sources are in 
 | ------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------- |
 | `@fgaudo/effect-tea/snabbdom`         | [`snabbdom.ts`](../bridges/snabbdom.ts)                 | The bridge to snabbdom: `View` and `drawInto`.                        | draw a program with snabbdom                |
 | `@fgaudo/effect-tea/snabbdom/testing` | [`snabbdom-testing.ts`](../bridges/snabbdom-testing.ts) | `messagesSentBy`: what a view sends for a model, found without a DOM. | test that a view draws what its model holds |
-| `@fgaudo/effect-tea/react`            | [`react.ts`](../bridges/react.ts)                       | The bridge to React: `View`, `Host` and `Draw`.                       | draw a program in a React application       |
+| `@fgaudo/effect-tea/react`            | [`react.ts`](../bridges/react.ts)                       | The bridge to React: `View`, `Host` and `Draw`.                       | draw a program with React or React Native   |
 
 [`snabbdom-preload.ts`](../bridges/snabbdom-preload.ts) is what Bun loads before the tests of this repository, so that
 snabbdom loads without a DOM: a test of a snabbdom view without a DOM needs the same line.

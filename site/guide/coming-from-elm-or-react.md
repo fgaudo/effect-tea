@@ -72,8 +72,9 @@ With the package's bridge to React, React hosts the program: `<Host program={cou
 `Host` is mounted. The components of the view and of the application may keep state and effects of their own, beside
 the program (see [view](./view.md#rules)). The application learns what the program does from a command, as any part
 of the world does, whose service it gives in `Host`'s `fork`: `onApplied` is called inside each step, for devtools.
-The run lives as long as `Host`'s effect (see [the package's bridges](./writing-a-bridge.md#the-packages-bridges)). What the bridge leaves out is in
-[what is left out](./writing-a-bridge.md#what-is-left-out). The bridge is the entry `@fgaudo/effect-tea/react`
-([`bridges/react.ts`](../../bridges/react.ts)), with `react` installed beside the package. The examples
-[`counter`](../../examples/counter) and [`form`](../../examples/form) are drawn with it, and with the bridge to snabbdom
-too.
+The run lives as long as `Host`'s effect (see [the package's bridges](./writing-a-bridge.md#the-packages-bridges)).
+What the bridge leaves out is in [what is left out](./writing-a-bridge.md#what-is-left-out). The bridge is the entry
+`@fgaudo/effect-tea/react` ([`bridges/react.ts`](../../bridges/react.ts)), with `react` installed beside the package,
+and draws with React DOM and with React Native. The examples [`counter`](../../examples/counter) and
+[`form`](../../examples/form) are drawn with it, and with the bridge to snabbdom too, and
+[`react-native`](../../examples/react-native) draws them on React Native.

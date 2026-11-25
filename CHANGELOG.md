@@ -13,7 +13,7 @@ version, and everything else, features included, the patch version.
   `children.X.output()` in `makeModel` and in a last parameter of its `update`, `external` and `onEvent`; `OutputOf`.
 - `messagesSentBy(view, model, reports)`, in `@fgaudo/effect-tea/snabbdom/testing`: `reports` gives what a handler
   reads of its element and its event, as `scrollTop` or `clientX`, and each event's `currentTarget` is its element too
-  ("Writing a bridge").
+  ("Testing").
 - The bridge to snabbdom draws a node's `class`, `attrs` and `dataset` too, with snabbdom's modules of each, where it
   dropped them ("Writing a bridge", "The package's bridges").
 - `tell` in `child` and `childById`: a function of the parent's state that gives an external message of the child,
@@ -32,6 +32,8 @@ version, and everything else, features included, the patch version.
   subscription.
 - The doc comment of `Host` says that the fiber `fork` returns is interrupted as `Host`'s effect ends, so an
   application waits for the run to end by awaiting it.
+- The bridge to React draws with React Native, with nothing more under Metro and Hermes, and the example
+  `react-native` draws `counter` and `form` there ("Writing a bridge", "Coming from Elm or React").
 
 ### Changed
 
@@ -123,8 +125,9 @@ version, and everything else, features included, the patch version.
 - `rehearse`'s `hear` takes any message of the program, as `send` does: a wrapper built by a parent's constructor, or
   a value typed as the whole message, now compiles.
 - The peer dependency on `effect` is `~4.1.5`, where it was `~4.1.4`.
-- `react-dom` is no longer a peer: the bridge to React imports `react` alone. Where there is no `reportError`, as on
-  React Native, it reports a run that dies after `Host` unmounts as React reports an error itself ("Writing a bridge").
+- `react-dom` is no longer a peer, and `react` is `^19.3.0`, where it was `^19.3.1`: the bridge to React imports
+  `react` alone. Where there is no `reportError`, as on React Native, it reports a run that dies after `Host` unmounts
+  as React reports an error itself ("Writing a bridge").
 - The package's JavaScript is ES2022, as the README now says, without the class `static {}` blocks that some
   toolchains, as Metro for Hermes, need a plugin for.
 - No value given to the library, or taken from it, is to be mutated: the rule of a state now holds of a message, a

@@ -183,4 +183,5 @@ without it is as good ([`docs/premises.md`](docs/premises.md)).
 
 `bun run typecheck`, `bun run lint` and `bun run test`; after a change of the engine or of a testing tool,
 `bun run test:node` and `bun run interleavings`; of a bridge or a view drawn with both, `bun run test:browsers`; of the
-guide or a doc comment, `bun run comments`; of the API, `change-api`. The README's "Development" says what each runs.
+bridge to React or of `examples/react-native/`, `bun run test:react-native`; of the guide or a doc comment,
+`bun run comments`; of the API, `change-api`. The README's "Development" says what each runs.

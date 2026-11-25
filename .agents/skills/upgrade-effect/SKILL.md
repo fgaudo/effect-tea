@@ -10,7 +10,7 @@ description: How @fgaudo/effect-tea depends on Effect: the peer range is the pat
 `peerDependencies.effect` (`~4.1.5`) is the version of `devDependencies.effect` with a tilde, and the lockfile holds
 exactly that version. No older Effect is supported, and no later minor: what Effect does not document may change in a
 minor, and the premises rest on some of it, so a new minor is supported only by an upgrade and a release. A renderer's
-range is a caret from the version its bridge is developed with (`^19.3.1`, `^3.6.4`): a tilde would refuse the whole
+range is a caret from the version its bridge is developed with (`^19.3.0`, `^3.6.4`): a tilde would refuse the whole
 package to an application on a later minor.
 
 The daily jobs are the alarms. `.github/workflows/effect-latest.yml` runs the typecheck and the tests at the newest
