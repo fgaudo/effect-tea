@@ -26,11 +26,11 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 71 and 72 come before the library is made known to others ([`adoption.md`](docs/records/adoption.md)), and
-neither wait for the release of 0.9.0 ("For the owner") nor hold it: what is done before it goes out with it. Both
-read the guide as step 70 left it: its "Writing a bridge" promises what the bridge to React does under hydration and
-transitions, and the doc comment of `Host` what it does under Fast Refresh, each held by a test that runs in the
-browsers (`bridges/react.test.ts`, `bridges/fast-refresh.test.ts`).
+Step 72 comes before the library is made known to others ([`adoption.md`](docs/records/adoption.md)), and neither
+waits for the release of 0.9.0 ("For the owner") nor holds it: what is done before it goes out with it. It reads the
+guide as step 70 left it, and so does the next reading of the promises, below: the guide's "Writing a bridge" promises
+what the bridge to React does under hydration and transitions, and the doc comment of `Host` what it does under Fast
+Refresh, each held by a test that runs in the browsers (`bridges/react.test.ts`, `bridges/fast-refresh.test.ts`).
 
 Step 73 decided the form of the smaller guide ([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md`
 holds it, under "What belongs here". The owner approved it on 25 November 2026, and steps 74 to 77 wrote every page by
@@ -46,27 +46,16 @@ The next review of the premises ([`premise-review`](.agents/skills/premise-revie
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
 
-### 71. The reading of the guide's promises against the tests, as a skill run before a release
-
-**Model and effort.** Fable 5.2, `high`, to write it: it decides what a release weighs.
-
-**Depends on** no other step. It comes after steps 69 and 70, which may add rules to the guide: its first run reads
-them.
-
-**Why.** Since step 56, the promises are what stands under "Rules", under "What you can rely on" and in the types, and
-a test checks each (`AGENTS.md`). The method of [`promises-and-tests.md`](docs/records/promises-and-tests.md) found 65
-promises outside "What you can rely on" that no test checked, on 21 November 2026; step 12 wrote their tests. Nothing
-has read the promises against the tests since, and the rules changed in many steps after it.
-
-**How.** The method of the record, written in `.agents/skills/` and named by `release` and by the list of skills of
-`AGENTS.md`, as `premise-review` is. With it, the examples read against the guide, which no check does: each "Don't"
-of a page is looked for in `examples/`, and a comment of an example that gives a reason is reread when the rule it
-rests on changes. The step decides what a release reads: every promise, or those of the sections changed since the
-last reading, as the review of the premises reads the changes since a commit.
-
-**Done when** the skill is written, `release` and `AGENTS.md` name it, and a line of "Next, in order" says what its
-first run reads, before the release after 0.9.0, as the line of the review of the premises does. 0.9.0 does not wait
-for it.
+The next reading of the promises against the tests, and of the guide's rules against the examples
+([`promise-reading`](.agents/skills/promise-reading/SKILL.md)), is the first by the skill. It is due before the
+release after 0.9.0 too, and 0.9.0 does not wait for it. It reads everything: the one reading before it
+([`promises-and-tests.md`](docs/records/promises-and-tests.md), at `b6db847`) read the guide alone, which steps 56 and
+73 to 78 wrote again since, and nothing has read a doc comment or an example. Of the API's reports it reads the diff
+since `v0.8.0`. It is a review, for Opus 5.5 at `high`, with its readers as subagents. The readings after it read the
+changes since the commit that ends it. A trial of its two briefs, on "Commands" and on three examples, reported six
+gaps of "Commands", which the session did not check against the tests: the reader's table is not kept, and the
+reading finds them again. A comment of an example that names a section of a page may name one that steps 73 to 78
+took away, as one of `examples/bounce/bounce.ts` did.
 
 ### 72. A reader's check that meets what no check has met
 
@@ -95,7 +84,7 @@ owner does it.
 
 - **The release of 0.9.0**: nothing of "Next, in order" holds it. Step 65 closed the review of every change since the last release.
   An agent prepares its commit and its tag (`release`) when the owner asks for it, and the owner pushes them and
-  publishes the package. The checks of point 1 of "Releasing" passed on the commit that closed step 65: commits come
+  publishes the package. The checks of point 2 of "Releasing" passed on the commit that closed step 65: commits come
   after it, so the agent runs them again.
 - **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
   decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API. Until then,

@@ -12,8 +12,10 @@ export; [`change-engine`](.agents/skills/change-engine/SKILL.md) for the engine 
 tests, `tools/mutations/` or `test/scheduled.test_scheduler.ts`; [`add-example`](.agents/skills/add-example/SKILL.md)
 for an example or a bridge; [`upgrade-effect`](.agents/skills/upgrade-effect/SKILL.md) for a newer Effect or a
 dependency; [`release`](.agents/skills/release/SKILL.md) for the changelog, the version, a release or the site;
-[`premise-review`](.agents/skills/premise-review/SKILL.md) for a review of the premises; and
-[`guide-reader`](.agents/skills/guide-reader/SKILL.md) for a reader's check of the documentation.
+[`premise-review`](.agents/skills/premise-review/SKILL.md) for a review of the premises;
+[`promise-reading`](.agents/skills/promise-reading/SKILL.md) for a reading of the promises against the tests, and of
+the guide's rules against the examples; and [`guide-reader`](.agents/skills/guide-reader/SKILL.md) for a reader's check
+of the documentation.
 
 ## Deciding
 

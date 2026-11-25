@@ -40,13 +40,18 @@ indented, `Upgrade:` with the old and the new spelling, in at most three lines. 
 
 ## Releasing
 
-1. The checks pass (`bun run typecheck`, `bun run lint`, `bun run test`, `bun run comments`), every mutation is killed
+1. The readings that `ROADMAP.md`, "Next, in order", names as due before this release are done: of the premises
+   ([`premise-review`](../premise-review/SKILL.md)), then of the promises against the tests, and of the guide's rules
+   against the examples ([`promise-reading`](../promise-reading/SKILL.md)), each over the changes since the commit
+   that the roadmap names for it. What either found is fixed, or is in `ROADMAP.md`, and is weighed before the
+   release.
+2. The checks pass (`bun run typecheck`, `bun run lint`, `bun run test`, `bun run comments`), every mutation is killed
    (`bun run mutations`), and the site builds without warnings. `bun run interleavings` runs too: an order it finds
    goes in `ROADMAP.md`, and is weighed before the release.
-2. In `CHANGELOG.md`, replace `(unreleased)` with the date: `## 0.6.0 (2026-10-23)`.
-3. Commit that change alone, `release <version>`, and tag it `v<version>` (a lightweight tag). The owner pushes the
+3. In `CHANGELOG.md`, replace `(unreleased)` with the date: `## 0.6.0 (2026-10-23)`.
+4. Commit that change alone, `release <version>`, and tag it `v<version>` (a lightweight tag). The owner pushes the
    commit and the tag ("Deciding" in `AGENTS.md`); the tag deploys the site (`.github/workflows/docs.yml`).
-4. The owner publishes the package: never run `npm publish` or `bun publish`.
+5. The owner publishes the package: never run `npm publish` or `bun publish`.
 
 ## What the package contains
 

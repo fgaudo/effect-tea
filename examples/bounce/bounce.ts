@@ -84,8 +84,7 @@ export const update: Update<State, Message> = (message) => (state) => {
       }
     // A step and a part of one arrive only in flight: the subscription that sends them stops when the ball rests, and
     // the run drops what it sent that `update` has not seen, such as the part sent after the last step (the guide's
-    // "Subscriptions", "What a stopped subscription sent is dropped"). One anywhere else is a bug, and the run dies
-    // with it.
+    // "Subscriptions", under "Rules"). One anywhere else is a bug, and the run dies with it.
     case "Stepped":
       return state.ball._tag === "Flying"
         ? { state: stepped(state, state.ball.velocity) }
