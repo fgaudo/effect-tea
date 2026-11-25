@@ -26,72 +26,20 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 lead of the types has no `test.failing`: its fix adds the test of the types that holds it, and a lead of the inference
 matrix is shown by its case (`bun run inference --filter <case>`).
 
-- **A tag that throws as a tool names its message replaces the tool's error with what it threw**: `doesNothing`
-  and `describeAll` (`rehearse.ts`), and `unexpectedRejection` (`unexpected.ts`), which `simulate` fails with on a
-  rejection, call `describeByTag` with no guard, in the call's fiber. Found by the review of step 20, on 24 November
-  2026, in `rehearse`, and untested. Step 52 left the error of a rejected message to the tool that calls
-  `outcomeOf` (`stage.ts`), so each is built in the call that fails: step 53 takes them.
-- **`rehearse` waits for ever on a key whose printing throws**: a `hearNext` waits on a key whose `toJSON` and
-  `toString` throw, and a `send` takes the key away. The fiber of effects tells the calls that waited (`released` in
-  `rehearse.ts`) with an error it builds at once, `stoppedWhileWaiting(key)`, whose `Inspectable.toStringUnknown`
-  falls back to `String` and throws, as its JSDoc says: the fiber of effects dies there, before the job's starts and
-  every later job, and the `send`, which waits for a job that tells after its own (`outcomeOf`, not raced with a
-  death), waits for ever, and so does the rehearsal. With a key that prints, it ends at once. It breaks "It throws
-  nothing" of `released` and `Engine.after`, and "The testing tools behave like the engine": the run never prints a
-  key. Its `test.failing` is "a hearNext stopped as its key goes away fails the test, and the rehearsal ends"
-  (`rehearse.test.ts`). Found by the review of step 20, on 24 November 2026, and run. Of the same form, untested: the
-  job of a `hearNext` builds `hasEnded(call.key)`, and `openFor` the error of a start `hear` played, in the `done` of
-  `Engine.after`; the end's `stoppedWhileWaiting` fails the rehearsal's fiber with the throw. The form is that of the
-  item above it, a value of the program printed outside its functions with no guard: step 53 fixes both by that form.
-
 ## Next, in order
 
 Step 64 applies what step 61 decided on 24 November 2026, when it weighed the decisions taken before the charter, and
 the invariants, by the values of "Deciding" ([`decisions-weighed.md`](docs/records/decisions-weighed.md)), whose first
-three points steps 62 and 63 applied. Step 64 comes after the steps of the engine, 53 and 54: it is the largest, and may
-stop with a report, so their fixes do not wait for it. Step 55 comes last, before the release that follows them all, so
+three points steps 62 and 63 applied. Step 64 comes after the step of the engine, 54: it is the largest, and may
+stop with a report, so its fix does not wait for it. Step 55 comes last, before the release that follows them all, so
 that one release carries every breaking change.
-
-### 53. In `rehearse`, the fiber of effects tells data, and the call makes the error
-
-**Model and effort.** Opus 5.5, `high`: a fix by its form, in the largest tool.
-
-**Depends on** no open step. Step 63 changed the end of the engine, which `stage.ts` ends a tool by: the engine's end
-reports nothing, and the close of its scope (`Scope.close(forks)` in `stage.ts`) is awaited as it is, no longer through
-`Effect.exit`, since it dies of nothing that the register lacks; and `Engine.current()` gives the state, with no
-revision. Step 62 took `State extends object` out of the type parameters of `rehearse.ts`. Step 52 left the code where
-it stays, what `rehearse` and `simulate` share in `src/testing/stage.ts`, and what `rehearse` hears in `rehearse.ts`. It
-waits because only a key whose printing throws, or a message whose tag does, meets it.
-
-**Why.** Two findings of "Open problems", of one form: a value of the program, or of the test, printed where what it
-throws is not the call's. `released`, the job of a `hearNext` and `openFor` build an `Error` with
-`Inspectable.toStringUnknown(key)` in the fiber of effects, inside a `done` of `Engine.after` that "throws nothing": a
-key whose printing throws ends that fiber, and every call that waits for a job waits for ever. `doesNothing`,
-`describeAll` and `unexpectedRejection` call `describeByTag` with no guard, and a tag that throws takes the place of
-the tool's error.
-
-**How.** A call of `hearNext` is told data: the message it heard, that its start has ended, or that it was stopped.
-`heard` is completed with a value, never with a defect, and the fiber of the call makes the error of it. What the job
-of a `hearNext` decides (`openFor`) is data too, which the call turns into its effect. So nothing that runs in the
-fiber of effects, or at the end, builds a text. One function says how a tool names a value in its own errors, a key or
-a message by its tags. What it does when the value throws as it is named is decided before it is written, by
-"Deciding": the run's rule for a defect is that neither is lost (`recordThrown`), and here the first of the two is a
-failure of the test, no defect of the program. The other half of the item, a call's wait for its job raced with a
-death, has no case once nothing throws in the fiber of effects: `docs/invariants.md` says so, or the race is written
-if a case is found.
-
-**Done when** "a hearNext stopped as its key goes away fails the test, and the rehearsal ends" (`rehearse.test.ts`)
-passes unmarked; a test of the same form holds each other place that the item names (the job of a `hearNext` on a
-start that has ended, a start that `hear` played, the end), and one holds a tag that throws in `doesNothing`, in
-`describeAll` and in `unexpectedRejection`; each check has its mutation; both items leave "Open problems"; the
-changelog has the fix, by `release`; and the checks of `change-engine` pass.
 
 ### 54. The rule as a boundary: a tool decides when, never what
 
 **Model and effort.** Opus 5.5, `high`: a rule of `docs/invariants.md` said again, with the line of `change-engine`
 that links to it, each sentence checked against the code.
 
-**Depends on** step 53. Since steps 50 to 52, `src/testing/` uses none of the six: what it takes of `shell.ts` is
+**Depends on** no open step. Since steps 50 to 52, `src/testing/` uses none of the six: what it takes of `shell.ts` is
 `makeDeaths`, `startFiber`, `commandFiber` and `stopping` (`drive.ts`, `rehearse.ts`, `simulate.ts` and `stage.ts`),
 so the check passes once it is written.
 
@@ -105,7 +53,10 @@ What keeps the tools aligned is then a structure, which a check can hold where a
    `Core.reconcile`, `diesIn`, `scopedIn`, `rootedIn` or `runSubscription`. The library's modules are imported as
    namespaces, so `no-restricted-imports` cannot name a member: either `src/testing/` is forbidden `core.ts` and
    `shell.ts` whole, and takes what it may use from `engine.ts` and `run.ts`, or a script reads the uses, as
-   `tools/comments.ts` reads the doc comments. The smaller of the two, seen to fail on a use put back by hand.
+   `tools/comments.ts` reads the doc comments. The smaller of the two, seen to fail on a use put back by hand. A lead
+   to weigh: since step 53, a tool names a value in its errors by one function, `failure` in `testing/failure.ts`,
+   which throws nothing; the same check may refuse `Inspectable` and `describeByTag` in the other modules of
+   `src/testing/`, where it costs no more than a name.
 2. The rule said as it then is, in `docs/invariants.md` ("The testing tools behave like the engine"), its one place
    since step 58, and in `change-engine` (point 4 of "Before the change") as a line that links to it: a tool that
    plays a program runs it on the engine; it decides when a command runs, when a subscription's message is heard and
@@ -126,7 +77,7 @@ say the rule; each case of the contract is kept or removed, with its line in the
 **Model and effort.** Opus 5.5, `high`: a page of the guide is a specification, and a concept leaves `compose.ts` with
 its checks.
 
-**Depends on** steps 53 and 54, which come before it, so that their fixes do not wait for the largest step. Step 62
+**Depends on** step 54, which comes before it, so that its fix does not wait for the largest step. Step 62
 made a program's state any value, in the types of `program.ts` and `compose.ts`. Step 61 decided it
 ([`decisions-weighed.md`](docs/records/decisions-weighed.md), point 4), and change 11 of
 [`api-review.md`](docs/records/api-review.md) spells what the API loses.
@@ -264,7 +215,7 @@ day; the two searches of point 2 leave what it says; and `bun run typecheck`, `b
 **Model and effort.** Opus 5.5, `high`, by a reviewer that wrote none of the changes
 ([`premise-review`](.agents/skills/premise-review/SKILL.md)).
 
-**Depends on** steps 53, 54 and 64, and comes before the release that follows them.
+**Depends on** steps 54 and 64, and comes before the release that follows them.
 
 **Why.** Steps 49 to 54 move a check from a tool to the engine, or take one away with the code it guarded: a premise
 may leave with it, and no test fail. From step 52 on, `simulate` rests on the engine's premises, and no longer on

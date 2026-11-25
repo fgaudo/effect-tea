@@ -9,15 +9,14 @@ import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as HashMap from "effect/HashMap"
-import * as Inspectable from "effect/Inspectable"
 import * as Opt from "effect/Option"
 import * as Scope from "effect/Scope"
 import * as Core from "../core.ts"
 import * as Engine from "../engine.ts"
-import { describeByTag } from "../log.ts"
 import { type AnyProgram, type FlagsOption, listenOf, type Program, runCommandOf } from "../program.ts"
 import { partsOf, readEach } from "../run.ts"
 import { makeDeaths, startFiber } from "../shell.ts"
+import { failure, type Names } from "./failure.ts"
 import * as Ledger from "./ledger.ts"
 import * as Stage from "./stage.ts"
 
@@ -151,9 +150,24 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, RC 
   readonly ignored: Effect.Effect<ReadonlyArray<Message>>
 }
 
-// A call of `hearNext`, by its identity: the key the test gave, and what it is told: the message it heard, once its job
-// is done, or none once its start has ended.
-type Call<Message> = Readonly<{ key: unknown; heard: Deferred.Deferred<Opt.Option<Message>> }>
+// What a call of `hearNext` is told: the message it heard, that its start has ended, or that its start was stopped
+// while it waited, its key gone or the rehearsal ended. Data alone, told by the fiber of effects and by the end, where
+// nothing builds a text: the call makes its error of it.
+type Told<Message> =
+  | Readonly<{ _tag: "Heard"; message: Message }>
+  | Readonly<{ _tag: "Ended" }>
+  | Readonly<{ _tag: "Stopped" }>
+
+const ended: Told<never> = { _tag: "Ended" }
+
+const stopped: Told<never> = { _tag: "Stopped" }
+
+// A call of `hearNext`, by its identity: the key the test gave, and what it is told, once its job is done.
+type Call<Message> = Readonly<{ key: unknown; heard: Deferred.Deferred<Told<Message>> }>
+
+// What the job of a call of `hearNext` decides, which the call turns into its effect: it waits on the start, or the
+// run has died, or the test plays the start with `hear`, or the start has ended.
+type Opened = "Waits" | "Dead" | "Scripted" | "Ended"
 
 // What the fiber of a start is given by the calls of `hearNext`: each ask for a message, with the services of the call,
 // and the wait of the fiber for the next one. Its subscription runs with the services of the first. Made by plain code
@@ -237,33 +251,14 @@ const rehearsing = Effect.fnUntraced(function*<
         )
       )
   })
-  const stoppedWhileWaiting = (key: unknown) =>
-    new Error(
-      `The subscription under ${Inspectable.toStringUnknown(key, 0)} was stopped while hearNext waited for its `
-        + "message: its key went away, or the scenario ended"
-    )
   // What the call of a `send` that `update` rejected fails with.
   const doesNothing = (message: Message) => () =>
     Effect.die(
-      new Error(
+      failure(({ tags }) =>
         `update rejected ${
-          String(describeByTag(message))
+          tags(message)
         }, which the model of the same state shows: a control that does nothing. A tap on a model drawn before is `
-          + "a message applied to a later state: test it with applyAll, or with update itself."
-      )
-    )
-  const untilItComesBack = "until its key goes away and comes back"
-  const hasEnded = (key: unknown) =>
-    Effect.die(
-      new Error(
-        `The subscription under ${Inspectable.toStringUnknown(key, 0)} has ended: it sends nothing ${untilItComesBack}`
-      )
-    )
-  const runsUnderHearNext = (key: unknown) =>
-    Effect.die(
-      new Error(
-        `The subscription under ${Inspectable.toStringUnknown(key, 0)} runs under hearNext: only it sends messages `
-          + `under its key, ${untilItComesBack}`
+        + "a message applied to a later state: test it with applyAll, or with update itself."
       )
     )
   // In a thunk that has checked the end: while a call waits on the start and a message it sent is not heard, the
@@ -277,8 +272,8 @@ const rehearsing = Effect.fnUntraced(function*<
       const { call, sent: { message }, ended: told } = found.value
       stage.ledger = found.value.ledger
       stage.apply({ _tag: "Subscription", key, generation }, message, "list", () => {
-        for (const { heard } of told) Deferred.doneUnsafe(heard, Exit.succeed(Opt.none()))
-        Deferred.doneUnsafe(call.heard, Exit.succeed(Opt.some(message)))
+        for (const { heard } of told) Deferred.doneUnsafe(heard, Exit.succeed(ended))
+        Deferred.doneUnsafe(call.heard, Exit.succeed({ _tag: "Heard", message }))
       })
     }
   }
@@ -322,7 +317,7 @@ const rehearsing = Effect.fnUntraced(function*<
   const released = (gone: ReadonlyArray<readonly [Key, Core.Generation]>) => {
     const [told, next] = Ledger.release(stage.ledger, gone.map(([, generation]) => generation))
     stage.ledger = next
-    for (const { key, heard } of told) Deferred.doneUnsafe(heard, Exit.die(stoppedWhileWaiting(key)))
+    for (const { heard } of told) Deferred.doneUnsafe(heard, Exit.succeed(stopped))
   }
   // The handle the run makes, `init` called with the flags and a defect of it recorded in `'init'`, over the engine
   // with the rehearsal's fibers. An `init` that threw leaves no engine: the rehearsal fails with the register.
@@ -388,42 +383,46 @@ const rehearsing = Effect.fnUntraced(function*<
   // start, in a thunk that has checked the end and the register: the call waits on the start and asks it for a
   // message, the start it opens included, so that a later step that stops the start finds the call waiting. A call
   // that left before its job starts nothing: the test no longer asks for it.
-  const openFor = (
-    generation: Core.Generation,
-    call: CallOf,
-    context: Context.Context<RSOf>
-  ): Effect.Effect<void> => {
+  const openFor = (generation: Core.Generation, call: CallOf, context: Context.Context<RSOf>): Opened => {
     const found = Ledger.opening(stage.ledger, generation, call)
     switch (found._tag) {
       case "Left":
-        return Effect.void
+        return "Waits"
       case "Open": {
         stage.ledger = Ledger.open(stage.ledger, generation)
         const [asks, asked] = Ledger.ask(stage.ledger, generation, call)
         stage.ledger = asked
         if (asks) ask(found.start.asks, context)
-        return Effect.void
+        return "Waits"
       }
       case "Opened": {
         const [asks, asked] = Ledger.ask(stage.ledger, generation, call)
         stage.ledger = asked
         hearHeld(call.key as Key, generation)
         if (asks) ask(found.start.asks, context)
-        return Effect.void
+        return "Waits"
       }
       case "Scripted":
-        return Effect.die(
-          new Error(
-            `The test plays the subscription under ${Inspectable.toStringUnknown(call.key, 0)} with hear: hearNext `
-              + `would start it again, which the run does not do ${untilItComesBack}`
-          )
-        )
+        return "Scripted"
       case "Ended":
-        return hasEnded(call.key)
+        return "Ended"
       // Its key went away after the call, before its job: the job that stops its start tells it, once what the start
       // held is released, as a call waiting on the start is told (`released`).
       case "Gone":
-        return Effect.void
+        return "Waits"
+    }
+  }
+  // In the call, once its job is done: what it is told, or how it fails.
+  const toldOf = (call: CallOf, opened: Opened): Effect.Effect<Told<Message>> => {
+    switch (opened) {
+      case "Waits":
+        return stage.orDead(Deferred.await(call.heard))
+      case "Dead":
+        return deadOr(Effect.never)
+      case "Scripted":
+        return Effect.die(playedWithHear(call.key))
+      case "Ended":
+        return Effect.succeed(ended)
     }
   }
   // The call looks its key up in the current state, is among the calls from then on, and asks for its job, in one
@@ -431,30 +430,36 @@ const rehearsing = Effect.fnUntraced(function*<
   // hear is the next call's. A defect of the program, in whichever fiber, ends the wait, as it ends the run.
   const hearNext = Effect.fnUntraced(function*(key: unknown) {
     const context = yield* Effect.context<RSOf>()
-    const call: CallOf = { key, heard: yield* Deferred.make<Opt.Option<Message>>() }
-    const heard = yield* stage.submit(() => {
+    const call: CallOf = { key, heard: yield* Deferred.make<Told<Message>>() }
+    const told = yield* stage.submit(() => {
       const generation = startUnder(key)
       if (typeof generation !== "number") return generation
       stage.ledger = Ledger.enter(stage.ledger, call, generation)
-      let opened: Effect.Effect<void> = Effect.void
+      let opened: Opened = "Waits"
       const done = stage.afterJobs(() => {
         if (engine.ended()) return
-        opened = dead() ? deadOr(Effect.never) : openFor(generation, call, context)
+        opened = dead() ? "Dead" : openFor(generation, call, context)
       })
-      return Effect.andThen(Deferred.await(done), Effect.suspend(() => opened))
+      return Effect.andThen(Deferred.await(done), Effect.suspend(() => toldOf(call, opened)))
     }).pipe(
-      Effect.andThen(stage.orDead(Deferred.await(call.heard))),
       Effect.ensuring(Effect.sync(() => {
         stage.ledger = Ledger.leave(stage.ledger, call)
       }))
     )
-    return Opt.isSome(heard) ? heard.value : yield* hasEnded(key)
+    switch (told._tag) {
+      case "Heard":
+        return told.message
+      case "Ended":
+        return yield* hasEnded(key)
+      case "Stopped":
+        return yield* Effect.die(stoppedWhileWaiting(key))
+    }
   })
   const run = (select: (command: Command) => boolean) =>
     Effect.flatMap(stage.runFirst(select), (ran) =>
       ran._tag === "Ran"
         ? Effect.succeed(ran.command)
-        : Effect.die(new Error(`No pending command matches (pending: ${describeAll(ran.pending)})`)))
+        : Effect.die(failure(({ tags }) => `No pending command matches (pending: ${describeAll(tags, ran.pending)})`)))
   // What the test reads of the state stays readable once the rehearsal died; what it asks of the program, its model
   // included, fails.
   const rehearsal: Rehearsal<State, Model, Message, Command, Event, RC, RS> = {
@@ -475,38 +480,69 @@ const rehearsing = Effect.fnUntraced(function*<
   const [result, owed] = yield* stage.play(
     Effect.suspend(() => scenario(rehearsal)),
     () =>
-      Effect.forEach(
-        Arr.fromIterable(stage.ledger.calls),
-        ({ key, heard }) => Deferred.die(heard, stoppedWhileWaiting(key)),
-        { discard: true }
-      )
+      Effect.forEach(Arr.fromIterable(stage.ledger.calls), ({ heard }) => Deferred.succeed(heard, stopped), {
+        discard: true
+      })
   )
   // Pending once the engine has finished: a command that a job it finished owes fails the rehearsal too.
   const { cancelled, underWay } = owed
   const pending = Ledger.pendingOf(stage.ledger)
   if (cancelled.length > 0) {
     return yield* Effect.die(
-      new Error(
-        `Commands whose run was interrupted before they answered: ${describeAll(cancelled)}. A command cannot be `
-          + "cancelled: its answer would still arrive"
+      failure(({ tags }) =>
+        `Commands whose run was interrupted before they answered: ${describeAll(tags, cancelled)}. A command cannot be `
+        + "cancelled: its answer would still arrive"
       )
     )
   }
   if (underWay.size > 0) {
     const running = Arr.map(Arr.fromIterable(underWay.values()), ({ command }) => command)
-    return yield* Effect.die(new Error(`Commands still under way when the scenario ended: ${describeAll(running)}`))
+    return yield* Effect.die(
+      failure(({ tags }) => `Commands still under way when the scenario ended: ${describeAll(tags, running)}`)
+    )
   }
   if (pending.length > 0) {
-    return yield* Effect.die(new Error(`Commands still pending when the scenario ended: ${describeAll(pending)}`))
+    return yield* Effect.die(
+      failure(({ tags }) => `Commands still pending when the scenario ended: ${describeAll(tags, pending)}`)
+    )
   }
   return result
 })
 
+// The errors of a call that name its key, each made in the call's fiber.
 const nothingListensUnder = (key: unknown) =>
-  new Error(`Nothing listens under ${Inspectable.toStringUnknown(key, 0)} in the current state`)
+  failure((names) => `Nothing listens under ${names.key(key)} in the current state`)
 
-const describeAll = (values: ReadonlyArray<unknown>) =>
-  values.length === 0 ? "none" : values.map((value) => String(describeByTag(value))).join(", ")
+const untilItComesBack = "until its key goes away and comes back"
+
+const hasEnded = (key: unknown) =>
+  Effect.die(
+    failure((names) => `The subscription under ${names.key(key)} has ended: it sends nothing ${untilItComesBack}`)
+  )
+
+const runsUnderHearNext = (key: unknown) =>
+  Effect.die(
+    failure((names) =>
+      `The subscription under ${names.key(key)} runs under hearNext: only it sends messages under its key, `
+      + untilItComesBack
+    )
+  )
+
+const playedWithHear = (key: unknown) =>
+  failure((names) =>
+    `The test plays the subscription under ${names.key(key)} with hear: hearNext would start it again, which the run `
+    + `does not do ${untilItComesBack}`
+  )
+
+const stoppedWhileWaiting = (key: unknown) =>
+  failure((names) =>
+    `The subscription under ${
+      names.key(key)
+    } was stopped while hearNext waited for its message: its key went away, or the scenario ended`
+  )
+
+const describeAll = (tags: Names["tags"], values: ReadonlyArray<unknown>) =>
+  values.length === 0 ? "none" : values.map(tags).join(", ")
 
 /**
  * Rehearses a program without running it, step by step: the test decides when each message arrives.

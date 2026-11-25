@@ -50,6 +50,25 @@ describe("applyAll", () => {
     expect(() => applyAll(update, ["Increment", "Forbidden"], closed)).toThrow("message 1 (Forbidden)")
   })
 
+  test("a rejection of a message whose tag throws fails all the same, with what it threw as the cause", () => {
+    const tagless: Readonly<{ _tag: string }> = {
+      get _tag(): string {
+        throw new Error("tag")
+      }
+    }
+    const refusing: Update<State, Readonly<{ _tag: string }>> = () => () => reject
+    let failure: unknown
+    try {
+      applyAll(refusing, [tagless], closed)
+    } catch (thrown) {
+      failure = thrown
+    }
+    expect(failure instanceof Error && [failure.message, String(failure.cause)]).toEqual([
+      "update rejected message 0 (<a value that threw as it was named: see the cause>)",
+      "Error: tag"
+    ])
+  })
+
   test("the InvariantDefect of defect fails the test, as any error update throws", () => {
     const broken: Update<State, Message> = () => () => defect("No message arrives here")
     expect(() => applyAll(broken, ["Increment"], closed)).toThrow(InvariantDefect)

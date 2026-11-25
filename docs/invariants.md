@@ -313,7 +313,11 @@ the engine and in the testing tools.
   - `rehearse` runs through the handle the run makes (`partsOf` in `run.ts`), and decides only what the test decides:
     when a command runs, and when a subscription's message is heard. A call that applies a message gives it to the
     engine's `send` in a thunk of its own, reads what it came to (`stepped`), and waits for a job that only tells
-    (`after`), so each call is whole for the test.
+    (`after`), so each call is whole for the test. That wait is not raced with a death, since the fiber of effects dies
+    of nothing: what it and the end tell a call is data, which the call makes its error of in its own fiber, and a tool
+    names a value in its errors by one function (`failure` in `testing/failure.ts`), which throws nothing. What a value
+    throws as it is named is a failure of the test, no defect: the tool's error comes first, with what was thrown as its
+    `cause`.
   - A command's fiber (`answering`) is pending once its step's stops are released, and waits for a `run` to give it the
     effect `runCommand` returned in the `run`'s thunk, run in `commandFiber` with the services of that call. A start's
     fiber (`listening`) waits for the first `hearNext`. Its messages are applied by the thunk that finds a call waiting

@@ -6,8 +6,8 @@ import { runCommandOf, type WithRunCommand } from "../program.ts"
 import { makeDeaths } from "../shell.ts"
 import type { Subscriptions } from "../subscription.ts"
 import type { Step, Update } from "../update.ts"
+import { unexpectedRejection } from "./failure.ts"
 import * as Stage from "./stage.ts"
-import { unexpectedRejection } from "./unexpected.ts"
 
 /**
  * What a simulation ends with.

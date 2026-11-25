@@ -218,6 +218,23 @@ describe("simulate", () => {
     expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain("message 0 (Saved)")
   })
 
+  test("a rejection of a message whose tag throws fails all the same, with what it threw as the cause", async () => {
+    const tagless: Readonly<{ _tag: string }> = {
+      get _tag(): string {
+        throw new Error("tag")
+      }
+    }
+    const refusing: Update<number, Readonly<{ _tag: string }>> = () => () => reject
+    const exit = await Effect.runPromiseExit(
+      simulate({ update: refusing, subscriptions: () => [] }, [tagless], { state: 0 })
+    )
+    const failure = Exit.isFailure(exit) && Cause.squash(exit.cause)
+    expect(failure instanceof Error && [failure.message, String(failure.cause)]).toEqual([
+      "update rejected message 0 (<a value that threw as it was named: see the cause>)",
+      "Error: tag"
+    ])
+  })
+
   // The simulation stops the command it waits for as the run stops one, with its mark: stopped otherwise, the command
   // would take the interruption for one of the program's, and die.
   test("interrupted while a command runs, it ends interrupted, with no defect", async () => {

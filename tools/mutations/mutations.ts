@@ -2790,7 +2790,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the job of a hearNext starts its subscription after the first defect",
     file: "src/testing/rehearse.ts",
-    from: "opened = dead() ? deadOr(Effect.never) : openFor(generation, call, context)",
+    from: "opened = dead() ? \"Dead\" : openFor(generation, call, context)",
     to: "opened = openFor(generation, call, context)",
     killedBy: [
       ["src/testing/rehearse.test.ts", "a hearNext whose job comes after a defect starts no subscription"]
@@ -2880,10 +2880,105 @@ export const mutations: ReadonlyArray<Mutation> = [
       ["src/testing/simulate.test.ts", "interrupted while a command runs, it ends interrupted, with no defect"]
     ]
   },
+  // A testing tool names a value in its errors by one function (`failure` in `testing/failure.ts`), in the fiber of the
+  // call that fails: what a value throws as it is named is the failure's cause, never a defect, nor a fiber's death.
+  {
+    name: "a value that throws as a tool names it takes the place of the tool's error",
+    file: "src/testing/failure.ts",
+    from: "      thrown.push(threw)\n      return unnamed\n",
+    to: "      throw threw\n",
+    killedBy: [
+      [
+        "src/testing/rehearse.test.ts",
+        "a hearNext stopped as its key goes away fails the test, and the rehearsal ends"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a hearNext whose job finds its start ended fails the test, and the rehearsal ends"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a hearNext whose job finds its start played by hear fails the test, and the rehearsal ends"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a hearNext still waiting as the rehearsal ends fails, and the rehearsal returns"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a send that update rejects, of a message whose tag throws, fails with the tool's error"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a run that matches nothing, and the commands left, whose tags throw, fail with the tool's error"
+      ],
+      [
+        "src/testing/simulate.test.ts",
+        "a rejection of a message whose tag throws fails all the same, with what it threw as the cause"
+      ],
+      [
+        "src/testing/apply-all.test.ts",
+        "a rejection of a message whose tag throws fails all the same, with what it threw as the cause"
+      ]
+    ]
+  },
+  {
+    name: "a tool's error loses what a value threw as it was named",
+    file: "src/testing/failure.ts",
+    from:
+      "new Error(said, { cause: thrown.length === 1 ? first : new AggregateError(thrown, \"What the values threw\") })",
+    to: "new Error(said)",
+    killedBy: [
+      [
+        "src/testing/rehearse.test.ts",
+        "a hearNext stopped as its key goes away fails the test, and the rehearsal ends"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a hearNext whose job finds its start ended fails the test, and the rehearsal ends"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a hearNext whose job finds its start played by hear fails the test, and the rehearsal ends"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a hearNext still waiting as the rehearsal ends fails, and the rehearsal returns"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a send that update rejects, of a message whose tag throws, fails with the tool's error"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a run that matches nothing, and the commands left, whose tags throw, fail with the tool's error"
+      ],
+      [
+        "src/testing/simulate.test.ts",
+        "a rejection of a message whose tag throws fails all the same, with what it threw as the cause"
+      ],
+      [
+        "src/testing/apply-all.test.ts",
+        "a rejection of a message whose tag throws fails all the same, with what it threw as the cause"
+      ]
+    ]
+  },
+  {
+    name: "a tool's error keeps only the first of what the values it names threw",
+    file: "src/testing/failure.ts",
+    from: "thrown.length === 1 ? first : new AggregateError(thrown, \"What the values threw\")",
+    to: "first",
+    killedBy: [
+      [
+        "src/testing/rehearse.test.ts",
+        "a run that matches nothing, and the commands left, whose tags throw, fail with the tool's error"
+      ]
+    ]
+  },
   {
     name: "rehearse leaves a call waiting on a start whose key went away, once it is released",
     file: "src/testing/rehearse.ts",
-    from: "    for (const { key, heard } of told) Deferred.doneUnsafe(heard, Exit.die(stoppedWhileWaiting(key)))\n",
+    from: "    for (const { heard } of told) Deferred.doneUnsafe(heard, Exit.succeed(stopped))\n",
     to: "",
     killedBy: [
       [
@@ -2896,7 +2991,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "rehearse leaves a hearNext waiting as its end stops the subscription",
     file: "src/testing/rehearse.ts",
     from:
-      "      Effect.forEach(\n        Arr.fromIterable(stage.ledger.calls),\n        ({ key, heard }) => Deferred.die(heard, stoppedWhileWaiting(key)),\n        { discard: true }\n      )\n",
+      "      Effect.forEach(Arr.fromIterable(stage.ledger.calls), ({ heard }) => Deferred.succeed(heard, stopped), {\n        discard: true\n      })\n",
     to: "      Effect.void\n",
     killedBy: [
       [
@@ -2916,9 +3011,9 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the end of rehearse tells only the calls still waiting on a start",
     file: "src/testing/rehearse.ts",
-    from: "        Arr.fromIterable(stage.ledger.calls),\n",
+    from: "Effect.forEach(Arr.fromIterable(stage.ledger.calls), ",
     to:
-      "        Arr.fromIterable(stage.ledger.hearings.values()).flatMap((each) => each._tag === \"Opened\" ? each.waiting : []),\n",
+      "Effect.forEach(Arr.fromIterable(stage.ledger.hearings.values()).flatMap((each) => each._tag === \"Opened\" ? each.waiting : []), ",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",

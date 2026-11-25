@@ -1,5 +1,5 @@
 import { appendStep, type Folded, reject, type Update } from "../update.ts"
-import { unexpectedRejection } from "./unexpected.ts"
+import { unexpectedRejection } from "./failure.ts"
 
 /**
  * Applies messages to a state with `update`, one after the other, and collects their commands and events.

@@ -117,6 +117,8 @@ version, and everything else, features included, the patch version.
   needs no service that a program's type names for commands or subscriptions it does not have.
 - `rehearse` and `simulate` fail, as the run dies, with the defect of `update` and what a message's tag throws while it
   is said, where `simulate` kept the second alone; `rehearse` also when the scenario catches the call that sent it.
+- A testing tool fails with its own error on a key, a message or a command that throws as the error names it, where
+  `rehearse` could wait for ever on such a key, and what a tag threw took the place of the error.
 - A state whose `subscriptions` dies is no longer the current one: `model()` gives the state before, as a defect of
   `onApplied` leaves it, where it gave a state that no listener was told of ("Running", "What the run still does after
   a defect").

@@ -2763,12 +2763,14 @@ describe("rehearse's send, made by a hearNext that a job wakes", () => {
   })
 })
 
-// Found by the review of the premises of step 20: the fiber of effects tells the calls that waited on a start once its
-// key's release has ended (`released`), with an error that prints the key (`Inspectable.toStringUnknown`), which falls
-// back to `String` and so throws what a key's `toString` throws. The fiber of effects dies there, before the job's
-// starts and the jobs after it: a call that waits for a job, as the `send` that took the key away, waits for ever.
-describe("rehearse, with a key whose printing throws", () => {
+// Found by the reviews of step 20: the fiber of effects told a call of `hearNext` with an error that printed its key
+// (`Inspectable.toStringUnknown`, which falls back to `String`), so a key whose `toString` throws ended that fiber, and
+// every call that waited for a job waited for ever; and a tag that threw as a tool named its message took the place of
+// the tool's error. A call is told data, and makes its error in its own fiber, naming each value by one function: what
+// a value throws as it is named is the error's cause, the tool's error first.
+describe("rehearse, with a value that throws as it is named", () => {
   type Shown = Readonly<{ on: boolean }>
+  type Said = "Off" | "Done"
   class Unprintable implements Equal.Equal {
     [Equal.symbol](that: Equal.Equal): boolean {
       return that instanceof Unprintable
@@ -2784,29 +2786,142 @@ describe("rehearse, with a key whose printing throws", () => {
     }
   }
   const key = new Unprintable()
-  const shown: Program<{ state: Shown; model: Shown; message: "Off"; key: Unprintable }> = {
+  const shown = (subscription: Subscription<Said>): Program<
+    { state: Shown; model: Shown; message: Said; key: Unprintable }
+  > => ({
     init: { state: { on: true } },
-    update: () => () => ({ state: { on: false } }),
+    update: (message) => (state) => message === "Off" ? { state: { on: false } } : { state },
     subscriptions: ({ on }) => on ? [key] : [],
-    listen: () => Channel.never,
+    listen: () => subscription,
     makeModel: (state) => state
+  })
+  const unnamed = "<a value that threw as it was named: see the cause>"
+  const untilItComesBack = "until its key goes away and comes back"
+  // What a call failed with: the text of the tool's error, and what was thrown as it named a value, its cause.
+  const failedWith = (exit: Exit.Exit<unknown>) => {
+    if (Exit.isSuccess(exit)) return "succeeded"
+    const error = Cause.squash(exit.cause)
+    if (!(error instanceof Error)) return String(error)
+    const { cause } = error
+    return [error.message, cause instanceof AggregateError ? cause.errors.map(String) : String(cause)]
+  }
+  // The scenario returns the exit of the call it checks: one that waits for ever is cut short.
+  const bounded = (rehearsal: Effect.Effect<Exit.Exit<unknown>>) =>
+    Effect.runPromise(Effect.map(
+      Effect.timeoutOption(rehearsal, "1 second"),
+      Opt.match({ onNone: () => "hung", onSome: failedWith })
+    ))
+
+  test("a hearNext stopped as its key goes away fails the test, and the rehearsal ends", async () => {
+    const outcome = await bounded(rehearse(
+      shown(Channel.never),
+      Effect.fnUntraced(function*(rehearsal) {
+        const waiting = yield* Effect.forkChild(rehearsal.hearNext(key), { startImmediately: true })
+        yield* rehearsal.send(() => Opt.some<Said>("Off"))
+        return yield* Effect.exit(Fiber.join(waiting))
+      })
+    ))
+    expect(outcome).toEqual([
+      `The subscription under ${unnamed} was stopped while hearNext waited for its message: its key went away, or the `
+      + "scenario ended",
+      "Error: toString"
+    ])
+  })
+
+  test("a hearNext whose job finds its start ended fails the test, and the rehearsal ends", async () => {
+    const outcome = await bounded(rehearse(
+      shown(Channel.end<Said>("Done")),
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.hearNext(key)
+        return yield* Effect.exit(rehearsal.hearNext(key))
+      })
+    ))
+    expect(outcome).toEqual([
+      `The subscription under ${unnamed} has ended: it sends nothing ${untilItComesBack}`,
+      "Error: toString"
+    ])
+  })
+
+  test("a hearNext whose job finds its start played by hear fails the test, and the rehearsal ends", async () => {
+    const outcome = await bounded(rehearse(
+      shown(Channel.never),
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.hear(key, "Done")
+        return yield* Effect.exit(rehearsal.hearNext(key))
+      })
+    ))
+    expect(outcome).toEqual([
+      `The test plays the subscription under ${unnamed} with hear: hearNext would start it again, which the run does `
+      + `not do ${untilItComesBack}`,
+      "Error: toString"
+    ])
+  })
+
+  test("a hearNext still waiting as the rehearsal ends fails, and the rehearsal returns", async () => {
+    const outcome = await Effect.runPromise(Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const call = yield* rehearse(
+        shown(Channel.unwrap(Effect.as(Deferred.succeed(started, undefined), Channel.never))),
+        Effect.fnUntraced(function*(rehearsal) {
+          const call = yield* Effect.forkDetach(rehearsal.hearNext(key))
+          // Started by the call, which waits on it from then on.
+          yield* Deferred.await(started)
+          return call
+        })
+      )
+      return yield* Effect.timeoutOption(Fiber.await(call), "1 second")
+    }))
+    expect(Opt.map(outcome, failedWith)).toEqual(Opt.some([
+      `The subscription under ${unnamed} was stopped while hearNext waited for its message: its key went away, or the `
+      + "scenario ended",
+      "Error: toString"
+    ]))
+  })
+
+  type Unnamed = Readonly<{ _tag: string }>
+  const tagless: Unnamed = {
+    get _tag(): string {
+      throw new Error("tag")
+    }
   }
 
-  test.failing("a hearNext stopped as its key goes away fails the test, and the rehearsal ends", async () => {
-    const outcome = await Effect.runPromise(Effect.map(
-      Effect.timeoutOption(
-        Effect.exit(rehearse(
-          shown,
-          Effect.fnUntraced(function*(rehearsal) {
-            const waiting = yield* Effect.forkChild(rehearsal.hearNext(key), { startImmediately: true })
-            yield* rehearsal.send(() => Opt.some("Off"))
-            return yield* Effect.exit(Fiber.join(waiting))
-          })
-        )),
-        "1 second"
-      ),
-      Opt.getOrElse(() => "hung" as const)
+  test("a send that update rejects, of a message whose tag throws, fails with the tool's error", async () => {
+    const refusing: Program<{ state: Shown; model: Shown; message: Unnamed }> = {
+      init: { state: { on: true } },
+      update: () => () => reject,
+      subscriptions: () => [],
+      makeModel: (state) => state
+    }
+    const exit = await Effect.runPromiseExit(rehearse(refusing, (rehearsal) => rehearsal.send(() => Opt.some(tagless))))
+    expect(failedWith(exit)).toEqual([
+      expect.stringContaining(`update rejected ${unnamed}, which the model of the same state shows`),
+      "Error: tag"
+    ])
+  })
+
+  test("a run that matches nothing, and the commands left, whose tags throw, fail with the tool's error", async () => {
+    const owing: Program<{ state: Shown; model: Shown; message: "Owe"; command: Unnamed }> = {
+      init: { state: { on: true } },
+      update: () => (state) => ({ state, commands: [tagless, tagless] }),
+      runCommand: () => Effect.succeedNone,
+      subscriptions: () => [],
+      makeModel: (state) => state
+    }
+    const ran: Array<ReturnType<typeof failedWith>> = []
+    const exit = await Effect.runPromiseExit(rehearse(
+      owing,
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.send(() => Opt.some<"Owe">("Owe"))
+        ran.push(failedWith(yield* Effect.exit(rehearsal.run(() => false))))
+      })
     ))
-    expect(outcome !== "hung" && Exit.isSuccess(outcome) && Exit.isFailure(outcome.value)).toBe(true)
+    expect(ran).toEqual([[`No pending command matches (pending: ${unnamed}, ${unnamed})`, [
+      "Error: tag",
+      "Error: tag"
+    ]]])
+    expect(failedWith(exit)).toEqual([
+      `Commands still pending when the scenario ended: ${unnamed}, ${unnamed}`,
+      ["Error: tag", "Error: tag"]
+    ])
   })
 })
