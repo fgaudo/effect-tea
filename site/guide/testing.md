@@ -116,7 +116,9 @@ reads what its element or its event reports, the test gives `messagesSentBy` the
 **A program run under its renderer, in a DOM,** is run as the app runs it. The test file registers a DOM, as happy-dom's
 `GlobalRegistrator.register()` does in a `beforeAll`. With snabbdom, which reads `window` as it loads, a file that sets
 `window` to `undefined` is loaded before the test's imports: with Bun, a `preload` of `bunfig.toml`, as
-[`bridges/snabbdom-preload.ts`](../../bridges/snabbdom-preload.ts) is for the package's own tests. Then the test:
+[`bridges/snabbdom-preload.ts`](../../bridges/snabbdom-preload.ts) is for the package's own tests. `react-dom/client`
+reads the DOM as it loads too, and Bun loads it before the body of a module imported ahead of it: the DOM is registered
+by a `preload`, or before an `await import(…)` of what imports it, or a text field sends no `onChange`. Then the test:
 
 1. starts the program with `start`, draws `app` into a `root`, and forks `run`, with its services provided;
 2. acts on the page, then waits until the page shows what it expects. The bridge to snabbdom draws in a microtask after

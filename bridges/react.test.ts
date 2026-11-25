@@ -497,6 +497,24 @@ describe("Host", () => {
     expect(element("#app").childElementCount).toBe(0)
   })
 
+  test("interrupts the fiber that fork returns as it unmounts, which the application may await", async () => {
+    const forked: Array<Fiber.Fiber<void, unknown>> = []
+    const root = await hostInto(host({
+      program: counter,
+      fork: (effect) => {
+        const fiber = heldFork(effect)
+        forked.push(fiber)
+        return fiber
+      },
+      view: counterView
+    }))
+    await started()
+    await unmount(root)
+    expect(forked).toHaveLength(1)
+    const exit = await Effect.runPromise(Fiber.await(forked[0]!))
+    expect(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)).toBe(true)
+  })
+
   test("a new key starts the program anew, from init", async () => {
     const node = (key: string) => host({ key, program: counter, fork: heldFork, view: counterView })
     const root = await hostInto(node("first"))

@@ -30,6 +30,8 @@ version, and everything else, features included, the patch version.
 - The example `routing`: pages at addresses of their own, with the History API alone. The address the page is opened
   at is the program's flags, a link a message whose command pushes the new address, and back and forward a
   subscription.
+- The doc comment of `Host` says that the fiber `fork` returns is interrupted as `Host`'s effect ends, so an
+  application waits for the run to end by awaiting it.
 
 ### Changed
 

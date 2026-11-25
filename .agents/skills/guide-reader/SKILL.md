@@ -47,8 +47,8 @@ version.
    - the outside: a call that may fail, a feed that ends, a timer;
    - the reader's tests: messages written as literals, or built with constructors.
 
-   The seven below were drawn with snabbdom or with no renderer, and their users gave typed texts; their entries do
-   not say the shape or the tests they took. A requirement that has no DOM has no acceptance tests through the page:
+   The first seven below were drawn with snabbdom or with no renderer, and their users gave typed texts; their entries
+   do not say the shape or the tests they took. A requirement that has no DOM has no acceptance tests through the page:
    the reader's own tests are all it has.
    - a chat room: a connection status from a server feed that ends, a draft refused when blank or offline, sends that
      may fail and are retried, a log and a composer as children, and a reconnect under a new key (2026-11-16, open).
@@ -76,6 +76,12 @@ version.
      parent through its output, a dispatch of every truck that may fail and is retried, and a truck that leaves and is
      docked again as a new one, under snabbdom in a DOM (2026-11-22, package and closed; 30 of 30 acceptance tests
      passed for each reader at the first run; the reader of the package kept the trucks in the parent's state).
+   - a meeting-room booking panel: a part of an application in React whose header keeps a site, a note and a count of
+     bookings of its own, the panel started from the site as flags and anew under a new key when it changes, rooms
+     loaded by a call that may fail and is retried, a room and a duration chosen in selects, a checkbox that narrows
+     the rooms, a typed title, and a booking that may fail, which the application counts (2026-11-25, package, one
+     program; 35 of 35 acceptance tests passed, once 2 failures, both of the tests, were fixed; the kept project is
+     the application of the next check of an upgrade).
 4. Make the project, from the repository's root, with the versions the repository is developed with:
 
    ```bash

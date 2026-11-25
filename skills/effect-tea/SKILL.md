@@ -165,7 +165,9 @@ The library promises these, and a program that forgets them goes wrong.
   defect and whose `where` says where. Reporting it, and what the user sees next, are the job of the app around the
   run. The guide, "Running", "The run never recovers from a defect, and does not log it".
 - **With React, the run lives as long as `Host`'s effect.** An unmount, or `<Activity>` hiding it, ends the run, and the
-  next effect starts the program again from `init`, as does an edit that Fast Refresh draws by remounting `Host`. For a
+  next effect starts the program again from `init`, as does an edit that Fast Refresh draws by remounting `Host`, or a
+  new `key`, which starts it with the props of that render. To wait for the run to end, keep the fiber `fork` returns
+  (`Host`'s doc comment). For a
   state that outlives a component, start the program yourself and draw it with `Draw`. A new state is drawn at once, in
   a transition too: a slow part of the view reads `useDeferredValue`. `hydrateRoot` keeps what `Host` drew on a server,
   where the client makes the same first model.
@@ -226,6 +228,8 @@ Each sign goes against the rule or the advice named after it.
 - A variable outside the state that the screen depends on. The guide, "View", "What the program draws comes from its
   model".
 - A message built in a view. The guide, "Model", "Messages live in the model".
+- An application in React that learns what the program does through `onApplied`, in place of a command whose service
+  it gives in `fork`. The guide, "Coming from Elm or React".
 - `Message` exported as a value, whose constructors a view could call. The guide, "Model", "Advice".
 - A message rejected by its value. The guide, "Structuring a program", "Model and view".
 - `defect` on a message of the view. The guide, "Rejections and defects", "What the view draws never rules a message

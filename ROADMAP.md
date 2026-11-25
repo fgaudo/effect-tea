@@ -26,10 +26,10 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Step 81 neither waits for the release of 0.9.0 ("For the owner") nor holds it. It reads the guide as step 70 left it,
-and so does the next reading of the promises, below: the guide's "Writing a bridge" promises what the bridge to React
-does under hydration and transitions, and the doc comment of `Host` what it does under Fast Refresh, each held by a
-test that runs in the browsers (`bridges/react.test.ts`, `bridges/fast-refresh.test.ts`).
+No step is open. The next reading of the promises, below, reads the guide as steps 70 and 81 left it: its "Writing a
+bridge" promises what the bridge to React does under hydration and transitions, and the doc comment of `Host` what it
+does under Fast Refresh, each held by a test that runs in the browsers (`bridges/react.test.ts`,
+`bridges/fast-refresh.test.ts`).
 
 Step 73 decided the form of the smaller guide ([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md`
 holds it, under "What belongs here". The owner approved it on 25 November 2026, and steps 74 to 77 wrote every page by
@@ -56,24 +56,11 @@ gaps of "Commands", which the session did not check against the tests: the reade
 reading finds them again. A comment of an example that names a section of a page may name one that steps 73 to 78
 took away, as one of `examples/bounce/bounce.ts` did.
 
-### 81. A reader's check of an application in React
-
-**Model and effort.** Opus 5.5, `medium`, with the reader and the examiner as subagents.
-
-**Depends on** no other step.
-
-**Why.** The reader who has an application in React ([`adoption.md`](docs/records/adoption.md)) is met by none of the
-seven checks of [`guide-reader`](.agents/skills/guide-reader/SKILL.md), and is to be met before the library is made
-known to others.
-
-**How.** A check of the package with acceptance tests, by the skill. The requirement takes values of step 3 that no
-check took: the program is a part of an application in React that keeps state of its own beside it, and its user
-gives a value that an element reports and a choice among fixed values. The harness types into an element drawn by
-React, chooses in a select and ticks a checkbox: a probe of the session that wrote it ran these with React 19 in
-happy-dom, but no check has run it whole. Keep the reader's project, with its acceptance tests: it is the application
-of the next check of an upgrade.
-
-**Done when** the check has run, what it found is fixed or is a step here, and its entry is in step 3's list.
+The next check of an upgrade ([`guide-reader`](.agents/skills/guide-reader/SKILL.md), "A check of an upgrade") takes the
+application of step 81's reader, kept at `D:/Project/effect-tea-readers/booking-react` with its acceptance tests and the
+package it was written for, packed at `3f86a68` before 0.9.0 was released (`bun install` first): 21 of its own tests and
+35 acceptance tests pass there. Its `main.test.ts` imports `main` once happy-dom is registered, and the acceptance tests
+run alone, as the skill says: run with the reader's tests in one `bun test`, 8 fail, both files registering a DOM.
 
 ## For the owner
 

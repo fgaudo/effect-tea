@@ -163,8 +163,8 @@ The package's bridges promise nothing of what follows:
 - **A form's reset**, by a reset button or `form.reset()`. A program may empty a field by leaving `''` in its state.
 - **With React, a value typed into what a server drew, before React hydrates it.** React gives the element the value
   of the first model, and sends no `onChange`.
-- **With React, a value that a script writes into an element past React's own setter**, and announces with an input
-  event. React sends no `onChange` for it, so it is lost.
+- **With React, a value that a script writes into a text field with `element.value = …`**, and announces with an
+  input event. React's setter on the element takes it for a value React gave, and sends no `onChange`, so it is lost.
 - **An event that the program's own code dispatches before a new state is drawn**: a call of `element.click()`,
   `dispatchEvent` or `focus()` in the task that made the new state. Its handler runs on the view of before that state.
   With snabbdom, the message it sends carries what the element held, and `update` stores it over what the program put

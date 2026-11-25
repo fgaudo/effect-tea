@@ -156,8 +156,8 @@ const report = (error: unknown): void => {
  * `view`.
  *
  * - The program starts as `Host` first renders, with the `program`, the `options` and the `fork` of that render, and
- *   reads no later ones, also when it starts the program again. Its run starts after `Host`'s effect, and is
- *   interrupted as `Host` unmounts. Give it a new `key` to start the program anew.
+ *   reads no later ones, also when it starts the program again. Its run starts after `Host`'s effect, and the
+ *   fiber `fork` returns is interrupted as the effect ends: keep it to wait for the run to end. Give it a new `key` to start the program anew.
  * - The run lives as long as `Host`'s effect: React's `<Activity>` ends it, and the program starts again from `init`.
  *   The first run may have started the commands of `init` before it is interrupted. Under StrictMode, whether the
  *   commands of `init` start once or twice is unspecified. For a state that outlives a component, start the program
