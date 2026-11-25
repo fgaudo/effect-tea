@@ -26,12 +26,13 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 74 to 78 and 68 to 72 come before the library is made known to others
+Steps 74 to 79 and 68 to 72 come before the library is made known to others
 ([`adoption.md`](docs/records/adoption.md)), and neither wait for the release of 0.9.0 ("For the owner") nor hold it:
 what is done before it goes out with it. Their order: first the guide made small (74 to 78), since every later step
 reads it or adds to it, and a promise withdrawn is a breaking change, which goes out with the others; then what may
-change a rule of the guide or show a cost of the API (68); then what a first user meets (69, 70); then the two checks,
-which read the guide as those steps leave it (71, 72).
+change the API between a parent and its children (79), and what may change a rule of the guide or show a cost of the
+API (68), which reads the API as step 79 leaves it; then what a first user meets (69, 70); then the two checks, which
+read the guide as those steps leave it (71, 72).
 
 Step 73 decided the form of the smaller guide, and tried it on "Composition" and "Structuring a program"
 ([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md` holds it, under "What belongs here". The owner read
@@ -96,9 +97,10 @@ belongs to the program whose rules use it".
 
 "A child that must wait for its parent" is linked from "Structuring a program", as the case where a part that its
 parent locks is a child all the same: the heading stays, or the link changes with it. No example and no test shows
-that pattern, which step 73 found: the step weighs an example of it, or says in the section that none does. The two
-pages also link `#outputs` and `#external-messages` of "Events and external messages", and `#rules` and
-`#in-each-row` of "What an element gives".
+that pattern, which step 73 found. Step 79 weighs what the library could do in its place, and its spike writes the
+pattern by hand first: the example is left to that step, and the section says here that none shows it. The two pages
+also link `#outputs` and `#external-messages` of "Events and external messages", and `#rules` and `#in-each-row` of
+"What an element gives".
 
 **Done when**, as step 74.
 
@@ -156,12 +158,69 @@ page that the roadmap has yet to write again" from its rule of a doc comment.
 **Done when** each of them is so, `bun run comments` passes, and the commit gives the words of the whole guide, and of
 the skill, before step 73 and now.
 
+### 79. A condition that goes down from a parent to its children
+
+**Model and effort.** Fable 5.2, `high`: a design whose constraints pull apart, the symmetry of the channels against
+the number of the concepts, and it may end with nothing changed.
+
+**Depends on** step 75, which writes "A child that must wait for its parent" again. It comes before step 68, whose
+page advises on a part that its parent locks.
+
+**Why.** Between a parent and a child, a moment goes both ways: an event up, an external message down. A condition
+goes up alone, as an `output`. Down, flags start the child again as they change, and `listening` says only when the
+child listens. So a condition of the parent that changes while a child lives, as a lock while a payment runs, is
+handed down by hand ("Events and external messages", "A child that must wait for its parent"): the parent tells each
+child at each change, the child keeps a copy in its state, and the parent tells each child that starts later. Nothing
+checks any of the three. And `init` tells nothing: a child that is there from the first state is given the condition
+only by its flags, which start it again when the condition changes, so the parent keeps the first value apart, or the
+child's first state must agree with the parent's.
+
+The guide calls the same copy upward derived data in a state, which is the argument that `output` was taken for
+([`kept-children.md`](docs/records/kept-children.md), "A value that a parent reads"). And `docs/rejected.md` kept
+`listening` by the same argument, downward: without it "each child that can be hidden would keep a state and an
+external message for it". Reasoned on 25 November 2026, by a review of the API between a parent and its children that
+the owner asked for, which found nothing to remove of `tell`, `external`, `onEvent` and `output`. Not tried, and not
+found weighed in `docs/rejected.md` or in the records.
+
+Against it: no example needs it, and the one case that the library met is `listening`. The pattern by hand is correct
+where a user keeps its rules, so nothing of the library's is undefined: the case is of values 3 and 4, not of 1 or 2.
+
+**How.** A spike on a branch that is never merged, as that of `kept-children.md`. First the pattern by hand, on a copy
+of an example that is not kept: a parent whose children by id have commands of their own, locked while an operation of
+the parent runs, in the first state too, with its tests. Then each form below on the same program, for what it removes
+of the pattern's rules and what it costs:
+
+1. **A `tell` declared from the parent's own state**, beside `flags` and `listening` in `child` and `childById`: a
+   function of the state, and of the id, gives an external message, and the library tells it to the child as the child
+   starts, and again whenever the function gives another value, by `Equal`. The child is a program like any other, and
+   answers a change with a step. The copy stays in the child's state, and the library keeps it true. To find: its
+   name; whether the value of before is read from the own state of before, as the shortcut of `ids` is, with no field
+   in the state; its order with what the step itself tells, and with the events of a child that starts; and what a
+   step of the parent's own costs at 10, 1000 and 10000 children.
+2. **A value that the child reads**, as its parent reads an `output`: the child names its type, its functions take the
+   value last, and the parent's declaration gives it from its own state. No copy is left. To find: what gives it to a
+   program that has no parent, in `start` and in each testing tool; how a child's model is kept, which is now kept by
+   its instance alone; whether a parent passes its own on; and what it costs a child that it cannot answer a change
+   with a step.
+3. **An `init` that tells**, which `kept-children.md` left to be added with no break ("Decided, under the store"). It
+   makes the pattern by hand whole, and removes none of its rules.
+4. **Nothing of the library's**: the section of the guide, with an example and its test.
+
+The session that wrote this step leaned to the first form, reasoned and not run. The step decides by the values of
+"Deciding", and a form that adds a concept is taken only where the pattern by hand costs more than the concept.
+
+**Done when** a record of `docs/records/` says what the spike ran and found for each form, and one of two holds. A
+step here says the change of the API, with its model and effort and its "Done when", before step 68. Or an entry of
+`docs/rejected.md` says why nothing is added, with what would reopen it, and "A child that must wait for its parent"
+has an example of the pattern by hand with its test, by `add-example`.
+
 ### 68. A program too large for one module that is not split into children
 
 **Model and effort.** Opus 5.5, `high`: a page of the guide is a specification.
 
-**Depends on** step 73, which writes "Structuring a program" again. It comes before steps 69 to 72, since it alone of
-them may add a rule to the guide or show that the API must change.
+**Depends on** step 73, which writes "Structuring a program" again, and step 79, which decides how a condition of a
+parent reaches its children: the page's advice on a part that its parent locks is written as that step leaves the API.
+It comes before steps 69 to 72, since it alone of them may add a rule to the guide or show that the API must change.
 
 **Why.** "Structuring a program" says that a program lives in one module until it is too large, and then splits into
 children, and that a part that the parent reads is no child. So the guide has no page for a large program whose parts
@@ -175,13 +234,6 @@ is not kept, as `stocktake`, for what it costs with the types of a `Step`. The r
 first, since an example never brings the rule that allows it (`AGENTS.md`). It is weighed against the page as step
 73 leaves it: with `output` (step 35), a parent reads a value that its child declares, so "a part that the parent
 reads is no child" is written again there.
-
-**A lead, to weigh here.** Between a parent and a child, a moment goes both ways: an event up, an external message
-down. A condition goes up alone, as an `output`: down, flags start the child again as they change. So a condition of
-the parent that changes while a child lives is copied into each child's state, and told again to each child started
-later, and nothing checks either. The guide calls the same copy upward derived data in a state, which is the argument
-that `output` was taken for ([`kept-children.md`](docs/records/kept-children.md), "A value that a parent reads").
-Reasoned on 25 November 2026, not tried, and not found weighed in `docs/rejected.md` or in the records.
 
 **Done when** the commit says what the trial cost with the types of a `Step`, and one of three holds. The guide's
 "Structuring a program" states the rule under its "Rules", with the sentence on a part that the parent reads written
