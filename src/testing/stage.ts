@@ -370,13 +370,13 @@ export const make = <State, Message, Command, Event, RC, Key, S = never, W = nev
       // However the stage ends, it stops the engine's fiber of effects, then interrupts the calls that wait for a job it
       // will not do, before it waits for the releases: such a call may hold what a release waits for. The close of the
       // scope is the engine's end: it stops every fiber of a command and of a subscription, all at once, and waits for
-      // them to release what they hold. What it dies of is the register, read below with what the scenario ended with.
-      // Then a `run` interrupted before the fiber of its command began, which the end stopped, waits no more, and
+      // them to release what they hold. What they die of is in the register, read below with what the scenario ended
+      // with. Then a `run` interrupted before the fiber of its command began, which the end stopped, waits no more, and
       // `last` is done.
       const end = Effect.gen(function*() {
         yield* engine.stop
         yield* Effect.forEach(Arr.fromIterable(undelivered), Deferred.interrupt, { discard: true })
-        yield* Effect.exit(Scope.close(forks, Exit.void))
+        yield* Scope.close(forks, Exit.void)
         yield* Effect.forEach(stage.ledger.underWay.values(), ({ handle }) => Deferred.interrupt(handle.fiber), {
           discard: true
         })

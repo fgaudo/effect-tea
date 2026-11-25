@@ -98,33 +98,22 @@ export const wrapDefects = <E>(
 
 /**
  * The register of what the fibers of a run, or of a rehearsal, died of: each defect kept once, by its identity, in
- * the order the fibers died, since a fiber that joins one that died dies of the same defect; and how many of them
- * have been reported.
+ * the order the fibers died, since a fiber that joins one that died dies of the same defect.
  */
-export type Register = Readonly<{ deaths: ReadonlyArray<Cause.Die>; reported: number }>
+export type Register = ReadonlyArray<Cause.Die>
 
-export const noDeaths: Register = { deaths: [], reported: 0 }
-
-const holds = (deaths: ReadonlyArray<Cause.Die>, defect: unknown) => deaths.some((death) => death.defect === defect)
+export const noDeaths: Register = []
 
 /** Whether `defect` is in the register, by its identity, never by `Equal`. */
-export const hasDied = (register: Register, defect: unknown) => holds(register.deaths, defect)
+export const hasDied = (register: Register, defect: unknown) => register.some((death) => death.defect === defect)
 
 /** The register with the defects of `cause` that `keeps` accepts and it does not hold yet; the same when none is. */
 export const record = (register: Register, cause: Cause.Cause<unknown>, keeps: (defect: unknown) => boolean) => {
-  const deaths = [...register.deaths]
+  const deaths = [...register]
   for (const reason of cause.reasons) {
-    if (Cause.isDieReason(reason) && keeps(reason.defect) && !holds(deaths, reason.defect)) deaths.push(reason)
+    if (Cause.isDieReason(reason) && keeps(reason.defect) && !hasDied(deaths, reason.defect)) deaths.push(reason)
   }
-  return deaths.length === register.deaths.length ? register : { ...register, deaths }
-}
-
-/** The defects recorded since the last report, in the order they died, and the register with them reported. */
-export const report = (register: Register): readonly [Opt.Option<Cause.Cause<never>>, Register] => {
-  const dies = register.deaths.slice(register.reported)
-  return Arr.isArrayNonEmpty(dies)
-    ? [Opt.some(Cause.fromReasons<never>(dies)), { ...register, reported: register.deaths.length }]
-    : [Opt.none(), register]
+  return deaths.length === register.length ? register : deaths
 }
 
 /**
@@ -134,7 +123,7 @@ export const report = (register: Register): readonly [Opt.Option<Cause.Cause<nev
 export const diesFirst = <E>(deaths: ReadonlyArray<Cause.Die>, cause: Cause.Cause<E>): Cause.Cause<E> =>
   Cause.fromReasons<E>([
     ...deaths,
-    ...cause.reasons.filter((reason) => !(Cause.isDieReason(reason) && holds(deaths, reason.defect)))
+    ...cause.reasons.filter((reason) => !(Cause.isDieReason(reason) && hasDied(deaths, reason.defect)))
   ])
 
 /**
@@ -223,11 +212,6 @@ export const reconcile = <K>(active: Active<K>, listed: ReadonlyArray<K>): Recon
   return { gone, fresh, active: { keys, starts: new Set(HashMap.values(keys)), started } }
 }
 
-/** Counts the states a run produces: every message that changes the state creates a new revision. */
-export type Revision = number
-
-export type Revisioned<State> = Readonly<{ state: State; revision: Revision }>
-
 /** Where a message comes from: a dispatch, a command, or a subscription, with its key and the start it comes from. */
 export type Source<K> =
   | Readonly<{ _tag: "Dispatch" }>
@@ -238,8 +222,8 @@ export const fromDispatch: Source<never> = { _tag: "Dispatch" }
 
 export const fromCommand: Source<never> = { _tag: "Command" }
 
-/** What a program starts from: its first state, at the first revision, and the commands of its first step. */
-export type Started<State, Command> = Readonly<{ current: Revisioned<State>; commands: ReadonlyArray<Command> }>
+/** What a program starts from: its first state, and the commands of its first step. */
+export type Started<State, Command> = Readonly<{ state: State; commands: ReadonlyArray<Command> }>
 
 /**
  * The start of a program, from its first step, which is data: whoever makes the step from the flags (`startOf`)
@@ -247,14 +231,14 @@ export type Started<State, Command> = Readonly<{ current: Revisioned<State>; com
  * step do.
  */
 export const init = <State, Command>(step: Step<State, Command>): Started<State, Command> => ({
-  current: { state: step.state, revision: 0 },
+  state: step.state,
   commands: step.commands ?? []
 })
 
 /**
  * What a message makes of the current state: `Dropped` when its start is no longer active (a subscription's message
  * left after its key went away, or came back with a new start), `Dead` once the run has died, `Ignored` when `update`
- * rejects it, `Applied` otherwise, with a new revision only when the state changes.
+ * rejects it, `Applied` otherwise, with the state it came to, and whether it is another state.
  */
 export type Arrived<State, Command, Event> =
   | Readonly<{ _tag: "Dropped" }>
@@ -262,7 +246,7 @@ export type Arrived<State, Command, Event> =
   | Readonly<{ _tag: "Ignored" }>
   | Readonly<{
     _tag: "Applied"
-    next: Revisioned<State>
+    next: State
     changed: boolean
     commands: ReadonlyArray<Command>
     events: ReadonlyArray<Event>
@@ -284,7 +268,7 @@ const ignored: Arrived<never, never, never> = { _tag: "Ignored" }
  */
 export const arrive = <State, Message, Command, Event, K>(
   update: Update<State, Message, Command, Event>,
-  current: Revisioned<State>,
+  current: State,
   active: Active<K>,
   source: Source<K>,
   message: Message,
@@ -292,13 +276,13 @@ export const arrive = <State, Message, Command, Event, K>(
 ): Arrived<State, Command, Event> => {
   if (died()) return dead
   if (source._tag === "Subscription" && !active.starts.has(source.generation)) return dropped
-  const result = update(message)(current.state)
+  const result = update(message)(current)
   if (result === reject) return ignored
   // `Object.is`, since a state may be NaN.
-  const changed = !Object.is(result.state, current.state)
+  const changed = !Object.is(result.state, current)
   return {
     _tag: "Applied",
-    next: changed ? { state: result.state, revision: current.revision + 1 } : current,
+    next: changed ? result.state : current,
     changed,
     commands: result.commands ?? [],
     events: result.events ?? []

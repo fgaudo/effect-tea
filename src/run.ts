@@ -193,7 +193,7 @@ export const partsOf = <State, Model, Message, Command, RC, RS, Flags, Key, Even
   }
   let last: Opt.Option<Made<State, Model>> = Opt.none()
   const model = (): Model => {
-    const { state } = engine.current()
+    const state = engine.current()
     const current = Opt.isSome(last) && Object.is(last.value.state, state) ? last.value : make(state)
     last = Opt.some(current)
     if (current.made) return current.model
@@ -230,17 +230,11 @@ export const startWith = <State, Model, Message, Command, RC, RS, Flags, Key>(
     listen: listenOf(program)
   }
   const { app, engine, end } = partsOf(program, options, deaths, settled, fibers)
-  // The effects of the states, until a defect: the scope's end stops the engine, interrupts its fibers and dies of
-  // what they died of. With no engine, `init` threw, and the run dies of that at once.
-  const effects: Effect.Effect<never, never, Exclude<RC | RS, Scope.Scope>> = engine === undefined
-    ? Effect.andThen(deaths.report, Effect.never)
-    : engine.effects.pipe(
-      Effect.andThen(Effect.sync(began)),
-      Effect.andThen(engine.died),
-      Effect.andThen(engine.report),
-      Effect.andThen(Effect.never),
-      Effect.scoped
-    )
+  // The effects of the states, until a defect: the scope's end stops the engine, interrupts its fibers and waits for
+  // them, and what they die of is in the register. With no engine, `init` threw, and the register holds its defect.
+  const effects: Effect.Effect<void, never, Exclude<RC | RS, Scope.Scope>> = engine === undefined
+    ? Effect.void
+    : engine.effects.pipe(Effect.andThen(Effect.sync(began)), Effect.andThen(engine.died), Effect.scoped)
   let begun = false
   // Not an `Effect.fn`: a span of its own would be the one the run's fibers log into (see `Shell.withExternalSpan`).
   const run = Effect.suspend(() => {
@@ -259,7 +253,8 @@ export const startWith = <State, Model, Message, Command, RC, RS, Flags, Key>(
     )
   })
   // What `Needed` leaves out is never asked: a program without commands calls no `runCommand`, one without keys no
-  // `listen`.
+  // `listen`. And the run never succeeds: its effects succeed only once the register holds a defect, which the read
+  // puts in what it fails with.
   return { app, run: run as Effect.Effect<never, never, Needed<Command, RC, Key, RS>> }
 }
 

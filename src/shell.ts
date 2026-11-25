@@ -203,8 +203,6 @@ export interface Deaths {
   readonly dead: () => boolean
   /** Whether `defect` has been recorded, by its identity, never by `Equal`. */
   readonly has: (defect: unknown) => boolean
-  /** Dies with the defects recorded since it last ran, in the order they died; succeeds when there is none. */
-  readonly report: Effect.Effect<void>
   /**
    * From now on, a defect recorded does not complete `died` until `release`: the thunk that applies a message holds
    * it, so that what waits on `died` never resumes inside a step.
@@ -235,14 +233,9 @@ export const makeDeaths = (keeps: (defect: unknown) => boolean): Deaths => {
         })),
     record,
     died: Deferred.await(died),
-    all: () => register.deaths,
-    dead: () => register.deaths.length > 0,
+    all: () => register,
+    dead: () => register.length > 0,
     has: (defect) => Core.hasDied(register, defect),
-    report: Effect.suspend(() => {
-      const [dies, after] = Core.report(register)
-      register = after
-      return Opt.match(dies, { onNone: () => Effect.void, onSome: Effect.failCause })
-    }),
     hold: () => {
       held = true
     },

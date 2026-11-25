@@ -11,12 +11,26 @@ import * as Scope from "effect/Scope"
 import * as Stream from "effect/Stream"
 import { gate } from "../test/gate.test_helper.ts"
 import type { Execution } from "./command.ts"
+import * as Core from "./core.ts"
 import { ProgramDefect } from "./defect.ts"
 import * as Engine from "./engine.ts"
+import { type Deaths, makeDeaths } from "./shell.ts"
 import type { Subscription } from "./subscription.ts"
 import { reject } from "./update.ts"
 
-const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) => Effect.runPromise(Effect.scoped(effect))
+/**
+ * What an engine given the register of `body` ends with, read as the run and the tools read it (`Core.endedWith`): the
+ * defects of the register first, then what the scope ended with.
+ */
+const ended = <A>(body: (deaths: Deaths) => Effect.Effect<A, never, Scope.Scope>) =>
+  Effect.suspend(() => {
+    const deaths = makeDeaths(() => true)
+    return Effect.map(Effect.exit(Effect.scoped(body(deaths))), (exit) => Core.endedWith(deaths.all(), exit))
+  })
+
+/** Runs `body` with a register of its own, and fails as the run fails, with the defects it holds once it has ended. */
+const run = <A>(body: (deaths: Deaths) => Effect.Effect<A, never, Scope.Scope>) =>
+  Effect.runPromise(Effect.flatten(ended(body)))
 
 /** What a run died of, each defect by its site and what it holds: `ProgramDefect`s, in order. */
 const sites = (exit: Exit.Exit<unknown, unknown>) =>
@@ -69,8 +83,9 @@ const counter = (count: number) => (message: Message) =>
     : reject
 
 describe("a dispatch applies its message at once", () => {
-  const make = (heard: Array<string>) =>
+  const make = (deaths: Deaths, heard: Array<string>) =>
     Engine.make<{ count: number }, Message, never, never, never>({
+      deaths,
       init: { state: { count: 0 } },
       runCommand: absurd,
       update: (message) => (state) => message === "Same" ? { state } : counter(state.count)(message),
@@ -81,23 +96,23 @@ describe("a dispatch applies its message at once", () => {
     })
 
   test("when it returns, update and onApplied have heard it, and the current state is the one it made", async () => {
-    const outcome = await run(Effect.gen(function*() {
+    const outcome = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const heard: Array<string> = []
-      const engine = yield* make(heard)
+      const engine = yield* make(deaths, heard)
       engine.dispatch("Increment")
       const first = { heard: [...heard], current: engine.current() }
       engine.dispatch("Increment")
       return { first, heard, current: engine.current() }
     }))
-    expect(outcome.first).toEqual({ heard: ["applied Increment 1"], current: { state: { count: 1 }, revision: 1 } })
+    expect(outcome.first).toEqual({ heard: ["applied Increment 1"], current: { count: 1 } })
     expect(outcome.heard).toEqual(["applied Increment 1", "applied Increment 2"])
-    expect(outcome.current).toEqual({ state: { count: 2 }, revision: 2 })
+    expect(outcome.current).toEqual({ count: 2 })
   })
 
   test("a rejected message leaves the very same state, onIgnored hears it at once, and no listener is told", async () => {
-    const outcome = await run(Effect.gen(function*() {
+    const outcome = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const heard: Array<string> = []
-      const engine = yield* make(heard)
+      const engine = yield* make(deaths, heard)
       const before = engine.current()
       let told = 0
       engine.subscribe(() => void (told += 1))
@@ -109,10 +124,10 @@ describe("a dispatch applies its message at once", () => {
   })
 
   test("a listener is told of each new state, once it is current, never of the very same one, until it stops", async () => {
-    const told = await run(Effect.gen(function*() {
-      const engine = yield* make([])
+    const told = await run(Effect.fnUntraced(function*(deaths: Deaths) {
+      const engine = yield* make(deaths, [])
       const told: Array<number> = []
-      const stop = engine.subscribe(() => void told.push(engine.current().state.count))
+      const stop = engine.subscribe(() => void told.push(engine.current().count))
       engine.dispatch("Increment")
       engine.dispatch("Same")
       engine.dispatch("Increment")
@@ -124,22 +139,22 @@ describe("a dispatch applies its message at once", () => {
   })
 
   test("a listener stopped during a notice is not told of it, and one added during a notice is told from the next", async () => {
-    const told = await run(Effect.gen(function*() {
-      const engine = yield* make([])
+    const told = await run(Effect.fnUntraced(function*(deaths: Deaths) {
+      const engine = yield* make(deaths, [])
       const told: Array<string> = []
       let added = false
       const stopSecond = { stop: () => {} }
       engine.subscribe(() => {
-        const { count } = engine.current().state
+        const { count } = engine.current()
         told.push(`first ${count}`)
         if (count === 1) stopSecond.stop()
         // Once only, so that a notice that tells it at once fails the test rather than loops.
         if (!added) {
           added = true
-          engine.subscribe(() => void told.push(`added ${engine.current().state.count}`))
+          engine.subscribe(() => void told.push(`added ${engine.current().count}`))
         }
       })
-      stopSecond.stop = engine.subscribe(() => void told.push(`second ${engine.current().state.count}`))
+      stopSecond.stop = engine.subscribe(() => void told.push(`second ${engine.current().count}`))
       engine.dispatch("Increment")
       engine.dispatch("Increment")
       return told
@@ -148,21 +163,21 @@ describe("a dispatch applies its message at once", () => {
   })
 
   test("a message a listener sends is applied after every listener has been told of the step, before the dispatch returns", async () => {
-    const outcome = await run(Effect.gen(function*() {
+    const outcome = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const heard: Array<string> = []
-      const engine = yield* make(heard)
+      const engine = yield* make(deaths, heard)
       const told: Array<string> = []
       engine.subscribe(() => {
-        const { count } = engine.current().state
+        const { count } = engine.current()
         told.push(`first ${count}`)
         if (count === 1) {
           engine.dispatch("Increment")
-          told.push(`first sent, now ${engine.current().state.count}`)
+          told.push(`first sent, now ${engine.current().count}`)
         }
       })
-      engine.subscribe(() => void told.push(`second ${engine.current().state.count}`))
+      engine.subscribe(() => void told.push(`second ${engine.current().count}`))
       engine.dispatch("Increment")
-      return { told, heard, current: engine.current().state.count }
+      return { told, heard, current: engine.current().count }
     }))
     expect(outcome.told).toEqual(["first 1", "first sent, now 1", "second 1", "first 2", "second 2"])
     expect(outcome.heard).toEqual(["applied Increment 1", "applied Increment 2"])
@@ -171,10 +186,11 @@ describe("a dispatch applies its message at once", () => {
 
   // Code that a function of the program wakes: here plain code that `onApplied` calls, as a bus of a devtools would.
   test("a message that code woken by onApplied sends is applied after the step, its listeners told, before the dispatch returns", async () => {
-    const outcome = await run(Effect.gen(function*() {
+    const outcome = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const heard: Array<string> = []
       const woken = new Set<() => void>()
       const engine = yield* Engine.make<{ count: number }, Message, never, never, never>({
+        deaths,
         init: { state: { count: 0 } },
         runCommand: absurd,
         update: (message) => (state) => counter(state.count)(message),
@@ -189,11 +205,11 @@ describe("a dispatch applies its message at once", () => {
       woken.add(() => {
         woken.clear()
         engine.dispatch("Increment")
-        heard.push(`woken sent, now ${engine.current().state.count}`)
+        heard.push(`woken sent, now ${engine.current().count}`)
       })
-      engine.subscribe(() => void heard.push(`told ${engine.current().state.count}`))
+      engine.subscribe(() => void heard.push(`told ${engine.current().count}`))
       engine.dispatch("Increment")
-      return { heard, current: engine.current().state.count }
+      return { heard, current: engine.current().count }
     }))
     expect(outcome).toEqual({
       heard: ["applied 1", "woken sent, now 0", "told 1", "applied 2", "told 2"],
@@ -202,7 +218,7 @@ describe("a dispatch applies its message at once", () => {
   })
 
   test("a command's answer and a subscription's message are applied in the call that sends them", async () => {
-    const outcome = await run(Effect.gen(function*() {
+    const outcome = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const told: Array<string> = []
       const answered = yield* Deferred.make<void>()
       const ticked = yield* Deferred.make<void>()
@@ -213,6 +229,7 @@ describe("a dispatch applies its message at once", () => {
         never,
         string
       >({
+        deaths,
         init: { state: { listening: false, heard: [] } },
         runCommand: identity,
         update: (message) => (state) =>
@@ -231,15 +248,15 @@ describe("a dispatch applies its message at once", () => {
       })
       // Told once the state is current: a waiter that `onApplied` resumed could run before the new state is.
       engine.subscribe(() => {
-        if (engine.current().state.heard.includes("Done")) Deferred.doneUnsafe(answered, Exit.void)
+        if (engine.current().heard.includes("Done")) Deferred.doneUnsafe(answered, Exit.void)
       })
       engine.dispatch("Listen")
       // What the subscription asks for next comes once its message was applied, in the same call.
       yield* Deferred.await(ticked)
-      const afterTick = [...engine.current().state.heard]
+      const afterTick = [...engine.current().heard]
       engine.dispatch("Work")
       yield* Deferred.await(answered)
-      return { afterTick, heard: engine.current().state.heard, told }
+      return { afterTick, heard: engine.current().heard, told }
     }))
     expect(outcome.afterTick).toEqual(["Tick"])
     expect(outcome.heard).toEqual(["Tick", "Done"])
@@ -249,10 +266,12 @@ describe("a dispatch applies its message at once", () => {
 
 describe("a rejected message", () => {
   const make = (
+    deaths: Deaths,
     commands: ReadonlyArray<Execution<Message, never>> = [],
     onIgnored: (ignored: Engine.Ignored<{ count: number }, Message>) => undefined = () => undefined
   ) =>
     Engine.make<{ count: number }, Message, Execution<Message, never>, never, never>({
+      deaths,
       init: { state: { count: 0 }, commands },
       runCommand: identity,
       update: (message) => (state) => message === "Same" ? { state } : counter(state.count)(message),
@@ -261,20 +280,20 @@ describe("a rejected message", () => {
       onIgnored
     })
 
-  // The scope ends with what the engine died of: a run that ends is one that did not die.
+  // `run` fails with what the engine died of: one that succeeds is one that did not die.
   test("a message update rejects is ignored, and the program goes on", async () => {
-    const current = await run(Effect.gen(function*() {
-      const engine = yield* make()
+    const current = await run(Effect.fnUntraced(function*(deaths: Deaths) {
+      const engine = yield* make(deaths)
       engine.dispatch("Forbidden")
       engine.dispatch("Increment")
       return engine.current()
     }))
-    expect(current).toEqual({ state: { count: 1 }, revision: 1 })
+    expect(current).toEqual({ count: 1 })
   })
 
   test("a message that no longer applies is ignored", async () => {
-    const current = await run(Effect.gen(function*() {
-      const engine = yield* make()
+    const current = await run(Effect.fnUntraced(function*(deaths: Deaths) {
+      const engine = yield* make(deaths)
       engine.dispatch("Increment")
       engine.dispatch("Decrement")
       // A double tap: it applied at 1, and is rejected at 0.
@@ -282,20 +301,20 @@ describe("a rejected message", () => {
       engine.dispatch("Increment")
       return engine.current()
     }))
-    expect(current).toEqual({ state: { count: 1 }, revision: 3 })
+    expect(current).toEqual({ count: 1 })
   })
 
   test("a message rejected after coming from a command is ignored", async () => {
-    const outcome = await run(Effect.gen(function*() {
+    const outcome = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const ignored = yield* Deferred.make<string>()
-      const engine = yield* make([Effect.succeedSome<Message>("Forbidden")], ({ message, origin }) => {
+      const engine = yield* make(deaths, [Effect.succeedSome<Message>("Forbidden")], ({ message, origin }) => {
         Deferred.doneUnsafe(ignored, Effect.succeed(`${message} from ${origin._tag}`))
         return undefined
       })
       engine.dispatch("Increment")
       return { ignored: yield* Deferred.await(ignored), current: engine.current() }
     }))
-    expect(outcome).toEqual({ ignored: "Forbidden from Command", current: { state: { count: 1 }, revision: 1 } })
+    expect(outcome).toEqual({ ignored: "Forbidden from Command", current: { count: 1 } })
   })
 })
 
@@ -304,9 +323,10 @@ describe("subscriptions follow their keys, in the order of the states", () => {
   // where the test gives one.
   type Listening = Readonly<{ names: ReadonlyArray<string> }>
 
-  const listening = (log: ReturnType<typeof journal>, releases: Map<string, Effect.Effect<void>>) => {
+  const listening = (deaths: Deaths, log: ReturnType<typeof journal>, releases: Map<string, Effect.Effect<void>>) => {
     let starts = 0
     return Engine.make<Listening, Listening, never, never, string>({
+      deaths,
       init: { state: { names: [] } },
       runCommand: absurd,
       update: (next) => () => ({ state: next }),
@@ -328,7 +348,7 @@ describe("subscriptions follow their keys, in the order of the states", () => {
   }
 
   test("the stops of a state are awaited before any start of that state or a later one, and a key that comes back finds its old one released", async () => {
-    const lines = await run(Effect.gen(function*() {
+    const lines = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const log = journal()
       const opened = yield* Deferred.make<void>()
       const releasing = yield* Deferred.make<void>()
@@ -336,7 +356,7 @@ describe("subscriptions follow their keys, in the order of the states", () => {
         "a",
         Deferred.succeed(releasing, undefined).pipe(Effect.andThen(Deferred.await(opened)))
       ]])
-      const engine = yield* listening(log, releases)
+      const engine = yield* listening(deaths, log, releases)
       engine.dispatch({ names: ["a"] })
       engine.dispatch({ names: ["b"] })
       engine.dispatch({ names: ["a"] })
@@ -351,7 +371,7 @@ describe("subscriptions follow their keys, in the order of the states", () => {
   })
 
   test("the next message does not wait for a release, which the effects of the next state do", async () => {
-    const outcome = await run(Effect.gen(function*() {
+    const outcome = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const log = journal()
       const opened = yield* Deferred.make<void>()
       const releasing = yield* Deferred.make<void>()
@@ -359,12 +379,12 @@ describe("subscriptions follow their keys, in the order of the states", () => {
         "a",
         Deferred.succeed(releasing, undefined).pipe(Effect.andThen(Deferred.await(opened)))
       ]])
-      const engine = yield* listening(log, releases)
+      const engine = yield* listening(deaths, log, releases)
       engine.dispatch({ names: ["a"] })
       engine.dispatch({ names: [] })
       yield* Deferred.await(releasing)
       engine.dispatch({ names: ["c"] })
-      const applied = engine.current().state.names
+      const applied = engine.current().names
       const startedBeforeRelease = log.lines.includes("start c#2")
       yield* Deferred.succeed(opened, undefined)
       yield* log.reached("start c#2")
@@ -377,7 +397,7 @@ describe("subscriptions follow their keys, in the order of the states", () => {
 
   // Each release waits for the other to begin: stopped one after the other, the first would wait for ever.
   test("keys that go away together are stopped together, not one after the other", async () => {
-    const lines = await run(Effect.gen(function*() {
+    const lines = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const log = journal()
       const both = yield* Deferred.make<void>()
       let releasing = 0
@@ -386,7 +406,7 @@ describe("subscriptions follow their keys, in the order of the states", () => {
         if (releasing === 2) Deferred.doneUnsafe(both, Exit.void)
         return Deferred.await(both)
       })
-      const engine = yield* listening(log, new Map([["a", release], ["b", release]]))
+      const engine = yield* listening(deaths, log, new Map([["a", release], ["b", release]]))
       engine.dispatch({ names: ["a", "b"] })
       engine.dispatch({ names: [] })
       engine.dispatch({ names: ["c"] })
@@ -402,7 +422,7 @@ describe("subscriptions follow their keys, in the order of the states", () => {
   test("a key equal by value keeps its subscription running, untouched", async () => {
     type Bumping = Readonly<{ names: ReadonlyArray<string>; bumps: number }>
     const log = journal()
-    const whileRunning = await run(Effect.gen(function*() {
+    const whileRunning = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const engine = yield* Engine.make<
         Bumping,
         "Listen" | "Bump",
@@ -410,6 +430,7 @@ describe("subscriptions follow their keys, in the order of the states", () => {
         never,
         readonly [string, number]
       >({
+        deaths,
         init: { state: { names: [], bumps: 0 } },
         runCommand: identity,
         update: (message) => (state) =>
@@ -445,8 +466,9 @@ describe("the very same state", () => {
   // `Same` keeps the very same state; `Ping` keeps it too, but runs a command that sends `Increment`.
   type Signal = "Same" | "Ping" | "Increment"
 
-  const make = () =>
+  const make = (deaths: Deaths, asked: Array<number> = []) =>
     Engine.make<{ count: number }, Signal, "Bump", never, never>({
+      deaths,
       init: { state: { count: 0 } },
       runCommand: () => Effect.succeedSome<Signal>("Increment"),
       update: (signal) => (state) =>
@@ -455,34 +477,38 @@ describe("the very same state", () => {
           : signal === "Same"
           ? { state }
           : { state, commands: ["Bump"] },
-      subscriptions: () => [],
+      subscriptions: ({ count }) => {
+        asked.push(count)
+        return []
+      },
       listen: absurd
     })
 
-  test("a message that keeps the same state makes no new revision", async () => {
-    const outcome = await run(Effect.gen(function*() {
-      const engine = yield* make()
+  test("a message that keeps the same state leaves it current, and its keys are not asked again", async () => {
+    const outcome = await run(Effect.fnUntraced(function*(deaths: Deaths) {
+      const asked: Array<number> = []
+      const engine = yield* make(deaths, asked)
       const before = engine.current()
       engine.dispatch("Same")
       const same = engine.current() === before
       engine.dispatch("Increment")
-      return { same, current: engine.current() }
+      return { same, asked, current: engine.current() }
     }))
-    expect(outcome).toEqual({ same: true, current: { state: { count: 1 }, revision: 1 } })
+    expect(outcome).toEqual({ same: true, asked: [0, 1], current: { count: 1 } })
   })
 
   test("its commands still run", async () => {
-    const current = await run(Effect.gen(function*() {
-      const engine = yield* make()
+    const current = await run(Effect.fnUntraced(function*(deaths: Deaths) {
+      const engine = yield* make(deaths)
       const answered = yield* Deferred.make<void>()
       engine.subscribe(() => {
-        if (engine.current().state.count === 1) Deferred.doneUnsafe(answered, Exit.void)
+        if (engine.current().count === 1) Deferred.doneUnsafe(answered, Exit.void)
       })
       engine.dispatch("Ping")
       yield* Deferred.await(answered)
       return engine.current()
     }))
-    expect(current).toEqual({ state: { count: 1 }, revision: 1 })
+    expect(current).toEqual({ count: 1 })
   })
 })
 
@@ -497,8 +523,9 @@ describe("subscriptions that end", () => {
 
   const heard = (value: string): Signal => ({ _tag: "Heard", value })
 
-  const make = (starts: Array<number>) =>
+  const make = (deaths: Deaths, starts: Array<number>) =>
     Engine.make<Heard, Signal, Execution<never, never>, never, string>({
+      deaths,
       init: { state: { listening: false, heard: [], bumps: 0 } },
       runCommand: identity,
       update: (signal) => (state) =>
@@ -521,28 +548,28 @@ describe("subscriptions that end", () => {
   /** Waits for a state that `done` accepts: the current one, or the first new one. */
   const until = (engine: Engine.Engine<Heard, Signal, never, string>, done: (state: Heard) => boolean) =>
     Effect.suspend(() => {
-      if (done(engine.current().state)) return Effect.void
+      if (done(engine.current())) return Effect.void
       const reached = Deferred.makeUnsafe<void>()
       const stop = engine.subscribe(() => {
-        if (done(engine.current().state)) Deferred.doneUnsafe(reached, Exit.void)
+        if (done(engine.current())) Deferred.doneUnsafe(reached, Exit.void)
       })
       return Deferred.await(reached).pipe(Effect.ensuring(Effect.sync(stop)))
     })
 
   test("a subscription that ends sends its last message to update", async () => {
-    const state = await run(Effect.gen(function*() {
-      const engine = yield* make([])
+    const state = await run(Effect.fnUntraced(function*(deaths: Deaths) {
+      const engine = yield* make(deaths, [])
       engine.dispatch({ _tag: "Listened", listening: true })
       yield* until(engine, (state) => state.heard.length === 2)
-      return engine.current().state
+      return engine.current()
     }))
     expect(state.heard).toEqual(["a", "end"])
   })
 
   test("it does not start again while its key stays", async () => {
     const starts: Array<number> = []
-    await run(Effect.gen(function*() {
-      const engine = yield* make(starts)
+    await run(Effect.fnUntraced(function*(deaths: Deaths) {
+      const engine = yield* make(deaths, starts)
       const done = yield* Deferred.make<void>()
       engine.dispatch({ _tag: "Listened", listening: true })
       yield* until(engine, (state) => state.heard.length === 2)
@@ -556,14 +583,14 @@ describe("subscriptions that end", () => {
 
   test("it starts again when its key goes away and comes back", async () => {
     const starts: Array<number> = []
-    const state = await run(Effect.gen(function*() {
-      const engine = yield* make(starts)
+    const state = await run(Effect.fnUntraced(function*(deaths: Deaths) {
+      const engine = yield* make(deaths, starts)
       engine.dispatch({ _tag: "Listened", listening: true })
       yield* until(engine, (state) => state.heard.length === 2)
       engine.dispatch({ _tag: "Listened", listening: false })
       engine.dispatch({ _tag: "Listened", listening: true })
       yield* until(engine, (state) => state.heard.length === 4)
-      return engine.current().state
+      return engine.current()
     }))
     expect(starts).toEqual([1, 2])
     expect(state.heard).toEqual(["a", "end", "a", "end"])
@@ -575,8 +602,9 @@ describe("the fiber of effects", () => {
 
   // The gate's key goes with `Open`: its release holds the fiber of effects in the job of `Open`, until the test
   // opens it. Each `Work` starts a command of its own, which notes itself.
-  const gated = (log: ReturnType<typeof journal>, release: Effect.Effect<void>) =>
+  const gated = (deaths: Deaths, log: ReturnType<typeof journal>, release: Effect.Effect<void>) =>
     Engine.make<Gated, "Open" | "Work", number, never, string>({
+      deaths,
       init: { state: { gated: true, works: 0 } },
       runCommand: (n) => Effect.as(Effect.sync(() => log.push(`command ${n}`)), Opt.none()),
       update: (message) => (state) =>
@@ -591,10 +619,11 @@ describe("the fiber of effects", () => {
   // states. Nothing a correct run does could be awaited in place of the sleep: what would tell that a later job has
   // not started while the release holds is what does not happen.
   test("takes the jobs one at a time, in the order of the states: none starts while the job before is held", async () => {
-    const lines = await run(Effect.gen(function*() {
+    const lines = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const log = journal()
       const opened = yield* Deferred.make<void>()
       const engine = yield* gated(
+        deaths,
         log,
         Effect.sync(() => log.push("releasing")).pipe(
           Effect.andThen(Deferred.await(opened)),
@@ -616,17 +645,18 @@ describe("the fiber of effects", () => {
 
   test("queues the jobs of every state, however many wait: a thousand applied while a release holds it, then done in order", async () => {
     const many = 1000
-    const outcome = await run(Effect.gen(function*() {
+    const outcome = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const log = journal()
       const opened = yield* Deferred.make<void>()
       const engine = yield* gated(
+        deaths,
         log,
         Effect.sync(() => log.push("releasing")).pipe(Effect.andThen(Deferred.await(opened)))
       )
       engine.dispatch("Open")
       yield* log.reached("releasing")
       for (let n = 0; n < many; n++) engine.dispatch("Work")
-      const applied = engine.current().state.works
+      const applied = engine.current().works
       yield* Deferred.succeed(opened, undefined)
       yield* log.reached(`command ${many}`)
       return { applied, lines: [...log.lines] }
@@ -643,8 +673,14 @@ describe("drop by start, against the keys of the current state", () => {
   type WatchMessage = "Hold" | "Tick" | "Stop" | "Start"
 
   // `gate` holds the fiber of effects in the job that stops it; `ticks` sends a tick as soon as it starts.
-  const watching = (held: Subscription<WatchMessage>, starts: Array<number>, ticked: Deferred.Deferred<void>) =>
+  const watching = (
+    deaths: Deaths,
+    held: Subscription<WatchMessage>,
+    starts: Array<number>,
+    ticked: Deferred.Deferred<void>
+  ) =>
     Engine.make<Watch, WatchMessage, never, never, "gate" | "ticks">({
+      deaths,
       init: { state: { gated: true, ticking: false, ticks: 0 } },
       runCommand: absurd,
       update: (message) => (state) =>
@@ -675,12 +711,13 @@ describe("drop by start, against the keys of the current state", () => {
     })
 
   test("a start whose key went away before the fiber of effects started it sends nothing that reaches update", async () => {
-    const outcome = await run(Effect.gen(function*() {
+    const outcome = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const opened = yield* Deferred.make<void>()
       const holding = yield* Deferred.make<void>()
       const ticked = yield* Deferred.make<void>()
       const starts: Array<number> = []
       const engine = yield* watching(
+        deaths,
         gate(Deferred.succeed(holding, undefined).pipe(Effect.andThen(Deferred.await(opened)))),
         starts,
         ticked
@@ -694,7 +731,7 @@ describe("drop by start, against the keys of the current state", () => {
       // The second start has sent its tick: the witness that the first one has run, and sent its own.
       engine.dispatch("Start")
       yield* Deferred.await(ticked)
-      return { starts, ticks: engine.current().state.ticks }
+      return { starts, ticks: engine.current().ticks }
     }))
     expect(outcome).toEqual({ starts: [1, 2], ticks: 1 })
   })
@@ -702,10 +739,11 @@ describe("drop by start, against the keys of the current state", () => {
 
 describe("commands and scopes", () => {
   test("a command's scope closes before its answer is applied", async () => {
-    const log = await run(Effect.gen(function*() {
+    const log = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const log: Array<string> = []
       const answered = yield* Deferred.make<void>()
       const engine = yield* Engine.make<{ done: boolean }, "Run" | "Done", "Work", Scope.Scope, never>({
+        deaths,
         init: { state: { done: false } },
         runCommand: () =>
           Effect.acquireRelease(Effect.sync(() => log.push("acquire")), () => Effect.sync(() => log.push("release")))
@@ -737,6 +775,7 @@ describe("commands and scopes", () => {
   }>
 
   const tracked = Effect.fnUntraced(function*(
+    deaths: Deaths,
     subscription: (track: Track) => Subscription<Signal, Scope.Scope> = () => Channel.never
   ) {
     const log = journal()
@@ -768,6 +807,7 @@ describe("commands and scopes", () => {
       }
     }
     const engine = yield* Engine.make<boolean, Signal, Signal, Scope.Scope, string>({
+      deaths,
       init: { state: false },
       update: (signal) => (listening) =>
         signal === "Listen"
@@ -789,8 +829,8 @@ describe("commands and scopes", () => {
   })
 
   test("a fiber that a command forks in its scope is interrupted when the command ends", async () => {
-    const lines = await run(Effect.gen(function*() {
-      const { log, send } = yield* tracked()
+    const lines = await run(Effect.fnUntraced(function*(deaths: Deaths) {
+      const { log, send } = yield* tracked(deaths)
       send("Fork")
       yield* log.reached("applied Done")
       return [...log.lines]
@@ -812,8 +852,8 @@ describe("commands and scopes", () => {
 
   for (const [name, subscription] of [["Channel.fromEffect", fromEffect], ["Stream.fromEffect", fromStream]] as const) {
     test(`what a subscription acquires (${name}) is released when its key goes away`, async () => {
-      const lines = await run(Effect.gen(function*() {
-        const { log, send } = yield* tracked(subscription)
+      const lines = await run(Effect.fnUntraced(function*(deaths: Deaths) {
+        const { log, send } = yield* tracked(deaths, subscription)
         send("Listen")
         yield* log.reached("acquire subscription")
         send("Stop")
@@ -834,9 +874,9 @@ describe("commands and scopes", () => {
       ).pipe(
         Channel.concatWith(() => Channel.never)
       )
-    const lines = await run(Effect.gen(function*() {
+    const lines = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const log = yield* Effect.scoped(Effect.gen(function*() {
-        const { log, send, held } = yield* tracked(holding)
+        const { log, send, held } = yield* tracked(deaths, holding)
         send("Hold")
         send("Listen")
         yield* Deferred.await(held)
@@ -855,8 +895,13 @@ describe("commands and scopes", () => {
 describe("defects in the thunk", () => {
   type Sent = "Boom" | "Fine" | "Work" | "Listen"
 
-  const exploding = (where: "update" | "onApplied" | "onIgnored" | "subscriptions", calls: Array<string>) =>
+  const exploding = (
+    where: "update" | "onApplied" | "onIgnored" | "subscriptions",
+    calls: Array<string>,
+    deaths: Deaths
+  ) =>
     Engine.make<{ n: number; listening: boolean }, Sent, Execution<Sent, never>, never, string>({
+      deaths,
       init: { state: { n: 0, listening: false } },
       runCommand: identity,
       update: (message) => (state) => {
@@ -888,14 +933,14 @@ describe("defects in the thunk", () => {
     test(`a defect of ${where} in a dispatch is recorded in ${where}, never thrown to the caller, leaves the state as it was, and no update follows`, async () => {
       const outcome = await Effect.runPromise(Effect.gen(function*() {
         const calls: Array<string> = []
-        const exit = yield* Effect.exit(Effect.scoped(Effect.gen(function*() {
-          const engine = yield* exploding(where, calls)
+        const exit = yield* ended(Effect.fnUntraced(function*(deaths: Deaths) {
+          const engine = yield* exploding(where, calls, deaths)
           engine.subscribe(() => void calls.push("told"))
           const thrown = throws(() => engine.dispatch("Boom"))
           engine.dispatch("Fine")
-          calls.push(`thrown ${thrown}`, `n ${engine.current().state.n}`)
+          calls.push(`thrown ${thrown}`, `n ${engine.current().n}`)
           yield* engine.died
-        })))
+        }))
         return { calls, sites: sites(exit) }
       }))
       expect(outcome.calls).toEqual(["update Boom", "thrown false", "n 0"])
@@ -904,8 +949,8 @@ describe("defects in the thunk", () => {
   }
 
   test("a defect of update in a command's answer is in update, with the message, never in the command", async () => {
-    const exit = await Effect.runPromiseExit(Effect.scoped(Effect.gen(function*() {
-      const engine = yield* exploding("update", [])
+    const exit = await Effect.runPromise(ended(Effect.fnUntraced(function*(deaths: Deaths) {
+      const engine = yield* exploding("update", [], deaths)
       engine.dispatch("Work")
       yield* engine.died
     })))
@@ -919,8 +964,8 @@ describe("defects in the thunk", () => {
   })
 
   test("a defect of update in a subscription's message is in update, never in the subscription", async () => {
-    const exit = await Effect.runPromiseExit(Effect.scoped(Effect.gen(function*() {
-      const engine = yield* exploding("update", [])
+    const exit = await Effect.runPromise(ended(Effect.fnUntraced(function*(deaths: Deaths) {
+      const engine = yield* exploding("update", [], deaths)
       engine.dispatch("Listen")
       yield* engine.died
     })))
@@ -928,8 +973,9 @@ describe("defects in the thunk", () => {
   })
 
   test("a listener that throws on a command's answer dies in render, and the command ends as it should", async () => {
-    const exit = await Effect.runPromiseExit(Effect.scoped(Effect.gen(function*() {
+    const exit = await Effect.runPromise(ended(Effect.fnUntraced(function*(deaths: Deaths) {
       const engine = yield* Engine.make<{ n: number }, "Work" | "Done", Execution<"Done", never>, never, never>({
+        deaths,
         init: { state: { n: 0 } },
         runCommand: identity,
         update: (message) => (state) =>
@@ -949,8 +995,9 @@ describe("defects in the thunk", () => {
   })
 
   test("defects are recorded in the order they happened, and a listener that throws leaves the others told", async () => {
-    const exit = await Effect.runPromiseExit(Effect.scoped(Effect.gen(function*() {
+    const exit = await Effect.runPromise(ended(Effect.fnUntraced(function*(deaths: Deaths) {
       const engine = yield* Engine.make<{ n: number }, "Up", never, never, never>({
+        deaths,
         init: { state: { n: 0 } },
         runCommand: absurd,
         update: () => (state) => ({ state: { n: state.n + 1 } }),
@@ -978,6 +1025,7 @@ describe("defects in the thunk", () => {
         const go = yield* Deferred.make<void>()
         const asked = yield* Deferred.make<void>()
         const engine = yield* Engine.make<{ listening: boolean }, "Listen" | "Boom" | "Late", never, never, string>({
+          deaths: makeDeaths(() => true),
           init: { state: { listening: false } },
           runCommand: absurd,
           update: (message) => (state) => {
@@ -1003,7 +1051,7 @@ describe("defects in the thunk", () => {
   })
 
   test("a step applied before the first defect goes on whole: its commands still start", async () => {
-    const started = await Effect.runPromiseExit(Effect.scoped(Effect.gen(function*() {
+    const started = await Effect.runPromise(ended(Effect.fnUntraced(function*(deaths: Deaths) {
       const opened = yield* Deferred.make<void>()
       const holding = yield* Deferred.make<void>()
       const ran = yield* Deferred.make<void>()
@@ -1014,6 +1062,7 @@ describe("defects in the thunk", () => {
         never,
         string
       >({
+        deaths,
         init: { state: { gated: true } },
         runCommand: identity,
         update: (message) => (state) => {
@@ -1059,6 +1108,7 @@ describe("after the first defect", () => {
           return Channel.never
         }))
         const engine = yield* Engine.make<{ n: number }, "Hit", never, never, string>({
+          deaths: makeDeaths(() => true),
           init: { state: { n: 0 } },
           runCommand: absurd,
           update: (message) => (state) => {
@@ -1080,21 +1130,25 @@ describe("after the first defect", () => {
 
 describe("the sites of the fibers of effects", () => {
   test("a defect of subscriptions on the first state dies in subscriptions, as the engine is made", async () => {
-    const exit = await Effect.runPromiseExit(Effect.scoped(Engine.make<{ n: number }, "Up", never, never, never>({
-      init: { state: { n: 0 } },
-      runCommand: absurd,
-      update: () => (state) => ({ state }),
-      subscriptions: () => {
-        throw "subscriptions threw"
-      },
-      listen: absurd
-    })))
+    const exit = await Effect.runPromise(ended((deaths) =>
+      Engine.make<{ n: number }, "Up", never, never, never>({
+        deaths,
+        init: { state: { n: 0 } },
+        runCommand: absurd,
+        update: () => (state) => ({ state }),
+        subscriptions: () => {
+          throw "subscriptions threw"
+        },
+        listen: absurd
+      })
+    ))
     expect(sites(exit)).toEqual(["subscriptions: subscriptions threw"])
   })
 
   test("a defect of a command dies in the command, and one of a subscription in the subscription, with its key", async () => {
-    const exit = await Effect.runPromiseExit(Effect.scoped(Effect.gen(function*() {
+    const exit = await Effect.runPromise(ended(Effect.fnUntraced(function*(deaths: Deaths) {
       const engine = yield* Engine.make<{ n: number }, "Work", "Boom", never, never>({
+        deaths,
         init: { state: { n: 0 } },
         runCommand: () => Effect.die("command threw"),
         update: () => (state) => ({ state, commands: ["Boom"] }),
@@ -1105,8 +1159,9 @@ describe("the sites of the fibers of effects", () => {
       yield* engine.died
     })))
     expect(sites(exit)).toEqual(["command: command threw"])
-    const subscribed = await Effect.runPromiseExit(Effect.scoped(Effect.gen(function*() {
+    const subscribed = await Effect.runPromise(ended(Effect.fnUntraced(function*(deaths: Deaths) {
       const engine = yield* Engine.make<{ on: boolean }, "On", never, never, string>({
+        deaths,
         init: { state: { on: false } },
         runCommand: absurd,
         update: () => () => ({ state: { on: true } }),
@@ -1128,11 +1183,12 @@ describe("the sites of the fibers of effects", () => {
 
 describe("the end of the engine", () => {
   test("once the end has stopped the engine, nothing sent is applied", async () => {
-    const outcome = await Effect.runPromise(Effect.gen(function*() {
+    const outcome = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const heard: Array<string> = []
       let dispatch: (message: "Up") => void = () => undefined
       yield* Effect.scoped(Effect.gen(function*() {
         const engine = yield* Engine.make<{ n: number }, "Up", never, never, never>({
+          deaths,
           init: { state: { n: 0 } },
           runCommand: absurd,
           update: () => (state) => ({ state: { n: state.n + 1 } }),
@@ -1155,12 +1211,13 @@ describe("the end of the engine", () => {
   // before it starts that job's command; were the end to leave it running, it would start the commands of both jobs once
   // the release ends.
   test("the end stops the fiber of effects held by a release, which starts nothing after, nor any job it had not taken", async () => {
-    const log = await Effect.runPromise(Effect.gen(function*() {
+    const log = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const log: Array<string> = []
       const holding = yield* Deferred.make<void>()
       const go = yield* Deferred.make<void>()
       const scope = yield* Scope.make()
       const engine = yield* Engine.make<Readonly<{ step: number }>, "Next", Execution<never, never>, never, string>({
+        deaths,
         init: { state: { step: 0 } },
         runCommand: identity,
         update: () => (state) => ({
@@ -1187,13 +1244,14 @@ describe("the end of the engine", () => {
   // The command's release waits for the subscription to be interrupted: interrupted one after the other, it would wait
   // in vain, until its patience runs out.
   test("the end of the engine interrupts its commands and its subscriptions at once", async () => {
-    const log = await Effect.runPromise(Effect.gen(function*() {
+    const log = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const log: Array<string> = []
       const holding = yield* Deferred.make<void>()
       const listening = yield* Deferred.make<void>()
       const interrupted = yield* Deferred.make<void>()
       const scope = yield* Scope.make()
       yield* Engine.make<number, "Go", "Hold", Scope.Scope, string>({
+        deaths,
         init: { state: 0, commands: ["Hold"] },
         update: () => (n) => ({ state: n + 1 }),
         runCommand: () =>
@@ -1223,10 +1281,11 @@ describe("the end of the engine", () => {
     expect(log).toEqual(["released once the subscription was interrupted"])
   })
 
-  test("what a command dies of as the end of the engine interrupts it is what the end dies of", async () => {
-    const exit = await Effect.runPromiseExit(Effect.scoped(Effect.gen(function*() {
+  test("what a command dies of as the end of the engine interrupts it is what the engine ends with", async () => {
+    const exit = await Effect.runPromise(ended(Effect.fnUntraced(function*(deaths: Deaths) {
       const holding = yield* Deferred.make<void>()
       yield* Engine.make<number, "Go", "Hold", never, never>({
+        deaths,
         init: { state: 0, commands: ["Hold"] },
         update: () => (n) => ({ state: n + 1 }),
         runCommand: () =>
@@ -1257,15 +1316,16 @@ describe("the end of the engine", () => {
 
   // The end of the engine stops its fiber of effects in a job that was waiting for the release of a key that went
   // away. It reads the fibers that still run, never the keys of a state, so it stops that subscription too: one that
-  // then joins a fiber the fiber that ends the engine interrupted interrupts itself, a defect, and the end dies of it.
+  // then joins a fiber the fiber that ends the engine interrupted interrupts itself, a defect, which the engine ends with.
   test("a subscription interrupting itself as the end of the engine stops it, its key gone, is a defect", async () => {
-    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+    const exit = await Effect.runPromise(ended(Effect.fnUntraced(function*(deaths: Deaths) {
       const stopped = yield* Deferred.make<void>()
       // Interrupted by the fiber that ends the engine.
       const stale = yield* Effect.forkDetach(Effect.never)
       yield* Fiber.interrupt(stale)
       const scope = yield* Scope.make()
       const engine = yield* Engine.make<Readonly<{ on: boolean }>, "Stop", never, never, string>({
+        deaths,
         init: { state: { on: true } },
         update: () => () => ({ state: { on: false } }),
         runCommand: absurd,
@@ -1281,7 +1341,7 @@ describe("the end of the engine", () => {
       engine.dispatch("Stop")
       yield* Deferred.await(stopped)
       return yield* Scope.close(scope, Exit.void)
-    }))
+    })))
     const defect = Exit.isFailure(exit) ? exit.cause.reasons.find(Cause.isDieReason)?.defect : undefined
     expect(defect instanceof ProgramDefect && defect.where).toBe("subscription")
   })
@@ -1291,13 +1351,14 @@ describe("the end of the engine", () => {
   // there: had `FiberSet.run` a step between the fork and the add for that interruption to fall into, the end would not
   // find the command, and would leave it running.
   test("a command whose runCommand begins the end of the engine as it is called is interrupted by that end", async () => {
-    const log = await Effect.runPromise(Effect.gen(function*() {
+    const log = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const log: Array<string> = []
       const scope = yield* Scope.make()
       const fork = Effect.runForkWith(yield* Effect.context<never>())
       // The end of the engine, begun where the test cannot fork it: joined, it has stopped what it found.
       const closing = yield* Deferred.make<Fiber.Fiber<void>>()
       const engine = yield* Engine.make<number, "Go", "Hold", never, never>({
+        deaths,
         init: { state: 0 },
         update: () => (n) => ({ state: n + 1, commands: ["Hold"] }),
         runCommand: () => {
@@ -1317,13 +1378,14 @@ describe("the end of the engine", () => {
   // The same of `FiberMap.run`, which forks a subscription at once: its channel, made as it is first pulled, begins
   // the end before the fiber is in the map.
   test("a subscription that begins the end of the engine as it starts is interrupted by that end", async () => {
-    const log = await Effect.runPromise(Effect.gen(function*() {
+    const log = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const log: Array<string> = []
       const scope = yield* Scope.make()
       const fork = Effect.runForkWith(yield* Effect.context<never>())
       // The end of the engine, begun where the test cannot fork it: joined, it has stopped what it found.
       const closing = yield* Deferred.make<Fiber.Fiber<void>>()
       const engine = yield* Engine.make<number, "Go", never, never, string>({
+        deaths,
         init: { state: 0 },
         update: () => (n) => ({ state: n + 1 }),
         runCommand: absurd,
@@ -1371,10 +1433,11 @@ describe("what a testing tool is given", () => {
     starts.map(([key, generation]) => `${key}:${generation}`).join(",")
 
   test("stepped hears what each message came to once it stands, and the keys of each new state once they are active, the first state's as the engine is made", async () => {
-    const told = await run(Effect.gen(function*() {
+    const told = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const told: Array<string> = []
       let made: Engine.Engine<Seen, Order, never, string> | undefined
       const engine = yield* Engine.make<Seen, Order, number, never, string>({
+        deaths,
         init: { state: { keys: ["a"], works: 0 } },
         runCommand: () => Effect.succeedNone,
         update,
@@ -1418,8 +1481,9 @@ describe("what a testing tool is given", () => {
       Effect.forEach(["onApplied", "onIgnored", "subscriptions"] as const, (where) =>
         Effect.gen(function*() {
           const told: Array<string> = []
-          const exit = yield* Effect.exit(Effect.scoped(Effect.gen(function*() {
+          const exit = yield* ended(Effect.fnUntraced(function*(deaths: Deaths) {
             const engine = yield* Engine.make<Seen, Order, number, never, string>({
+              deaths,
               init: { state: { keys: [], works: 0 } },
               runCommand: () => Effect.succeedNone,
               update,
@@ -1440,7 +1504,7 @@ describe("what a testing tool is given", () => {
             engine.dispatch(where === "onIgnored" ? { _tag: "Refuse" } : { _tag: "Work" })
             engine.dispatch({ _tag: "Same" })
             yield* engine.died
-          })))
+          }))
           return { told, sites: sites(exit) }
         }))
     )
@@ -1454,10 +1518,11 @@ describe("what a testing tool is given", () => {
   // The gate's key goes with `Listen`, which starts `b` and a command: the job waits for the gate's release. The job of
   // the first state starts the gate, and stops nothing.
   test("released is told once the stops of a job have ended, before its starts and its commands, and only of a job that stops", async () => {
-    const lines = await run(Effect.gen(function*() {
+    const lines = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const log = journal()
       const opened = yield* Deferred.make<void>()
       const engine = yield* Engine.make<Seen, Order, number, never, string>({
+        deaths,
         init: { state: { keys: ["gate"], works: 0 } },
         runCommand: (n) => Effect.as(Effect.sync(() => log.push(`command ${n}`)), Opt.none()),
         update,
@@ -1486,9 +1551,10 @@ describe("what a testing tool is given", () => {
   })
 
   test("the fiber of each start and of each command runs what listening and answering give, asked by the job of its step, and what they send is of that start or command", async () => {
-    const lines = await run(Effect.gen(function*() {
+    const lines = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const log = journal()
       const engine = yield* Engine.make<Seen, Order, number, never, string>({
+        deaths,
         init: { state: { keys: [], works: 0 } },
         update,
         subscriptions: ({ keys }) => keys,
@@ -1516,10 +1582,11 @@ describe("what a testing tool is given", () => {
   // The gate's key goes with `Listen`: its release holds the fiber of effects, while the test asks for jobs that only
   // tell, outside a step, and by a listener in the step of the second `Work`.
   test("after calls done once every job before it is done, their commands started: outside a step, and in one after its job", async () => {
-    const lines = await run(Effect.gen(function*() {
+    const lines = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const log = journal()
       const opened = yield* Deferred.make<void>()
       const engine = yield* Engine.make<Seen, Order, number, never, string>({
+        deaths,
         init: { state: { keys: ["gate"], works: 0 } },
         runCommand: (n) => Effect.as(Effect.sync(() => log.push(`command ${n}`)), Opt.none()),
         update,
@@ -1533,7 +1600,7 @@ describe("what a testing tool is given", () => {
           )
       })
       engine.subscribe(() => {
-        if (engine.current().state.works === 2) engine.after(() => log.push("done in the step"))
+        if (engine.current().works === 2) engine.after(() => log.push("done in the step"))
       })
       engine.dispatch({ _tag: "Listen", keys: [] })
       yield* log.reached("releasing")
@@ -1557,9 +1624,10 @@ describe("what a testing tool is given", () => {
   })
 
   test("send applies a message at once as its source sends it, and active gives the keys of the current state, each with its start", async () => {
-    const outcome = await run(Effect.gen(function*() {
+    const outcome = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const heard: Array<string> = []
       const engine = yield* Engine.make<Seen, Order, number, never, string>({
+        deaths,
         init: { state: { keys: ["a"], works: 0 } },
         runCommand: () => Effect.succeedNone,
         update,
@@ -1573,15 +1641,16 @@ describe("what a testing tool is given", () => {
       engine.send({ _tag: "Work" }, { _tag: "Subscription", key: "a", generation: 1 })
       engine.send({ _tag: "Work" }, { _tag: "Subscription", key: "b", generation: 2 })
       engine.send({ _tag: "Work" }, { _tag: "Command" })
-      return { first, later: keysOf(engine.active), heard, works: engine.current().state.works }
+      return { first, later: keysOf(engine.active), heard, works: engine.current().works }
     }))
     expect(outcome).toEqual({ first: "a:1", later: "b:2", heard: ["Dispatch", "Subscription b", "Command"], works: 2 })
   })
 
   test("end marks the end at once, with no effect: nothing sent after is applied, and ended says so, as it does once stop has run", async () => {
-    const outcome = await run(Effect.gen(function*() {
+    const outcome = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const made = () =>
         Engine.make<Seen, Order, number, never, string>({
+          deaths,
           init: { state: { keys: [], works: 0 } },
           runCommand: () => Effect.succeedNone,
           update,
@@ -1595,7 +1664,7 @@ describe("what a testing tool is given", () => {
       ended.dispatch({ _tag: "Work" })
       const stopped = yield* made()
       yield* stopped.stop
-      return { before, after: ended.ended(), works: ended.current().state.works, stopped: stopped.ended() }
+      return { before, after: ended.ended(), works: ended.current().works, stopped: stopped.ended() }
     }))
     expect(outcome).toEqual({ before: false, after: true, works: 1, stopped: true })
   })

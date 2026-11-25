@@ -18,7 +18,6 @@ import {
   reconcile,
   record,
   released,
-  report,
   type Source,
   Stopped,
   wrapDefects
@@ -126,7 +125,7 @@ describe("the register of deaths", () => {
     const b = new Error("b")
     const once = record(noDeaths, Cause.fromReasons([...Cause.die(a).reasons, ...Cause.die(a).reasons]), () => true)
     const joined = record(once, Cause.fromReasons([...Cause.die(b).reasons, ...Cause.die(a).reasons]), () => true)
-    expect(joined.deaths.map((death) => death.defect)).toEqual([a, b])
+    expect(joined.map((death) => death.defect)).toEqual([a, b])
     expect(hasDied(joined, a)).toBe(true)
   })
 
@@ -134,8 +133,8 @@ describe("the register of deaths", () => {
     const one = { _tag: "Boom" }
     const other = { _tag: "Boom" }
     const register = record(record(noDeaths, Cause.die(one), () => true), Cause.die(other), () => true)
-    expect(register.deaths.map((death) => death.defect)).toEqual([one, other])
-    expect(register.deaths.map((death) => death.defect)[1]).toBe(other)
+    expect(register.map((death) => death.defect)).toEqual([one, other])
+    expect(register.map((death) => death.defect)[1]).toBe(other)
     expect(hasDied(register, { _tag: "Boom" })).toBe(false)
   })
 
@@ -146,22 +145,13 @@ describe("the register of deaths", () => {
       ...Cause.interrupt(1).reasons,
       ...Cause.fail("oops").reasons
     ])
-    expect(record(noDeaths, cause, (defect) => defect === "kept").deaths.map((death) => death.defect)).toEqual(["kept"])
+    expect(record(noDeaths, cause, (defect) => defect === "kept").map((death) => death.defect)).toEqual(["kept"])
   })
 
   test("is the same register when nothing new died, so that the shell signals only a new death", () => {
     const register = record(noDeaths, Cause.die("a"), () => true)
     expect(record(register, Cause.die("a"), () => true)).toBe(register)
     expect(record(register, Cause.interrupt(1), () => true)).toBe(register)
-  })
-
-  test("reports each defect once, those since the last report, in order", () => {
-    const first = record(record(noDeaths, Cause.die("a"), () => true), Cause.die("b"), () => true)
-    const [reported, after] = report(first)
-    expect(Opt.map(reported, defects)).toEqual(Opt.some(["a", "b"]))
-    expect(report(after)[0]).toEqual(Opt.none())
-    const [later] = report(record(after, Cause.die("c"), () => true))
-    expect(Opt.map(later, defects)).toEqual(Opt.some(["c"]))
   })
 })
 
@@ -311,9 +301,9 @@ describe("the keys of a new state, against those before", () => {
 })
 
 describe("the start of a program", () => {
-  test("starts from its first state, at the first revision, with the commands of its first step", () => {
+  test("starts from its first state, with the commands of its first step", () => {
     const state = { n: 0 }
-    expect(init({ state, commands: ["Load"] })).toEqual({ current: { state, revision: 0 }, commands: ["Load"] })
+    expect(init({ state, commands: ["Load"] })).toEqual({ state, commands: ["Load"] })
     expect(init({ state }).commands).toEqual([])
   })
 })
@@ -341,13 +331,13 @@ const fromDispatch: Source<string> = { _tag: "Dispatch" }
 const alive = () => false
 
 describe("a message against the state", () => {
-  const current = { state: { n: 0 }, revision: 3 }
+  const current = { n: 0 }
 
-  test("a new state gets the next revision, with the commands and the events of its step", () => {
+  test("a new state is the one update gave, with the commands and the events of its step", () => {
     const { calls, update } = counting()
     expect(arrive(update, current, noneActive, fromDispatch, "Bump", alive)).toEqual({
       _tag: "Applied",
-      next: { state: { n: 1 }, revision: 4 },
+      next: { n: 1 },
       changed: true,
       commands: ["Save"],
       events: ["Saved"]
@@ -355,7 +345,7 @@ describe("a message against the state", () => {
     expect(calls.count).toBe(1)
   })
 
-  test("the very same state keeps its revision, and its commands still run", () => {
+  test("the very same state is no new state, and its commands still run", () => {
     const { update } = counting()
     const arrived = arrive(update, current, noneActive, { _tag: "Command" }, "Stay", alive)
     expect(arrived).toEqual({ _tag: "Applied", next: current, changed: false, commands: ["Save"], events: [] })
@@ -364,10 +354,10 @@ describe("a message against the state", () => {
 
   test("a state that is NaN, given back, is the very same state", () => {
     const update: Update<number, "Stay"> = () => () => ({ state: Number.NaN })
-    const nan = { state: Number.NaN, revision: 3 }
+    const nan = Number.NaN
     const arrived = arrive(update, nan, noneActive, fromDispatch, "Stay", alive)
     expect(arrived).toEqual({ _tag: "Applied", next: nan, changed: false, commands: [], events: [] })
-    expect(arrived._tag === "Applied" && arrived.next).toBe(nan)
+    expect(arrived._tag === "Applied" && arrived.next).toBe(Number.NaN)
   })
 
   test("a message update rejects is ignored", () => {
@@ -410,7 +400,7 @@ describe("a message against the state", () => {
     fc.assert(fc.property(fc.array(event, { maxLength: 40 }), (history: ReadonlyArray<Event>) => {
       const { calls, update } = counting()
       let active: Active<string> = noneActive
-      let state = { state: { n: 0 }, revision: 0 }
+      let state: Counted = { n: 0 }
       let died = false
       const starts: Array<readonly [string, number]> = []
       for (const happened of history) {

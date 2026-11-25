@@ -18,7 +18,7 @@ import type { RunCommand } from "./command.ts"
 import * as Core from "./core.ts"
 import type { DefectSite } from "./defect.ts"
 import { describeByTag } from "./log.ts"
-import { commandFiber, type Deaths, makeDeaths, rootedIn, startFiber, stopping, withExternalSpan } from "./shell.ts"
+import { commandFiber, type Deaths, rootedIn, startFiber, stopping, withExternalSpan } from "./shell.ts"
 import type { Listen, Subscriptions } from "./subscription.ts"
 import type { Step, Update } from "./update.ts"
 
@@ -44,8 +44,7 @@ export type Origin =
  *
  * A program without commands leaves `Command` as `never`.
  *
- * The first state is revision 0, and each new one the next. When `update` returns the very same state it was given, the
- * same object or the same primitive value, the revision stays as it was.
+ * When `update` returns the very state it was given, `after` is `before`.
  *
  * @example
  * ```ts
@@ -66,8 +65,6 @@ export type Applied<State, Message, Command = never> = {
   readonly before: State
   /** The state it came to. */
   readonly after: State
-  /** The revision of `after`. */
-  readonly revision: number
   /** The commands it decided. */
   readonly commands: ReadonlyArray<Command>
 }
@@ -198,7 +195,7 @@ export type Stepped<State, Command, K, Event = unknown> =
  */
 export interface Engine<State, Message, R = never, K = never> {
   /** The current state: the one the last message applied made, at once. */
-  readonly current: () => Core.Revisioned<State>
+  readonly current: () => State
   /**
    * Hears each new state, once it is the current one: never for a rejected message, nor for the very same state.
    * Returns what stops it, at once: a listener stopped during a notice is not told of it, and one added during a notice
@@ -213,14 +210,12 @@ export interface Engine<State, Message, R = never, K = never> {
   readonly dispatch: (message: Message) => void
   /**
    * Starts the effects in the scope it is run in: it does the jobs that waited, in the order of the states, then forks
-   * the fiber of effects, which does the later ones. The scope's end stops the engine, interrupts its fibers and dies
-   * of what they died of. Run once.
+   * the fiber of effects, which does the later ones. The scope's end stops the engine, interrupts its fibers and waits
+   * for them, whose defects are in the register. Run once.
    */
   readonly effects: Effect.Effect<void, never, Exclude<R, Scope.Scope> | Scope.Scope>
   /** Succeeds once a fiber of the run, or a function of the program called in the thunk, has recorded a defect. */
   readonly died: Effect.Effect<void>
-  /** Dies with every defect not reported yet, in the order they died; succeeds when there is none. */
-  readonly report: Effect.Effect<void>
   /**
    * Applies nothing sent from now on, then interrupts the fiber of effects and waits for it to end. The end of the run
    * does it first, before whoever runs the engine stops what sends to it.
@@ -371,11 +366,11 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
     onApplied = () => undefined,
     onIgnored = () => undefined
   } = config
-  const { recorded, died, report, dead } = deaths
+  const { recorded, died, dead } = deaths
   const { listening, answering } = fibersOf(deaths, config)
   // What the thunk reads and writes, on the caller's stack: no fiber runs between its operations.
   const started = Core.init(first)
-  let current = started.current
+  let current = started.state
   // The keys of the current state, made true of it in the thunk that makes it: a subscription's message is dropped as
   // soon as its key is gone, though the fiber of effects has not stopped it yet, or not started it.
   let active: Core.Active<K> = Core.noneActive
@@ -443,7 +438,7 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
       case "Dropped":
         return stepped({ _tag: "Arrived", arrived: step })
       case "Ignored": {
-        const ignored: Ignored<State, Message> = { message, origin: originOf(source), state: before.state }
+        const ignored: Ignored<State, Message> = { message, origin: originOf(source), state: before }
         if (Opt.isNone(attempt("onIgnored", () => onIgnored(ignored)))) return
         return stepped({ _tag: "Arrived", arrived: step })
       }
@@ -452,9 +447,8 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
         const applied: Applied<State, Message, Command> = {
           message,
           origin: originOf(source),
-          before: before.state,
-          after: next.state,
-          revision: next.revision,
+          before,
+          after: next,
           commands
         }
         if (Opt.isNone(attempt("onApplied", () => onApplied(applied)))) return
@@ -465,7 +459,7 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
         }
         // The keys are the program's, and so are their `Equal` and `Hash`: compared here, in `subscriptions`, and
         // nowhere else in the run.
-        const reconciled = attempt("subscriptions", () => Core.reconcile(active, subscriptions(next.state)))
+        const reconciled = attempt("subscriptions", () => Core.reconcile(active, subscriptions(next)))
         // A state whose keys are a defect is never current, as one that `onApplied` died of: no listener is told of it.
         if (Opt.isNone(reconciled)) return
         const { gone, fresh, active: keys } = reconciled.value
@@ -516,7 +510,7 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
   const sending = (source: Core.Source<K>) => (message: Message) => Effect.sync(() => apply(message, source))
   // The keys of the first state, and its job, the first one done. A defect of `subscriptions` here is recorded as one in
   // a step: the engine applies nothing, and the run dies of it.
-  const firstKeys = attempt("subscriptions", () => Core.reconcile(Core.noneActive, subscriptions(current.state)))
+  const firstKeys = attempt("subscriptions", () => Core.reconcile(Core.noneActive, subscriptions(current)))
   if (Opt.isSome(firstKeys)) {
     active = firstKeys.value.active
     stepped({ _tag: "Listened", gone: [], fresh: firstKeys.value.fresh })
@@ -535,8 +529,8 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
     const subscriptionFibers = yield* FiberMap.make<Core.Generation, void, never>()
     // Added after the queue and the sets, so run before they close, as a scope runs its finalizers in the reverse order
     // they were added (`Scope.close`): the end of the run stops the fiber of effects, interrupts its other fibers
-    // itself, all at once, waits for them to release what they hold, and dies of what they have died of and nobody has
-    // reported, which `diesIn` already says where.
+    // itself, all at once, and waits for them to release what they hold. What they die of is in the register, which
+    // whoever runs the engine reads once it has ended.
     yield* Effect.addFinalizer(() =>
       Effect.andThen(
         stop,
@@ -545,9 +539,7 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
             ...fibers,
             ...Arr.map(Arr.fromIterable(subscriptionFibers), ([, fiber]) => fiber)
           ]
-          return Effect.forEach(running, stopping, { concurrency: "unbounded", discard: true }).pipe(
-            Effect.andThen(report)
-          )
+          return Effect.forEach(running, stopping, { concurrency: "unbounded", discard: true })
         })
       )
     )
@@ -625,7 +617,6 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
     dispatch: (message) => apply(message, Core.fromDispatch),
     effects: effectsIn,
     died,
-    report,
     stop,
     send: apply,
     active: () => active,
@@ -640,13 +631,13 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
 }
 
 /**
- * The engine as the tests of the engine make it, in a scope: built, and its effects started at once, with a register of
- * its own when none is given. Only the tests call it.
+ * The engine as the tests of the engine make it, in a scope: built, and its effects started at once. Only the tests
+ * call it, and read the register they give it once the scope has closed, as the run does.
  */
 export const make = <State, Message, Command, R, K>(
-  config: Parts<State, Message, Command, R, K> & Readonly<{ deaths?: Deaths }>
+  config: Config<State, Message, Command, R, K>
 ): Effect.Effect<Engine<State, Message, R, K>, never, Exclude<R, Scope.Scope> | Scope.Scope> =>
   Effect.suspend(() => {
-    const engine = build<State, Message, Command, R, K>({ ...config, deaths: config.deaths ?? makeDeaths(() => true) })
+    const engine = build<State, Message, Command, R, K>(config)
     return Effect.as(engine.effects, engine)
   })

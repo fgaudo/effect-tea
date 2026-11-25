@@ -458,7 +458,7 @@ const rehearsing = Effect.fnUntraced(function*<
   // What the test reads of the state stays readable once the rehearsal died; what it asks of the program, its model
   // included, fails.
   const rehearsal: Rehearsal<State, Model, Message, Command, Event, RC, RS> = {
-    state: Effect.sync(() => engine.current().state),
+    state: Effect.sync(() => engine.current()),
     model: deadOr(Effect.sync(() => app.model())),
     send: (select) => deadOr(send(select)),
     pending: Effect.sync(() => Ledger.pendingOf(stage.ledger)),

@@ -57,7 +57,6 @@ export type Applied<State, Message, Command = never> = {
     readonly origin: Origin;
     readonly before: State;
     readonly after: State;
-    readonly revision: number;
     readonly commands: ReadonlyArray<Command>;
 };
 

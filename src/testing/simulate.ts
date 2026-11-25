@@ -114,7 +114,7 @@ export const simulate = Effect.fnUntraced(function*<State, Message, Command = ne
       ))
       yield* stage.runAll
     }
-    return stage.engine.current().state
+    return stage.engine.current()
   }))
   return { state, messages: accepted, commands, events: stage.events(), ignored: stage.ignored() }
 })

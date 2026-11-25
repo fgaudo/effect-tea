@@ -170,25 +170,27 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "the very same state is taken for a new one",
     guarantees: ["A model is made only when it is read"],
     file: "src/core.ts",
-    from: "const changed = !Object.is(result.state, current.state)",
+    from: "const changed = !Object.is(result.state, current)",
     to: "const changed = true",
     killedBy: [
       [
         "src/engine.test.ts",
         "a listener is told of each new state, once it is current, never of the very same one, until it stops"
       ],
-      ["src/core.test.ts", "the very same state keeps its revision, and its commands still run"],
-      ["src/engine.test.ts", "a message that keeps the same state makes no new revision"],
-      ["src/engine.test.ts", "its commands still run"],
-      ["src/run.test.ts", "a message that leaves the very same state is heard too, with an unchanged revision"]
+      ["src/core.test.ts", "the very same state is no new state, and its commands still run"],
+      ["src/engine.test.ts", "a message that keeps the same state leaves it current, and its keys are not asked again"],
+      [
+        "src/run.test.ts",
+        "a message that leaves the very same state is heard too, with after as before, and tells no listener"
+      ]
     ]
   },
   {
     name: "the very same state is told by ===, which takes NaN for a new state",
     guarantees: ["A model is made only when it is read"],
     file: "src/core.ts",
-    from: "!Object.is(result.state, current.state)",
-    to: "result.state !== current.state",
+    from: "!Object.is(result.state, current)",
+    to: "result.state !== current",
     killedBy: [["src/core.test.ts", "a state that is NaN, given back, is the very same state"]]
   },
   {
@@ -470,7 +472,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a defect is recorded once for each fiber it ends",
     guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
-    from: "keeps(reason.defect) && !holds(deaths, reason.defect)",
+    from: "keeps(reason.defect) && !hasDied(deaths, reason.defect)",
     to: "keeps(reason.defect)",
     // The rest of the suite: `rehearse.test.ts` hangs under it.
     killedBy: [
@@ -531,12 +533,11 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a defect the run died of is in its cause again, among the rest of what it ended with",
     guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
-    from: "!(Cause.isDieReason(reason) && holds(deaths, reason.defect))",
+    from: "!(Cause.isDieReason(reason) && hasDied(deaths, reason.defect))",
     to: "true",
     killedBy: [
       ["src/core.test.ts", "a run that died ends with its defects first, then the rest of what it ended with"],
       ["src/core.test.ts", "a defect is left out of the rest by its identity, never by Equal"],
-      ["src/run.test.ts", "every defect of the cause is kept, each with where it happened"],
       ["src/testing/rehearse.test.ts", "a defect the scenario catches fails it all the same, first, and once"]
     ]
   },
@@ -1671,7 +1672,10 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "self.pipe(diesIn(where, details, () => false, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
     to: "self.pipe(deaths.recorded, Scope.provide(scope))",
     killedBy: [
-      ["src/engine.test.ts", "what a command dies of as the end of the engine interrupts it is what the end dies of"],
+      [
+        "src/engine.test.ts",
+        "what a command dies of as the end of the engine interrupts it is what the engine ends with"
+      ],
       ["src/run.test.ts", "a defect in a subscription ends the run, which dies with it and with where it happened"],
       ["src/run.test.ts", "a defect in a command ends the run, which dies with it and with where it happened"]
     ]
@@ -1692,16 +1696,6 @@ export const mutations: ReadonlyArray<Mutation> = [
       ["src/run.test.ts", "a subscription whose release dies applies messages until its scope has released all"],
       ["src/run.test.ts", "a command whose release dies as an interrupted run stops it is in the cause, in command"],
       ["src/run.test.ts", "a command whose release dies as a run that died elsewhere stops it is in the cause"]
-    ]
-  },
-  {
-    name: "a report leaves the defects it reported to be reported again",
-    guarantees: ["Nothing ends in silence"],
-    file: "src/core.ts",
-    from: "[Opt.some(Cause.fromReasons<never>(dies)), { ...register, reported: register.deaths.length }]",
-    to: "[Opt.some(Cause.fromReasons<never>(dies)), register]",
-    killedBy: [
-      ["src/core.test.ts", "reports each defect once, those since the last report, in order"]
     ]
   },
   {
@@ -1937,8 +1931,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a defect of subscriptions in the thunk is one of update",
     guarantees: ["Nothing ends in silence"],
     file: "src/engine.ts",
-    from: "attempt(\"subscriptions\", () => Core.reconcile(active, subscriptions(next.state)))",
-    to: "attempt(\"update\", () => Core.reconcile(active, subscriptions(next.state)))",
+    from: "attempt(\"subscriptions\", () => Core.reconcile(active, subscriptions(next)))",
+    to: "attempt(\"update\", () => Core.reconcile(active, subscriptions(next)))",
     killedBy: [
       [
         "src/engine.test.ts",
@@ -2238,8 +2232,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "the end of the engine leaves its fibers to the close of their sets",
     guarantees: ["Nothing outlives what acquired it"],
     file: "src/engine.ts",
-    from: "return Effect.forEach(running, stopping, { concurrency: \"unbounded\", discard: true }).pipe(",
-    to: "return Effect.void.pipe(",
+    from: "return Effect.forEach(running, stopping, { concurrency: \"unbounded\", discard: true })",
+    to: "return Effect.void",
     killedBy: [
       ["src/run.test.ts", "a run interrupted by whoever runs it is no defect"],
       [
@@ -2264,16 +2258,6 @@ export const mutations: ReadonlyArray<Mutation> = [
         "src/testing/contract.test.ts",
         "rehearse ends too, as the run does, failing on the command still under way, whose release waits for the subscription's"
       ]
-    ]
-  },
-  {
-    name: "the end of the engine does not report what its fibers died of",
-    guarantees: ["Nothing ends in silence"],
-    file: "src/engine.ts",
-    from: "          Effect.andThen(report)\n",
-    to: "",
-    killedBy: [
-      ["src/engine.test.ts", "what a command dies of as the end of the engine interrupts it is what the end dies of"]
     ]
   },
   {

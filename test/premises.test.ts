@@ -494,35 +494,6 @@ describe("Effect keeps nothing of a fiber that has ended, nor of what its scope 
   })
 })
 
-describe("Effect.scoped fails with what a finalizer of its scope dies of", () => {
-  const releaseDies = Effect.addFinalizer(() => Effect.die("release"))
-
-  test("of an effect that succeeds", async () => {
-    const exit = await Effect.runPromiseExit(Effect.scoped(releaseDies))
-    expect(described(exit)).toEqual([["Die", "release"]])
-  })
-
-  test("of an effect that dies, beside what it died of", async () => {
-    const exit = await Effect.runPromiseExit(Effect.scoped(Effect.andThen(releaseDies, Effect.die("own"))))
-    expect(described(exit)).toHaveLength(2)
-    expect(described(exit)).toContainEqual(["Die", "own"])
-    expect(described(exit)).toContainEqual(["Die", "release"])
-  })
-
-  test("of an effect that is interrupted, beside its interruption", async () => {
-    const exit = await Effect.runPromise(Effect.gen(function*() {
-      const fiber = yield* started((running) =>
-        Effect.scoped(releaseDies.pipe(Effect.andThen(running), Effect.andThen(Effect.never)))
-      )
-      yield* Fiber.interruptAs(fiber, 42)
-      return yield* Fiber.await(fiber)
-    }))
-    expect(described(exit)).toHaveLength(2)
-    expect(described(exit)).toContainEqual(["Interrupt", 42])
-    expect(described(exit)).toContainEqual(["Die", "release"])
-  })
-})
-
 describe("Scope.close dies with every defect its finalizers die of, none merged by Equal", () => {
   class Closing extends Data.TaggedError("Closing")<object> {}
 

@@ -78,6 +78,8 @@ version, and everything else, features included, the patch version.
   makes its model anew.
   Upgrade: a view changes nothing, and draws such a child once more. A test that expected the very same model of the
   two compares them by value.
+- **Breaking**: `Applied` has no `revision`.
+  Upgrade: an `onApplied` that reads it counts, from 0, the messages it hears whose `after` is not `before`.
 - The guide promises only what stands under "Rules", under "What you can rely on" and in the types; the rest explains,
   and what it does not promise is unspecified, with no entry here when it changes ("Guide", "What a page promises").
   "Precisely" is gone. Now promised, under the "Rules" of its page: all that a page held under "Precisely" or said it

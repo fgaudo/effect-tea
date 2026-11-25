@@ -187,14 +187,16 @@ the engine and in the testing tools.
   - The order of the defects is the engine's to keep, and no promise: the guide leaves it unspecified, with two cases
     that each rest on half of a premise read only in Effect's source (`premises.md`). No promise rests on what a
     function of Effect makes of a cause.
-  - Each defect is reported once, in that order: by the run as soon as one dies, and by the end. The end stops applying
-    (`stopped`, its one check, read in `apply` before each message), stops the fiber of effects first and waits for it
-    (`stop`), so that nothing forks while it reads the sets, interrupts the other fibers, waits for their releases, and
-    dies with the defects first, then what else it ended with (`endedWith` in `core.ts`, which the tools end with too).
-    The stop of the fiber of effects has no mutation: the end interrupts every fiber at once after it, so only the
-    scheduler of the tests reaches what it keeps. The end never begins inside a step: the outermost `apply` holds the
-    register (`hold` of `Deaths`), and a defect recorded meanwhile completes `died` only as it returns (`release`). It
-    may begin on the stack of the dispatch, once it has applied.
+  - The register is read once, as the run ends: its effects end once a defect is recorded (`died`), or as whoever runs
+    it interrupts it, and the run then reads the register, and ends with the defects first, in that order, then what
+    else it ended with (`endedWith` in `core.ts`, which the tools end with too). Where `init` threw there is no engine,
+    and the run reads it at once. The end of the engine reports nothing, since the register holds it all: it stops
+    applying (`stopped`, its one check, read in `apply` before each message), stops the fiber of effects first and waits
+    for it (`stop`), so that nothing forks while it reads the sets, interrupts the other fibers and waits for their
+    releases, which record what they die of as they end. The stop of the fiber of effects has no mutation: the end
+    interrupts every fiber at once after it, so only the scheduler of the tests reaches what it keeps. The end never
+    begins inside a step: the outermost `apply` holds the register (`hold` of `Deaths`), and a defect recorded meanwhile
+    completes `died` only as it returns (`release`). It may begin on the stack of the dispatch, once it has applied.
   - From the first defect on, the run applies no message: it calls no `update`, checked in the thunk (`arrive` in
     `core.ts`, called by `applyOne`), the only check. A defect in the thunk stops the step there: one of `update`
     changes nothing, and one of `onApplied` or of `subscriptions` leaves the state and its keys as they were, tells no

@@ -46,63 +46,22 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 63 and 64 apply what step 61 decided on 24 November 2026, when it weighed the decisions taken before the charter,
-and the invariants, by the values of "Deciding" ([`decisions-weighed.md`](docs/records/decisions-weighed.md)), whose
-first point step 62 applied. Step 63 comes before the steps of the engine, 53 and 54, since it changes the end of the
-engine, which `stage.ts` ends a tool by. Step 64 comes after them: it is the largest, and may stop with a report, so
-their fixes do not wait for it. Step 55 comes last, before the release that follows them all, so that one release
-carries every breaking change.
-
-### 63. The engine keeps no count: the end reads the register, and a state has no revision
-
-**Model and effort.** Opus 5.5, `high`: the end of a run, which "Nothing ends in silence" rests on.
-
-**Depends on** no open step. Step 61 decided it
-([`decisions-weighed.md`](docs/records/decisions-weighed.md), points 2 and 3), and change 10 of
-[`api-review.md`](docs/records/api-review.md) spells what the API loses.
-
-**Why.** The engine keeps two counts that nothing needs. `reported` says which defects its end has still to die of,
-and `Core.endedWith` then drops them from the cause, since the run and each tool end with the whole register.
-`revision` counts the states for `onApplied`, which hears each of them in order.
-
-**How.** By `change-engine`, and by `change-api` for the field:
-
-1. **The end.** The engine's finalizer stops its fibers, and reports nothing. `Core.report`, the `reported` of
-   `Register`, `Deaths.report` and `Engine.report` go. The run's effects end once `died` succeeds, and the run then
-   reads the register and ends with `Core.endedWith`, as today. Where `init` threw there is no engine, and the run
-   reads the register at once. The tests of `src/engine.test.ts` that read what the engine's scope dies of, 14 under
-   the probe of step 61, read the register that they give `Engine.make`, through `Core.endedWith`, as the run and the
-   tools end. The mutations "a report leaves the defects it reported to be reported again" and "the end of the engine
-   does not report what its fibers died of" go with their code, and so does the test of `src/core.test.ts` that the
-   first names. If a test of the run, of a tool or of a bridge then fails, a defect reached a cause through the second
-   report alone: the step stops, with a report.
-2. **The premise.** "`Effect.scoped` fails with what a finalizer of its scope dies of" leaves `docs/premises.md`, with
-   its tests, if no test rests on it any more. Otherwise its sentence names the test that does. Step 47 then names
-   what is left of the premises of how the failures of cleanups combine.
-3. **The revision**, as change 10 spells it. `Applied` loses `revision`, `src/core.ts` loses `Revision` and
-   `Revisioned`, and the engine's `current` gives the state. A test that read a revision reads the states, or what the
-   listeners were told, and "the very same state is taken for a new one" keeps a killer in each of its files. Step 62
-   made `Core.arrive` tell the very same state by `Object.is`, since a state may be `NaN`: its test, "a state that is
-   NaN, given back, is the very same state" (`src/core.test.ts`), gives `arrive` a revision, and the doc comment of
-   `Applied` and "Running", "Options", say of the revision "the same object or the same primitive value". The item
-   of "Any time" on saving each state says "the state" where it said "the state and its revision".
-4. **The documents.** `docs/invariants.md` says how the end is kept now, where it said "Each defect is reported once,
-   in that order: by the run as soon as one dies, and by the end". The guide and the changelog change for the revision
-   alone, as change 10 words it: the end changes nothing that a consumer can notice.
-
-**Done when** `Core.report`, `Deaths.report`, `Engine.report` and `reported` are gone; `revision` is in no file of
-`src/`, of the guide and of the skill; and the checks of `change-engine` pass, with `bun run mutations`,
-`bun run comments`, `bun run build`, `bun run api --check` once `bun run api` has written the reports, and
-`bun run smoke`.
+Step 64 applies what step 61 decided on 24 November 2026, when it weighed the decisions taken before the charter, and
+the invariants, by the values of "Deciding" ([`decisions-weighed.md`](docs/records/decisions-weighed.md)), whose first
+three points steps 62 and 63 applied. Step 64 comes after the steps of the engine, 53 and 54: it is the largest, and may
+stop with a report, so their fixes do not wait for it. Step 55 comes last, before the release that follows them all, so
+that one release carries every breaking change.
 
 ### 53. In `rehearse`, the fiber of effects tells data, and the call makes the error
 
 **Model and effort.** Opus 5.5, `high`: a fix by its form, in the largest tool.
 
-**Depends on** step 63, which comes before it: it changes the end of the engine, which `stage.ts` ends a tool by. Step
-62 took `State extends object` out of the type parameters of `rehearse.ts`. Step 52 left the code where it stays, what
-`rehearse` and `simulate` share in `src/testing/stage.ts`, and what `rehearse` hears in `rehearse.ts`. It waits because
-only a key whose printing throws, or a message whose tag does, meets it.
+**Depends on** no open step. Step 63 changed the end of the engine, which `stage.ts` ends a tool by: the engine's end
+reports nothing, and the close of its scope (`Scope.close(forks)` in `stage.ts`) is awaited as it is, no longer through
+`Effect.exit`, since it dies of nothing that the register lacks; and `Engine.current()` gives the state, with no
+revision. Step 62 took `State extends object` out of the type parameters of `rehearse.ts`. Step 52 left the code where
+it stays, what `rehearse` and `simulate` share in `src/testing/stage.ts`, and what `rehearse` hears in `rehearse.ts`. It
+waits because only a key whose printing throws, or a message whose tag does, meets it.
 
 **Why.** Two findings of "Open problems", of one form: a value of the program, or of the test, printed where what it
 throws is not the call's. `released`, the job of a `hearNext` and `openFor` build an `Error` with
@@ -305,7 +264,7 @@ day; the two searches of point 2 leave what it says; and `bun run typecheck`, `b
 **Model and effort.** Opus 5.5, `high`, by a reviewer that wrote none of the changes
 ([`premise-review`](.agents/skills/premise-review/SKILL.md)).
 
-**Depends on** steps 63, 53, 54 and 64, and comes before the release that follows them.
+**Depends on** steps 53, 54 and 64, and comes before the release that follows them.
 
 **Why.** Steps 49 to 54 move a check from a tool to the engine, or take one away with the code it guarded: a premise
 may leave with it, and no test fail. From step 52 on, `simulate` rests on the engine's premises, and no longer on
@@ -385,9 +344,9 @@ Its draft read the JSDoc alone: the rule above on effect.website and `ai-docs` c
 was opened. Of its four rules, only the scope of a stream has a word there, the example of `Stream.callback` in
 `ai-docs`, which its premise names; the site shows streams that release, and says nothing of which scope or when.
 
-Not asked: the three premises of how the failures of cleanups combine (`Effect.onExit`, `Effect.scoped`, `Scope.close`)
-and that of a `Deferred` resuming on the stack of whoever completes it, which fall under what the first answer
-declined; and those of what a `Queue` and the runtime keep, whose fall would be a leak that Effect fixes as a bug.
+Not asked: the two premises of how the failures of cleanups combine (`Effect.onExit`, `Scope.close`) and that of a
+`Deferred` resuming on the stack of whoever completes it, which fall under what the first answer declined; and those of
+what a `Queue` and the runtime keep, whose fall would be a leak that Effect fixes as a bug.
 
 **Still to ask**, since step 46 kept the guarantee that rests on them: what `Effect.interruptible` fails with, entered
 by an interrupted fiber where it is uninterruptible (the second half of its premise; the first half holds only what
@@ -433,9 +392,8 @@ otherwise.
 - **An example of hot module reloading** that keeps the state, which the guide hints at (the view lives in a
   module of its own) without showing.
 - **An example of saving each state before its commands start**, which the guide names ("Running", "Work that must
-  wait goes to the effects of the program") without showing: `onApplied` offers the state and its revision to a
-  queue, a fiber of whoever runs the program saves it, and a wrapped `runCommand` waits until the state its step
-  heard is saved.
+  wait goes to the effects of the program") without showing: `onApplied` offers the state to a queue, a fiber of
+  whoever runs the program saves it, and a wrapped `runCommand` waits until the state its step heard is saved.
 - **The search laid out by guarantee.** The 21 properties of `src/interleaving.test.ts` sit in one `describe`. Each
   would go under a `describe` named by the bold title of the item of "What you can rely on" it checks, with one for
   what the guide says the search "also checks", and `bun run comments` would check the names both ways, with

@@ -34,10 +34,6 @@ unless it says otherwise, named after it, with what it fails with.
   and `rehearse`, record what they die of in order, interrupted or not, merging no causes. That the cleanup runs however
   the effect ends, and that the causes are merged, is documented; their order is read only in the source. Its tests are
   of an effect that dies and of one that is interrupted.
-- **`Effect.scoped` fails with what a finalizer of its scope dies of, beside what the effect ended with**: a test of the
-  engine sees what its end dies of by it. The library no longer rests on it, since `scopedIn` closes its scope by hand.
-  The JSDoc says only that the finalizers run however the effect ends; the rest is read in the source. Its tests, of an
-  effect that succeeds, dies and is interrupted, fail with a close that catches what its finalizers fail with.
 - **`Scope.close` dies with every defect its finalizers die of, none merged by `Equal`**, those of the scopes forked
   from it included: so `scopedIn` records each defect of a release as a defect of its site. `Effect.scoped` is no such
   close: it joins with `Cause.combine`, which keeps one of two reasons equal by `Equal` (documented). The JSDoc of

@@ -1560,8 +1560,8 @@ describe("onApplied", () => {
     await interrupted(fiber)
     const origin = { _tag: "Dispatch" } as const
     expect(heard).toEqual([
-      { message: "Increment", origin, before: { count: 0 }, after: { count: 1 }, revision: 1, commands: [] },
-      { message: "Increment", origin, before: { count: 1 }, after: { count: 2 }, revision: 2, commands: [] }
+      { message: "Increment", origin, before: { count: 0 }, after: { count: 1 }, commands: [] },
+      { message: "Increment", origin, before: { count: 1 }, after: { count: 2 }, commands: [] }
     ])
     expect(counts).toEqual([1, 2])
   })
@@ -1585,23 +1585,29 @@ describe("onApplied", () => {
     expect(origins).toContainEqual({ _tag: "Subscription", key: "k" })
   })
 
-  test("a message that leaves the very same state is heard too, with an unchanged revision", async () => {
+  test("a message that leaves the very same state is heard too, with after as before, and tells no listener", async () => {
     const applied = Deferred.makeUnsafe<Applied<Count, Message, Command>>()
     const still: Counter = {
       ...counter,
       init: { state: { count: 0 }, commands: ["Ping"] },
       update: () => (state) => ({ state })
     }
-    const { run } = start(still, { onApplied: (message) => void Deferred.doneUnsafe(applied, Exit.succeed(message)) })
+    const { app, run } = start(still, {
+      onApplied: (message) => void Deferred.doneUnsafe(applied, Exit.succeed(message))
+    })
+    let told = 0
+    app.subscribe(() => void (told += 1))
     await endedAfter(Effect.runFork(run), Deferred.await(applied))
-    expect(await Effect.runPromise(Deferred.await(applied))).toEqual({
+    const heard = await Effect.runPromise(Deferred.await(applied))
+    expect(heard).toEqual({
       message: "Increment",
       origin: { _tag: "Command" },
       before: { count: 0 },
       after: { count: 0 },
-      revision: 0,
       commands: []
     })
+    expect(heard.after).toBe(heard.before)
+    expect(told).toBe(0)
   })
 
   test("hears the commands each message started, as update returned them", async () => {

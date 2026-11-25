@@ -79,11 +79,9 @@ still kept, and so is what your program holds.
   `onApplied` hears:
   - where the message came from (`origin`: a dispatch, a command, or a subscription with its key);
   - the state before the message and the state after it;
-  - the `revision` of the state after the message;
   - the commands decided for the message.
 
-  The first state is revision 0, and each new state is the next revision. When `update` returns the very state it was
-  given, the same object or the same primitive value, the message leaves the revision as it was.
+  When `update` returns the very state it was given, `after` is `before`.
 - **`onIgnored`**: a function that hears every message that `update` rejected, with where the message came from and
   the state it did not apply in. `onIgnored` only watches: the message stays ignored. Use `onIgnored` for devtools, or
   to count the taps that did nothing.
@@ -143,7 +141,7 @@ takes it from the queue. Choose there what a line holds: a message may hold data
 const main = Effect.gen(function*() {
   const heard = yield* Queue.unbounded<Applied<State, Message, Command>>()
   const logging = Queue.take(heard).pipe(
-    Effect.flatMap(({ message, revision }) => Effect.logDebug("Message", message._tag, { revision })),
+    Effect.flatMap(({ message }) => Effect.logDebug("Message", message._tag)),
     Effect.forever
   )
   const { app, run } = start(program, {
