@@ -23,6 +23,9 @@ version, and everything else, features included, the patch version.
   its parent's state gives"). So where a declaration has `tell`, a first step and `stateOf` run the child's `external`
   and its parent's `onEvent`; a handler that raises an event of the parent's own there is a `CompositionDefect`, and
   one that gives `stateOf` another own state than the one given is an error. The example `cart` shows it.
+- The example `routing`: pages at addresses of their own, with the History API alone. The address the page is opened
+  at is the program's flags, a link a message whose command pushes the new address, and back and forward a
+  subscription.
 
 ### Changed
 

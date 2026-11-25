@@ -26,9 +26,9 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 69 to 72 come before the library is made known to others ([`adoption.md`](docs/records/adoption.md)), and
+Steps 70 to 72 come before the library is made known to others ([`adoption.md`](docs/records/adoption.md)), and
 neither wait for the release of 0.9.0 ("For the owner") nor hold it: what is done before it goes out with it. Their
-order: first what a first user meets (69, 70); then the two checks, which read the guide as those steps leave it (71,
+order: first what a first user meets (70); then the two checks, which read the guide as those steps leave it (71,
 72).
 
 Step 73 decided the form of the smaller guide ([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md`
@@ -44,24 +44,6 @@ reads each `](…#…)` into its page, before and after.
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 69. An example of routing
-
-**Model and effort.** Opus 5.5, `medium`.
-
-**Depends on** no other step.
-
-**Why.** A reader who starts a new application looks for it first, and no example shows it: flags from the URL,
-`popstate` as a subscription, navigation as a command.
-
-**How.** By `add-example`, with the History API alone: a router of another package is a dependency, which the owner
-decides. [`examples/pages`](examples/pages) shows children that are there while their flags are: the step weighs
-whether routing is that example with a URL, or one of its own. An example never brings the rule that allows it
-(`AGENTS.md`): where routing needs a rule that the guide lacks, the rule comes first, under the "Rules" of its page.
-
-**Done when** the example is in `examples/` as `add-example` asks, with its tests: the URL it starts from, a
-navigation and a `popstate` each change what a test asserts; the README lists it; and the checks of `add-example`
-pass.
 
 ### 70. React in a real browser: transitions, Fast Refresh and hydration
 

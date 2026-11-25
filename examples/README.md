@@ -10,6 +10,8 @@ example shows, with a link to try it in the browser.
   snabbdom and by React, over the same `App`. A program with one renderer is drawn by that one alone, as
   [`timer/`](timer) is.
 - [`pages/`](pages): a parent and its children, kept by the library, one there while its flags are, and talking through events.
+- [`routing/`](routing): pages at addresses of their own, the first thing a new application needs: the address as
+  flags, a link as a message whose command pushes the address, and back and forward as a subscription.
 - [`timer/`](timer): the application of the [tutorial](../site/tutorial/index.md), one module for each step.
 
 ## What an example holds
