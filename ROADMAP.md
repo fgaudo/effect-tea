@@ -26,40 +26,15 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 66 and 67 come before the release of 0.9.0 ("For the owner"). Steps 68 to 72 come before the library is made
-known to others ([`adoption.md`](docs/records/adoption.md)), and neither wait for that release nor hold it: what is
-done before it goes out with it. Their order: first what may change a rule of the guide or show a cost of the API,
-since the breaking changes go out together (68); then what a first user meets (69, 70); then the two checks, which
-read the guide as those steps leave it (71, 72).
+Step 67 comes before the release of 0.9.0 ("For the owner"). Steps 68 to 72 come before the library is made known to
+others ([`adoption.md`](docs/records/adoption.md)), and neither wait for that release nor hold it: what is done before
+it goes out with it. Their order: first what may change a rule of the guide or show a cost of the API, since the
+breaking changes go out together (68); then what a first user meets (69, 70); then the two checks, which read the guide
+as those steps leave it (71, 72).
 
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 66. The search near the bound of the memory guard
-
-**Model and effort.** Opus 5.5, `high`: the cause is not known.
-
-**Depends on** no other step, and comes before the release of 0.9.0: point 1 of "Releasing", in `release`, runs
-`bun run interleavings`.
-
-**Why.** `test/memory-guard.test_worker.ts` says the heaviest file of the suite holds under a gigabyte, but
-`src/interleaving.test.ts` reached 980 to 1568 MB at its peak on 24 November 2026 (six runs before step 50 and six
-after it, measured from a worker as the guard measures, the peaks before no lower), and the guard ended 2 runs of
-`bun run interleavings` in 14 after it, at 2050 and 2069 MB, and none of 6 before. A check that fails one run in seven
-for a cause that nobody knows says nothing when it fails, and every later step runs it or rests on it. And a search
-that holds what it no longer needs is a cost that grows with no need ("Deciding", value 6).
-
-**How.** Find first which it is: the search holds what it no longer needs (a history kept by fast-check, a
-scheduler's log), or the bound is too low for it. Never a bound raised without knowing which. The search is a test of
-the engine (`change-engine`).
-
-**Done when** the commit names the cause, with the measurement that shows it; the search no longer holds what it did
-not need, or, where it needs what it holds, its bound is set from the peak measured, with the reason where the bound
-is written; the worker's comment on the heaviest file is true; and the guard ends none of twenty runs of
-`bun run interleavings` in a row, their peaks in the commit: at 2 in 14, twenty clean runs come by chance once in
-twenty. A fix of `src/` outside its tests is read for its premises before the release (`premise-review`). The checks
-of `change-engine` pass.
 
 ### 67. The README says what the library is and for whom
 
@@ -189,7 +164,7 @@ library's own terms, as the record did.
 What leaves this machine, or decides what the project is ("Deciding" in `AGENTS.md`): an agent prepares it, and the
 owner does it.
 
-- **The release of 0.9.0**, after steps 66 and 67. Step 65 closed the review of every change since the last release.
+- **The release of 0.9.0**, after step 67. Step 65 closed the review of every change since the last release.
   An agent prepares its commit and its tag (`release`) when the owner asks for it, and the owner pushes them and
   publishes the package. The checks of point 1 of "Releasing" passed on the commit that closed step 65: commits come
   after it, so the agent runs them again.

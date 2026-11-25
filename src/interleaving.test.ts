@@ -13,6 +13,7 @@ import * as References from "effect/References"
 import type * as Scope from "effect/Scope"
 import type * as Tracer from "effect/Tracer"
 import fc from "fast-check"
+import { collectGarbage } from "../test/gc.test_helper.ts"
 import { idle, prioritizedSchedules, unpreempted } from "../test/scheduled.test_scheduler.ts"
 import { type Instance, type Kept, program } from "./compose.ts"
 import { type DefectSite, ProgramDefect } from "./defect.ts"
@@ -948,9 +949,14 @@ describe("interleavings of the user, commands and subscriptions", () => {
   const property = (
     check: (outcome: Outcome) => void,
     { schedules = 1, ...options }: Readonly<{ numRuns?: number; seed?: number; schedules?: number }> = {}
-  ) =>
+  ) => {
+    let scenarios = 0
     fc.assert(
       fc.property(fates, fc.array(act, { maxLength: 12 }), fc.nat(), (fates, acts, seed) => {
+        // A property runs in one synchronous job, and Bun leaves the garbage of its scenarios there until the job ends:
+        // its heap reached 350 MB in 1500 scenarios, 11 MB once collected. So it is collected as the property goes, or
+        // the peak of the process depends on when Bun chooses to collect, and the memory guard ends some runs.
+        if (++scenarios % 50 === 0) collectGarbage()
         prioritizedSchedules(runScenario(fates, acts), { runs: schedules, depth, first: seed }, (exit) => {
           if (Exit.isFailure(exit)) throw new Error(`the scenario failed: ${Cause.pretty(exit.cause)}`)
           check(exit.value)
@@ -958,6 +964,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       }),
       { numRuns: 60, ...options }
     )
+  }
 
   test("the scenarios reach every message, every way of dying, and what each property checks", () => {
     const seed = Math.floor(Math.random() * 2 ** 31)
