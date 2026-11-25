@@ -188,8 +188,9 @@ The run does not check these. A test does, with the tool named.
   twice**: `dispatchViolations`, with `candidates`. The test marks a message meant to act twice `repeatable`, one held
   on purpose though it does nothing `inert`, and a candidate left out on purpose `withheld`. The guide, "Testing tools",
   "dispatchViolations".
-- **A view sends what its model holds**: your renderer's tools, as `messagesSentBy` for snabbdom, compared with what
-  the test's reader returns. The guide, "Testing", "The view".
+- **A view sends what its model holds**: your renderer's tools, as `messagesSentBy` for snabbdom, or for React the view
+  drawn by its renderer's testing library with a dispatch that records, compared with what the test's reader returns.
+  The guide, "Testing", "The view".
 - **A message held without its value is filled by the reader too**: with a text other than the one the model shows,
   and with values that fast-check draws. The guide, "Testing", "The reader".
 - **A rejection is asserted as `reject` itself**, with `toBe(reject)`, never as "the state did not change". The guide,

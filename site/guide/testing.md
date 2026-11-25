@@ -6,10 +6,10 @@ title: Testing
 
 ## In short
 
-This page shows how a program is tested, step by step. Most of a program is pure, so most of its tests need no
-runtime: `update` and the model are tested as plain functions, with `applyAll` and `dispatchViolations`. A flow is
-played without running the program, with `simulate` and `rehearse`, and a scenario on the running program with
-`drive`. [Testing tools](./testing-tools.md) says which tool answers which question.
+Most of a program is pure, so most of its tests need no runtime: `update` and the model are tested as plain
+functions, with `applyAll` and `dispatchViolations`. A flow is played without running the program, with `simulate` and
+`rehearse`, and a scenario on the running program with `drive`.
+[Testing tools](./testing-tools.md) says which tool answers which question.
 
 ## An example
 
@@ -77,8 +77,7 @@ starts them, from 1 (see [the order of the starts](./composition.md#how-a-parent
 ### The reader
 
 **The reader is the test's own**: a function from a model to the messages that the model holds (`messagesOf` above),
-written one case of the model at a time. The library cannot write it, because a message in a model is a value like any
-other.
+written one case of the model at a time.
 
 **A message held without its value.** The reader takes the value as a parameter, `messagesOf(model, offset)`, and
 fills it into each message that the model holds without it, as the view does (see
@@ -93,8 +92,7 @@ fills it into each message that the model holds without it, as the view does (se
 - Exempt with `inert` the values at which the message means nothing.
 - Fill the held messages and the `candidates` with the same values: `Missing` compares whole messages.
 
-[`volume`](../../examples/volume/volume.test.ts) does this, for a press with the point of the pointer and the place of
-its track.
+[`volume`](../../examples/volume/volume.test.ts) does this, for a press on its track.
 
 **Children.** A parent's reader calls the readers of its children, and wraps what they return as the parent receives
 it: `{ _tag: 'Clock', message }`, with the `id` for children by id, as [`pages`](../../examples/pages/app.test.ts) and
@@ -112,6 +110,9 @@ reader too.
 renderer's tools. For snabbdom, `messagesSentBy`, of `@fgaudo/effect-tea/snabbdom/testing`, finds what a view sends
 without a DOM, and a test compares it with what its reader returns, in the order the view draws them. Where a handler
 reads what its element or its event reports, the test gives `messagesSentBy` the values that it gives its reader.
+For React, a test draws `view(model, dispatch)` with its renderer's testing library and a `dispatch` that records,
+acts on each control, and compares what was sent with what its reader returns: it finds only the controls it acts on
+([`views.test_jest.tsx`](../../examples/react-native/views.test_jest.tsx)).
 
 **A program run under its renderer, in a DOM,** is run as the app runs it. The test file registers a DOM, as happy-dom's
 `GlobalRegistrator.register()` does in a `beforeAll`. With snabbdom, which reads `window` as it loads, a file that sets

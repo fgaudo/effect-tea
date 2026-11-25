@@ -1,7 +1,8 @@
 // The bridge to React, in a DOM (happy-dom): the tests every bridge passes (`bridge.test_suite.ts`), drawn with `Draw`
 // from a program the suite starts, with controlled elements as React's documentation draws them; where React reads the
-// model; `Host`; what an application does beside the program, as `docs/records/hosted-react.md` tested it; one program
-// drawn by React and by snabbdom together; then the premises of the bridge on React (`docs/premises.md`).
+// model; `Host`; what an application does beside the program, as `docs/records/hosted-react.md` tested it; a view drawn
+// alone, as a user's test draws one; one program drawn by React and by snabbdom together; then the premises of the
+// bridge on React (`docs/premises.md`).
 import {
   type App,
   type Dispatch,
@@ -49,7 +50,7 @@ import { renderToString } from "react-dom/server"
 import { h } from "snabbdom"
 import { counter, type Message as CounterMessage, type Model as CounterModel } from "../examples/counter/counter.ts"
 import { view as counterView } from "../examples/counter/view-react.tsx"
-import { form } from "../examples/form/form.ts"
+import { Draft, form, type Message as FormMessage, type Model as FormModel } from "../examples/form/form.ts"
 import { Storage } from "../examples/form/storage.ts"
 import { view as formView } from "../examples/form/view-react.tsx"
 import { view as snabbdomFormView } from "../examples/form/view-snabbdom.ts"
@@ -1531,6 +1532,55 @@ describe("what an application does beside the program", () => {
     expect([input.value, app.note()]).toEqual(["Ada", "Ada"])
     await acting(() => app.send("Cleared"))
     expect(input.value).toBe("")
+  })
+})
+
+describe("a view drawn alone, with a dispatch that records", () => {
+  // A view is a function: the test draws it in a root of its own, with no program, acts on each control, and compares
+  // what was sent with what the model holds. It finds only the controls it acts on.
+  const sentBy = <Model, Message>(
+    view: View<Model, Message>,
+    model: Model,
+    acts: () => void
+  ): ReadonlyArray<Message> => {
+    const sent: Array<Message> = []
+    const root = rootIn(page())
+    flushSync(() => root.render(view(model, (message) => void sent.push(message))))
+    acts()
+    return sent
+  }
+
+  // What the model holds, in the order the test acts: −, then +.
+  const counterMessagesOf = (model: CounterModel): ReadonlyArray<CounterMessage> =>
+    model._tag === "Counting" ? [model.decrement, model.increment] : [model.increment]
+
+  test.each([0, 2])("the counter's view sends what its model holds, at %d", (count) => {
+    const model = counter.makeModel({ count })
+    expect(sentBy(counterView, model, () => {
+      button("−").click()
+      button("+").click()
+    })).toEqual(counterMessagesOf(model))
+  })
+
+  // What the model holds, in the order the test acts: what is typed, filled with the text given, where the model shows
+  // an editor, then Save. A click of a disabled button sends nothing.
+  const formMessagesOf = ({ editor }: FormModel, text: string): ReadonlyArray<FormMessage> =>
+    editor._tag === "Saving"
+      ? []
+      : [{ ...editor.typed, value: text }, ...(editor._tag === "Named" ? [editor.save] : [])]
+
+  test.each(
+    [
+      ["Blank", Draft.Editing({ name: "", failed: Opt.none() })],
+      ["Named", Draft.Editing({ name: "Ada", failed: Opt.none() })],
+      ["Saving", Draft.Saving({ name: "Ada" })]
+    ] as const
+  )("the form's view sends what its model holds, %s", (_, draft) => {
+    const model = form.makeModel({ draft, saved: [] })
+    expect(sentBy(formView, model, () => {
+      type(element<HTMLInputElement>("input"), "Ada!")
+      element<HTMLButtonElement>("button").click()
+    })).toEqual(formMessagesOf(model, "Ada!"))
   })
 })
 

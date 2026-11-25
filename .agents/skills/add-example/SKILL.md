@@ -42,7 +42,7 @@ What a bridge gives a user's tests (`snabbdom-testing.ts`, `snabbdom-preload.ts`
 the repository's tests. React is used only by [`counter`](../../../examples/counter) and
 [`form`](../../../examples/form), to show that a program does not change with its renderer: each has a
 `view-snabbdom.ts` and a `view-react.tsx`, and its `main.tsx` draws one run with both, into the `#snabbdom` and
-`#react` of its page. Its test checks the snabbdom view; the React view is checked by the bridges' tests. Only the
+`#react` of its page. Its test checks the snabbdom view; the React view is checked by the bridge's tests. Only the
 bridges' tests in a DOM register one (happy-dom), and they run in Chromium, Firefox and WebKit too
 (`bun run test:browsers`).
 
@@ -88,8 +88,10 @@ In `examples/` itself are [`README.md`](../../../examples/README.md), and the sh
   (`timer/timer.test_reader.ts`).
 - **A bridge owes no `messagesSentBy`.** The snabbdom bridge has one, and each example drawn with snabbdom checks that
   `messagesSentBy(view, model)` equals `messagesOf(model)`, so the reader lists the messages in the order the view
-  draws them, each held message filled with the value its model holds (`form/form.test.ts`). A change of what both
-  bridges draw is made to both: the shared suite checks it.
+  draws them, each held message filled with the value its model holds (`form/form.test.ts`). A view of React is drawn
+  alone with a dispatch that records, each control acted on, and what it sent compared with a reader of the test's file:
+  `react.test.ts` for React DOM, `views.test_jest.tsx` for React Native. A change of what both bridges draw is made to
+  both: the shared suite checks it.
 - **The test** shows the testing tools, from the cheapest that proves the point: `applyAll` and `dispatchViolations`
   always, then `simulate`, `rehearse` or `drive`. The candidates of tagged messages are a record with an entry for each
   tag, checked with `satisfies { [Tag in Message['_tag']]: ReadonlyArray<Extract<Message, { _tag: Tag }>> }` and

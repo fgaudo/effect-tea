@@ -1,16 +1,17 @@
-// The views of `views.tsx` drawn by the bridge to React under React Native's jest preset: run by
+// The views of `views.tsx` under React Native's jest preset, drawn by the bridge to React, and alone: run by
 // `bun run test:react-native` alone, which installs React Native in a project of its own. Under jest, `TextInput` is a
 // mock that draws a host element with the props the view wrote: these tests check what React draws, and nothing of
 // what a native view holds.
 import { start } from "@fgaudo/effect-tea"
-import { Draw, type Fork, Host } from "@fgaudo/effect-tea/react"
+import { Draw, type Fork, Host, type View } from "@fgaudo/effect-tea/react"
 import { act, fireEvent, render, screen, userEvent } from "@testing-library/react-native"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
+import * as Opt from "effect/Option"
 import { Component, type ReactNode, StrictMode } from "react"
 import { Text } from "react-native"
-import { counter } from "../counter/counter.ts"
-import { form } from "../form/form.ts"
+import { counter, type Message as CounterMessage, type Model as CounterModel } from "../counter/counter.ts"
+import { Draft, form, type Message as FormMessage, type Model as FormModel } from "../form/form.ts"
 import { Storage, type StorageError } from "../form/storage.ts"
 import { counterView, formView } from "./views.tsx"
 
@@ -111,4 +112,51 @@ test("Host throws a run that dies to the nearest error boundary", async () => {
   await act(async () => {})
   expect(screen.getByTestId("caught").props.children).toContain("ProgramDefect")
   errors.mockRestore()
+})
+
+// A view is a function: a test draws it with a dispatch that records, acts on each control, and compares what was
+// sent with what the model holds. It finds only the controls it acts on.
+const sentBy = async <Model, Message>(
+  view: View<Model, Message>,
+  model: Model,
+  acts: () => Promise<void>
+): Promise<ReadonlyArray<Message>> => {
+  const sent: Array<Message> = []
+  await render(<>{view(model, (message) => void sent.push(message))}</>)
+  await acts()
+  return sent
+}
+
+// What the model holds, in the order the test acts: −, then +.
+const counterMessagesOf = (model: CounterModel): ReadonlyArray<CounterMessage> =>
+  model._tag === "Counting" ? [model.decrement, model.increment] : [model.increment]
+
+const pressBoth = async () => {
+  await fireEvent.press(screen.getByText("−"))
+  await fireEvent.press(screen.getByText("+"))
+}
+
+test.each([0, 2])("the counter's view sends what its model holds, at %d", async (count) => {
+  const model = counter.makeModel({ count })
+  expect(await sentBy(counterView, model, pressBoth)).toEqual(counterMessagesOf(model))
+})
+
+// What the model holds, in the order the test acts: what is typed, filled with the text given, where the model shows
+// an editor, then Save. A press of a disabled `Pressable` sends nothing.
+const formMessagesOf = ({ editor }: FormModel, text: string): ReadonlyArray<FormMessage> =>
+  editor._tag === "Saving" ? [] : [{ ...editor.typed, value: text }, ...(editor._tag === "Named" ? [editor.save] : [])]
+
+test.each(
+  [
+    ["Blank", Draft.Editing({ name: "", failed: Opt.none() })],
+    ["Named", Draft.Editing({ name: "Ada", failed: Opt.none() })],
+    ["Saving", Draft.Saving({ name: "Ada" })]
+  ] as const
+)("the form's view sends what its model holds, %s", async (_, draft) => {
+  const model = form.makeModel({ draft, saved: [] })
+  const sent = await sentBy(formView, model, async () => {
+    await fireEvent.changeText(screen.getByTestId("name"), "Ada!")
+    await fireEvent.press(screen.getByRole("button"))
+  })
+  expect(sent).toEqual(formMessagesOf(model, "Ada!"))
 })

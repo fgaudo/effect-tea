@@ -26,10 +26,11 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 85 to 90 come before the release of 0.9.0. The owner asked for them on 25 November 2026, with a bridge to React
+Steps 86 to 90 come before the release of 0.9.0. The owner asked for them on 25 November 2026, with a bridge to React
 Native, which step 83 made: whether a view of React can have a `messagesSentBy`, and a reading of the names of the API
 (86, 87). Step 84 decided the first, after a spike ([`react-view-tests.md`](docs/records/react-view-tests.md)): it has
-none, and step 85 shows the check with React's tools. Steps 88 to 90 are the agent's own proposals, which the owner may
+none, and step 85 showed the check with React's tools, in `bridges/react.test.ts` and
+`examples/react-native/views.test_jest.tsx`. Steps 88 to 90 are the agent's own proposals, which the owner may
 strike. The owner's fourth point has no step: the bridges stay in `bridges/` ([`rejected.md`](docs/rejected.md), "The
 bridges"). Step 82 decided what the bridge to React is on React Native
 ([`react-native.md`](docs/records/react-native.md)): `./react` as it is, with no entry and no peer of its own.
@@ -48,38 +49,6 @@ reads each `](…#…)` into its page, before and after.
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 85. The check of a view of React, shown with React's tools
-
-**Model and effort.** Opus 5.5, `medium`: tests of an example by a pattern that a record gives, and a sentence of the
-guide under its ceiling.
-
-**Depends on** no open step. Step 84 decided that a view of React has no `messagesSentBy`
-([`react-view-tests.md`](docs/records/react-view-tests.md), 6): a view is a function, so a test draws
-`view(model, record)` with the testing library of its renderer, acts on each control, and compares what `record`
-received with what its reader returns. It needs no program and no `Host`. The spike ran it on React Native
-(`examples/react-native/spike-tools.test_jest.tsx`, on the branch `spike/react-view-tests`).
-
-**How.** By [`add-example`](.agents/skills/add-example/SKILL.md).
-
-- [`examples/react-native/views.test_jest.tsx`](examples/react-native/views.test_jest.tsx) gets a test of each view,
-  "the view sends what its model holds": `counterView` in both cases of its model, and `formView` in each case of its
-  editor (`Blank`, `Named`, `Saving`). Each draws `render(<>{view(model, record)}</>)`, presses each control and
-  changes the text, then compares with a reader written in the file, as `counter.test.ts` and `form.test.ts` write
-  theirs. A press of a disabled `Pressable` sends nothing, which the spike ran.
-- [`bridges/react.test.ts`](bridges/react.test.ts) gets the same test of `examples/counter/view-react.tsx` and
-  `examples/form/view-react.tsx`, drawn as that file draws a view, with `createRoot` of `react-dom/client` in
-  happy-dom: `view(model, record)`, a click of each button, and what is typed into the field. Nothing ran on React
-  DOM's own renderer in step 84, so this is the first run of the check there.
-- "Testing", "The view", gets one sentence for React after snabbdom's: what the test draws, that it finds only the
-  controls it acts on, and the example. The page has 1295 words under a ceiling of 1300: cut a sentence, or raise the
-  ceiling and say why in the commit. Read again the places that name the check: "Guarantees" ("What is left to you"),
-  the skill ("A view sends what its model holds"), `add-example` ("A bridge owes no `messagesSentBy`") and
-  [`examples/README.md`](examples/README.md).
-- A changelog entry, by [`release`](.agents/skills/release/SKILL.md), where a consumer can notice the change.
-
-**Done when** `bun run typecheck`, `bun run lint`, `bun run test`, `bun run comments`, `bun run test:browsers` and
-`bun run test:react-native` pass.
 
 ### 86. The names of the API, read whole
 
