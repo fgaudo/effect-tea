@@ -1,10 +1,10 @@
 # @fgaudo/effect-tea — guide for coding agents
 
-The guide, [`site/guide/`](site/guide), is the user documentation and the specification. This file holds the rules
-of every change. [`docs/invariants.md`](docs/invariants.md) says how the engine keeps its invariants,
-[`docs/premises.md`](docs/premises.md) what they rest on, and [`docs/rejected.md`](docs/rejected.md) what was weighed
-and rejected: the three are kept true of the code. The records of [`docs/records/`](docs/records) are history. Each
-rule has one place, and other places link to it.
+The guide, [`site/guide/`](site/guide), teaches the library to a user, and the doc comments of the API specify it
+("What belongs here"). This file holds the rules of every change. [`docs/invariants.md`](docs/invariants.md) says how
+the engine keeps its invariants, [`docs/premises.md`](docs/premises.md) what they rest on, and
+[`docs/rejected.md`](docs/rejected.md) what was weighed and rejected: the three are kept true of the code. The records
+of [`docs/records/`](docs/records) are history. Each rule has one place, and other places link to it.
 
 Read the skill of the task first, in `.agents/skills/`: [`change-api`](.agents/skills/change-api/SKILL.md) for an
 export; [`change-engine`](.agents/skills/change-engine/SKILL.md) for the engine (`src/core.ts`, `shell.ts`,
@@ -114,22 +114,32 @@ stay local ("Deciding"). One made with an AI agent ends with an `Assisted-by: <m
   `devDependencies` in one commit; an API of a newer Effect calls for an upgrade, not a workaround (`upgrade-effect`).
   Effect v4 is [`Effect-TS/effect`](https://github.com/Effect-TS/effect). A renderer's range is a caret.
 - **A change a consumer can notice has a changelog entry** in the same commit (`release`).
-- **The guide promises only its rules**: what stands under the "Rules" of a page, under "What you can rely on", and in
-  the types, as its index says. A test checks each promise, and a change of one is breaking. The rest is unspecified,
-  with no test of its own but an invariant's and no changelog entry, and so is how the engine works inside, or what a
-  renderer does beyond its documentation. In doubt, a behaviour stays unspecified. A rule changes one section at a
-  time, each sentence checked against the old one: no weaker, no stronger.
-- **A rule of the guide is added last, and stated where it rules**: once, under the "Rules" of its page, as a case of
-  the rule it falls under where there is one, and other places link to it. How one program does something goes in an
-  example's code. A rule nothing checks is listed under "What is left to you", and first in the skill. An example
+- **Three places say what the library does, each with one job, and a promise stands in one of them.** The guide
+  teaches: a concept, an example, and under "Rules" the few rules that a user keeps or builds on. The doc comment of an
+  export specifies it, with its types: what it is, how it is called, what does not compile, and the defect it throws.
+  "Guarantees" alone lists what holds of a run ("What you can rely on"), and the rules that nothing checks ("What is
+  left to you"), which are first in the skill. A test checks each promise, and a change of one is breaking. The rest is
+  unspecified, with no test of its own but an invariant's and no changelog entry, and so is how the engine works
+  inside, or what a renderer does beyond its documentation. In doubt, a behaviour stays unspecified. A promise changes
+  one sentence at a time, each checked against the old one: no weaker, no stronger.
+- **A sentence stays in the guide only where a user who has read it would write their program otherwise.** The test is
+  a judgment of each sentence, not a cut by kind: a rule that protects a user at a corner stays. The others go one of
+  four ways. What the compiler, or the message of a defect, says as it happens goes to the doc comment of its export,
+  once. A behaviour at a corner that no user builds on becomes unspecified: the sentence goes, with a changelog entry,
+  and its test stays only where it holds an invariant. A rule that another page states is cut, for a link. Advice of
+  design stands in a section "Advice", which binds nothing: it gives its reason, has no absolute, and names the case
+  where it does not hold, where there is one. Advice of one program is a comment in its example's code, and an example
   never brings the rule that allows it.
-- **A doc comment of the API follows the guide, in its own words**: what the export is, how it is called, and the
-  rules a caller needs there, promising nothing the guide does not. It names each section it follows with a line
-  `@see The guide, "<page>", "<section>".`, never a link to the site. A change of a section rereads the comments and
-  the skill's rules that name it, and the reverse.
+- **A finding of a review becomes a type, the message of a defect or a doc comment first, and a sentence of the guide
+  last**, and only by the test above. A page of the guide has a ceiling of words, which `bun run comments` holds: a
+  change that passes it cuts a sentence, or raises the ceiling and says why in its commit.
+- **A doc comment specifies its export, in plain words**: what it is, how it is called, what it refuses and what it
+  throws, in a screen at most. It names the page of the guide that teaches its concept with a line
+  `@see The guide, "<page>".`, never a link to the site, and never a section, but of a page that the roadmap has yet to
+  write again. Where a comment and that page say the same thing, a change of one rereads the other.
 - **The package ships its documentation, at its version**: the guide, the tutorial, the examples and the skill
-  [`skills/effect-tea/SKILL.md`](skills/effect-tea/SKILL.md), which sums up the guide as a doc comment does. Their
-  links to the repository's files are relative, as the package holds them.
+  [`skills/effect-tea/SKILL.md`](skills/effect-tea/SKILL.md), which sums up the guide. Their links to the repository's
+  files are relative, as the package holds them.
 - **The guide, the doc comments and the skill are in plain English**: short sentences, common words, the guide's words.
 
 ## Invariants

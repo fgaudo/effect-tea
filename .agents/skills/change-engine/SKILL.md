@@ -63,8 +63,9 @@ when `tsc`, run once on the copy, reports a diagnostic in its lines, and none ma
 killer is a test of the check, the one that refuses what the check refuses, written as a user writes. A kill is checked
 under TypeScript 7.0 alone, as in the CI. A check whose removal changes nothing that compiles has no mutation: it is
 listed, with why, at the head of the mutations of the types. A mutation of a check that holds an item of "What does
-not compile", in "Anatomy of a program" and "Composition", names it in its `refuses`, by its page and the words it
-starts with, which `bun run comments` checks as it checks `guarantees`.
+not compile", in "Anatomy of a program", names it in its `refuses`, by its page and the words it starts with, which
+`bun run comments` checks as it checks `guarantees`. What a parent refuses is in the doc comments of `compose.ts`, and
+no list names it.
 
 ### A lead of the search
 
@@ -78,8 +79,8 @@ with its seed and path until a fix leaves a deterministic test of it, and is fix
 
 - `docs/invariants.md` where the change alters how an invariant is kept, and `docs/premises.md` where it adds, drops or
   moves a premise.
-- The guide, where a promise changes (`AGENTS.md`, "The guide promises only its rules"), and the doc comments that name
-  the section.
+- Where a promise changes, the place that holds it: "Guarantees", the doc comment of the export, or the rule of a page
+  of the guide (`AGENTS.md`, "Three places say what the library does").
 - A changelog entry, where a consumer can notice the change ([`release`](../release/SKILL.md)).
 
 ## Checks

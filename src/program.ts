@@ -262,7 +262,7 @@ export type ModelOf<P> = P extends { readonly makeModel: (state: any) => infer M
  * ```
  *
  * @see The guide, "Anatomy of a program", "Its type lists the types it is made of".
- * @see The guide, "Composition", "What the library derives".
+ * @see The guide, "Composition".
  */
 export type MessageOf<P> = P extends { readonly update: (message: infer M) => any } ? M : never
 /** What the lists under `Key` hold, for each step of a union: none in a step without the list. */

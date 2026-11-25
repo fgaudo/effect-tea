@@ -11,11 +11,12 @@ export type Mutation = Readonly<{
    */
   guarantees?: ReadonlyArray<string>
   /**
-   * The items of "What does not compile", in the guide's "Anatomy of a program" and "Composition", that a check of the
-   * types holds a part of, each by its page and the words it starts with. `bun run comments` fails on words that start
-   * no item, or more than one, and on an item no mutation names.
+   * The items of "What does not compile", in the guide's "Anatomy of a program", that a check of the types holds a
+   * part of, each by its page and the words it starts with. `bun run comments` fails on words that start no item, or
+   * more than one, and on an item no mutation names. What a parent refuses is in the doc comments of `compose.ts`,
+   * and no list of the guide names it.
    */
-  refuses?: ReadonlyArray<readonly [page: "Anatomy of a program" | "Composition", item: string]>
+  refuses?: ReadonlyArray<readonly [page: "Anatomy of a program", item: string]>
   /** The file it changes, from the root of the repository. */
   file: string
   /** What it replaces, which the file must hold exactly once, and with what. */
@@ -681,11 +682,7 @@ export const mutations: ReadonlyArray<Mutation> = [
         "src/compose.test.ts",
         "a message for a child that is not there is rejected, from its view or as the answer of a command"
       ],
-      ["src/compose.test.ts", "the late message of a removed child is rejected"],
-      [
-        "src/compose.test.ts",
-        "a message for a child sometimes there that a state written by hand does not hold is rejected"
-      ]
+      ["src/compose.test.ts", "the late message of a removed child is rejected"]
     ]
   },
   {
@@ -3576,7 +3573,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   // The types of a program (`src/program.ts`) and of a parent (`src/compose.ts`): each mutation takes a check of the
   // types out, and the tests of the types that refuse what it lets through kill it, by `tsc`. A mutation names the
-  // items of "What does not compile" its check holds a part of (`refuses`).
+  // items of "What does not compile", in "Anatomy of a program", that its check holds a part of (`refuses`).
   //
   // The checks that have none, since taking one out changes nothing that compiles, or lets through only a piece that
   // nothing calls:
@@ -3596,7 +3593,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   //   are not among them: the run would call them.
   {
     name: "a program with commands is typed without runCommand",
-    refuses: [["Composition", "a child with commands and no `runCommand`"]],
     file: "src/program.ts",
     from: "  : { readonly runCommand: RunCommand<Command, Message, R> }",
     to: "  : { readonly runCommand?: RunCommand<Command, Message, R> }",
@@ -3615,7 +3611,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a program with keys is typed without listen",
-    refuses: [["Composition", "a child whose subscriptions list keys, with no `listen`"]],
     file: "src/program.ts",
     from: "  : { readonly listen: Listen<Key, Message, R> }",
     to: "  : { readonly listen?: Listen<Key, Message, R> }",
@@ -3793,10 +3788,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a child is not checked as a program of its types",
-    refuses: [["Composition", "a child with commands and no `runCommand`"], [
-      "Composition",
-      "a child whose subscriptions list keys, with no `listen`"
-    ]],
     file: "src/compose.ts",
     from: "type Lacking<P> = P extends ProgramChecked<P> ? unknown",
     to: "type Lacking<P> = P extends unknown ? unknown",
@@ -3833,10 +3824,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a child is taken as it is",
-    refuses: [["Composition", "a child with commands and no `runCommand`"], [
-      "Composition",
-      "a child whose subscriptions list keys, with no `listen`"
-    ]],
     file: "src/compose.ts",
     from: "type CheckedChild<P> = unknown extends Lacking<P> ? P : P & Lacking<P>",
     to: "type CheckedChild<P> = P",
@@ -3888,7 +3875,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a step tells a child any message",
-    refuses: [["Composition", "a `tell` of anything but a child's external message"]],
     file: "src/compose.ts",
     from: "    : Readonly<{ _tag: K; message: ExternalOf<ProgramOf<C[K]>> }> & At<C[K]>\n",
     to: "    : Readonly<{ _tag: K; message: unknown }> & At<C[K]>\n",
@@ -3902,7 +3888,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a step tells a child by id without its id",
-    refuses: [["Composition", "a `tell` of anything but a child's external message"]],
     file: "src/compose.ts",
     from: "    : Readonly<{ _tag: K; message: ExternalOf<ProgramOf<C[K]>> }> & At<C[K]>\n",
     to: "    : Readonly<{ _tag: K; message: ExternalOf<ProgramOf<C[K]>> }>\n",
@@ -3916,7 +3901,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a parent reads the output of a child that declares none",
-    refuses: [["Composition", "a child's model read outside `makeModel`"]],
     file: "src/compose.ts",
     from: "  readonly [K in keyof C & string as [OutputOf<ProgramOf<C[K]>>] extends [never] ? never : K]: Readonly<{\n",
     to: "  readonly [K in keyof C & string]: Readonly<{\n",
@@ -3930,7 +3914,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "makeModel reads the output of a child that declares none",
-    refuses: [["Composition", "a child's model read outside `makeModel`"]],
     file: "src/compose.ts",
     from: "    & ([OutputOf<ProgramOf<C[K]>>] extends [never] ? unknown : Readonly<{ output: ReadOutput<C[K]> }>)\n",
     to: "    & Readonly<{ output: ReadOutput<C[K]> }>\n",
@@ -3944,7 +3927,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a parent reads its children's models outside makeModel",
-    refuses: [["Composition", "a child's model read outside `makeModel`"]],
     file: "src/compose.ts",
     from: "type Reading<C> = [keyof C] extends [never] ? [] : [children: Outputs<C>]",
     to: "type Reading<C> = [keyof C] extends [never] ? [] : [children: Models<C>]",
@@ -4061,10 +4043,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a command of a parent answers with any message",
-    refuses: [[
-      "Composition",
-      "a subscription or a command of the parent's own that sends anything but a message of the parent's own"
-    ]],
     file: "src/compose.ts",
     from: "Ran & Execution<Message, any>",
     to: "Ran & Execution<any, any>",
@@ -4083,7 +4061,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a wide tag takes no name",
-    refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
     file: "src/compose.ts",
     from: "Extract<Names, M[keyof M & \"_tag\"]> | Extract<M[keyof M & \"_tag\"], Names>",
     to: "Extract<M[keyof M & \"_tag\"], Names>",
@@ -4102,7 +4079,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a wide name takes no tag",
-    refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
     file: "src/compose.ts",
     from: "Extract<Names, M[keyof M & \"_tag\"]> | Extract<M[keyof M & \"_tag\"], Names>",
     to: "Extract<Names, M[keyof M & \"_tag\"]>",
@@ -4116,7 +4092,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a message with no tag in its type takes no name",
-    refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
     file: "src/compose.ts",
     from: "Readonly<{ _tag: Names }> extends M ? Names : never",
     to: "never",
@@ -4130,7 +4105,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "an own message takes the name of a child",
-    refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
     file: "src/compose.ts",
     from: "    : { readonly \"an own message takes the name of a child\": TagsTaken<Own, keyof C & string> })\n",
     to: "    : unknown)\n",
@@ -4140,7 +4114,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "an own command takes the name of a child",
-    refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
     file: "src/compose.ts",
     from: "    : { readonly \"an own command takes the name of a child\": TagsTaken<OwnCommand, keyof C & string> })\n",
     to: "    : unknown)\n",
@@ -4154,7 +4127,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "an own message or command takes the name of a child",
-    refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
     file: "src/compose.ts",
     from: "  & NoClash<Own, OwnCommand, C>\n",
     to: "",
@@ -4169,7 +4141,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "an own key takes the name of a child",
-    refuses: [["Composition", "a message or a command of the parent's own that can take the name of a child"]],
     file: "src/compose.ts",
     from: "  : { readonly \"an own key takes the name of a child\": TagsTaken<OwnKey, keyof C & string> }\n",
     to: "  : unknown\n",
@@ -4209,10 +4180,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a subscription of a parent sends any message",
-    refuses: [[
-      "Composition",
-      "a subscription or a command of the parent's own that sends anything but a message of the parent's own"
-    ]],
     file: "src/compose.ts",
     from: "Heard & Subscription<Message, any>",
     to: "Heard & Subscription<any, any>",
@@ -4257,7 +4224,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a child with flags is declared always there without them",
-    refuses: [["Composition", "a child with flags declared without them"]],
     file: "src/compose.ts",
     from: "  : [place: { readonly \"a child with flags is declared with its flags\": FlagsOf<P> }]\n",
     to: "  : [place?: unknown]\n",
@@ -4281,7 +4247,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a child with flags that may not be there is declared without them",
-    refuses: [["Composition", "a child with flags declared without them"]],
     file: "src/compose.ts",
     from: "    flags: (state: State) => Opt.Option<FlagsOf<P>>\n",
     to: "    flags?: (state: State) => Opt.Option<FlagsOf<P>>\n",
@@ -4291,7 +4256,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a child without flags that may not be there is declared with flags",
-    refuses: [["Composition", "a child with flags declared without them"]],
     file: "src/compose.ts",
     from: "    key?: (state: State) => unknown\n    flags?: never\n",
     to: "    key?: (state: State) => unknown\n",
@@ -4301,7 +4265,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "children by id are declared without ids",
-    refuses: [["Composition", "children by id without `ids` or `flags`"]],
     file: "src/compose.ts",
     from: "  ids: (state: State) => Iterable<Id>\n",
     to: "  ids?: (state: State) => Iterable<Id>\n",
@@ -4311,10 +4274,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "children by id with flags are declared without them",
-    refuses: [["Composition", "a child with flags declared without them"], [
-      "Composition",
-      "children by id without `ids` or `flags`"
-    ]],
     file: "src/compose.ts",
     from: "  flags: (state: State) => Iterable<readonly [Id, Flags]>\n",
     to: "  flags?: (state: State) => Iterable<readonly [Id, Flags]>\n",
@@ -4324,7 +4283,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "children by id with flags are declared with ids",
-    refuses: [["Composition", "a child with flags declared without them"]],
     file: "src/compose.ts",
     from: "  : { readonly \"a child with flags is declared with its flags\": FlagsOf<P> }\n",
     to: "  : unknown\n",

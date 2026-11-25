@@ -23,17 +23,18 @@ children:
 
 # Guide
 
-Welcome. The guide says what the library does, one concept a page, at the version of the package it comes with. It is
-the specification.
+Welcome. The guide teaches the library, one concept a page, at the version of the package it comes with.
 
 This page is a map. It is a summary: the page each line links rules where the line says less.
 
 ## What a page promises
 
-The guide promises three things, and nothing else:
+The library promises four things, and nothing else:
 
-- what stands under "Rules", on any page;
-- what stands under "What you can rely on", in [guarantees](./guarantees.md);
+- what stands under "Rules", on any page: the rules that you keep, or build on, as you write a program;
+- what stands under "What you can rely on", in [guarantees](./guarantees.md): what holds of a running program;
+- what the doc comment of an export says, in your editor and in the API reference: what the export is, what it
+  refuses, and the defect it throws;
 - what the types of the API accept and refuse.
 
 A promise is what you can build on. The library means to keep it, and its tests check it. A change of a promise is a
@@ -42,8 +43,8 @@ sentence says what the library does, which is a promise, or what your program mu
 rules that nothing checks are listed under "What is left to you", in guarantees.
 
 The rest of a page explains, and binds nothing: a summary, an example, advice, a reason. Where it seems to say more
-than the rules, the rules rule. What the guide does not promise is unspecified: it may change in any release, and the
-changelog does not say so. Where a page names something unspecified, it says so in a few words.
+than the rules, the rules rule. What is not promised is unspecified: it may change in any release, and the changelog
+does not say so. Where a page names something unspecified, it says so in a few words.
 
 The library is at version 0.x, so its API still changes: a promise holds for the version you have installed, until a
 release that raises the minor version changes it.
@@ -64,6 +65,8 @@ Most pages have the same sections, in this order:
 - **In short**: the concept in a few sentences. It is enough for a first reading.
 - **An example**: the concept in code, usually from the examples.
 - **Rules**: what the library does, and what your program must do. It is all that the page promises.
+- **Advice**: on some pages, how to design with the concept. It binds nothing: each piece gives its reason, and the
+  case where it does not hold, where there is one.
 - **Do and don't**: on some pages, the rules summed up as pairs. The rules themselves are above it.
 
 Some pages end with a section of more examples, or of a reason. It explains, as the first two do.
@@ -96,8 +99,8 @@ A larger program:
   something. A parent sends a child an external message.
 - [What an element gives](./what-an-element-gives.md): values that an element holds or reports, such as the text of a
   field or the offset of a scroll. Each is a message that the model holds without its value, and that the view fills.
-- [Structuring a program](./structuring-a-program.md): how to shape the state, the messages, the model and the
-  children. The library does not enforce these rules, and the examples follow them.
+- [Structuring a program](./structuring-a-program.md): advice on how to shape the state, the messages, the model and
+  the children. It binds nothing, and the examples follow it.
 
 Running and testing it:
 

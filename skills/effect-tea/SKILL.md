@@ -11,11 +11,11 @@ versions. The paths below are relative to this file.
 ## Where things are
 
 - **The guide**, [`site/guide/`](../../site/guide/index.md): what the library does, one concept a page, at the
-  version installed. It is the specification. Start with its index. Most pages have the same sections, in this order:
-  "In short", "An example", "Rules", and "Do and don't" on some pages. The guide promises what stands under "Rules",
-  what stands under "What you can rely on" in "Guarantees", and what the types accept and refuse. The rest explains,
-  and binds nothing. What the guide does not promise is unspecified, and may change in any release. The guide,
-  "Guide", "What a page promises".
+  version installed. Start with its index. Most pages have the same sections, in this order: "In short", "An example",
+  "Rules", and "Advice" or "Do and don't" on some pages. The library promises what stands under "Rules", what stands
+  under "What you can rely on" in "Guarantees", what the doc comment of an export says, and what the types accept and
+  refuse. The rest explains, and binds nothing. What is not promised is unspecified, and may change in any release. The
+  guide, "Guide", "What a page promises".
 - **The tutorial**, [`site/tutorial/`](../../site/tutorial/index.md): one application, built step by step. A line
   `{@includeCode <file>#<name>}` in a page stands for the code between `// #region <name>` and `// #endregion` in
   that file.
@@ -73,7 +73,7 @@ where the summary says less.
 | a message that may arrive, and does not apply in the state       | `reject`                                            |
 | a message that only a bug can bring                              | `defect`                                            |
 | an expected failure of a command                                 | a message, as the success is                        |
-| a part whose controls the parent enables from its own state      | not a child: the parent's state and messages        |
+| a part whose controls the parent enables from its own state      | most often the parent's own state and messages      |
 | a value that the user types, and a parent reads                  | a message of the program whose rules use it         |
 | what holds in a child, that its parent reads                     | the child's `output`                                |
 | what a child asks of its parent                                  | an event                                            |
@@ -104,11 +104,10 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
   external messages", "A child answers its external messages in every state".
 - **One state machine per concern, and no flags.** Each concern is a union with a case per state. Each case holds only
   what exists in it. What follows from the state is computed in `makeModel`, not kept. The guide, "Structuring a
-  program", "One state machine per concern, no flags". The guide, "Structuring a program", "No derived data in the
-  state".
+  program", "State and messages".
 - **A view draws its model, and decides nothing.** A view is a function `(model, dispatch) => Node`. It matches tags
   and formats values. What it would decide, `makeModel` decides, as a case of the model. The guide, "View", "In short".
-  The guide, "Structuring a program", "A view draws, it never decides".
+  The guide, "Structuring a program", "Model and view".
 - **A view adds nothing to what it sends but what an element or its event gives, as given.** What an element gives,
   the text of a field as the end of a scroll with its offset, is a message of the program, as a click is: `update`
   decides what it does. The model holds it without the value, `{ _tag: 'NameTyped' } as const`, and the view fills
@@ -142,7 +141,7 @@ reading the code. The guide, "Guarantees", "What is left to you". The guide, "St
 - **A value that the user writes belongs to the program whose rules use it.** Where the parent changes it, locks it or
   submits it, what is typed is a message of the parent, with the row's id for rows, and a row is no child. Where only
   a child's rules use it, it is the child's, and the parent reads what the child concludes from it, through the
-  child's `output`: a valid count, not the text. Nothing checks it: an `output` that gives the text compiles. The
+  child's `output`: of a count, the valid number and not the text. Nothing checks it. The
   guide, "Structuring a program", "A value that the user writes belongs to the program whose rules use it".
 - **Flags, and what `key` gives, are compared with `Equal`.** Other flags, or another value of `key`, start a child
   again, as another instance. A function made anew in `flags` or `key` is other flags each time, since `Equal` compares
@@ -193,23 +192,21 @@ type it does not name is one it does not have. An execution cannot fail: an expe
 subscription is a `Channel` whose end value is a message, and is made from its key alone: `subscriptions(state)` lists
 keys, as data, and `listen(key)` makes the subscription of one, without the state, so the key carries what it needs. A
 child answers an external message in `external`, in every state, never with `reject`. A parent is given no child's
-state: it reads only what a child declares as its `output`, and tells a child only its external messages, in the `tell`
-of a step. The guide lists the rest: The guide, "Anatomy of a program", "What does not compile". The guide,
-"Composition", "What does not compile, and what is a defect". The guide, "Anatomy of a program", "Its types are named
-first, then it is made". The guide, "Commands", "An execution cannot fail". The guide, "Subscriptions", "The type says
-all of it". The guide, "Subscriptions", "A subscription is made from its key alone". The guide, "Events and external
-messages", "A child answers its external messages in every state".
+state: it reads what a child declares as its `output`, and the child's model in `makeModel` alone, and tells a child
+only its external messages, in the `tell` of a step. The guide, "Anatomy of a program", "What does not compile", lists
+more, and the doc comments of `program`, `child` and `childById` say what a parent refuses. The guide, "Anatomy of a
+program", "Its types are named first, then it is made". The guide, "Commands", "An execution cannot fail". The guide,
+"Subscriptions", "The type says all of it". The guide, "Subscriptions", "A subscription is made from its key alone".
+The guide, "Events and external messages", "A child answers its external messages in every state".
 
 ## Signs that the design went wrong
 
 Each sign breaks the rule named after it.
 
 - A view that takes more than its model and its dispatch, or reads a clock or a global. The guide, "View", "In
-  short". The guide, "Structuring a program", "No derived data in the state".
-- A boolean such as `isSaving` in the state. The guide, "Structuring a program", "One state machine per concern, no
-  flags".
-- A condition on data in a view, such as `items.length === 0`. The guide, "Structuring a program", "A view draws, it
-  never decides".
+  short". The guide, "Structuring a program", "State and messages".
+- A boolean such as `isSaving` in the state. The guide, "Structuring a program", "State and messages".
+- A condition on data in a view, such as `items.length === 0`. The guide, "Structuring a program", "Model and view".
 - A variable outside the state that the screen depends on, or a service that the renderer reads. The guide, "View",
   "What the program draws comes from its model".
 - A renderer written for one program, in place of a bridge's renderer. Code that draws the model outside the

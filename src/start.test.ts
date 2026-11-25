@@ -261,7 +261,7 @@ describe("a program whose start throws", () => {
   }
 
   // A parent without flags is started as `make` makes it: the children that its first state lists are started then,
-  // so what a function of their places throws, `make` throws as it is ("Composition", "When the children start").
+  // so what a function of their places throws, `make` throws as it is (the doc comment of `init`, in `compose.ts`).
   test("in a child's place, in a parent with no flags: make throws the defect as it is", () => {
     const Parent = program<{ state: Readonly<{ on: boolean }> }>()
     let thrown: unknown

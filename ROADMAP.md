@@ -26,79 +26,22 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 73 to 78 and 68 to 72 come before the library is made known to others
+Steps 74 to 78 and 68 to 72 come before the library is made known to others
 ([`adoption.md`](docs/records/adoption.md)), and neither wait for the release of 0.9.0 ("For the owner") nor hold it:
-what is done before it goes out with it. Their order: first the guide made small (73 to 78), since every later step
+what is done before it goes out with it. Their order: first the guide made small (74 to 78), since every later step
 reads it or adds to it, and a promise withdrawn is a breaking change, which goes out with the others; then what may
 change a rule of the guide or show a cost of the API (68); then what a first user meets (69, 70); then the two checks,
 which read the guide as those steps leave it (71, 72).
 
+Step 73 decided the form of the smaller guide, and tried it on "Composition" and "Structuring a program"
+([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md` holds it, under "What belongs here". **Step 74
+waits for the owner's word on the two pages**, as the owner asked on 25 November 2026: a form that the owner refuses
+is changed on those two, not on sixteen. Until step 78 the guide has both forms: a page not yet written again keeps
+its "Do and don't", and the comments that name its sections.
+
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 73. The form of a smaller guide, tried on two pages
-
-**Model and effort.** Fable 5.2, `high`: it decides what the guide is for, and what it stops promising.
-
-**Depends on** no other step. It is the first, since steps 74 to 78 apply what it decides, and step 68 adds to a page
-that it writes again.
-
-**Why.** The guide is 18 pages, 34,025 words and 572 items of lists (`wc` over `site/guide/`, 25 November 2026). A
-reader meets hundreds of rules, and some are not true in general. It grows by three rules of `AGENTS.md` together: it
-is the manual and the specification at once, so each behaviour that a test checks is a sentence of it; a doc comment
-and the skill say each detail again (231 lines of `@see The guide`); and a review that found the guide silent has
-always added a sentence. The owner asked, on 25 November 2026, for a guide that a reader can take in.
-
-**How.** One test for each sentence: it stays only where a user who has read it would write their program otherwise.
-The others go one of four ways:
-
-- What the compiler, or the message of a defect, says as it happens goes to the doc comment of its export, once.
-- A behaviour at a corner that no user builds on becomes unspecified: the sentence goes, with its changelog entry, and
-  its test stays only where it holds an invariant (`docs/invariants.md`).
-- A rule said again on another page is cut, for a link.
-- Advice of design leaves "Rules" for a section that binds nothing, with no absolute, and with the case where it does
-  not hold. Advice of one program is a comment of its example.
-
-A rule that protects a user at a corner stays, as that a click on a view drawn for an old row reaches the new one: the
-test is a judgment of each sentence, not a cut by kind.
-
-So three places have one job each. The guide teaches: a concept, an example, the few rules that a user keeps. The doc
-comments specify each export, and no longer follow the guide. "Guarantees" alone lists what holds of a run, and what is
-left to the user. `AGENTS.md` says so in place of its rules on the guide ("The guide promises only its rules", "A rule
-of the guide is added last", "A doc comment of the API follows the guide"), and says what a finding of a review
-becomes: a type, the message of a defect or a doc comment first, and a sentence of the guide last. The step weighs a
-ceiling of words for each page, held by `bun run comments`, which a later step raises by saying why.
-
-It is tried on "Composition", the heaviest in specification, and on "Structuring a program", the heaviest in advice,
-before the other sixteen. A third of today's size, 12,000 to 15,000 words, is an estimate, and no rule is cut to reach
-it: the trial says what holds.
-
-What the trial sets right in "Splitting a program", read against `src/compose.ts` on 25 November 2026:
-
-- "Modules named `messages`, `state` and `update` would import each other in cycles" is not true: `update` imports
-  the state and the messages, the model imports the messages, and nothing imports `update`. The reason is that each
-  change would touch the three.
-- "Reads of a child only what the child declares as its `output`" leaves out that a parent's `makeModel` is given its
-  children's models (`Models<C>`), and may decide by what one holds. "By construction" holds of `update`, `external`,
-  `onEvent` and `output`.
-- "A fact belongs to the parent only when several children must see the fact as one truth" is not true of flags, a
-  fact kept in the parent's state for one child (`about`, in [`pages`](examples/pages/app.ts)). The sentence before it
-  leaves flags out of what a child gets.
-- "Not a child: a part whose controls the parent would enable from the parent's own state" has an exception that
-  "Events and external messages" gives, under "A child that must wait for its parent": a part with commands or
-  subscriptions of its own may be a child, told the lock. And "Composition" lists as a "Don't" ("copy the parent's
-  lock into each row") what that section asks for ("The child keeps the fact in its state"). No example and no test
-  shows that pattern.
-- "A valid count, not the text" is an example, not a rule: of a free note, what the child concludes is the text. And
-  the item on a row's instance leaves out that a message of a view names no instance.
-
-**Done when** `AGENTS.md` states the test and the three places, in place of its rules on the guide; the two pages are
-written again by it, with their doc comments, the tests of what is no longer promised weighed one by one, and a
-changelog entry for each promise withdrawn; a record of a page says the decision; the commit counts the sentences by
-where they went, and the words before and after; and `bun run typecheck`, `bun run lint`, `bun run test` and
-`bun run comments` pass. The step ends by showing the owner the two pages, as the owner asked on 25 November 2026:
-step 74 waits for the owner's word, and a form that the owner refuses is changed here, not in sixteen pages.
 
 ### 74. The pieces of a program, by the form of step 73
 
@@ -113,6 +56,29 @@ each step fits one context.
 some 7,300 words: each sentence by the test of `AGENTS.md`, as step 73 left it. A sentence that moves to a doc comment
 is written there in the same commit, and the skill's rules that name a section changed are reread.
 
+What step 73 leaves to each step of 74 to 77, which the two pages and their commit show:
+
+- A page written again has "In short", "An example", "Rules", and "Advice" where it advises. It has no "Do and
+  don't": a pair of code that teaches stands with its advice. It keeps the headings that other pages link.
+- A doc comment of the page's exports names the page alone, `@see The guide, "<page>".`, once. `bun run comments`
+  still checks a section where a comment names one, so a page is done one at a time.
+- The page gets its ceiling in `tools/comments.ts` (`ceilings`), at what it came to with room for a sentence or two.
+- `skills/effect-tea/SKILL.md` names sections of the guide: one that is renamed or goes is renamed there in the same
+  commit, or named by its page alone. Step 78 writes the skill again.
+- The count of sentences is of the page as it was: a sentence of prose, a row of a table or a block of code, each
+  with where it went (the guide, a doc comment, unspecified, cut, advice, its example).
+- Specification halves, and advice does not: "Composition" went from 3,616 words to 1,807, "Structuring a program"
+  from 2,136 to 1,836. Most of what left "Composition" was in a doc comment already.
+- A promise is withdrawn only at a corner that no user builds on. Its changelog entry is the one that starts
+  "**Breaking**: unspecified, and no longer promised", which each step adds to.
+
+Of this group alone: "What does not compile", in "Anatomy of a program", is the last list that the mutations of the
+types name (`refuses`, in `tools/mutations/mutations.ts`). If it goes to the doc comments, as the list of
+"Composition" did, `refuses` goes with `refusing`, `refusedIn` and `problemsOfRefusals` (`tools/comments.ts`),
+the paragraph of `change-engine` that names it, and the entry "The guide tied to the inference matrix" of
+`docs/rejected.md` says so. "Rejections and defects" and "Commands" hold that an operation is a state that only its
+completion leaves, which "Structuring a program" no longer says.
+
 **Done when** each page of the group is written again by the test; each promise withdrawn has its changelog entry, and
 its test is kept for an invariant or removed; the commit counts the sentences by where they went, and the words before
 and after; and the checks of step 73 pass.
@@ -125,7 +91,15 @@ and after; and the checks of step 73 pass.
 
 **Why** and **How**, as step 74, for "Events and external messages" and "What an element gives", some 3,700 words.
 Both say again rules of "Composition" and of "Structuring a program", which step 73 wrote: a rule has one place, and
-these pages link to it.
+these pages link to it. "A value is never a reason to reject" is now advice of "Structuring a program" ("Do not
+reject a message by its value"), and "A value that the user types into a child" its "A value that the user writes
+belongs to the program whose rules use it".
+
+"A child that must wait for its parent" is linked from "Structuring a program", as the case where a part that its
+parent locks is a child all the same: the heading stays, or the link changes with it. No example and no test shows
+that pattern, which step 73 found: the step weighs an example of it, or says in the section that none does. The two
+pages also link `#outputs` and `#external-messages` of "Events and external messages", and `#rules` and
+`#in-each-row` of "What an element gives".
 
 **Done when**, as step 74.
 
@@ -140,6 +114,14 @@ rely on" is the list of the promises of a run, and the mutations name its items 
 an item is withdrawn only by `change-engine`, and one that stays keeps its title, or the mutations that name it change
 with it.
 
+What step 73 leaves here: "A parent's children are those its own state lists" and "An answer reaches the instance
+that asked for it, or is rejected" are said in "Composition" too ("When a child is there", "What the library
+derives"), which links `#what-you-can-rely-on` and `#what-is-left-to-you`: each sentence has one place, and the
+other links. "Running" and "Guarantees" send a reader to `composition.md#how-a-parent-and-its-children-start` for
+the children that `make` starts: that now stands in the doc comment of `init` (`src/compose.ts`), and the page
+says only that the program's `init` holds the whole first state. The item on "Structuring a program", in "What is
+left to you", calls it advice since step 73.
+
 **Done when**, as step 74, with `bun run test:node` and `bun run interleavings` where a test of the engine changed.
 
 ### 77. Testing and its tools, by the form of step 73
@@ -149,7 +131,9 @@ with it.
 **Depends on** step 73, and on the owner's word on its two pages.
 
 **Why** and **How**, as step 74, for "Testing" and "Testing tools", some 5,200 words. What each tool fails on, and what
-it ignores, is of its export: the doc comment is its place, and the page keeps how a program is tested.
+it ignores, is of its export: the doc comment is its place, and the page keeps how a program is tested. "Composition"
+sends a reader to "Testing" for the numbers of the instances, and for `stateOf`: "The number of an instance" is their
+one place, with the shapes of a child's commands and keys.
 
 **Done when**, as step 74.
 
@@ -163,9 +147,12 @@ it ignores, is of its export: the doc comment is its place, and the page keeps h
 promises and how it is laid out. Each says what the guide was.
 
 **How.** [`skills/effect-tea/SKILL.md`](skills/effect-tea/SKILL.md) is written again from the guide as it is. The
-index's "What a page promises" and "How a page is laid out" say the form of step 73. The glossary drops each word
-that the guide no longer uses. "Coming from Elm or React", the tutorial and the README keep only links that lead
-somewhere.
+index's "What a page promises" and "How a page is laid out" say the form of step 73: step 73 added the doc comments
+to the first and "Advice" to the second, and the line on "Do and don't" goes once no page has one. The glossary drops
+each word that the guide no longer uses. "Coming from Elm or React", the tutorial and the README keep only links that
+lead somewhere. Once no doc comment names a section of the guide, `tools/comments.ts` checks the page alone
+(`reference`, and `sectionsOf` for the sources), the skill names what its rules need, and `AGENTS.md` drops "but of a
+page that the roadmap has yet to write again" from its rule of a doc comment.
 
 **Done when** each of them is so, `bun run comments` passes, and the commit gives the words of the whole guide, and of
 the skill, before step 73 and now.

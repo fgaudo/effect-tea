@@ -126,9 +126,9 @@ each bridge's to promise (see [view](./view.md#rules)).
 - **With the bridge to React, the run lives as long as the effect that starts it**, as
   [the package's bridges](./writing-a-bridge.md#the-packages-bridges) says. For a state that outlives a component,
   start the program yourself, and draw it with `Draw`.
-- **The rules of [structuring a program](./structuring-a-program.md).** The library does not enforce them: the shape
-  of the state, a view that draws and never decides, a value that the user writes held by the program whose rules use
-  it. The one it enforces is that a parent never reads a child's state: a parent is given none.
+- **The advice of [structuring a program](./structuring-a-program.md).** The library enforces none of it: the shape of
+  the state, a view that draws and does not decide, a value that the user writes held by the program whose rules use
+  it. What it does enforce is that a parent is given no child's state.
 - **Flags, and what `key` gives, made of values that `Equal` compares by value.** Other flags, or another value of
   `key`, start a child again. A function made anew in `flags` or `key` is other flags each time, since `Equal` compares
   a function by reference. Nothing says so: the child starts again, and loses its state (see

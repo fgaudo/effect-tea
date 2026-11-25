@@ -40,15 +40,15 @@ In the same change:
 - **Doc comments** on everything the indexes export, which TypeDoc makes the API reference
   (`cd site && bun install && bun run build`, with no warnings). Each has a first line that says what it is, in one
   sentence; `@param` and `@returns`, or a comment on each field (a function made with `Effect.fnUntraced` says its
-  parameters in a sentence); an `@example` of the common case; then the rules a caller needs at that point, the same
-  rule as the guide's in fewer words, never a stronger one; and last its `@see` lines (`AGENTS.md`, "A doc comment of
-  the API follows the guide, in its own words"). A comment past a screen says too much. A rule the guide does not hold
-  yet goes into the guide first. A rule of the whole run is on `run`. A type that only names what signatures take and
-  return (`ProgramMaker`, `DeclareChild`, `WithRunCommand`) has `@group Types of the signatures` before its `@see`
-  lines: the reference lists that group last.
-- **The guide** ([`site/guide/`](../../../site/guide)): the page of the concept, and "Testing tools" for a tool. No
-  tool checks its code blocks, nor the README's: read every block that mentions what changed. The README's quick start
-  must run as it is (it logs 0, 1, 2, 3):
+  parameters in a sentence); an `@example` of the common case; then the rules a caller needs at that point, what the
+  export refuses and what it throws; and last its `@see` line, of the page that teaches its concept (`AGENTS.md`, "A
+  doc comment specifies its export, in plain words"). A comment past a screen says too much. A rule of the whole run
+  is on `run`. A type that only names what signatures take and return (`ProgramMaker`, `DeclareChild`,
+  `WithRunCommand`) has `@group Types of the signatures` before its `@see` line: the reference lists that group last.
+- **The guide** ([`site/guide/`](../../../site/guide)), only where a user would write their program otherwise for the
+  change (`AGENTS.md`, "A sentence stays in the guide only where…"): the page of the concept, under its ceiling of
+  words. No tool checks its code blocks, nor the README's: read every block that mentions what changed. The README's
+  quick start must run as it is (it logs 0, 1, 2, 3):
 
   ````sh
   awk '/^## Quick start/{f=1} f&&/^```ts/{g=1;next} g&&/^```/{exit} g' README.md > quickstart.check.ts && bun quickstart.check.ts; rm quickstart.check.ts

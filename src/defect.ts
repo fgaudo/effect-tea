@@ -103,17 +103,22 @@ type CompositionFields = Readonly<{
 /**
  * A parent that breaks what it declared of a child.
  *
- * It is thrown when a step of a parent tells a child that is not there once the step is taken. Among other cases, it is
- * thrown for children by id whose `ids` or `flags` list an id twice, and for the model or the output of a child that is
- * not there. `on` names the message by its tags. `id` is the child's id as it is, and may hold the program's data. Only
- * `program` makes one: a test reads it, and the types refuse a `new` of it.
+ * A program meets it in three cases:
+ *
+ * - a step of a parent tells a child that is not there once the step is taken;
+ * - children by id whose `ids` or `flags` list an id twice;
+ * - the model or the output of a child by id is read at an id that the parent's state does not list.
+ *
+ * `on` names the message by its tags. `id` is the child's id as it is, and may hold the program's data. Only
+ * `program` makes one: a test reads it, and the types refuse a `new` of it, or a class that extends it. What a parent
+ * does once a cast has let through what the types refuse is unspecified.
  *
  * @example
  * ```ts
  * expect(() => app.update({ _tag: 'BackPressed' })(state)).toThrow(CompositionDefect)
  * ```
  *
- * @see The guide, "Composition", "What is a defect".
+ * @see The guide, "Composition".
  * @see The guide, "Events and external messages", "An external message to a child that is not there is a defect".
  * @see The guide, "Running", "How a message is named by its tags".
  * @see The guide, "Running", "The app around the run chooses what leaves the device".

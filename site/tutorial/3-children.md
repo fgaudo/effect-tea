@@ -46,7 +46,7 @@ What the parent gets from the declaration:
 - **Its commands:** each timer's, as `{ _tag: 'Timer', id, instance, command }`, run by the timer's `runCommand`. The
   `instance` names the start of the timer that asked (see
   [what the library derives](../guide/composition.md#what-the-library-derives)).
-- **Its subscriptions:** each running timer's `'ticks'`, under `['Timer', id, instance, 'ticks']`.
+- **Its subscriptions:** each running timer's `'ticks'`, under `{ _tag: 'Timer', id, instance, key: 'ticks' }`.
 - **Its children's models:** `children.Timer(id)` in `makeModel`. It is the same object while the timer keeps the very
   same state. A timer started again is another instance, with a model of its own.
 

@@ -395,17 +395,6 @@ describe("compose", () => {
     expect(tested.subscriptions(tested.init.state)).toEqual([{ _tag: "Ticker", instance: 1, key: "ticks" }])
   })
 
-  test("the model of a child always there that a state written by hand does not hold is a defect", () => {
-    const missing: AppState = { ...app.init.state, children: { ...app.init.state.children, Left: Opt.none() } }
-    const error = thrown(() => app.makeModel(missing))
-    expect(error).toBeInstanceOf(CompositionDefect)
-    expect(error).toMatchObject({
-      _tag: "CompositionDefect",
-      message: "The model of \"Left\", which is not in this state",
-      child: "Left"
-    })
-  })
-
   test("a program made without subscriptions listens to nothing, in any state", () => {
     const silent = program<{ state: Ticks; message: Tick }>().make({
       init: { state: noTicks },
@@ -1062,13 +1051,6 @@ describe("the children that the library keeps", () => {
     expect(noted.children).toBe(bare.children)
     const relisted = accepted(short.update("Relisted")(bare)).state
     expect(Opt.map(HashMap.get(relisted.children.Row, 1), (kept) => kept.instance)).toEqual(Opt.some(2))
-  })
-
-  test("a message for a child sometimes there that a state written by hand does not hold is rejected", () => {
-    const opened = stateOf(single, { open: true, generation: 0, notes: 0 })
-    const missing: StateOf<typeof single> = { ...opened, children: { One: Opt.none() } }
-    expect(single.update({ _tag: "One", message: { _tag: "Bumped" } })(missing)).toBe(reject)
-    expect(single.makeModel(missing)).toEqual(Opt.none())
   })
 })
 

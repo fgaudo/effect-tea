@@ -18,8 +18,8 @@ Each step is a program of the example
 [`examples/timer`](../../examples/timer). Every block of code on these pages
 is taken from its files, which are typechecked and tested with the library: what you read is what runs.
 
-The tutorial shows how the pieces fit, and why. The [Guide](../guide/index.md) is the specification, and each page
-here links to the rules it uses there.
+The tutorial shows how the pieces fit, and why. The [Guide](../guide/index.md) holds the rules, and each page here
+links to those it uses there.
 
 1. [A first program](./1-first-program.md): how long a timer lasts, set with "+" and "−". State, `update`,
    `reject`, the model, a view, `start`.

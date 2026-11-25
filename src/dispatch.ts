@@ -122,11 +122,7 @@ export const entriesOf = (dispatch: object, name: string): number => {
  * thunk('main', 'clock', clockView, [model.clock, forwardTo(dispatch, 'Clock')])
  * ```
  *
- * @see The guide, "Composition", "A child's view gets a dispatch of its own".
- * @see The guide, "Composition", "That dispatch is the same function in every draw".
- * @see The guide, "Composition", "A grandchild's dispatch is made from its parent's".
- * @see The guide, "Composition", "`children.Row(id)` is a row's model".
- * @see The guide, "Composition", "Ids are compared by value".
+ * @see The guide, "Composition".
  */
 // `Name` is checked by the result rather than by a constraint on `Message`: with such a constraint, a dispatch that
 // is itself a call of `forwardTo` (a grandchild's) would make `Message` be inferred as `unknown`.

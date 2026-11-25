@@ -367,9 +367,9 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   quote the guide again, with a bound on their length.
 - **The `init` of a parent without flags called by `start`, not by `make`.** Reasoned, 21 November 2026, with a second
   opinion that probed each form: `make` cannot tell what that `init` returns without calling it, and each other form
-  breaks a type or a spread. It now holds of the children's starts, which `make` makes ("Composition", "When the
-  children start"). Weighed again in step 61, by the values, as one form, an `init` that is a function always: it
-  would treat `init` alike wherever it appears (value 4), and every program and test would write a call to move one
+  breaks a type or a spread. It now holds of the children's starts, which `make` makes (the doc comment of `init`, in
+  `compose.ts`). Weighed again in step 61, by the values, as one form, an `init` that is a function always: it would
+  treat `init` alike wherever it appears (value 4), and every program and test would write a call to move one
   throw from `make` to `start`, where `init` is pure and a step reads as data (value 3). _Reopen if_ a parent's `init`
   takes an input that `start` gives.
 - **A subscription made from its key alone, in other forms**
@@ -420,8 +420,9 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   on a run alone, or the scheduler's reading becomes a premise with a test of its own.
 - **The guide tied to the inference matrix**, each item of "What does not compile" naming a `Violation`. Reasoned, 23
   November 2026, with a second opinion that ran 40 mutations: about 6 of 13 items have no `Violation`, and the CI would
-  check names against a matrix it never runs. The mutations of the types name the items instead (`refuses`). _Reopen
-  if_ the matrix runs in the CI, or the guide gathers every refusal in one list.
+  check names against a matrix it never runs. The mutations of the types name the items instead (`refuses`), of
+  "Anatomy of a program" alone since 25 November 2026, when the list of "Composition" went to the doc comments.
+  _Reopen if_ the matrix runs in the CI, or the guide gathers every refusal in one list.
 - **The boundary of the testing tools in other forms**: a list of the names of `core.ts` and `shell.ts` refused to
   `src/testing/`; the two files refused whole, with what it takes of them exported again by `engine.ts` and `run.ts`;
   a script that reads the uses, as `tools/comments.ts` reads the doc comments; `no-restricted-properties` on

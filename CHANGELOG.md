@@ -44,10 +44,11 @@ version, and everything else, features included, the patch version.
 - **Breaking**: the messages of a program written as an object are inferred from its `update` alone, by `start`,
   `drive`, `rehearse` and `simulate`: an answer of `runCommand` or a message of `listen` no longer narrows them.
   Upgrade: `{ ...counter, update: (message) => … }` becomes `{ ...counter, update: (message: Message) => … }`.
-- **Breaking**: unspecified, and no longer promised ("Running", "The defects in the cause"): whether two releases of one
-  scope that die of defects equal by `Equal` are two defects, and whether a command that interrupts itself as the run
-  stops it is one.
-  Upgrade: nothing to change in a program; a test relies on neither.
+- **Breaking**: unspecified, and no longer promised: whether two releases of one scope that die of defects equal by
+  `Equal` are two defects, and whether a command that interrupts itself as the run stops it is one ("Running", "The
+  defects in the cause"); and, of a parent ("Composition"), what it does with a child that only a cast lets past the
+  types, and what it does with a state written by hand that does not hold the children its own state lists.
+  Upgrade: nothing to change in a program; a test relies on none of them.
 - **Breaking**: `applyAll` and `simulate` are called in one step, as every other tool is: the messages and the state,
   or the step, to start from follow the first parameter. The types still come from `update`, or from the program,
   alone ("Testing tools").
@@ -92,6 +93,8 @@ version, and everything else, features included, the patch version.
   called, when React reads the model, whether the commands of `init` start once or twice under StrictMode, what a
   renderer that draws after the next event leaves in the state, and whether a handler that the bridge to snabbdom drew
   still sends its message once the bridge is stopped.
+- The doc comments of the API now hold a part of what the library promises ("Guide", "What a page promises"): what a
+  parent refuses, and its defects, left "Composition" for them. "Structuring a program" is advice, and binds nothing.
 - The guide's "Inputs the user types into" is now "What an element gives": a fact with a value, as a scroll's end, is
   one message that the view fills ("What an element reports").
 - A value that the user writes belongs to the program whose rules use it: the parent's where it changes or locks it,

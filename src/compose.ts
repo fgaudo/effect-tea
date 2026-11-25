@@ -73,7 +73,7 @@ type CheckedChild<P> = unknown extends Lacking<P> ? P : P & Lacking<P>
 /**
  * A child that the library keeps: the number of its start, what it was started from, and its state.
  *
- * @see The guide, "Composition", "Each start of a child is an instance".
+ * @see The guide, "Composition".
  */
 export type Instance<State> = {
   /** The number of this start, among the starts of the parent's children: no other instance of the parent has it. */
@@ -91,9 +91,10 @@ export type Instance<State> = {
  * The state of a parent: its own state, and the children that the library keeps for it.
  *
  * The parent's functions are given its own state alone. A test makes a whole state with `stateOf`, of
- * `@fgaudo/effect-tea/testing`, or by folding messages from `init`.
+ * `@fgaudo/effect-tea/testing`, or by folding messages from `init`. What a parent does with a state written by hand
+ * that does not hold the children its own state lists is unspecified.
  *
- * @see The guide, "Composition", "The parent's state".
+ * @see The guide, "Composition".
  */
 export type Kept<Own, Children> = {
   /** The parent's own state: all that its functions are given. */
@@ -116,8 +117,7 @@ export type Kept<Own, Children> = {
  * export const clock: Child<State, typeof Clock.clock, 'always'> = child(Clock.clock)
  * ```
  *
- * @see The guide, "Composition", "When a child is there".
- * @see The guide, "Composition", "When the child is not there".
+ * @see The guide, "Composition".
  */
 export type Child<State, P, There extends "always" | "sometimes"> = {
   /** A child alone, not one of children by id. */
@@ -146,8 +146,7 @@ export type Child<State, P, There extends "always" | "sometimes"> = {
  * export const rows: ChildById<State, number, typeof Row.row> = childById(Row.row, { ids: (state) => state.ids })
  * ```
  *
- * @see The guide, "Composition", "Children by id".
- * @see The guide, "Composition", "Ids are compared by value".
+ * @see The guide, "Composition".
  */
 export type ChildById<State, Id, P> = {
   /** Children by id, not a child alone. */
@@ -266,8 +265,7 @@ type ChildSubscriptionServices<C> = { [K in keyof C]: SubscriptionServicesOf<Pro
  * makeModel: (state, children) => ({ clock: children.Clock() }),
  * ```
  *
- * @see The guide, "Composition", "A child's model is kept".
- * @see The guide, "Composition", "What is a defect".
+ * @see The guide, "Composition".
  */
 type Models<C> = {
   readonly [K in keyof C & string]:
@@ -405,7 +403,7 @@ type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never] ? Rea
      * - It answers with a message of the program's own. To tell a child something, a step of the parent's `update`,
      *   `external` or `onEvent` lists it in `tell`.
      *
-     * @see The guide, "Composition", "`runCommand`".
+     * @see The guide, "Composition".
      */
     runCommand: (command: OwnCommand) => Ran & Execution<Message, any>
   }>
@@ -438,7 +436,10 @@ type ListenOf<State, OwnKey, Message, Heard> = [OwnKey] extends [never]
   : Readonly<{
     /** The keys the program listens to in a state, as data, from its own state. */
     subscriptions: (state: State) => ReadonlyArray<OwnKey>
-    /** Makes the subscription of one of the program's own keys, from the key alone. */
+    /**
+     * Makes the subscription of one of the program's own keys, from the key alone. It sends messages of the program's
+     * own, as a command answers with one: to tell a child something, a step lists it in `tell`.
+     */
     listen: (key: OwnKey) => Heard & Subscription<Message, any>
   }>
 
@@ -457,10 +458,13 @@ type Config<State, C, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, Externa
      * The first state and commands: a step, or, for a program with flags, the function that makes one from them.
      *
      * A parent's first step is of its own state. The library starts the children that this state lists, each with
-     * its first commands. The program's own flags are declared with its other types, in `program`.
+     * its first commands. The step raises no events and tells no child: a child is given what it starts from by its
+     * flags. The program's own flags are declared with its other types, in `program`.
      *
-     * @see The guide, "Composition", "How a child starts".
-     * @see The guide, "Composition", "The parent's own flags".
+     * A parent without flags starts its children as `make` makes it. So what a child's `init`, or a function of its
+     * declaration, throws there, `make` throws. An id listed twice is one such case.
+     *
+     * @see The guide, "Composition".
      */
     init: Init<State, OwnCommand, Flags>
     /** What the program draws, from its own state and its children's models. */
@@ -927,7 +931,7 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
  * - The services are never named: they are inferred from `runCommand`, `listen` and the children.
  *
  * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
- * @see The guide, "Composition", "The parent's own types".
+ * @see The guide, "Composition".
  */
 type DeclaredTypes = Readonly<{
   /** Its own state. */
@@ -961,11 +965,9 @@ type DeclaredTypes = Readonly<{
  * they are inferred.
  *
  * A child is any program. A parent declares its children with `withChildren`, before `make`. The parent's own state
- * says which children are there, and the library keeps them: it starts a child that the state lists anew, with its
- * first commands, and drops one that the state no longer lists. A parent and its children talk only through events,
- * external messages and outputs: a step of the parent's own lists what it tells its children in `tell`, and the parent
- * reads only the `output` that a child declares. The parent's messages, commands and subscriptions are its own, plus
- * each child's, wrapped:
+ * says which children are there, and the library keeps them. A parent and its children talk only through events,
+ * external messages and outputs: a parent is given no child's state. The parent's messages, commands and
+ * subscriptions are its own, plus each child's, wrapped:
  *
  * - a message as `{ _tag: <child>, message }`;
  * - a command as `{ _tag: <child>, instance, command }`, run by the child's `runCommand`, whose answer names the
@@ -998,12 +1000,7 @@ type DeclaredTypes = Readonly<{
  * ```
  *
  * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
- * @see The guide, "Composition", "In short".
- * @see The guide, "Composition", "The parent's messages".
- * @see The guide, "Composition", "The parent's commands".
- * @see The guide, "Composition", "The parent's subscriptions".
- * @see The guide, "Composition", "What does not compile:".
- * @see The guide, "Composition", "What is a defect".
+ * @see The guide, "Composition".
  */
 export const program = <T extends DeclaredTypes>(): ProgramMaker<T> =>
   ({
@@ -1056,7 +1053,7 @@ type Named<T, K extends "model", Inferred> = T extends { readonly [P in K]: infe
  *
  * @group Types of the signatures
  * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
- * @see The guide, "Composition", "In short".
+ * @see The guide, "Composition".
  */
 export interface ProgramMaker<T extends DeclaredTypes> {
   /**
@@ -1065,8 +1062,15 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * - `child(program)` is always there, and so is `child(program, { key })`, which starts again where `key` gives
    *   another value, compared with `Equal`.
    * - `child(program, { there })` is there in the states where `there` holds, and `key` may be given beside it.
-   * - A child with flags is there where `flags` gives `Some`, and starts from them. Other flags start it again.
+   * - A child with flags is there where `flags` gives `Some`, and starts from them. Other flags start it again. It
+   *   has no `key` beside them, so it does not start again from equal flags.
    * - `listening` says in which states its subscriptions run. Without it, they run whenever the child is there.
+   *
+   * A program with flags is declared with `flags`, and one without flags is declared without them. A child written
+   * as an object, and not typed `Program<…>`, is checked as a program is: one whose steps list commands has a
+   * `runCommand`, and one whose subscriptions list keys has a `listen`. Each of these does not compile otherwise.
+   * Nor does `child` for a type parameter, as `P` in `<P extends AnyProgram>(p: P) => …`: a function over any
+   * program is an overload, whose body declares a program of `unknown` types.
    *
    * @param program - The child.
    * @param place - When the child is there, what it starts from, and when it listens: functions of the parent's own
@@ -1078,9 +1082,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * About: child(about, { flags: (state) => state.about }),
    * ```
    *
-   * @see The guide, "Composition", "Declaring children".
-   * @see The guide, "Composition", "When the child is not there".
-   * @see The guide, "Composition", "A child with `flags`".
+   * @see The guide, "Composition".
    */
   readonly child: DeclareChild<T>
   /**
@@ -1090,6 +1092,10 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    *   flags, and other flags start the child again.
    * - `children.Row(id)` is a row's model, and `forwardTo(dispatch, 'Row', id)` is the row's dispatch.
    * - Ids are compared by value, with `Equal`. An id listed twice is a defect, a `CompositionDefect`.
+   * - A row removed, and listed again at the same id in a later step, is another instance, which starts again.
+   *
+   * It takes `ids`, or `flags` for a program with flags, and does not compile without one, or with the other. The
+   * program is checked as `child` checks it.
    *
    * @param program - The program of each child.
    * @param place - The ids of the children in a state, and `listening`, which says whether the child at an id listens.
@@ -1100,14 +1106,15 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * Row: childById(row, { ids: (state) => state.ids }),
    * ```
    *
-   * @see The guide, "Composition", "Children by id".
-   * @see The guide, "Composition", "Ids are compared by value".
+   * @see The guide, "Composition".
    */
   readonly childById: DeclareChildById<T>
   /**
    * Takes the children of a parent, by name, and gives the `make` of the parent.
    *
-   * They are declared before the rest, so that what a step tells them is typed by them.
+   * They are declared before the rest, so that what a step tells them is typed by them. The children that one state
+   * lists anew start in the order of their names here, as JavaScript gives the keys of an object, then in the order
+   * in which `ids`, or `flags`, lists their ids. Each start takes the next number, from 1.
    *
    * @param children - The children, by name: `{ Clock: child(…), Row: childById(…) }`.
    * @returns `make`, which makes the parent.
@@ -1120,7 +1127,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * })
    * ```
    *
-   * @see The guide, "Composition", "Declaring children".
+   * @see The guide, "Composition".
    */
   readonly withChildren: DeclareChildren<T>
   /**
@@ -1145,7 +1152,6 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * ```
    *
    * @see The guide, "Anatomy of a program", "Its types are named first, then it is made".
-   * @see The guide, "Composition", "The parent's own messages, commands and subscriptions".
    */
   readonly make: MakeProgram<T>
 }
@@ -1213,7 +1219,7 @@ type FlagsChecked<P, Flagged extends boolean> = [FlagsOf<P>] extends [never]
  * The function of `program` that declares a child alone: always there, or there in the states its place says.
  *
  * @group Types of the signatures
- * @see The guide, "Composition", "Declaring children".
+ * @see The guide, "Composition".
  */
 export type DeclareChild<T extends DeclaredTypes> = {
   <P extends AnyProgram>(
@@ -1230,7 +1236,7 @@ export type DeclareChild<T extends DeclaredTypes> = {
  * The function of `program` that declares children told apart by an id.
  *
  * @group Types of the signatures
- * @see The guide, "Composition", "Children by id".
+ * @see The guide, "Composition".
  */
 export type DeclareChildById<T extends DeclaredTypes> = {
   <Id, P extends AnyProgram>(
@@ -1247,7 +1253,7 @@ export type DeclareChildById<T extends DeclaredTypes> = {
  * The function of `program` that takes a parent's children, and gives its `make`.
  *
  * @group Types of the signatures
- * @see The guide, "Composition", "Declaring children".
+ * @see The guide, "Composition".
  */
 export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field<T, "state">>>(
   children: C
@@ -1257,17 +1263,21 @@ export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field
  * What `withChildren` returns: the `make` of a parent of these children.
  *
  * @group Types of the signatures
- * @see The guide, "Composition", "Declaring children".
+ * @see The guide, "Composition".
  */
 export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T, "state">>> {
   /**
    * Makes the parent from its pieces, and from its children.
    *
    * - The parent's functions are given its own state alone. Its state is that state, and the children that the library
-   *   keeps.
-   * - A step of the parent's own lists in `tell` the external messages it gives its children. Each is given once the
-   *   step is taken and its children are there, in order.
+   *   keeps. `makeModel` is given the children's models too, and it alone: `update`, `external`, `onEvent` and `output`
+   *   are given what each child declares as its `output`.
+   * - A step of the parent's own lists in `tell` the external messages it gives its children, each by the child's
+   *   name, with its id for children by id: nothing else compiles there. Each is given once the step is taken and its
+   *   children are there, in order.
    * - `init` is a step of the parent's own: the library starts the children that its state lists.
+   * - The parent's commands need the services of its `runCommand` and of its children's commands, and its
+   *   subscriptions those of its `listen` and of its children's subscriptions. Nothing names them: they are inferred.
    *
    * @param config - Its `init` and `makeModel`, and its `update`, `external`, `runCommand`, `subscriptions`, `listen`
    * and `onEvent` where it has them.
@@ -1282,7 +1292,7 @@ export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T
    * })
    * ```
    *
-   * @see The guide, "Composition", "The parent's own messages, commands and subscriptions".
+   * @see The guide, "Composition".
    * @see The guide, "Events and external messages", "A parent sends an external message".
    * @see The guide, "Events and external messages", "What a step tells arrives after the step".
    */
@@ -1293,7 +1303,7 @@ export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T
  * The function of `program` that makes a program without children from its pieces.
  *
  * @group Types of the signatures
- * @see The guide, "Composition", "The parent's own messages, commands and subscriptions".
+ * @see The guide, "Anatomy of a program".
  */
 export type MakeProgram<T extends DeclaredTypes> = <Model, Ran = never, Heard = never>(
   config: Config<
@@ -1330,7 +1340,7 @@ export type MakeProgram<T extends DeclaredTypes> = <Model, Ran = never, Heard = 
  * The function of `withChildren` that makes a parent from its pieces.
  *
  * @group Types of the signatures
- * @see The guide, "Composition", "The parent's own messages, commands and subscriptions".
+ * @see The guide, "Composition".
  */
 export type MakeParent<T extends DeclaredTypes, C extends Children<Field<T, "state">>> = <
   Model,

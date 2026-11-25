@@ -9,8 +9,8 @@ A reader who has not seen the code builds a program from what the package ships 
 [`package.json`](../../../package.json)): the guide, the tutorial, the examples, the skill for coding agents
 ([`skills/effect-tea/SKILL.md`](../../../skills/effect-tea/SKILL.md)), the declarations with their doc comments, the
 README and the changelog. What the reader gets wrong is what they lack. The reader never opens `docs/` nor the
-package's `src/`. Since the guide promises only its rules, a rule the reader could learn only from an example is a gap
-too, so the report says where each answer was found.
+package's `src/`. Since the library promises only what the guide's rules, the doc comments and "Guarantees" say, a
+rule the reader could learn only from an example is a gap too, so the report says where each answer was found.
 
 The reader works in a project of its own outside the repository. A check is of one of two modes, which differ in what
 of `examples/` and `bridges/` it reads:
@@ -19,8 +19,9 @@ of `examples/` and `bridges/` it reads:
   reader's path shows whether the README's "For coding agents" and the declarations lead to the skill and the guide.
   It is the mode for the tutorial, whose pages are built on `examples/timer/`, and for the skill.
 - **Closed**: of `examples/` and `bridges/`, only what a user imports (`bridges/snabbdom.ts`, `bridges/react.ts`,
-  `bridges/snabbdom-testing.ts` and `bridges/snabbdom-preload.ts`). It checks the guide as the specification: a rule a
-  reader of the package would copy from an example shows here as a guess. It is the mode for pages of the guide.
+  `bridges/snabbdom-testing.ts` and `bridges/snabbdom-preload.ts`). It checks what the guide teaches and the doc
+  comments specify: a rule a reader of the package would copy from an example shows here as a guess. It is the mode
+  for pages of the guide.
 
 The two may run on one requirement: the difference of their reports is what the guide leaves to the examples.
 
@@ -316,12 +317,13 @@ export const valueOf = (selector: string): string | undefined => {
   awkward is weighed by "Deciding" in [`AGENTS.md`](../../../AGENTS.md), after
   [`docs/rejected.md`](../../../docs/rejected.md) is read for it, and a change it calls for is a step of
   [`ROADMAP.md`](../../../ROADMAP.md).
-- Put each gap of (a) and (b), and each rule of (2) to (5) a user relies on, where the reader looked for it: a page of
-  the guide under its "Rules", as `AGENTS.md` says of a rule of the guide, a doc comment as `change-api` says, the skill
-  as a pointer or a rule in short with its section, the README in the README. A sentence added promises only what the
-  code and the tests keep, checked against `src/`, its tests or the compiler before it is committed, since a guess may
-  have passed by luck; a promise no test keeps gets its test first. Then `bun run comments`, `bun run typecheck`,
-  `bun run lint`, `bun run test`, and a changelog entry where `release` asks for one.
+- Put each gap of (a) and (b), and each rule of (2) to (5) a user relies on, where `AGENTS.md` says a finding of a
+  review goes: a type, the message of a defect or a doc comment first, as `change-api` says, and a sentence of the
+  guide last, only where a user who has read it would write their program otherwise, and under the page's ceiling of
+  words. The skill takes a pointer or a rule in short, the README what is the README's. A sentence added promises only
+  what the code and the tests keep, checked against `src/`, its tests or the compiler before it is committed, since a
+  guess may have passed by luck; a promise no test keeps gets its test first. Then `bun run comments`,
+  `bun run typecheck`, `bun run lint`, `bun run test`, and a changelog entry where `release` asks for one.
 - Commit the documents alone. Ask the author before deleting the reader's project.
 - Name the requirement in step 3's list of requirements taken, with its date and its mode, in the same commit. Where
   acceptance tests ran, add how many passed of how many, and how many failures were the program's.
