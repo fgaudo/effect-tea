@@ -104,7 +104,7 @@ each bridge's to promise (see [view](./view.md#rules)).
   - The effects of the step, its subscriptions and the start of its commands, follow in the run (see
     [what you can rely on](#what-you-can-rely-on)). When they start is unspecified.
   - An element that reports at each of its events, as a scroll does, runs a step at each, in its handler (see
-    [what an element reports](./what-an-element-gives.md#what-an-element-reports)).
+    [what an element gives](./what-an-element-gives.md#advice)).
 - **A renderer is told of every new state**, in the call that made it. One that draws later reads the latest model
   when it draws (see [running](./running.md#rules)).
 - **A subscription that sends faster than the screen refreshes holds the run back.** The bridge to snabbdom draws once

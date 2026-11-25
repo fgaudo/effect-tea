@@ -119,7 +119,7 @@ type CompositionFields = Readonly<{
  * ```
  *
  * @see The guide, "Composition".
- * @see The guide, "Events and external messages", "An external message to a child that is not there is a defect".
+ * @see The guide, "Events and external messages".
  * @see The guide, "Running", "How a message is named by its tags".
  * @see The guide, "Running", "The app around the run chooses what leaves the device".
  */

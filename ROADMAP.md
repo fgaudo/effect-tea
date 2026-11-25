@@ -26,9 +26,9 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 75 to 79 and 68 to 72 come before the library is made known to others
+Steps 76 to 79 and 68 to 72 come before the library is made known to others
 ([`adoption.md`](docs/records/adoption.md)), and neither wait for the release of 0.9.0 ("For the owner") nor hold it:
-what is done before it goes out with it. Their order: first the guide made small (75 to 78), since every later step
+what is done before it goes out with it. Their order: first the guide made small (76 to 78), since every later step
 reads it or adds to it, and a promise withdrawn is a breaking change, which goes out with the others; then what may
 change the API between a parent and its children (79), and what may change a rule of the guide or show a cost of the
 API (68), which reads the API as step 79 leaves it; then what a first user meets (69, 70); then the two checks, which
@@ -40,7 +40,7 @@ the two pages and approved the form on 25 November 2026, and step 74 wrote by it
 pieces. Until step 78 the guide has both forms: a page not yet written again keeps its "Do and don't", and the
 comments that name its sections.
 
-Each of steps 75 to 77 writes its pages again by that form, a group in a step, so that each step fits one context:
+Each of steps 76 and 77 writes its pages again by that form, a group in a step, so that each step fits one context:
 each sentence by the test of `AGENTS.md`. A sentence that moves to a doc comment is written there in the same commit,
 and the skill's rules that name a section changed are reread. What steps 73 and 74 leave to each, which their pages
 and commits show:
@@ -59,8 +59,8 @@ and commits show:
   a table or a block of code, each with where it went (the guide, a doc comment, unspecified, cut, advice or
   explanation, its example).
 - Specification halves, and advice does not: "Composition" went from 3,616 words to 1,807, "Structuring a program"
-  from 2,136 to 1,836, and the seven pages of step 74 from 6,774 to 4,270. Most of what left them was in a doc
-  comment, or in "Guarantees", already.
+  from 2,136 to 1,836, the seven pages of step 74 from 6,774 to 4,270, and the two of step 75 from 3,665 to 2,682.
+  Most of what left them was in a doc comment, or in "Guarantees", already.
 - A promise is withdrawn only at a corner that no user builds on. Its changelog entry is the one that starts
   "**Breaking**: unspecified, and no longer promised", which each step adds to. What a sentence promised and no doc
   comment says is written into the doc comment, rather than withdrawn, where a user builds on it.
@@ -73,29 +73,6 @@ and after; and `bun run typecheck`, `bun run lint`, `bun run test` and `bun run 
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 75. Events, and what an element gives, by the form of step 73
-
-**Model and effort.** Opus 5.5, `high`.
-
-**Depends on** step 73, whose form the owner approved.
-
-**How**, by the form above, for "Events and external messages" and "What an element gives", some 3,700 words. Since
-step 74, the doc comment of `onEvent` says that a handler has no `reject` and answers `{ state }`, and "Rejections and
-defects" says why, under "An event keeps the timing of its cause", which "Events and external messages" links.
-Both say again rules of "Composition" and of "Structuring a program", which step 73 wrote: a rule has one place, and
-these pages link to it. "A value is never a reason to reject" is now advice of "Structuring a program" ("Do not
-reject a message by its value"), and "A value that the user types into a child" its "A value that the user writes
-belongs to the program whose rules use it".
-
-"A child that must wait for its parent" is linked from "Structuring a program", as the case where a part that its
-parent locks is a child all the same: the heading stays, or the link changes with it. No example and no test shows
-that pattern, which step 73 found. Step 79 weighs what the library could do in its place, and its spike writes the
-pattern by hand first: the example is left to that step, and the section says here that none shows it. The two pages
-also link `#outputs` and `#external-messages` of "Events and external messages", and `#rules` and `#in-each-row` of
-"What an element gives".
-
-**Done when**, as the form above says.
 
 ### 76. Running, guarantees and bridges, by the form of step 73
 
@@ -163,8 +140,9 @@ the skill, before step 73 and now.
 **Model and effort.** Fable 5.2, `high`: a design whose constraints pull apart, the symmetry of the channels against
 the number of the concepts, and it may end with nothing changed.
 
-**Depends on** step 75, which writes "A child that must wait for its parent" again. It comes before step 68, whose
-page advises on a part that its parent locks.
+**Depends on** nothing open: "A child that must wait for its parent" stands in "Advice" of "Events and external
+messages", and says that no example shows it. It comes before step 68, whose page advises on a part that its parent
+locks.
 
 **Why.** Between a parent and a child, a moment goes both ways: an event up, an external message down. A condition
 goes up alone, as an `output`. Down, flags start the child again as they change, and `listening` says only when the

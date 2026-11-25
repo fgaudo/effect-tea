@@ -17,8 +17,7 @@ import { dual } from "effect/Function"
  * ```
  *
  * @see The guide, "Commands".
- * @see The guide, "Events and external messages", "A child raises an event".
- * @see The guide, "Events and external messages", "What a step tells arrives after the step".
+ * @see The guide, "Events and external messages".
  */
 export type Step<State, Command = never, Event = never, Tell = never> = {
   /** The next state. */
@@ -85,7 +84,7 @@ export type Transition<State, Command = never, Event = never, Tell = never> =
  * const none: Folded<State, never, never> = { state, commands: [], events: [] }
  * ```
  *
- * @see The guide, "Events and external messages", "`andThen`".
+ * @see The guide, "Events and external messages".
  * @see The guide, "Testing", "The tools".
  */
 export type Folded<State, Command, Event, Tell = never> = {
@@ -131,7 +130,7 @@ export const appendStep = <State, Command, Event, Tell>(
  * andThen(leave(state), (state) => ({ state, tell: [{ _tag: 'Home', message: { _tag: 'ProductGone', at } }] }))
  * ```
  *
- * @see The guide, "Events and external messages", "`andThen`".
+ * @see The guide, "Events and external messages".
  */
 export const andThen: {
   <State, Command2 = never, Event2 = never, Tell2 = never>(

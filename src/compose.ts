@@ -289,7 +289,7 @@ type ReadOutput<C> = C extends ChildByIdOf<infer Id, infer P> ? (id: Id) => Outp
  * update: (message, children) => (state) => ({ state: { ...state, running: children.Clock.output() } }),
  * ```
  *
- * @see The guide, "Events and external messages", "Outputs".
+ * @see The guide, "Events and external messages".
  */
 type Outputs<C> = {
   readonly [K in keyof C & string as [OutputOf<ProgramOf<C[K]>>] extends [never] ? never : K]: Readonly<{
@@ -323,8 +323,7 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
      * `{ state }`, and adds nothing to the child's step. Where that step kept the child's state too, the parent's
      * state is the very same.
      *
-     * @see The guide, "Events and external messages", "The parent handles an event in `onEvent`".
-     * @see The guide, "Events and external messages", "`onEvent`".
+     * @see The guide, "Events and external messages".
      * @see The guide, "Guarantees", "`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated".
      */
     onEvent?: OnEvents<State, C, Command, Event>
@@ -341,8 +340,7 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
      * `{ state }`, and adds nothing to the child's step. Where that step kept the child's state too, the parent's
      * state is the very same.
      *
-     * @see The guide, "Events and external messages", "The parent handles an event in `onEvent`".
-     * @see The guide, "Events and external messages", "`onEvent`".
+     * @see The guide, "Events and external messages".
      * @see The guide, "Guarantees", "`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated".
      */
     onEvent: OnEvents<State, C, Command, Event>
@@ -376,9 +374,7 @@ type ExternalHandlerOf<State, C, External, Command, Event> = [External] extends 
      * message on to a child in the `tell` of its step, and takes its children's outputs last, as they were before the
      * step.
      *
-     * @see The guide, "Events and external messages", "A child answers its external messages in every state".
-     * @see The guide, "Events and external messages", "A parent passes an external message on".
-     * @see The guide, "Events and external messages", "`external` is required exactly when the program names external messages".
+     * @see The guide, "Events and external messages".
      */
     external: (message: External, ...children: Reading<C>) => (state: State) => Step<State, Command, Event, Tells<C>>
   }>
@@ -395,8 +391,7 @@ type OutputHandlerOf<State, C, Output> = [Output] extends [never] ? Readonly<{ o
      * outputs last.
      *
      * @see The guide, "Anatomy of a program".
-     * @see The guide, "Events and external messages", "A child may declare an `output`".
-     * @see The guide, "Events and external messages", "A parent reads it as `children.Row.output(id)`".
+     * @see The guide, "Events and external messages".
      */
     output: (state: State, ...children: Reading<C>) => Output
   }>
@@ -1282,7 +1277,8 @@ export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T
    *   are given what each child declares as its `output`.
    * - A step of the parent's own lists in `tell` the external messages it gives its children, each by the child's
    *   name, with its id for children by id: nothing else compiles there. Each is given once the step is taken and its
-   *   children are there, in order.
+   *   children are there, in order, to the instance that is there then: one that an earlier item of the same `tell`
+   *   dropped or started again, through what its parent did with an event, is told nothing, and it is no defect.
    * - `init` is a step of the parent's own: the library starts the children that its state lists.
    * - The parent's commands need the services of its `runCommand` and of its children's commands, and its
    *   subscriptions those of its `listen` and of its children's subscriptions. Nothing names them: they are inferred.
@@ -1301,14 +1297,14 @@ export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T
    * ```
    *
    * @see The guide, "Composition".
-   * @see The guide, "Events and external messages", "A parent sends an external message".
-   * @see The guide, "Events and external messages", "What a step tells arrives after the step".
+   * @see The guide, "Events and external messages".
    */
   readonly make: MakeParent<T, C>
 }
 
 /**
- * The function of `program` that makes a program without children from its pieces.
+ * The function of `program` that makes a program without children from its pieces. With no children to read, its
+ * `update`, `external` and `output` take no `children`.
  *
  * @group Types of the signatures
  * @see The guide, "Anatomy of a program".

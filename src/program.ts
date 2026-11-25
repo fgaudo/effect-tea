@@ -115,7 +115,7 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  * ```
  *
  * @see The guide, "Anatomy of a program".
- * @see The guide, "Events and external messages", "`external` is required exactly when the program names external messages".
+ * @see The guide, "Events and external messages".
  * @see The guide, "Guarantees", "`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated".
  */
 export type Program<T extends ProgramTypes> = Shape<
@@ -147,7 +147,7 @@ type WithOutput<Output, State> = [Output] extends [never] ? object : { readonly 
  * // { readonly external: (message: Halted) => (state: State) => Step<State, never, never> }
  * ```
  *
- * @see The guide, "Events and external messages", "A child answers its external messages in every state".
+ * @see The guide, "Events and external messages".
  */
 type WithExternal<External, State, Command, Event> = [External] extends [never] ? object
   : { readonly external: (message: External) => (state: State) => Step<State, Command, Event> }

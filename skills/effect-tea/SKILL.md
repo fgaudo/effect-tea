@@ -41,20 +41,20 @@ versions. The paths below are relative to this file.
 
 ## Which page to read
 
-| To…                                         | read in the guide                                  |
-| ------------------------------------------- | -------------------------------------------------- |
-| write a first program                       | "Anatomy of a program", then the tutorial          |
-| decide what `update` does with a message    | "Update", "Rejections and defects"                 |
-| shape the state, the messages and the model | "Structuring a program", "Model"                   |
-| draw a view and send messages from it       | "View"                                             |
-| talk to the world                           | "Commands", "Subscriptions"                        |
-| split a program into children               | "Composition", "Events and external messages"      |
-| keep a value that an element holds, reports | "What an element gives"                            |
-| send a fact that comes with a value         | "What an element gives", "What an element reports" |
-| start the program and handle its defects    | "Running"                                          |
-| test it                                     | "Testing", "Testing tools"                         |
-| connect a renderer                          | "Writing a bridge"                                 |
-| know what is promised, and what is not      | "Guarantees"                                       |
+| To…                                         | read in the guide                             |
+| ------------------------------------------- | --------------------------------------------- |
+| write a first program                       | "Anatomy of a program", then the tutorial     |
+| decide what `update` does with a message    | "Update", "Rejections and defects"            |
+| shape the state, the messages and the model | "Structuring a program", "Model"              |
+| draw a view and send messages from it       | "View"                                        |
+| talk to the world                           | "Commands", "Subscriptions"                   |
+| split a program into children               | "Composition", "Events and external messages" |
+| keep a value that an element holds, reports | "What an element gives"                       |
+| send a fact that comes with a value         | "What an element gives", "More examples"      |
+| start the program and handle its defects    | "Running"                                     |
+| test it                                     | "Testing", "Testing tools"                    |
+| connect a renderer                          | "Writing a bridge"                            |
+| know what is promised, and what is not      | "Guarantees"                                  |
 
 ## What kind of thing is it
 
