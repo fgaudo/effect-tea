@@ -45,6 +45,7 @@ its title, and a heading or a bold title of that page. Where this file says less
 | shape the state, the messages and the model | "Structuring a program", "Model"              |
 | draw a view and send messages from it       | "View"                                        |
 | talk to the world                           | "Commands", "Subscriptions"                   |
+| split a large program into modules          | "Structuring a program"                       |
 | split a program into children               | "Composition", "Events and external messages" |
 | hold what an element holds or reports       | "What an element gives"                       |
 | start the program and handle its defects    | "Running"                                     |
@@ -69,6 +70,7 @@ it": each of its rows names the page that rules it.
 | a message that may arrive, and does not apply in the state       | `reject`                                            |
 | a message that only a bug can bring                              | `defect`                                            |
 | an expected failure of a command                                 | a message, as the success is                        |
+| a part of a large program that its other parts read              | a module of the program: functions of the state     |
 | a part whose controls the parent enables from its own state      | most often the parent's own state and messages      |
 | a value that the user types, and a parent reads                  | a message of the program whose rules use it         |
 | what holds in a child, that its parent reads                     | the child's `output`                                |

@@ -36,6 +36,10 @@ export type Step<State, Command = never, Event = never, Tell = never> = {
  *
  * A message that `update` rejects is ignored: the state stays as it was, however many messages came in between.
  *
+ * Type a function written apart from `make` that returns it, such as the `update` of a module, with `Update` or
+ * `Transition`. Returned through a generic function, such as `Opt.match`, `reject` is otherwise widened to `symbol`,
+ * which `make` refuses.
+ *
  * @example
  * ```ts
  * case 'SaveClicked':

@@ -27,6 +27,7 @@ the rest.
 | A message that may arrive, and does not apply in the state                                   | `reject`                                                             | [rejections and defects](./rejections-and-defects.md)                                                          |
 | A message that only a bug can bring                                                          | `defect`                                                             | [rejections and defects](./rejections-and-defects.md)                                                          |
 | An expected failure of a command                                                             | A message, as the success is                                         | [commands](./commands.md)                                                                                      |
+| A part of a large program that its other parts read                                          | A module of the same program: functions of the whole state           | [splitting a program](#splitting-a-program)                                                                    |
 | A part whose controls the parent enables from its own state                                  | Most often not a child: the parent's own state and messages          | [splitting a program](#splitting-a-program)                                                                    |
 | A value that the user types, and a parent reads                                              | A message of the program whose rules use it                          | [splitting a program](#splitting-a-program)                                                                    |
 | What holds in a child, that its parent reads                                                 | The child's output                                                   | [outputs](./events-and-external-messages.md#outputs)                                                           |
@@ -123,11 +124,36 @@ the rest.
 
 ### Splitting a program
 
-A program lives in one module until it is too large. Then it splits into children, each a program of its own (see
-[composition](./composition.md)).
+A program lives in one module until it is too large. Then it splits by concern, into modules of one program or into
+children (see [composition](./composition.md)).
 
 - **Split by concern, not by kind.** Modules named `messages`, `state` and `update` spread each concern over three
   files, and each change touches the three.
+- **Split the parts that read each other into modules of one program.** The module of a concern holds its messages,
+  its commands, its `update` and the parts of the model that it makes, as functions of the whole state. It exports what
+  the other concerns read, such as `isOpen(state)`. The program's `update` gives each message, by a `switch`, to the
+  one concern that owns it, and that concern alone decides whether the message applies. What it asks of another
+  concern is a function of that concern that returns a `Step`, which it returns as it is, or after a step of its own
+  with `andThen` (see [combining steps](./events-and-external-messages.md#combining-steps)). Its `update` is typed with
+  the program's `Command`, so that the other concern's step may carry commands of its own. So the parts read one
+  state, with no copy and no message between them, which children cannot do. It does not hold for a part with a state
+  of its own, which the others read only as a value that it declares: that part may be a child, and the value its
+  `output`.
+
+  ```ts
+  // The scanner owns a scan: it decides from what the counts export, and asks them for a step of theirs
+  export const update: Update<State, Message, Command> = (message) => (state) => {
+    switch (message._tag) {
+      case "Scanned":
+        if (!Counts.isOpen(state)) return reject
+        return Opt.match(Counts.itemOf(state, message.code), {
+          onSome: (id) => Counts.scanned(id)(state),
+          onNone: () => ({ state: withUnknown(state, message.code) })
+        })
+        // …
+    }
+  }
+  ```
 - **Keep in the parent what spans the children**, such as a menu or the back button. What concerns one child stays in
   that child, even how the user learns that the child failed.
 - **Give a child what it needs, not its parent's state.** A child starts from its flags, which may be a fact that the
@@ -136,8 +162,8 @@ A program lives in one module until it is too large. Then it splits into childre
   tells it down as an external message. The other way, a parent is given no child's state: its `update` reads only what
   the child declares as its `output`, and its `makeModel` the child's model too (see
   [composition](./composition.md#the-parents-own-pieces)).
-- **Make one child of children that read each other's state**, even a large one. Logic that grows in a parent between
-  two siblings is a sign of it.
+- **Make one child of children that read each other's state**, and split it into modules as above where it is large.
+  Logic that grows in a parent between two siblings is a sign of it.
 - **Not every part is a child.** A part whose controls the parent would enable from its own state, or whose state the
   parent would copy down and back up, is simpler as the parent's own state and messages. It does not hold for a part
   with commands or subscriptions of its own: that part may be a child, which the parent tells when to wait (see

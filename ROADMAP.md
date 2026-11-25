@@ -26,10 +26,10 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 68 to 72 come before the library is made known to others ([`adoption.md`](docs/records/adoption.md)), and
+Steps 69 to 72 come before the library is made known to others ([`adoption.md`](docs/records/adoption.md)), and
 neither wait for the release of 0.9.0 ("For the owner") nor hold it: what is done before it goes out with it. Their
-order: first what may change a rule of the guide or show a cost of the API (68); then what a first user meets (69,
-70); then the two checks, which read the guide as those steps leave it (71, 72).
+order: first what a first user meets (69, 70); then the two checks, which read the guide as those steps leave it (71,
+72).
 
 Step 73 decided the form of the smaller guide ([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md`
 holds it, under "What belongs here". The owner approved it on 25 November 2026, and steps 74 to 77 wrote every page by
@@ -44,34 +44,6 @@ reads each `](…#…)` into its page, before and after.
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 68. A program too large for one module that is not split into children
-
-**Model and effort.** Opus 5.5, `high`: a page of the guide is a specification.
-
-**Depends on** step 73, which writes "Structuring a program" again. Step 80 gave a parent a `tell` declared from its
-own state, which "A child that must wait for its parent" ("Events and external messages") and `examples/cart` show:
-the page's advice on a part that its parent locks is written by it. It comes before steps 69 to 72, since it alone of
-them may add a rule to the guide or show that the API must change.
-
-**Why.** "Structuring a program" says that a program lives in one module until it is too large, and then splits into
-children, and that a part that the parent reads is no child. So the guide has no page for a large program whose parts
-read each other, which is what a reader with an application of their own brings.
-
-**How.** Its parts are plain code: an `update` and a `makeModel` of each concern, as functions of the whole state in
-modules of their own, with their steps chained by `andThen`, which the guide shows only between a parent and a child
-("Events and external messages"). Reasoned, from the second opinion of 22 November 2026
-([`kept-children.md`](docs/records/kept-children.md)), and not tried: it is tried first on a copy of an example that
-is not kept, as `stocktake`, for what it costs with the types of a `Step`. The rule of the guide that it adds comes
-first, since an example never brings the rule that allows it (`AGENTS.md`). It is weighed against the page as step
-73 leaves it: with `output` (step 35), a parent reads a value that its child declares, so "a part that the parent
-reads is no child" is written again there.
-
-**Done when** the commit says what the trial cost with the types of a `Step`, and one of three holds. The guide's
-"Structuring a program" states the rule under its "Rules", with the sentence on a part that the parent reads written
-again, each new promise with its test, the doc comments and the skill that name the section reread, a changelog entry,
-and `bun run comments` passing. Or, where the trial shows that the API must change first, a step here says that
-change, before step 69. Or an entry of `docs/rejected.md` says why the guide gives no such page.
 
 ### 69. An example of routing
 
@@ -116,7 +88,8 @@ under the "Rules" of its page, with its changelog entry; and `bun run test:brows
 
 **Model and effort.** Fable 5.2, `high`, to write it: it decides what a release weighs.
 
-**Depends on** no other step. It comes after steps 68 to 70, which add rules to the guide: its first run reads them.
+**Depends on** no other step. It comes after steps 69 and 70, which may add rules to the guide: its first run reads
+them.
 
 **Why.** Since step 56, the promises are what stands under "Rules", under "What you can rely on" and in the types, and
 a test checks each (`AGENTS.md`). The method of [`promises-and-tests.md`](docs/records/promises-and-tests.md) found 65
@@ -137,7 +110,8 @@ for it.
 
 **Model and effort.** Opus 5.5, `medium`.
 
-**Depends on** no other step. It comes after steps 68 to 70, so that the next reader reads the guide as they leave it.
+**Depends on** no other step. It comes after steps 69 and 70, so that the next reader reads the guide as they leave
+it.
 
 **Why.** The seven requirements of [`guide-reader`](.agents/skills/guide-reader/SKILL.md) are each a page of a
 browser with a value that is typed, and those that were drawn are drawn with snabbdom: each was chosen to need the

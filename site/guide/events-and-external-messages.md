@@ -14,7 +14,7 @@ output. The page [composition](./composition.md) shows how a parent declares its
 - A parent tells a child an external message, in the `tell` of a step, or of the child's declaration. The child
   answers it in its `external`, apart from `update`, in every state.
 - A child may declare an `output`, a value of its state. Its parent reads it, and reads nothing else of the child.
-- When the parent takes a step of its own before another step, combine the two steps with `andThen`.
+- To make two steps one, combine them with `andThen`.
 
 ## An example
 
@@ -86,7 +86,7 @@ A parent and its children talk only through events, external messages and output
 
 ### Combining steps
 
-To take a step of its own before another, as one step, a parent combines the two with `andThen`:
+A program combines two steps as one with `andThen`, such as a parent's own step and one that tells a child:
 `andThen(leave(state), (state) => ({ state, tell: [{ _tag: 'Home', message: ProductGone({ at }) }] }))`. The result
 has the second step's state, and the commands, the events and what is told of both steps, in order.
 

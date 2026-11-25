@@ -6,8 +6,8 @@ title: Composition
 
 ## In short
 
-This page shows how to make a program out of other programs. When a program grows too large, you split it into
-children, each a program of its own (see [splitting a program](./structuring-a-program.md#splitting-a-program)).
+This page shows how to make a program out of other programs. A part of a program that is a program of its own
+becomes a child (see [splitting a program](./structuring-a-program.md#splitting-a-program)).
 
 - A child is any program.
 - A parent declares its children with `withChildren`, before `make`. For each child, the parent says, from its own

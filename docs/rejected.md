@@ -235,6 +235,12 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
 - **`forEach`**, the n-ary `andThen`. Removed with the store, 22 November 2026: a parent lists what it tells in one
   `tell`, which `Arr.map` makes. `andThen` stays, the one place where two steps combine. _Reopen if_ a program must
   fold steps over items that each read the state before, and `andThen` in a reduce does not read well.
+- **`andThen` over a `Transition`**, which would pass `reject` through, so that a program's `update` could chain the
+  `update`s of two concerns. Weighed in step 68, 25 November 2026, on a copy of `stocktake` split into modules by
+  concern, not kept: no chain was needed, since the concern that owns a message decides once whether it applies, and
+  asks the others for a `Step` ("Structuring a program", "Splitting a program"). A second step that may reject would
+  decide the same message twice, and `own === reject ? reject : andThen(own, next)` writes it where it is meant.
+  _Reopen if_ a program shows a message that two concerns must each be able to reject.
 - **A child's `key` that says whether the child is there**, beside `there`. Weighed in step 34, 22 November 2026: two
   functions would say one thing. _Reopen if_ a child there and one not need a key from one function, in a way `there`
   cannot say.
