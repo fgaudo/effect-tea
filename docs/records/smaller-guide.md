@@ -2,7 +2,7 @@
 
 **Status:** decided on 25 November 2026 by a session of Fable 5.2, as step 73 of [`ROADMAP.md`](../../ROADMAP.md),
 after the owner asked for a guide that a reader can take in. Tried on two pages, "Composition" and "Structuring a
-program". The other pages follow in steps 74 to 78, once the owner has read the two.
+program". The owner read the two and approved the form the same day. The other pages follow in steps 74 to 78.
 
 ## Why
 

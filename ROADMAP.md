@@ -34,10 +34,9 @@ change a rule of the guide or show a cost of the API (68); then what a first use
 which read the guide as those steps leave it (71, 72).
 
 Step 73 decided the form of the smaller guide, and tried it on "Composition" and "Structuring a program"
-([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md` holds it, under "What belongs here". **Step 74
-waits for the owner's word on the two pages**, as the owner asked on 25 November 2026: a form that the owner refuses
-is changed on those two, not on sixteen. Until step 78 the guide has both forms: a page not yet written again keeps
-its "Do and don't", and the comments that name its sections.
+([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md` holds it, under "What belongs here". The owner read
+the two pages and approved the form on 25 November 2026, so steps 74 to 77 wait for nothing. Until step 78 the guide
+has both forms: a page not yet written again keeps its "Do and don't", and the comments that name its sections.
 
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
@@ -47,7 +46,7 @@ after 0.9.0, reads the changes since the commit that closed step 65 (`git log --
 
 **Model and effort.** Opus 5.5, `high`: a promise withdrawn is a breaking change.
 
-**Depends on** step 73, and on the owner's word on its two pages.
+**Depends on** step 73, whose form the owner approved.
 
 **Why.** Step 73 decides the form on two pages. The other pages are written again by it, a group in a step, so that
 each step fits one context.
@@ -87,7 +86,7 @@ and after; and the checks of step 73 pass.
 
 **Model and effort.** Opus 5.5, `high`.
 
-**Depends on** step 73, and on the owner's word on its two pages.
+**Depends on** step 73, whose form the owner approved.
 
 **Why** and **How**, as step 74, for "Events and external messages" and "What an element gives", some 3,700 words.
 Both say again rules of "Composition" and of "Structuring a program", which step 73 wrote: a rule has one place, and
@@ -107,7 +106,7 @@ pages also link `#outputs` and `#external-messages` of "Events and external mess
 
 **Model and effort.** Opus 5.5, `high`.
 
-**Depends on** step 73, and on the owner's word on its two pages.
+**Depends on** step 73, whose form the owner approved.
 
 **Why** and **How**, as step 74, for "Running", "Guarantees" and "Writing a bridge", some 9,300 words. "What you can
 rely on" is the list of the promises of a run, and the mutations name its items (`guarantees`, in `tools/mutations/`):
@@ -128,7 +127,7 @@ left to you", calls it advice since step 73.
 
 **Model and effort.** Opus 5.5, `high`.
 
-**Depends on** step 73, and on the owner's word on its two pages.
+**Depends on** step 73, whose form the owner approved.
 
 **Why** and **How**, as step 74, for "Testing" and "Testing tools", some 5,200 words. What each tool fails on, and what
 it ignores, is of its export: the doc comment is its place, and the page keeps how a program is tested. "Composition"
