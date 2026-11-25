@@ -25,10 +25,6 @@ React and `@fgaudo/effect-tea/snabbdom` for snabbdom. It serves two readers:
   [coming from Elm or React](https://fgaudo.github.io/effect-tea/documents/Guide.Coming_from_Elm_or_React.html) maps
   the rest).
 
-If you are weighing it against [Foldkit](https://foldkit.dev): Foldkit calls itself "a TypeScript frontend framework
-built on Effect". By its own README, it ships a virtual DOM, powered by Snabbdom, for its views, and a program of it can
-own the whole page or run as a widget inside an existing application, React included.
-
 ## A taste
 
 A form saves a name. The user taps "Save" twice, before the screen shows the first tap: a slow draw or a frozen app is

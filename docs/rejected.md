@@ -435,6 +435,15 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   the same. _Reopen if_ a tool is found to name a value by another function, or oxlint merges the options of a rule
   across overrides.
 
+## The documentation
+
+- **Naming Foldkit in the README**, for a reader who weighs the two, as the adoption record
+  ([`adoption.md`](records/adoption.md)) and step 67 asked. Written in step 67, in Foldkit's own words and with no
+  comparison, since none may decide what this library does (`AGENTS.md`, "What belongs here"), and taken out by the
+  owner on 25 November 2026: a paragraph that offers to help weigh the two and then compares nothing is of no use to
+  the reader. Reasoned. _Reopen if_ the README can say something of the two that helps a reader choose, true of each,
+  with no reading of Foldkit deciding anything here.
+
 ## Parked, not rejected
 
 What is deferred is kept here, with what would reopen it, and is out of [`ROADMAP.md`](../ROADMAP.md). An item
