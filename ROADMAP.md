@@ -24,9 +24,42 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 lead of the types has no `test.failing`: its fix adds the test of the types that holds it, and a lead of the inference
 matrix is shown by its case (`bun run inference --filter <case>`).
 
+- **A type error over a parent's keys or messages prints its children's programs.** Found by an application on 26
+  November 2026 ([`application-report-0.9.md`](docs/records/application-report-0.9.md), point 8), and reproduced on
+  the examples. Its case is a file under `examples/`, which gives `Arr.filterMap` an `Option`, where it takes a
+  `Result`:
+
+  ```ts
+  import { type KeyOf, type MessageOf, program, type StateOf } from "@fgaudo/effect-tea"
+  import * as Arr from "effect/Array"
+  import * as Opt from "effect/Option"
+  import { cart } from "./cart/cart.ts"
+  import { list } from "./list/list.ts"
+  import { app } from "./pages/app.ts"
+
+  const { child, withChildren } = program<{ state: Readonly<{ n: number }> }>()
+  export const root = withChildren({ Pages: child(app), List: child(list), Cart: child(cart) }).make({
+    init: { state: { n: 0 } },
+    makeModel: (_, children) => ({ pages: children.Pages(), list: children.List(), cart: children.Cart() })
+  })
+  declare const pressedUnder: (key: KeyOf<typeof root>) => Opt.Option<MessageOf<typeof root>>
+  export const repro = (state: StateOf<typeof root>) =>
+    Arr.filterMap(root.subscriptions(state), (key) => Opt.map(pressedUnder(key), (pressed) => ({ key, pressed })))
+  ```
+
+  `bunx tsc --noEmit -p examples --noErrorTruncation` prints one error, TS2375, of 62,010 bytes, where `Program<{`
+  is printed 54 times; without the flag, 1,459 bytes, cut. The application's tree of nine programs printed 967 KB.
+  `ChildKeys<C>`, `ChildMessages<C>` and `KeptOf<C>` are printed with the declarations `C` of the children, and each
+  `Child<State, P, There>` holds its child's whole program. Step 96.
+
 ## Next, in order
 
-No step is open before the release of 0.9.0, which the owner asked on 25 November 2026 to wait for a bridge to
+Steps 91 to 98 come from the report of an application written again on 0.9.0, weighed on 26 November 2026
+([`application-report-0.9.md`](docs/records/application-report-0.9.md)), and run in the order of their numbers. Each
+decides its point by "Deciding": a step that decides against its point writes its entry of
+[`rejected.md`](docs/rejected.md), and is done. Their breaking changes go out together, in the release after 0.9.0.
+
+The release of 0.9.0 waited, as the owner asked on 25 November 2026, for a bridge to
 React Native, which step 83 made, for whether a view of React can have a `messagesSentBy`, and for a reading of the
 names of the API. Step 84 decided the first, after a spike ([`react-view-tests.md`](docs/records/react-view-tests.md)):
 it has none, and step 85 showed the check with React's tools, in `bridges/react.test.ts` and
@@ -53,6 +86,209 @@ after 0.9.0, reads the changes since that commit, and one of everything is due b
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
+
+### 91. What the report asks of the guide and of the doc comments
+
+**Model and effort.** Opus 5.5, `medium`.
+
+**Depends on** no other step.
+
+**Why.** Five things that the code does and no page says, or says in one place only
+([`application-report-0.9.md`](docs/records/application-report-0.9.md), points 6, 7 and 9). Two agents read "was last
+told" as "told after each step", and one wrote a comparison that the library already makes.
+
+**How.** Each sentence is judged by the test of "What belongs here" in `AGENTS.md`, and goes to a doc comment first.
+
+- **A declared `tell` tells a child again only a value that is another, by `Equal`, than the one it was last told**
+  (`sync` in `src/compose.ts`). It becomes a promise, said once in "Guarantees" ("A child was last told what its
+  parent's state gives"), with "Composition", "Events and external messages", the skill and the doc comments of `tell`
+  read again against it. Its test is named, or written.
+- **`stateOf` numbers the instances as a start does**, from 1 in the order of the starts, whatever run would have
+  reached that state: its doc comment, and "Testing", "The number of an instance".
+- **A view that throws under `Draw`** is an error of the application, for its error boundaries, as the doc comment of
+  `Host` says of `Host`: the doc comment of `Draw` says it too.
+- **A root that the platform mounts again starts a `Host` again from `init`.** "Writing a bridge" says it of React, and
+  names no case of React Native, where Android makes an activity anew at a change of configuration that its manifest
+  does not list. As advice, with only what Android's and React Native's documentation say: that a change of the font's
+  size does so with the template's manifest was reported, and not run. Weigh whether
+  [`examples/react-native/App.tsx`](examples/react-native/App.tsx) draws one of its programs with `start` and `Draw`.
+- **An element that is not controlled** shows what it holds, not the model, so a key that the state rejects stays on
+  the screen: a line of "What is left out".
+
+**Done when** `bun run comments` passes with each page under its ceiling, the promise of `tell` has a test that the
+commit names and a changelog entry, and `bun run test:react-native` passes if the example changed.
+
+### 92. A message of a view that names its instance
+
+**Model and effort.** Fable 5.2, `high`: it questions a rule of the guide, and what a child's message is.
+
+**Depends on** no other step.
+
+**Why.** A message of a child's view names no instance, and reaches the instance that is there ("Composition", "What
+the library derives"). So a tap on a view drawn for a child since started again reaches the new child, with no
+rejection, and the guide's answer is ids that are never reused ("Ids that come back"), which a child alone does not
+have. With the package's bridges in a browser only a script does it. On a renderer that draws late, as React Native,
+a user's tap does ([`application-report-0.9.md`](docs/records/application-report-0.9.md), point 3): that is the new
+fact.
+
+**How.** A spike first, on a branch. What is there already: the `update` that `make` composes rejects a child's
+message whose `instance` is not that of the child there, `ChildMessages` in `src/compose.ts` has `instance?: number`,
+and `Routed` in `src/dispatch.ts` lets it through. What is missing is how a view comes to know the number. Leads, none
+decided:
+
+- the instance read in `makeModel` beside the child's model, as its `output` is, and given to `forwardTo`;
+- every message of a child's view bound to its instance, so that the rule of the guide goes, and not a second way to
+  send;
+- nothing of the library's, and the guide saying what a program does on such a renderer.
+
+Weigh what the number does to a model (two equal states built apart have equal models, by "Testing", and `stateOf`
+numbers as a start), to `forwardTo` giving the same function in every draw, to the readers of `dispatchViolations` and
+to `messagesSentBy`, for a child alone and for children by id alike; and what such a rejected message is in the table
+of "Testing tools". A program without children has the same hazard between two of its own states, and answers it with
+a message that holds what it is about: say whether a child's instance is that, or another thing. Read first
+`rejected.md` ("Telling `onIgnored` whether a rejected message came from the frame of the current state", "Handlers
+of `update` by the case of the state"), [`kept-children.md`](docs/records/kept-children.md) and
+[`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md).
+
+**Done when** a record of a page says what was decided. If a form is taken: a test of `src/compose.test.ts` holds it,
+its check has a mutation, "Ids that come back" and the sentence of "What the library derives" are written again, the
+changelog has its entry, and the checks of `change-engine` and `change-api` pass. If none is: an entry of
+`rejected.md`, with what would reopen it.
+
+### 93. A parent's state, and what its steps tell, in the testing tools
+
+**Model and effort.** Opus 5.5, `high`.
+
+**Depends on** no other step.
+
+**Why.** Two things a test of a parent cannot do, or does wrongly
+([`application-report-0.9.md`](docs/records/application-report-0.9.md), point 6).
+
+**How.** Two questions, each decided apart.
+
+- **`stateOf` makes states that the declared `tell` would not leave.** Its `placer`, in `src/compose.ts`, tells each
+  child as it starts and then puts in its place the state given for it. So a property test that draws its children's
+  states draws parents that "Guarantees" rules out ("A state that starts a program elsewhere is one that the program
+  made"). Forms to weigh: telling after the states are placed, so that every child was last told its parent's value;
+  refusing a state given that being told would change; or the guide saying what a test must give. With each, what a
+  child's `external` answers as it is told, a command or an event, where `stateOf` throws today.
+- **Nothing shows what a step told.** `applyAll`, `simulate` and a `Rehearsal` give the state, the commands and the
+  events, and "Testing" asks for one test per message that asserts them. A parent's `tell` is taken by the `update`
+  that `make` composes, and shows only in the child's state, which a test reads from `state.children`. Weigh a list of
+  what was told in what the tools give, against a sentence of "Testing" that says where a test reads it.
+
+**Done when** each question has its decision in the commit, with a record if the API changes; the tests of
+`src/testing/` and `src/testing/contract.test.ts` hold what was taken, and a check added to `src/compose.ts` has its
+mutation; "Testing" and the doc comments say it; and `bun run test:node` and `bun run interleavings` pass.
+
+### 94. A child with flags that is always there
+
+**Model and effort.** Opus 5.5, `high`: the types of `compose.ts`, each check with its mutation.
+
+**Depends on** no other step.
+
+**Why.** `child(program, { flags })` is there where `flags` gives `Some`, so its model and its output are an `Option`
+also for a parent whose every state gives the flags. That parent unwraps them with a defect that no state reaches
+([`application-report-0.9.md`](docs/records/application-report-0.9.md), point 4): a state that cannot be is written
+in the program, where the types could say that it cannot.
+
+**How.** A form of `child` for a program with flags that is there in every state, as `child(program, { key })` is for
+one without: its function gives the flags, and no `Option`. The types cannot tell flags from an `Option` of them where
+the flags are an `Option`, so it is an option of its own, named by the glossary. Other flags start the child again, as
+they do today. `children.Name()` and `children.Name.output()` then give a value. `childById` is not concerned: `flags`
+lists each id with its flags. Read first `rejected.md` ("What `child` and `childById` take, mirrored in what they
+make"; "A `key` beside the `flags` of a child", parked) and [`names.md`](docs/records/names.md).
+
+**Done when** such a child is declared and read with no `Option`, the tests of the types hold what compiles and what
+does not, each new check has its mutation, the inference matrix passes on its cases (`bun run inference --filter`),
+"Composition" ("When a child is there"), the skill and the doc comment of `child` say it, the changelog has its entry,
+and the checks of `change-api` pass.
+
+### 95. A parent's `subscriptions` given its children's outputs
+
+**Model and effort.** Opus 5.5, `high`.
+
+**Depends on** no other step.
+
+**Why.** A parent reads its children's outputs in `update`, `external`, `onEvent`, `makeModel` and `output`, and not
+in `subscriptions` (`ListenOf` in `src/compose.ts`). So it cannot list a key by what a child says of itself, as a
+back button listened to only while a child has something to go back to
+([`application-report-0.9.md`](docs/records/application-report-0.9.md), point 5), though "Structuring a program" keeps
+in the parent what spans the children. One role has two forms, and nothing was found that says why.
+
+**How.** `subscriptions: (state, children) => …` for a parent, with the outputs of the children of that state, as
+`makeModel` reads them. The `subscriptions` of the program that `make` gives stays a function of the whole state.
+Measure a parent's subscriptions before and after, with `bun run bench`, and give the figures in the commit. Say there
+too why `there`, `flags`, `key`, `ids`, `listening` and `tell` of a declaration stay functions of the parent's own
+state alone, or what would change them: a declaration that read a child would give the children an order.
+
+**Done when** a test of `src/compose.test.ts` and one of the types hold it, "Events and external messages"
+("Outputs"), "Subscriptions", the skill and the doc comments name the sixth place, the changelog has its entry, and
+the checks of `change-engine` and `change-api` pass.
+
+### 96. A parent's types printed without its children's programs
+
+**Model and effort.** Opus 5.5, `high`.
+
+**Depends on** steps 94 and 95, which change the types it prints.
+
+**Why.** The lead of "Open problems". An error that names the keys, the messages or the state of a parent prints the
+declarations of its children, each with its whole program, at each level of the tree: a mistake of one line gave an
+application 967 KB, and gives the examples 62 KB. Cut by the compiler, it hides the user's own types. Users judge the
+library by its API first, and an error is part of it.
+
+**How.** A spike first: what makes the compiler print `ChildKeys<C>`, `ChildMessages<C>` and `KeptOf<C>` with `C`
+written out, and which form prints less. Leads: the types of the program that `make` gives worked out to their
+structure, a union of wrapped keys and messages, where they are aliases over the declarations; a declaration that
+holds less than its child's whole program; names that the compiler keeps. What a hover shows counts too. The smoke
+test counts how often a consumer's declarations spell out its state, 14 times, and `tools/api-report.ts` what the
+package names: neither grows. Read first `rejected.md` ("`DeclareChild<State>` in place of `DeclareChild<T>`", "The
+types of the functions of `program` written in place", "A second entry of the package").
+
+**Done when** the case of "Open problems" prints under a bound that a check holds, run with the checks of
+`change-api`, with `--noErrorTruncation`; the lead is taken out of "Open problems"; no behaviour changes; and the
+changelog has an entry only where a consumer's declarations name another type.
+
+### 97. The types of a parent's handler written apart
+
+**Model and effort.** Opus 5.5, `high`.
+
+**Depends on** steps 94, 95 and 96: it names the types that they change, and that step 96 prints.
+
+**Why.** "Structuring a program" splits a program by concern, each part asked for a `Step`. For a parent, a handler
+written outside `make` takes its children's outputs and returns a step that tells them, and the package exports no
+name for either: `Outputs` and `Tells` are kept by `src/compose.ts`, so a program declares them again by hand
+([`application-report-0.9.md`](docs/records/application-report-0.9.md), point 1). Every correct program can be
+written, and this one is written twice.
+
+**How.** Leads: types read back from what `withChildren` returns, or from the declared children, in the family of
+`StateOf` and `MessageOf`, named by the guide's words, `tell` and `output`; or `Tells` and `Outputs` exported as they
+are, which print the declarations unless step 96 changed that. An example split by concern shows the form taken.
+
+**Done when** a handler of a parent's `update`, `onEvent` and `external`, written in a module of its own, is typed
+with names that the package exports, in an example and in a test of the types; "Structuring a program" ("Splitting a
+program") shows it; the changelog has its entry; and the checks of `change-api` pass.
+
+### 98. `hear` and `hearNext` by a predicate
+
+**Model and effort.** Opus 5.5, `medium`.
+
+**Depends on** no other step.
+
+**Why.** `run` takes `(command) => boolean`, and `hear` and `hearNext` a whole key, which for a child names its
+instance: `{ _tag: 'Row', id, instance: 1, key: 'ticks' }`. So a test of a parent counts the starts to hear a child,
+and an application wrote a function that builds the key
+([`application-report-0.9.md`](docs/records/application-report-0.9.md), point 6). One role has two forms.
+
+**How.** `hear(select, message)` and `hearNext(select)`, with `select: (key) => boolean` over the keys of the current
+state: the test fails where none matches, and where more than one does. One way, so the form by key goes, with a
+breaking change whose note of "Upgrade" gives the predicate that compares a key with `Equal`. Weigh it against
+`rejected.md` ("A subscription made from its key alone, in other forms", for `hear` taking a key of the program's
+type; "Other names in a `Rehearsal` and a `Driver`"). "Testing", "The number of an instance", then says less.
+
+**Done when** the tests of `src/testing/rehearse.test.ts` and of the contract hold it, the examples' tests are written
+with it, "Testing tools" and "Testing" say it, the changelog has its entry, and `bun run test:node` and
+`bun run interleavings` pass.
 
 ## For the owner
 

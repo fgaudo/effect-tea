@@ -578,6 +578,13 @@ reopened goes back there; one decided against becomes an entry above.
   again by other flags, or goes back to its first state on an external message. _Reopen if_ a program must start a
   child with flags again from equal flags in one step, and an external message cannot say it: the answers of its
   commands under way must be rejected, as a start rejects them.
+- **A declared `tell` that gives several messages**, as a list, or one `tell` for each. Asked by an application on 26
+  November 2026 ([`application-report-0.9.md`](records/application-report-0.9.md), point 2), which told a time and a
+  lock as one message made for it. Deferred the same day, reasoned and not run: a declared `tell` is a condition, one
+  value that holds in a state and is compared with `Equal`, and a message with a field for each fact says it. A list
+  would keep what each child was last told item by item, and say which items a change tells again, for one case.
+  _Reopen if_ a child that two parents use must shape its external messages for the declaration of one of them, or a
+  child must tell which of two conditions changed and its own state cannot say.
 - **The check of step 87 on Firefox** (`bun run test:browsers`). Deferred by the owner on 26 November 2026: on the
   machine of the step, Windows 11 build 26300, the Firefox of Playwright 1.65.1 (`firefox-1572`) does not start, even
   installed again with `--force`. The event log says that the assembly `mozglue`, which `firefox.exe` depends on, could
