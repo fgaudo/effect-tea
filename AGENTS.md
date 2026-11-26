@@ -144,7 +144,7 @@ stay local ("Deciding"). One made with an AI agent ends with an `Assisted-by: <m
   `@see The guide, "<page>".`, never a link to the site, and never a section. Where a comment and that page say the
   same thing, a change of one rereads the other.
 - **The package ships its documentation, at its version**: the guide, the tutorial, the examples and the skill
-  [`skills/effect-tea/SKILL.md`](skills/effect-tea/SKILL.md), which sums up the guide. Their links to the repository's
+  [`skills/effect-tea/SKILL.md`](skills/effect-tea/SKILL.md), which indexes the guide. Their links to the repository's
   files are relative, as the package holds them.
 - **The guide, the doc comments and the skill are in plain English**: short sentences, common words, the guide's words.
 

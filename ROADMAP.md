@@ -11,11 +11,13 @@ here.
 
 One after another, in the order of "Next, in order", each in a context of its own (a workflow per step, or a session per
 step), and with no question to the owner but those of "Deciding". An agent of the step's model and effort does the step.
-Then an agent that wrote none of it, on Opus 5.5 at `high`, runs the checks of its "Done when" and reads its diff
-against "Deciding" and the step, and the step against `docs/invariants.md`; the first agent fixes what it finds, twice
-at most, and a step whose checks still fail stops the chain, with a report. A step ends in one local commit, with its
-decisions in the body, and takes itself out of this file. Before each step, the use of the owner's plan is read where a
-tool reports it: a step that the rest of the week cannot pay for waits for the reset.
+Where the step changes what `change-engine` covers, or the types of an export, an agent that wrote none of it, on
+Opus 5.5 at `high`, then runs the checks of its "Done when" and reads its diff against "Deciding" and the step, and the
+step against `docs/invariants.md`; the first agent fixes what it finds, twice at most. A step of names, of documents or
+of a tool of `tools/` is read so by the agent that did it. A step whose checks still fail stops the chain, with a
+report. A step ends in one local commit, with its decisions in the body, and takes itself out of this file. Before each
+step, the use of the owner's plan is read where a tool reports it: a step that the rest of the week cannot pay for waits
+for the reset.
 
 ## Open problems
 
@@ -38,12 +40,6 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
 - **No new type for how a consumer's types print** (`change-api`, "A type for how a consumer's types print is admitted
   on four conditions"): those that are there stay, and no change is made to lower the count of the smoke test. What
   would show it: a user who publishes a program as a package, and reads its declarations.
-- **The second agent of a step only where the step changes the engine or the types** ("How the steps run"): a step of
-  names, of documents or of a tool would be read by the agent that wrote it, against its "Done when". What would show
-  it: the reports of the second agent on such steps, counted by what they found.
-- **The skill that the package ships as an index of the guide**, a page and a section for each rule, in place of a
-  summary of 258 lines kept in step with the guide by hand and by `bun run comments`. What would show it: a reading of
-  the promises that finds the skill and the guide saying two things.
 
 ## Next, in order
 

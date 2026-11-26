@@ -8,8 +8,9 @@ description: How to write, compose, run and test programs with @fgaudo/effect-te
 This package holds its documentation, at the version installed. Read it here. The site and the repository show other
 versions. The paths below are relative to this file.
 
-This file sums up the guide. Each rule names the page that rules it, as `The guide, "<page>", "<section>"`: a page by
-its title, and a heading or a bold title of that page. Where this file says less than the page, the page rules.
+This file is an index of the guide. It states no rule: it names each one by its title, under the page and the section
+that hold it, in the order of the page. A rule is the paragraph or the item that its title starts. Read it on its page
+before you rely on it.
 
 ## Where things are
 
@@ -26,15 +27,13 @@ its title, and a heading or a bold title of that page. Where this file says less
 - **The API**: the declarations in `dist/`, with their doc comments. A doc comment says what the export is, how it is
   called, what does not compile, and the defect it throws. Its line `@see The guide, "<page>".` names the page that
   teaches its concept.
-- **The bridges**, entries of the package. The library draws nothing: a bridge connects it to a renderer.
+- **The bridges**, entries of the package. The library draws nothing: a bridge connects it to a renderer, which is
+  installed beside the package, in the range that [`package.json`](../../package.json) gives.
   - `@fgaudo/effect-tea/snabbdom` ([`bridges/snabbdom.ts`](../../bridges/snabbdom.ts)), with `drawInto`, and
-    `messagesSentBy` in `@fgaudo/effect-tea/snabbdom/testing`. It needs `snabbdom` 3.6.4 or a newer 3.x installed
-    beside the package.
+    `messagesSentBy` in `@fgaudo/effect-tea/snabbdom/testing`.
   - `@fgaudo/effect-tea/react` ([`bridges/react.ts`](../../bridges/react.ts)), with `Host`, which starts a program and
-    runs it while it is mounted, and `Draw`, which draws a program that you start yourself. It needs `react` 19.3.0 or a
-    newer 19.x, and imports nothing else of React: it draws with React DOM, and with React Native. On React Native, a
-    handler may run on a view older than the state: lock what is typed by the shape of the state. The guide,
-    "Writing a bridge", "What a bridge does".
+    runs it while it is mounted, and `Draw`, which draws a program that you start yourself, with React DOM or with
+    React Native.
   - For another renderer, write a bridge. The guide, "Writing a bridge", "What a bridge does". Its tests can start
     from those of the package, [`bridges/bridge.test_suite.ts`](../../bridges/bridge.test_suite.ts).
 
@@ -55,204 +54,298 @@ its title, and a heading or a bold title of that page. Where this file says less
 | connect a renderer                          | "Writing a bridge"                            |
 | know what is promised, and what is not      | "Guarantees"                                  |
 
-## What kind of thing is it
+Before a design, read the table of what kind of thing each part of a program is. The guide, "Structuring a program",
+"What kind of thing is it". Where a design needs a state outside the program, or a parameter of a view, to work, go
+back to that table.
 
-A design answers this question for each part of a program. The guide, "Structuring a program", "What kind of thing is
-it": each of its rows names the page that rules it.
+## The rules, page by page
 
-| The thing                                                        | What it is                                          |
-| ---------------------------------------------------------------- | --------------------------------------------------- |
-| something happened: a click, an answer, a tick                   | a message; `update` decides what it means           |
-| a value that an element holds or reports: a text, a scroll's end | a message held without the value; the view fills it |
-| work whose answer must arrive, even if the state has moved on    | a command: data, which `runCommand` runs            |
-| listening, or work that stops when the state no longer wants it  | a subscription, under a key                         |
-| what stays open while a value it uses changes, as a connection   | a service, from a layer provided to `run`           |
-| what follows from the state                                      | computed in `makeModel`, not kept in the state      |
-| what the platform keeps by itself: a hover, the focus            | not a state of the program                          |
-| a message that may arrive, and does not apply in the state       | `reject`                                            |
-| a message that only a bug can bring                              | `defect`                                            |
-| an expected failure of a command                                 | a message, as the success is                        |
-| a part of a large program that its other parts read              | a module of the program: functions of the state     |
-| a part whose controls the parent enables from its own state      | most often the parent's own state and messages      |
-| a value that the user types, and a parent reads                  | a message of the program whose rules use it         |
-| what holds in a child, that its parent reads                     | the child's `output`                                |
-| what a child asks of its parent                                  | an event                                            |
-| a fact that several children must see as one                     | `tell` in their declaration, an external message    |
+What is left to you comes first: no type refuses a break of it, and most often the run goes on, so check each one by
+reading the code. What the compiler refuses is in the doc comments of `program`, `Program`, `child` and `childById`.
+Advice binds nothing: each piece gives its reason, and the case where it does not hold.
 
-## Rules that nothing checks
+### [Guarantees](../../site/guide/guarantees.md), "What is left to you"
 
-No type refuses a break of these, and most often the run goes on. So check each one by reading the code. The guide,
-"Guarantees", "What is left to you".
+- Whoever starts a program runs it
+- Commands run to their end, or to the end of the run
+- Nothing is bounded, and nothing times out
+- The program runs on the stack of whoever sends the message
+- A subscription that sends faster than the screen refreshes holds the run back
+- The model holds what `update` accepts, all of it but what it withholds on purpose, and no control that does
+  nothing but what it holds on purpose
+- A view sends only what its model holds
+- The advice of structuring a program
+- Flags, and what `key` gives, made of values that `Equal` compares by value
+- A state that starts a program elsewhere is one that the program made
+- What must stay private is in a service, not in a key
+- `update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated
+- A function of the program never interrupts the fiber it runs in
 
-- **The functions of a program are pure, and no value is ever mutated.** `update`, `external`, `makeModel`, `output`,
-  `subscriptions`, an `init` that takes flags, the handlers of `onEvent`, and `there`, `key`, `flags`, `ids`,
-  `listening` and `tell` are pure. The library calls them when it chooses: never assume that `update` runs once per
-  message. No value given to the library, or taken from it, by a program or a test, is mutated once made, nested
-  objects included. A copy of the state shares its nested objects, so copy each one you change. The guide, "Update",
-  "Keep it pure". The guide, "Update", "It may be called at any time". The guide, "Update", "Never mutate the state".
-- **A model is data.** It holds no function, and the models of two equal states are equal by `Equal`. A control that
-  picks among fixed values holds one message for each value, never a function `(digit) => Message`. The guide,
-  "Model", "A model is data".
-- **A view sends only the messages its model holds.** It never builds one. What an element gives, as the text of a
-  field or the offset of a scroll, is a message that the model holds without the value, as
-  `{ _tag: 'NameTyped' } as const`. The view fills each field left with one value that the element or its event gives,
-  copied as it is: it combines none, compares none and converts none. It copies the numbers of a browser object, as a
-  `DOMRect`. A message that an element fills is a plain tagged one, never a class. The guide, "Model", "Messages live
-  in the model". The guide, "What an element gives", "Rules".
-- **What the program draws comes from its model.** The exceptions: what the platform keeps by itself, as a hover, the
-  focus, an animation it runs; what the user typed into a text field, for the length of its own event; and, with the
-  bridge to React, the state of the application's own components. A part of the page outside the bridge's `root`, as
-  its title, is drawn from the model by code over the handle, beside the bridge. The guide, "View", "What the program
-  draws comes from its model".
-- **Whoever starts a program runs it.** `start` gives `{ app, run }`, and nothing checks that `run` runs. A program
-  never run still applies its messages, and does nothing else: no effect starts, and no defect is reported. Only
-  `model()` throws a defect of `makeModel` or `init`, and from a defect on no message is applied. Leave it unrun only on
-  a server. Write `const { app, run } = start(program)`, so that a linter can report a `run` left unused.
-  The guide, "Guarantees", "Whoever starts a program runs it".
-- **Commands run to their end, or to the end of the run.** No change of state stops one. `update` decides whether its
-  answer still applies. The guide, "Commands", "Commands cannot be cancelled".
-- **Nothing is bounded, and nothing times out.** The effects may lag behind the state without a bound, and when they
-  start is unspecified: a step's commands may start after later messages, and a subscription may start, and be
-  stopped, for a key already gone. A listener of the `App` that answers each new state with a message that makes
-  another never lets the call return. A release that never ends holds up the program. No defect says so. The guide,
-  "Guarantees", "Nothing is bounded, and nothing times out".
-- **The program runs on the stack of whoever sends the message.** A slow `update`, option or listener holds up the
-  handler, command or subscription that sent the message. An element that reports at each of its events, as a scroll,
-  runs a step at each: send its value once, as the events end, unless the program follows each value. The guide,
-  "Guarantees", "The program runs on the stack of whoever sends the message".
-- **A subscription that sends faster than the screen refreshes holds the run back.** The bridges draw once for each
-  task, or listener that the browser calls, that brings a new state. Let such a subscription send its messages by
-  batches (`Stream.groupedWithin`). The guide, "Guarantees", "A subscription that sends faster than the screen
-  refreshes holds the run back".
-- **Flags, and what `key` gives, are compared with `Equal`.** Other flags, or another value of `key`, start a child
-  again. A function made anew in `flags` or `key` is another value each time, and the child loses its state at each
-  step: give plain values. An `Equal` and a `Hash` written by hand keep Effect's rules, or what the library does with
-  that value is undefined. The guide, "Guarantees", "What is left to you".
-- **What must stay private is in a service, not in a key.** A key is shown whole, in a defect of its subscription and
-  to `onApplied` and `onIgnored`. The guide, "Guarantees", "What must stay private is in a service, not in a key".
-- **A state that starts a program elsewhere is one that the program made.** A state given as `init: { state }` is one
-  that this program made, by every function of its declarations, or one that `stateOf` made for it. What the library
-  does with another, as one kept across a reload after a declaration changed, is unspecified. The guide, "Guarantees",
-  "A state that starts a program elsewhere is one that the program made".
-- **A function of the program never interrupts the fiber it runs in.** It runs where the library calls it: in the call
-  of `start` or `make`, where a message is sent, or where the model is read. That may be any fiber, or none. One that
-  interrupts the fiber of a command or a subscription is a defect of it; another fiber's interruption no defect
-  reports. The guide, "Guarantees", "A function of the program never interrupts the fiber it runs in".
+### [Guarantees](../../site/guide/guarantees.md), "What you can rely on"
 
-## What a program builds on
+- One message at a time, in the order they were sent
+- Outdated clicks are harmless
+- A parent's children are those its own state lists
+- An answer reaches the instance that asked for it, or is rejected
+- A child was last told what its parent's state gives
+- Subscriptions follow their keys
+- Nothing outlives what acquired it
+- Logs do not pile up in a span
+- Nothing ends in silence
+- A model is made only when it is read
 
-The library promises these, and a program that forgets them goes wrong.
+### [Anatomy of a program](../../site/guide/anatomy-of-a-program.md), "Rules"
 
-- **A message is applied in the call that sends it.** When `dispatch` returns, `update` has seen the message, and the
-  model is the new one. Messages are applied one at a time, in the order they were sent. The guide, "View", "Sending
-  applies the message". The guide, "Guarantees", "One message at a time, in the order they were sent".
-- **The state is ahead of its effects.** A step's commands, and the subscriptions it starts, start in the run, after
-  the step: whether before `dispatch` returns or after it is unspecified. So a test that checks what a command does
-  waits for a model that shows its answer. The guide, "Testing tools", "The state is ahead of its effects".
-- **A message may arrive in any state.** A tap may come from a model drawn before. A command's answer arrives even if
-  the state has moved on, and answers come in the order the commands end. `update` rejects what no longer applies, and
-  a message that must not apply to a later state says what it was for, as the id of a row. The guide, "Rejections and
-  defects", "What the view draws never rules a message out". The guide, "Commands", "Commands run concurrently".
-- **Subscriptions follow their keys.** A new key starts its subscription, a missing key stops it, and what it sent
-  after its key went away never reaches `update`. A subscription never ends in silence: it runs forever, or ends with
-  one last message. `listen` takes the key alone, so the key carries what the subscription needs. The guide,
-  "Subscriptions", "A subscription never ends in silence". The guide, "Guarantees", "Subscriptions follow their keys".
-- **A parent's children are those its state lists.** `child(program, { flags })` is always there, and
-  `child(program, { there })` where `there` holds, or gives `Some` of the child's flags. A child dropped loses its
-  state, and one listed again starts from its `init`, as another instance. An answer reaches the instance that asked,
-  or is rejected. A message of a view reaches the instance that is there, unless its dispatch names one:
-  `children.X.instance()` in `makeModel` gives the number, and `forwardTo(dispatch, { _tag: 'X', instance })` the
-  dispatch. Where the screen may show an older draw, give a child's view that dispatch, and the number as its key. The
-  guide, "Composition", "Children's views". The guide, "Composition", "Advice".
-- **A child declared with `tell` was last told what its parent's state gives.** It is told the value as it starts,
-  and again only where the state gives another value, by `Equal`, than the one the declaration last told it: a step
-  that gives an equal value tells it nothing. The guide, "Guarantees", "A child was last told what its parent's state
-  gives".
-- **A defect ends the run, and the run does not log it.** The run dies with a `ProgramDefect`, whose `cause` is the
-  defect and whose `where` says where. Reporting it, and what the user sees next, are the job of the app around the
-  run. The guide, "Running", "The run never recovers from a defect, and does not log it".
-- **With React, the run lives as long as `Host`'s effect.** An unmount, or `<Activity>` hiding it, ends the run, and the
-  next effect starts the program again from `init`, as does an edit that Fast Refresh draws by remounting `Host`, or a
-  new `key`, which starts it with the props of that render. To wait for the run to end, keep the fiber `fork` returns
-  (`Host`'s doc comment). For a state that outlives a component, start the program yourself and draw it with `Draw`.
-  A new state is drawn at once, in a transition too: a slow part of the view reads `useDeferredValue`. `hydrateRoot`
-  keeps what `Host` drew on a server, where the client makes the same first model. A run that dies is thrown to the
-  nearest error boundary, or, once `Host` can no longer throw it, as it unmounts, given to `reportError` where there
-  is one. The application's components may keep state of their own. The guide, "Writing a bridge", "With the bridge
-  to React, the run lives as long as the effect that starts it", and the rules after it. The guide, "View", "Each
-  bridge says what it draws beside the model".
-- **snabbdom never removes a prop.** A view of the bridge to snabbdom gives a prop it changes in every state,
-  `disabled: false` too. The guide, "Writing a bridge", "snabbdom never removes a prop".
+- Its types are named first, then it is made
+- Its type lists the types it is made of
+- The view is not part of it
+- A program that cannot start the same way every time declares `flags`
+- The types need `strict`
 
-## Rules that a test checks
+### [Update](../../site/guide/update.md), "Rules"
 
-The run does not check these. A test does, with the tool named.
+- Keep it pure
+- It may be called at any time
+- Never mutate the state
+- A message that cannot arrive is a defect
 
-- **The model holds what `update` accepts, all of it, each control it holds does something, and acts once when sent
-  twice**: `dispatchViolations`, with `candidates`. The test marks a message meant to act twice `repeatable`, one held
-  on purpose though it does nothing `inert`, and a candidate left out on purpose `withheld`. The guide, "Testing tools",
-  "dispatchViolations".
-- **A view sends what its model holds**: your renderer's tools, as `messagesSentBy` for snabbdom, or for React the view
-  drawn by its renderer's testing library with a dispatch that records, compared with what the test's reader returns.
-  The guide, "Testing", "The view".
-- **A message held without its value is filled by the reader too**: with a text other than the one the model shows,
-  and with values that fast-check draws. The guide, "Testing", "The reader".
-- **A rejection is asserted as `reject` itself**, with `toBe(reject)`, never as "the state did not change". The guide,
-  "Testing", "How a program is tested".
-- **A defect is checked apart**: `expect(() => update(message)(state)).toThrow(InvariantDefect)`. The guide,
-  "Testing", "How a program is tested".
-- **That the model is data** is checked on two equal states built apart, never on one state used twice. The guide,
-  "Testing", "The model of any state".
-- **A rejected message fails the test where the test decides when it arrives.** In `applyAll`, `simulate` and
-  `rehearse`, a rejected message that the test sends, or that the view sends through the test, fails the test. What
-  arrives by itself is ignored, and listed in `ignored`. In `drive`, time is real, and every rejection is ignored.
-  Assert `ignored` where dropping a message would be a bug. The guide, "Testing tools", "When a rejected message fails
-  the test".
+### [Model](../../site/guide/model.md), "Rules"
 
-A program run under its renderer in a DOM: snabbdom reads `window` as it loads, so a test file that imports it first
-loads a file that sets `window` to `undefined`, as [`bridges/snabbdom-preload.ts`](../../bridges/snabbdom-preload.ts)
-does. The guide, "Testing", "The view".
+- Messages live in the model
+- Pick the case from the state, as `update` reads it
+- A model is data
 
-## What the compiler refuses
+### [Model](../../site/guide/model.md), "Advice"
 
-A break of these does not compile, so they need no remembering. A program names its types, then is made, and a type it
-does not name is one it does not have. An execution cannot fail: an expected failure becomes a message. A subscription
-is made from its key alone. A child answers an external message in `external`, in every state, never with `reject`. A
-parent is given no child's state: it reads what a child declares as its `output`, in its `update`, `external`,
-`onEvent`, `makeModel`, `output` and `subscriptions`, and the child's model in `makeModel` alone. The doc comments of
-`program`, `Program`, `child` and `childById` say what else the compiler refuses. The guide, "Anatomy of a program",
-"Its types are named first, then it is made". The guide, "Commands", "An execution cannot fail". The guide, "Events
-and external messages", "A child answers its external messages in every state".
+- Give the model a case for each state that the view tells apart
+- Export `Message` as a type only
 
-## Signs that the design went wrong
+### [View](../../site/guide/view.md), "Rules"
 
-Each sign goes against the rule or the advice named after it.
+- `dispatch` is a plain function
+- Sending applies the message
+- What the program draws comes from its model
+- Each bridge says what it draws beside the model
 
-- A view that takes more than its model and its dispatch. The guide, "View", "In short".
-- A view or a `makeModel` that reads the clock, in place of a `now` that a subscription keeps in the state. The guide,
-  "Structuring a program", "State and messages".
-- A boolean such as `isSaving` in the state. The guide, "Structuring a program", "State and messages".
-- A condition on data in a view, such as `items.length === 0`. The guide, "Structuring a program", "Model and view".
-- A variable outside the state that the screen depends on. The guide, "View", "What the program draws comes from its
-  model".
-- A message built in a view. The guide, "Model", "Messages live in the model".
-- An application in React that learns what the program does through `onApplied`, in place of a command whose service
-  it gives in `fork`. The guide, "Coming from Elm or React".
-- `Message` exported as a value, whose constructors a view could call. The guide, "Model", "Advice".
-- A message rejected by its value. The guide, "Structuring a program", "Model and view".
-- `defect` on a message of the view. The guide, "Rejections and defects", "What the view draws never rules a message
-  out".
-- A copy in the parent's state of what holds in a child. The guide, "Events and external messages", "Read a condition
-  of a child, do not copy it".
-- The `.state` of a step taken by hand: it drops that step's commands, its events and what it tells. Combine steps with
-  `andThen`. The guide, "Events and external messages", "Combining steps".
-- A parent's function written apart from `make` that spells out by hand what it reads of its children, or what it
-  tells them, in place of `OutputsOf` and `TellOf`. The guide, "Structuring a program", "Splitting a program".
-- An `output` that gives a child's text for its parent to parse. The guide, "Structuring a program", "A value that the
-  user writes belongs to the program whose rules use it".
-- An attempt to cancel a command. The guide, "Commands", "Commands cannot be cancelled".
-- A `start` whose `run` is never run, outside a server. The guide, "Running", "A program is started, then run".
-- A `main` that runs the program and does not report its failure. The guide, "Running", "When a defect happens".
+### [Commands](../../site/guide/commands.md), "Rules"
 
-At such a sign, stop, and go back to the table of "What kind of thing is it". Do not add a state outside the program,
-or a parameter of a view, to make the design work.
+- An execution cannot fail
+- An expected failure becomes a message, as the success does
+- A command carries everything it needs
+- Commands run concurrently
+- What must outlive a command belongs in a service, or in a subscription
+- Commands cannot be cancelled
+- Work that should stop is a subscription
+
+### [Commands](../../site/guide/commands.md), "Advice"
+
+- Retry within the execution
+
+### [Subscriptions](../../site/guide/subscriptions.md), "Rules"
+
+- Keys are compared by value, after every change of state
+- A subscription is made from its key alone
+- A parent lists its own keys from its own state and its children's outputs
+- A subscription never ends in silence
+- Work that should stop is a subscription
+
+### [Subscriptions](../../site/guide/subscriptions.md), "Advice"
+
+- Split in three a connection that stays open while a value it uses changes
+
+### [Rejections and defects](../../site/guide/rejections-and-defects.md), "Rules"
+
+- `defect` makes a bug loud
+- What the view draws never rules a message out
+- Nothing is cancelled when the state moves on
+- What "cannot arrive" rests on
+- An event keeps the timing of its cause
+
+### [Composition](../../site/guide/composition.md), "Rules"
+
+- When a child is there
+  - `child(program)` is always there
+  - `child(program, { there })`
+  - A program that has flags starts from them
+  - `key`
+  - A child that the state no longer lists is dropped
+  - Other flags, or another value of `key`, are another child
+  - `listening`
+  - `tell`
+- How a parent and its children start
+  - A parent's `init` is a step of its own state
+  - A step that lists a child anew starts it
+  - A child is given what it starts from by its flags
+  - A parent with flags of its own
+  - The order of the starts
+- The parent's own pieces
+  - `makeModel: (state, children) => …`
+  - `update: (message, children) => (state) => …`
+- What the library derives
+  - The parent's state
+  - Each start of a child is an instance
+  - The parent's messages
+  - A child's commands, and the keys of its subscriptions, are wrapped as its messages are
+  - A child's model is kept
+- Children's views
+  - A child's view gets a dispatch of its own
+  - That dispatch is the same function in every draw
+  - A dispatch may name the instance of its child
+- Children by id
+  - `ids` lists the ids of the children that are there
+  - A row is read by its id
+  - Ids are compared by value
+  - Ids that come back
+
+### [Composition](../../site/guide/composition.md), "Advice"
+
+- Where the screen may show an older draw, give a child's view the number of its instance, in its dispatch and as
+  its key
+
+### [Events and external messages](../../site/guide/events-and-external-messages.md), "Rules"
+
+- Events
+  - A child raises an event
+  - The parent handles an event in `onEvent`
+  - An event to pass on
+- External messages
+  - A child answers its external messages in every state
+  - A parent sends an external message
+  - What a step tells arrives after the step
+  - A parent passes an external message on
+- Outputs
+  - A child may declare an `output`
+  - A parent reads it as `children.Row.output(id)`
+- Combining steps
+  - Do not take a step's `.state` by hand to make the next step
+
+### [Events and external messages](../../site/guide/events-and-external-messages.md), "Advice"
+
+- Read a condition of a child, do not copy it
+- A child that must wait for its parent
+
+### [What an element gives](../../site/guide/what-an-element-gives.md), "Rules"
+
+- What an element gives is a message of the program
+- The view fills the value as the element gives it
+- A message that an element fills is a plain tagged one
+- A lock is a case of the state
+- The element on screen
+  - The view draws an element that holds a value as a controlled element
+- What an element reports
+  - A value that the program keeps is a message
+  - What is there whatever is drawn is a subscription
+- In each row
+
+### [What an element gives](../../site/guide/what-an-element-gives.md), "Advice"
+
+- Where an element reports a value at each of its events, send it once, as the events end
+- Hold a value that an element reports in the model only where the view draws by it
+- Keep what the user types in the case of the state where it can be typed
+- Store the text as it is typed, and say what it means where the program reads it
+
+### [Structuring a program](../../site/guide/structuring-a-program.md), "Advice"
+
+- State and messages
+  - Decide a condition once, from the state
+  - Let a message sent twice from one model act once
+  - Prefer one union for each concern to flags that combine
+  - Compute what follows from the state, and do not keep it
+- Model and view
+  - Do not reject a message by its value
+  - Let the view draw, and `makeModel` decide
+  - Leave to the platform what it keeps by itself
+  - Move by equal steps an animation that the program decides by
+- Splitting a program
+  - Split by concern, not by kind
+  - Split the parts that read each other into modules of one program
+  - Keep in the parent what spans the children
+  - Give a child what it needs, not its parent's state
+  - Make one child of children that read each other's state
+  - Not every part is a child
+  - A value that the user writes belongs to the program whose rules use it
+
+### [Running](../../site/guide/running.md), "Rules"
+
+- A program is started, then run
+- The renderer gets an `App`
+- A renderer reads the model when it draws
+- A program starts elsewhere from another first step
+- What is done does not pile up
+- Options
+  - `flags`
+  - `onApplied`
+  - `onIgnored`
+  - The run calls `onApplied` and `onIgnored` as it calls `update`
+- When a defect happens
+  - The run never recovers from a defect, and does not log it
+  - The app around the run chooses what leaves the device
+- What the run still does after a defect
+- How the run ends
+  - Plain code stops a run, and waits for it
+- The defects in the cause
+
+### [Running](../../site/guide/running.md), "Advice"
+
+- Give slow work to a queue
+- Work that must wait goes to the effects of the program
+
+### [Testing](../../site/guide/testing.md), "Rules"
+
+- How a program is tested
+- The model of any state
+  - That the model is data
+- The number of an instance
+- The reader
+  - The reader is the test's own
+  - A message held without its value
+  - Children
+  - The reader is complete only as far as the candidates go
+- The view
+  - That the view draws what its model holds
+  - A program run under its renderer, in a DOM
+
+### [Testing](../../site/guide/testing.md), "Advice"
+
+- Keep the candidates in a record that the compiler checks
+
+### [Testing tools](../../site/guide/testing-tools.md), "Rules"
+
+- When a rejected message fails the test
+- dispatchViolations
+  - `candidates`
+  - `repeatable`
+  - `inert`
+  - `withheld`
+- simulate
+- rehearse
+  - A command left at the end fails the test
+  - A subscription is heard one way
+- drive
+  - Time is real
+  - The state is ahead of its effects
+
+### [Testing tools](../../site/guide/testing-tools.md), "Advice"
+
+- Hold a command of `drive` with a service of the test's
+- Under Effect's `TestClock`, move the clock while `hearNext` waits
+
+### [Writing a bridge](../../site/guide/writing-a-bridge.md), "Rules"
+
+- What a bridge does
+  - It draws the model of the current state, and says what else it draws
+  - A handler calls `dispatch` itself
+  - A controlled element is drawn with the value its model holds
+  - After each draw, the element shows the value of its model
+  - Each new state is drawn before the browser handles the next event
+  - The renderer keeps an element drawn in the same place from one draw to the next
+- The package's bridges
+  - snabbdom never removes a prop
+  - With the bridge to React, the run lives as long as the effect that starts it
+  - With the bridge to React, a run that dies is thrown to the nearest error boundary
+  - With the bridge to React, `Host` and `Draw` draw the first model on a server
+  - With the bridge to React, a new state is drawn at once, in a transition too
+
+### [Writing a bridge](../../site/guide/writing-a-bridge.md), "Advice"
+
+- On Android, start a program that must outlive a change of configuration yourself

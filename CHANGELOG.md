@@ -60,6 +60,8 @@ version, and everything else, features included, the patch version.
   read a member of a declaration (`_tag`, `program`, `there`, `key`, `listening`, `tell`, `listed`, `flagged`) keeps
   what it gave to `child` or `childById` instead, and a type written for a child names its own `There` and `Id`.
 - The peer dependency on `effect` is `~4.1.6`, where it was `~4.1.5`.
+- The skill for coding agents, `skills/effect-tea/SKILL.md`, is an index of the guide: the title of each rule and of
+  each piece of advice, under its page and its section, in place of a summary of the rules in its own words.
 
 ### Fixed
 

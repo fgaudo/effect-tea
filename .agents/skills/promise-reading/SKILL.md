@@ -81,7 +81,7 @@ WHAT TO READ: <the pages of site/guide/, and the doc comments of src/ and bridge
 export. In a reading of changes: the diff of each, where you read whole each rule, item or comment that a changed
 line is in, and the tests removed or changed, each with the question of which sentence it held>. For step 5 alone,
 read what sums up each page too: its rows of site/guide/glossary.md, its line of site/guide/index.md, and its part
-of the tutorial (site/tutorial/) and of skills/effect-tea/SKILL.md.
+of the tutorial (site/tutorial/).
 
 A SENTENCE OF PROMISE says what the library, a testing tool or a bridge does as a program runs, or what the compiler
 refuses or infers for a program. It stands under the "Rules" of a page, under "What you can rely on" in
@@ -115,7 +115,7 @@ HOW:
    gap NEGATIVE where the sentence says what the library never does, or that only one thing does it: a test holds
    such a sentence for the cases that it tries, and you name those that a user would try and no test does.
 5. Note as you read: a sentence that the code or a test shows to be false; a sentence that two places say with a
-   difference (a page and a doc comment, a page and the glossary, the tutorial or skills/effect-tea/SKILL.md), with
+   difference (a page and a doc comment, a page and the glossary or the tutorial), with
    both quoted; and a sentence outside the three places that says what the library does, and that no rule says (in
    an "In short", an "Advice", the prose of an example).
 

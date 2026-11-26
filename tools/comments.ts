@@ -20,6 +20,10 @@
 //
 // It holds a page of the guide under its ceiling of words (`ceilings`), so that the guide grows only by a choice.
 //
+// It checks that the skill the package ships (`skills/effect-tea/SKILL.md`) indexes the guide: the titles of each
+// section of "Rules", "Advice", "What you can rely on" and "What is left to you", each under the page and the section
+// that hold it, and no others. The skill says no rule in its own words, so it cannot say another thing than the guide.
+//
 //   bun tools/comments.ts
 //   bun tools/comments.ts --guarantees
 //   bun tools/comments.ts --help     the same, as the command describes itself
@@ -153,9 +157,94 @@ const problemsOfSource = (name: string, text: string, pages: ReadonlyMap<string,
   return problems
 }
 
-// The skill the package ships names the pages and the sections of the guide its rules sum up as `The guide, "<page>",
-// "<section>"`, the section optional, within its prose, where a name may be wrapped onto the next line. Inline code
-// only shows the form.
+// The sections of a page that the skill the package ships indexes.
+const indexed = ["What is left to you", "What you can rely on", "Rules", "Advice"]
+
+// A title as the index writes it: its links as their text, on one line, without the mark that ends it.
+const plain = (title: string) =>
+  title.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/\s+/g, " ").trim().replace(/[.,:]$/, "")
+
+// The titles of each section of a page that the skill indexes, in their order: a heading under it, and a list item or
+// a paragraph that starts in bold, one level in after such a heading. A bold title may wrap onto the next lines.
+const entriesOf = (lines: ReadonlyArray<string>) => {
+  const sections = new Map<string, Array<string>>()
+  let entries: Array<string> | undefined
+  let nested = false
+  lines.forEach((line, at) => {
+    const [, section] = /^## (.+)$/.exec(line) ?? []
+    if (section !== undefined) {
+      entries = indexed.includes(section) ? [] : undefined
+      if (entries !== undefined) sections.set(section, entries)
+      nested = false
+      return
+    }
+    const [, heading] = /^#{3,6} (.+)$/.exec(line) ?? []
+    if (entries === undefined) return
+    if (heading !== undefined) {
+      entries.push(plain(heading))
+      nested = true
+      return
+    }
+    const bolded = /^(\s*)(- )?\*\*/.exec(line)
+    if (bolded === null || (bolded[2] === undefined && bolded[1] !== "")) return
+    let text = line
+    for (let next = at + 1; !/\*\*.+?\*\*/.test(text) && next < lines.length; next++) text += ` ${lines[next]}`
+    const [, bold = ""] = /\*\*(.+?)\*\*/.exec(text) ?? []
+    entries.push(`${nested ? "  " : ""}${plain(bold)}`)
+  })
+  return sections
+}
+
+const indexHeading = /^### \[([^\]]+)\]\(\.\.\/\.\.\/site\/guide\/([\w-]+\.md)\), "([^"]+)"$/
+
+// The index of the skill: under a heading `### [<page>](../../site/guide/<file>), "<section>"`, a list of the titles
+// of that section, as `entriesOf` reads them, nested as the page nests them. It fails on a section of the guide that it
+// does not index, on one it indexes twice, and on a list that is not the page's, which it prints as it should be.
+const problemsOfIndex = (name: string, text: string, files: ReadonlyMap<string, ReadonlyArray<string>>) => {
+  const problems: Array<string> = []
+  const listed = new Map<string, { readonly page: string; readonly section: string; readonly entries: Array<string> }>()
+  let entries: Array<string> | undefined
+  for (const line of text.split(/\r?\n/)) {
+    const [, page = "", file = "", section = ""] = indexHeading.exec(line) ?? []
+    if (line.startsWith("#")) entries = undefined
+    if (page !== "") {
+      const key = `${file}#${section}`
+      const title = files.get(file)?.find((line) => line.startsWith("title: "))?.slice("title: ".length)
+      if (title !== page) problems.push(`${name}: "${line}" names a page whose title is not "${page}".`)
+      if (listed.has(key)) problems.push(`${name}: "${page}", "${section}" is indexed twice.`)
+      entries = []
+      listed.set(key, { entries, page, section })
+      continue
+    }
+    const [, spaces, item] = /^(\s*)- (.+)$/.exec(line) ?? []
+    if (entries === undefined) continue
+    if (item !== undefined) entries.push(`${(spaces ?? "").length > 0 ? "  " : ""}${item}`)
+    else if (/^\s+\S/.test(line) && entries.length > 0) entries[entries.length - 1] += ` ${line.trim()}`
+  }
+  for (const [file, lines] of files) {
+    for (const [section, expected] of entriesOf(lines)) {
+      const page = lines.find((line) => line.startsWith("title: "))?.slice("title: ".length) ?? file
+      const found = listed.get(`${file}#${section}`)
+      const entries = found?.entries.map((entry) => `${entry.startsWith("  ") ? "  " : ""}${plain(entry)}`)
+      if (entries === undefined) problems.push(`${name}: "${page}", "${section}" is not indexed.`)
+      else if (entries.join("\n") !== expected.join("\n")) {
+        problems.push(
+          `${name}: "${page}", "${section}" lists other titles than the guide's, which are:\n${
+            expected.map((entry) => `${entry.startsWith("  ") ? "    " : "  "}- ${entry.trim()}`).join("\n")
+          }`
+        )
+      }
+      listed.delete(`${file}#${section}`)
+    }
+  }
+  for (const { page, section } of listed.values()) {
+    problems.push(`${name}: "${page}", "${section}" is no section that the index holds.`)
+  }
+  return problems
+}
+
+// The skill the package ships names the pages and the sections of the guide as `The guide, "<page>", "<section>"`, the
+// section optional, within its prose, where a name may be wrapped onto the next line. Inline code only shows the form.
 const problemsOfSkill = (name: string, text: string, pages: ReadonlyMap<string, ReadonlyArray<string>>) => {
   const problems: Array<string> = []
   const prose = text.replace(/`[^`\n]*`/g, "``").replace(/\s+/g, " ")
@@ -187,9 +276,11 @@ const command = Command.make(
     const read = (file: string) => fs.readFileString(path.join(root, file))
     const problems: Array<string> = []
     const pages = new Map<string, ReadonlyArray<string>>()
+    const files = new Map<string, ReadonlyArray<string>>()
     for (const name of yield* fs.glob("site/guide/*.md", { root })) {
       const lines = (yield* read(name)).split(/\r?\n/)
       const title = lines.find((line) => line.startsWith("title: "))?.slice("title: ".length)
+      files.set(path.basename(name), lines)
       if (title === undefined) problems.push(`${name} has no title.`)
       else pages.set(title, lines)
     }
@@ -199,6 +290,7 @@ const command = Command.make(
     for (const name of yield* fs.glob("skills/*/SKILL.md", { root })) {
       problems.push(...problemsOfSkill(name, yield* read(name), pages))
     }
+    problems.push(...problemsOfIndex("skills/effect-tea/SKILL.md", yield* read("skills/effect-tea/SKILL.md"), files))
     const items = reliedOn(pages.get("Guarantees") ?? [])
     problems.push(...problemsOfMutations(items), ...problemsOfCeilings(pages))
     if (problems.length > 0) return yield* new Failed({ message: problems.join("\n") })
