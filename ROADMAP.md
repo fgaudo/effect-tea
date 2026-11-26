@@ -26,12 +26,12 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 88 to 90 come before the release of 0.9.0. The owner asked for them on 25 November 2026, with a bridge to React
-Native, which step 83 made: whether a view of React can have a `messagesSentBy`, and a reading of the names of the
-API. Step 84 decided the first, after a spike ([`react-view-tests.md`](docs/records/react-view-tests.md)): it has
-none, and step 85 showed the check with React's tools, in `bridges/react.test.ts` and
+Steps 89 and 90 come before the release of 0.9.0, which the owner asked on 25 November 2026 to wait for a bridge to
+React Native, which step 83 made, for whether a view of React can have a `messagesSentBy`, and for a reading of the
+names of the API. Step 84 decided the first, after a spike ([`react-view-tests.md`](docs/records/react-view-tests.md)):
+it has none, and step 85 showed the check with React's tools, in `bridges/react.test.ts` and
 `examples/react-native/views.test_jest.tsx`. Step 86 read the names ([`names.md`](docs/records/names.md)): five
-change, two of them with a break, and step 87 applied them. Steps 88 to 90 are the agent's own proposals, which the
+change, two of them with a break, and step 87 applied them. Steps 89 and 90 are the agent's own proposals, which the
 owner may strike. The owner's fourth point has no step: the bridges stay in `bridges/`
 ([`rejected.md`](docs/rejected.md), "The bridges"). Step 82 decided what the bridge to React is on React Native
 ([`react-native.md`](docs/records/react-native.md)): `./react` as it is, with no entry and no peer of its own.
@@ -50,24 +50,6 @@ reads each `](…#…)` into its page, before and after.
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 88. A reader's check of an application in React Native
-
-**Model and effort.** Opus 5.5, `medium`, with the reader and the examiner as subagents.
-
-**Depends on** no open step: the reader reads the package that 0.9.0 ships, with the names of step 87. Proposed by
-the agent.
-
-**Why.** Step 81 met the reader who has an application in React, in a DOM. No check of
-[`guide-reader`](.agents/skills/guide-reader/SKILL.md) has met one on React Native, whom the package names from step
-83 on.
-
-**How.** A check of the package with acceptance tests, by the skill. The program is a part of an application in React
-Native, whose user types into a `TextInput`, sets a `Switch` and presses, run with jest as `tools/react-native/check.ts`
-runs `examples/react-native`. Keep the reader's project beside `D:/Project/effect-tea-readers/booking-react`.
-
-**Done when** the check has run, what it found is fixed or is a step here, and its entry is in the list of step 3 of
-the skill's "Before it starts".
 
 ### 89. A check of an upgrade, across the names of step 87
 

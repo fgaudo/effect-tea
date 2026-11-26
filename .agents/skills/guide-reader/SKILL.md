@@ -39,7 +39,8 @@ version.
    earlier check's requirement, listed here, may be taken again. A requirement varies along these, and takes at least
    one value that no check below took, which its entry names:
    - the renderer: snabbdom in a DOM; React, the program being a part of an application in React that keeps state of
-     its own beside it; or none, with a node type of the reader's own and no DOM, as the lines of a terminal;
+     its own beside it; React Native, under jest; or none, with a node type of the reader's own and no DOM, as the
+     lines of a terminal;
    - the start: from flags, or from nothing;
    - the shape: one program, children by id, children in fixed places, or a program split into modules;
    - the values that the user gives: a text typed and checked by the program, a value that an element reports (a
@@ -82,6 +83,10 @@ version.
      the rooms, a typed title, and a booking that may fail, which the application counts (2026-11-25, package, one
      program; 35 of 35 acceptance tests passed, once 2 failures, both of the tests, were fixed; the kept project is
      the application of the next check of an upgrade).
+   - a locker pickup screen: a part of an application in React Native whose header counts the pickups, a code typed
+     and checked, a `Switch`, an unlock that may fail, a door feed that ends and is listened to anew on a reconnect,
+     and a next pickup that starts over, under React Native's jest preset (2026-11-26, package, one program; 41 of 41
+     acceptance tests passed at the first run).
 4. Make the project, from the repository's root, with the versions the repository is developed with:
 
    ```bash
@@ -342,6 +347,19 @@ export const ticked = (selector: string): boolean | undefined => {
   return found instanceof HTMLInputElement ? found.checked : undefined
 }
 ```
+
+On React Native there is no DOM, nor Bun. The reader's project is made as `tools/react-native/check.ts` makes its
+own, with npm, the package's `.tgz` and `effect`, and a `jest.config.js` whose `transformIgnorePatterns` lets jest
+transform `effect` and `@fgaudo/effect-tea`; the examiner's has React Native, its jest preset and React Native's
+testing library, with no package of the library. The requirement gives `testID`s in place of selectors, and `main.tsx`
+exports `App: (props: { readonly world: World }) => ReactNode` in place of `mount`. The briefs say `npm test` and
+`npm run typecheck`, and `acceptance.test.tsx` with jest's globals; "Running them" copies the two `.tsx` files and
+runs `npx jest acceptance`. The harness, `acceptance-harness.tsx`, draws `<App world={world} />` with `render` and
+unmounts it after each test, requires `./main` as a test runs (jest refuses an `import()` without a flag), and acts
+with `fireEvent`: `press`, `type` by `changeText`, `toggle` by `valueChange`. `available` reads `disabled`,
+`accessibilityState.disabled`, `aria-disabled` and `editable={false}`, `valueOf` and `switchedOn` read `props.value`,
+and `until` waits inside `act`. The check of 2026-11-26 kept both projects in `D:/Project/effect-tea-readers/`:
+`locker-react-native`, the reader's, and `locker-examiner`, with the harness.
 
 ### Running them
 

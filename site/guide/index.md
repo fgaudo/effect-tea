@@ -74,7 +74,7 @@ Some pages end with a section of more examples, or of a reason. It explains, as 
 
 The pieces of a program:
 
-- [Anatomy of a program](./anatomy-of-a-program.md): a program is a plain object with up to seven pieces, made with
+- [Anatomy of a program](./anatomy-of-a-program.md): a program is a plain object with up to eight pieces, made with
   `program`. The pieces connect in a loop.
 - [Update](./update.md): `update` takes a message, then the state, and returns the next step, or `reject`.
 - [Model](./model.md): `makeModel(state)` turns the state into what the view reads: what it shows, and the messages
