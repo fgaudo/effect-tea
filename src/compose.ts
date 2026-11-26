@@ -207,41 +207,6 @@ type At<C> = C extends ChildByIdOf<infer Id, any> ? Readonly<{ id: Id }> : unkno
 /** Whether a child alone is there in every state of its parent. */
 type IsAlways<C> = C extends Readonly<{ there: "always" }> ? true : false
 
-/**
- * What the library keeps of each child, by name: an `Option` of the instance of a child alone, and the instances of
- * children by id.
- */
-type KeptOf<C> = {
-  readonly [K in keyof C & string]: C[K] extends ChildByIdOf<infer Id, infer P> ?
-    HashMap.HashMap<Id, Instance<StateOf<P>>>
-    : Opt.Option<Instance<StateOf<ProgramOf<C[K]>>>>
-}
-
-/**
- * A child's message, as its parent receives it: `{ _tag: <child>, message }`, and its `id` for children by id. The
- * answer of a child's command, and a message of its subscriptions, carry the `instance` that asked for it too: an
- * answer for an instance that is no longer there is rejected. A message of the child's view names its instance where
- * `forwardTo` is given it, and is rejected likewise: one that names none reaches the instance that is there.
- */
-type ChildMessages<C> = {
-  [K in keyof C & string]: Readonly<{ _tag: K; message: MessageOf<ProgramOf<C[K]>>; instance?: number }> & At<C[K]>
-}[keyof C & string]
-
-/** A child's command, as its parent's interpreter receives it: it names the instance that asked for it. */
-type ChildCommands<C> = {
-  [K in keyof C & string]: [CommandOf<ProgramOf<C[K]>>] extends [never] ? never
-    : Readonly<{ _tag: K; instance: number; command: CommandOf<ProgramOf<C[K]>> }> & At<C[K]>
-}[keyof C & string]
-
-/**
- * A key of a child's subscriptions, as its parent lists it: it names the instance that listens, as a child's command
- * does.
- */
-type ChildKeys<C> = {
-  [K in keyof C & string]: [KeyOf<ProgramOf<C[K]>>] extends [never] ? never
-    : Readonly<{ _tag: K; instance: number; key: KeyOf<ProgramOf<C[K]>> }> & At<C[K]>
-}[keyof C & string]
-
 /** What a parent may tell its children: an external message of one, by name, and by id for children by id. */
 type Tells<C> = {
   [K in keyof C & string]: [ExternalOf<ProgramOf<C[K]>>] extends [never] ? never
@@ -253,10 +218,6 @@ type Tells<C> = {
 // would be one of the candidates and not their union.
 type RanServices<Ran> = Ran extends Execution<any, infer R> ? R : never
 type HeardServices<Heard> = Heard extends Subscription<any, infer R> ? R : never
-
-// A child's commands and subscriptions are lifted into its parent's, with what they need.
-type ChildCommandServices<C> = { [K in keyof C]: CommandServicesOf<ProgramOf<C[K]>> }[keyof C]
-type ChildSubscriptionServices<C> = { [K in keyof C]: SubscriptionServicesOf<ProgramOf<C[K]>> }[keyof C]
 
 /**
  * The children's models, by name: `children` in `makeModel`.
@@ -1553,18 +1514,56 @@ export type MakeParent<T extends DeclaredTypes, C extends Children<Field<T, "sta
     Field<T, "output">
   >
 ) => Program<
+  // Written in place: an alias over `C` would print with the children's declarations, each holding its whole program,
+  // in every error and hover of a parent's types, at each level of a tree (the smoke test's `misprint.ts` bounds it).
   Present<{
-    state: Kept<Field<T, "state">, KeptOf<C>>
+    // What the library keeps of each child, by name: an `Option` of the instance of a child alone, and the instances
+    // of children by id.
+    state: Kept<
+      Field<T, "state">,
+      {
+        readonly [K in keyof C & string]: C[K] extends ChildByIdOf<infer Id, infer P> ?
+          HashMap.HashMap<Id, Instance<StateOf<P>>>
+          : Opt.Option<Instance<StateOf<ProgramOf<C[K]>>>>
+      }
+    >
     model: Named<T, "model", Model>
-    message: Field<T, "message"> | ChildMessages<C>
-    command: Field<T, "command"> | ChildCommands<C>
-    commandServices: Needs<RanServices<Ran>, ChildCommandServices<C>>
-    subscriptionServices: Needs<HeardServices<Heard>, ChildSubscriptionServices<C>>
+    // A child's message, as its parent receives it: `{ _tag: <child>, message }`, and its `id` for children by id. The
+    // answer of a child's command, and a message of its subscriptions, carry the `instance` that asked for it too: an
+    // answer for an instance that is no longer there is rejected. A message of the child's view names its instance
+    // where `forwardTo` is given it, and is rejected likewise: one that names none reaches the instance that is there.
+    message:
+      | Field<T, "message">
+      | {
+        [K in keyof C & string]:
+          & Readonly<{ _tag: K; message: MessageOf<ProgramOf<C[K]>>; instance?: number }>
+          & At<C[K]>
+      }[keyof C & string]
+    // A child's command, as its parent's interpreter receives it: it names the instance that asked for it.
+    command:
+      | Field<T, "command">
+      | {
+        [K in keyof C & string]: [CommandOf<ProgramOf<C[K]>>] extends [never] ? never
+          : Readonly<{ _tag: K; instance: number; command: CommandOf<ProgramOf<C[K]>> }> & At<C[K]>
+      }[keyof C & string]
+    // A child's commands and subscriptions are lifted into its parent's, with what they need.
+    commandServices: Needs<RanServices<Ran>, { [K in keyof C]: CommandServicesOf<ProgramOf<C[K]>> }[keyof C]>
+    subscriptionServices: Needs<
+      HeardServices<Heard>,
+      { [K in keyof C]: SubscriptionServicesOf<ProgramOf<C[K]>> }[keyof C]
+    >
     event: Field<T, "event">
     external: Field<T, "external">
     flags: Field<T, "flags">
     output: Field<T, "output">
-    key: Field<T, "key"> | ChildKeys<C>
+    // A key of a child's subscriptions, as its parent lists it: it names the instance that listens, as a child's
+    // command does.
+    key:
+      | Field<T, "key">
+      | {
+        [K in keyof C & string]: [KeyOf<ProgramOf<C[K]>>] extends [never] ? never
+          : Readonly<{ _tag: K; instance: number; key: KeyOf<ProgramOf<C[K]>> }> & At<C[K]>
+      }[keyof C & string]
   }>
 >
 

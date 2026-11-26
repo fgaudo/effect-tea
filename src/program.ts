@@ -279,7 +279,9 @@ type Listed<T, Key extends "commands" | "events"> = T extends { readonly [K in K
 type Items<L> = L extends ReadonlyArray<infer I> ? I : never
 
 /** What the steps `update` and `external` may return list under `Key`. */
-type Returned<P, Key extends "commands" | "events"> = Answered<P, "update", Key> | Answered<P, "external", Key>
+// Inferred through a tuple, as `CommandOf` is, and for the same reason.
+type Returned<P, Key extends "commands" | "events"> =
+  [Answered<P, "update", Key> | Answered<P, "external", Key>] extends [infer R] ? R : never
 // `never` for the message, which any function of a message takes: one of a program that names no messages takes
 // nothing else.
 type Answered<P, Piece extends "update" | "external", Key extends "commands" | "events"> = P extends
@@ -299,7 +301,9 @@ type Answered<P, Piece extends "update" | "external", Key extends "commands" | "
  *
  * @see The guide, "Anatomy of a program".
  */
-export type CommandOf<P> = Listed<FirstStepOf<P>, "commands"> | Returned<P, "commands">
+// Inferred through a tuple: a union that is the body of an alias prints as that alias, with the whole program for its
+// argument, in every error and hover that names it. The smoke test's `misprint.ts` bounds it.
+export type CommandOf<P> = [Listed<FirstStepOf<P>, "commands"> | Returned<P, "commands">] extends [infer C] ? C : never
 /**
  * The flags a program starts from: the argument of its `init`, when `init` is a function.
  *

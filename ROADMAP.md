@@ -24,37 +24,9 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 lead of the types has no `test.failing`: its fix adds the test of the types that holds it, and a lead of the inference
 matrix is shown by its case (`bun run inference --filter <case>`).
 
-- **A type error over a parent's keys or messages prints its children's programs.** Found by an application on 26
-  November 2026 ([`application-report-0.9.md`](docs/records/application-report-0.9.md), point 8), and reproduced on
-  the examples. Its case is a file under `examples/`, which gives `Arr.filterMap` an `Option`, where it takes a
-  `Result`:
-
-  ```ts
-  import { type KeyOf, type MessageOf, program, type StateOf } from "@fgaudo/effect-tea"
-  import * as Arr from "effect/Array"
-  import * as Opt from "effect/Option"
-  import { cart } from "./cart/cart.ts"
-  import { list } from "./list/list.ts"
-  import { app } from "./pages/app.ts"
-
-  const { child, withChildren } = program<{ state: Readonly<{ n: number }> }>()
-  export const root = withChildren({ Pages: child(app), List: child(list), Cart: child(cart) }).make({
-    init: { state: { n: 0 } },
-    makeModel: (_, children) => ({ pages: children.Pages(), list: children.List(), cart: children.Cart() })
-  })
-  declare const pressedUnder: (key: KeyOf<typeof root>) => Opt.Option<MessageOf<typeof root>>
-  export const repro = (state: StateOf<typeof root>) =>
-    Arr.filterMap(root.subscriptions(state), (key) => Opt.map(pressedUnder(key), (pressed) => ({ key, pressed })))
-  ```
-
-  `bunx tsc --noEmit -p examples --noErrorTruncation` prints one error, TS2375, of 62,010 bytes, where `Program<{`
-  is printed 54 times; without the flag, 1,459 bytes, cut. The application's tree of nine programs printed 967 KB.
-  `ChildKeys<C>`, `ChildMessages<C>` and `KeptOf<C>` are printed with the declarations `C` of the children, and each
-  `Child<State, P, There>` holds its child's whole program. Step 96.
-
 ## Next, in order
 
-Steps 96 to 98 come from the report of an application written again on 0.9.0, weighed on 26 November 2026
+Steps 97 and 98 come from the report of an application written again on 0.9.0, weighed on 26 November 2026
 ([`application-report-0.9.md`](docs/records/application-report-0.9.md)), and run in the order of their numbers. Each
 decides its point by "Deciding": a step that decides against its point writes its entry of
 [`rejected.md`](docs/rejected.md), and is done. Their breaking changes go out together, in the release after 0.9.0.
@@ -68,7 +40,10 @@ in the tools ([`rejected.md`](docs/rejected.md), "A list of what a step told"). 
 ([`flags-always-there.md`](docs/records/flags-always-there.md)): `child(program, { flags })` is always there, and
 `flags` gives the flags, while `child(program, { there })` gives `Some` of them where the child is there. Step 95
 decided the fifth ([`subscriptions-read-outputs.md`](docs/records/subscriptions-read-outputs.md)): a parent's own
-`subscriptions` takes its children's outputs last, and the options of a declaration still read its own state alone.
+`subscriptions` takes its children's outputs last, and the options of a declaration still read its own state alone. Step
+96 took the eighth: the types of a parent's program are written in place in `MakeParent`, with no alias over its
+children's declarations, and `CommandOf`, with `Returned` under it, is inferred through a tuple, so that an error or a
+hover over them prints no program; the smoke test's `misprint.ts` bounds what TypeScript prints of four such errors.
 
 The release of 0.9.0 waited, as the owner asked on 25 November 2026, for a bridge to
 React Native, which step 83 made, for whether a view of React can have a `messagesSentBy`, and for a reading of the
@@ -98,34 +73,11 @@ The next review of the premises ([`premise-review`](.agents/skills/premise-revie
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
 
-### 96. A parent's types printed without its children's programs
-
-**Model and effort.** Opus 5.5, `high`.
-
-**Depends on** no other step: step 95 changed the types it prints.
-
-**Why.** The lead of "Open problems". An error that names the keys, the messages or the state of a parent prints the
-declarations of its children, each with its whole program, at each level of the tree: a mistake of one line gave an
-application 967 KB, and gives the examples 62 KB. Cut by the compiler, it hides the user's own types. Users judge the
-library by its API first, and an error is part of it.
-
-**How.** A spike first: what makes the compiler print `ChildKeys<C>`, `ChildMessages<C>` and `KeptOf<C>` with `C`
-written out, and which form prints less. Leads: the types of the program that `make` gives worked out to their
-structure, a union of wrapped keys and messages, where they are aliases over the declarations; a declaration that
-holds less than its child's whole program; names that the compiler keeps. What a hover shows counts too. The smoke
-test counts how often a consumer's declarations spell out its state, 14 times, and `tools/api-report.ts` what the
-package names: neither grows. Read first `rejected.md` ("`DeclareChild<State>` in place of `DeclareChild<T>`", "The
-types of the functions of `program` written in place", "A second entry of the package").
-
-**Done when** the case of "Open problems" prints under a bound that a check holds, run with the checks of
-`change-api`, with `--noErrorTruncation`; the lead is taken out of "Open problems"; no behaviour changes; and the
-changelog has an entry only where a consumer's declarations name another type.
-
 ### 97. The types of a parent's handler written apart
 
 **Model and effort.** Opus 5.5, `high`.
 
-**Depends on** step 96: it names the types that step 96 prints, which step 95 changed.
+**Depends on** no other step: step 96 wrote the types of a parent in place, and step 95 changed them.
 
 **Why.** "Structuring a program" splits a program by concern, each part asked for a `Step`. For a parent, a handler
 written outside `make` takes its children's outputs and returns a step that tells them, and the package exports no
@@ -135,7 +87,10 @@ written, and this one is written twice.
 
 **How.** Leads: types read back from what `withChildren` returns, or from the declared children, in the family of
 `StateOf` and `MessageOf`, named by the guide's words, `tell` and `output`; or `Tells` and `Outputs` exported as they
-are, which print the declarations unless step 96 changed that. An example split by concern shows the form taken.
+are. Both are still aliases over the declarations `C`: an error or a hover that names one prints `C`, each child with
+its whole program, as `KeptOf<C>` and `ChildMessages<C>` did before step 96 wrote them in place (62 KB for an error over
+the examples' messages). A name the package exports for them must not print `C`: `tools/smoke/misprint.ts` gets an
+error over the form taken. An example split by concern shows the form taken.
 
 **Done when** a handler of a parent's `update`, `onEvent` and `external`, written in a module of its own, is typed
 with names that the package exports, in an example and in a test of the types; "Structuring a program" ("Splitting a

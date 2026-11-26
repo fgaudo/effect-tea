@@ -99,20 +99,6 @@ type ChildByIdOf<Id, P> = Readonly<{
 }>;
 
 // @public
-type ChildCommands<C> = {
-    [K in keyof C & string]: [CommandOf<ProgramOf<C[K]>>] extends [never] ? never : Readonly<{
-        _tag: K;
-        instance: number;
-        command: CommandOf<ProgramOf<C[K]>>;
-    }> & At<C[K]>;
-}[keyof C & string];
-
-// @public (undocumented)
-type ChildCommandServices<C> = {
-    [K in keyof C]: CommandServicesOf<ProgramOf<C[K]>>;
-}[keyof C];
-
-// @public
 type ChildDispatch<Message, To extends string | OfInstance> = string extends NameOf<To> ? Readonly<{
     "is not the literal name of a child": NameOf<To>;
 }> : IsUnion<NameOf<To>> extends true ? Readonly<{
@@ -128,24 +114,6 @@ type ChildDispatch<Message, To extends string | OfInstance> = string extends Nam
 }> : Dispatch<ChildOf<Message, NameOf<To>>["message"]> : Readonly<{
     "is a message that names no instance": NameOf<To>;
 }>;
-
-// @public
-type ChildKeys<C> = {
-    [K in keyof C & string]: [KeyOf<ProgramOf<C[K]>>] extends [never] ? never : Readonly<{
-        _tag: K;
-        instance: number;
-        key: KeyOf<ProgramOf<C[K]>>;
-    }> & At<C[K]>;
-}[keyof C & string];
-
-// @public
-type ChildMessages<C> = {
-    [K in keyof C & string]: Readonly<{
-        _tag: K;
-        message: MessageOf<ProgramOf<C[K]>>;
-        instance?: number;
-    }> & At<C[K]>;
-}[keyof C & string];
 
 // @public (undocumented)
 type ChildOf<Message, Name> = Extract<Routed<Message>, Readonly<{
@@ -169,13 +137,8 @@ type Children<State> = Readonly<Record<string, Readonly<{
     tell?: (state: State) => unknown;
 }>>>;
 
-// @public (undocumented)
-type ChildSubscriptionServices<C> = {
-    [K in keyof C]: SubscriptionServicesOf<ProgramOf<C[K]>>;
-}[keyof C];
-
 // @public
-export type CommandOf<P> = Listed<FirstStepOf<P>, "commands"> | Returned<P, "commands">;
+export type CommandOf<P> = [Listed<FirstStepOf<P>, "commands"> | Returned<P, "commands">] extends [infer C] ? C : never;
 
 // @public
 export type CommandServicesOf<P> = P extends {
@@ -392,11 +355,6 @@ export type Kept<Own, Children> = {
 };
 
 // @public
-type KeptOf<C> = {
-    readonly [K in keyof C & string]: C[K] extends ChildByIdOf<infer Id, infer P> ? HashMap.HashMap<Id, Instance<StateOf<P>>> : Opt.Option<Instance<StateOf<ProgramOf<C[K]>>>>;
-};
-
-// @public
 export type KeyOf<P> = P extends {
     readonly subscriptions: (state: never) => ReadonlyArray<infer K>;
 } ? K : never;
@@ -430,17 +388,41 @@ type ListenOf<State, C, OwnKey, Message, Heard> = [OwnKey] extends [never] ? Rea
 
 // @public
 export type MakeParent<T extends DeclaredTypes, C extends Children<Field<T, "state">>> = <Model, Ran = never, Heard = never>(config: Config<Field<T, "state">, C, Field<T, "message">, Field<T, "command">, Field<T, "event">, Named<T, "model", Model>, Ran, Heard, Field<T, "key">, Field<T, "external">, Field<T, "flags">, Field<T, "output">>) => Program<Present<{
-    state: Kept<Field<T, "state">, KeptOf<C>>;
+    state: Kept<Field<T, "state">, {
+        readonly [K in keyof C & string]: C[K] extends ChildByIdOf<infer Id, infer P> ? HashMap.HashMap<Id, Instance<StateOf<P>>> : Opt.Option<Instance<StateOf<ProgramOf<C[K]>>>>;
+    }>;
     model: Named<T, "model", Model>;
-    message: Field<T, "message"> | ChildMessages<C>;
-    command: Field<T, "command"> | ChildCommands<C>;
-    commandServices: Needs<RanServices<Ran>, ChildCommandServices<C>>;
-    subscriptionServices: Needs<HeardServices<Heard>, ChildSubscriptionServices<C>>;
+    message: Field<T, "message"> | {
+        [K in keyof C & string]: Readonly<{
+            _tag: K;
+            message: MessageOf<ProgramOf<C[K]>>;
+            instance?: number;
+        }> & At<C[K]>;
+    }[keyof C & string];
+    command: Field<T, "command"> | {
+        [K in keyof C & string]: [CommandOf<ProgramOf<C[K]>>] extends [never] ? never : Readonly<{
+            _tag: K;
+            instance: number;
+            command: CommandOf<ProgramOf<C[K]>>;
+        }> & At<C[K]>;
+    }[keyof C & string];
+    commandServices: Needs<RanServices<Ran>, {
+        [K in keyof C]: CommandServicesOf<ProgramOf<C[K]>>;
+    }[keyof C]>;
+    subscriptionServices: Needs<HeardServices<Heard>, {
+        [K in keyof C]: SubscriptionServicesOf<ProgramOf<C[K]>>;
+    }[keyof C]>;
     event: Field<T, "event">;
     external: Field<T, "external">;
     flags: Field<T, "flags">;
     output: Field<T, "output">;
-    key: Field<T, "key"> | ChildKeys<C>;
+    key: Field<T, "key"> | {
+        [K in keyof C & string]: [KeyOf<ProgramOf<C[K]>>] extends [never] ? never : Readonly<{
+            _tag: K;
+            instance: number;
+            key: KeyOf<ProgramOf<C[K]>>;
+        }> & At<C[K]>;
+    }[keyof C & string];
 }>>;
 
 // @public
@@ -649,7 +631,9 @@ export const reject: unique symbol;
 export type Rejected = typeof reject;
 
 // @public
-type Returned<P, Key extends "commands" | "events"> = Answered<P, "update", Key> | Answered<P, "external", Key>;
+type Returned<P, Key extends "commands" | "events"> = [
+Answered<P, "update", Key> | Answered<P, "external", Key>
+] extends [infer R] ? R : never;
 
 // @public
 type Routed<Message> = Message extends Readonly<{

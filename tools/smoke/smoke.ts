@@ -1,10 +1,11 @@
 // Checks the package as a consumer outside Bun gets it: packs it, installs the tarball with npm in a project of its
 // own outside the repository, runs the README's quick start and `consumer.ts` with Node (the `default` condition,
 // `dist/`), and typechecks both against the declarations (`types`) under each TypeScript of `--typescript`, with
-// `moduleResolution` `nodenext` and `bundler`, emitting their own. Under Bun the `bun` condition loads `src/`:
-// nothing else imports `dist/`. It parses `dist/` at the syntax the README promises, and checks that the documentation the package ships finds in it every file it
-// links. Then it installs the renderers, which the package takes as optional peers, and runs and typechecks
-// `bridges.ts`, a consumer of the bridges, the same way.
+// `moduleResolution` `nodenext` and `bundler`, emitting their own, and bounds what each prints of the errors of
+// `misprint.ts`. Under Bun the `bun` condition loads `src/`: nothing else imports `dist/`. It parses `dist/` at the
+// syntax the README promises, and checks that the documentation the package ships finds in it every file it links.
+// Then it installs the renderers, which the package takes as optional peers, and runs and typechecks `bridges.ts`, a
+// consumer of the bridges, the same way.
 //
 //   bun tools/smoke/smoke.ts [--effect <version>] [--typescript 5.9,6.0,7.0] [--keep]
 //   bun tools/smoke/smoke.ts --help     the same, as the command describes itself
@@ -49,6 +50,26 @@ const named = [
 // library that repeats the state inside each of its own multiplies it (80 when `make` was spelled out, 25 when `Child`
 // and `Step` were, 16 with `DeclareChild<State>`, in `docs/rejected.md`).
 const expectedSpellings = 13
+
+// What TypeScript prints of the errors of `misprint.ts`, at most, in bytes: about 5,400 with each supported TypeScript.
+// A bound, not an equality: how a type prints is the compiler's, and changes with it. The children's programs printed
+// with a parent's types, and a program with what `CommandOf` read of it, gave 45,924.
+const misprintBound = 7000
+
+// What is wrong in what a consumer's TypeScript prints of the errors of `misprint.ts`, as the lines to print.
+const misprintProblemsOf = (printed: string) => {
+  const problems: Array<string> = []
+  const errors = printed.match(/^misprint\.ts\(\d+,\d+\): error TS\d+:/gm)?.length ?? 0
+  const total = printed.match(/error TS/g)?.length ?? 0
+  if (errors !== 4 || total !== 4) {
+    problems.push(`misprint.ts has ${errors} errors of its own and ${total} in all, not 4 and 4:\n${printed}`)
+  }
+  const programs = printed.match(/\bProgram</g)?.length ?? 0
+  if (programs > 0) problems.push(`misprint.ts prints a program ${programs} times`)
+  const bytes = new TextEncoder().encode(printed).length
+  if (bytes > misprintBound) problems.push(`misprint.ts prints ${bytes} bytes, more than ${misprintBound}`)
+  return problems
+}
 
 // What is wrong in the declarations a consumer's TypeScript emits, as the lines to print.
 const problemsOf = (declared: string) => {
@@ -127,6 +148,7 @@ const command = Command.make(
     if (quickStart === undefined) return yield* new Failed({ message: "The README has no quick start" })
     yield* fs.writeFileString(join(dir, "quickstart.ts"), quickStart)
     yield* fs.copyFile(join(import.meta.dir, "consumer.ts"), join(dir, "consumer.ts"))
+    yield* fs.copyFile(join(import.meta.dir, "misprint.ts"), join(dir, "misprint.ts"))
     // `nodenext` without `exactOptionalPropertyTypes`, `bundler` with it: consumers use both.
     for (const [resolution, module, exact] of [["nodenext", "nodenext", false], ["bundler", "esnext", true]] as const) {
       yield* fs.writeFileString(
@@ -151,6 +173,14 @@ const command = Command.make(
         })
       )
     }
+    yield* fs.writeFileString(
+      join(dir, "tsconfig.misprint.json"),
+      JSON.stringify({
+        extends: "./tsconfig.bundler.json",
+        compilerOptions: { declaration: false, emitDeclarationOnly: false, noEmit: true, noErrorTruncation: true },
+        files: ["misprint.ts"]
+      })
+    )
     yield* step(dir, "npm", ["install", "--no-audit", "--no-fund", "--loglevel=error"])
     yield* Console.log(`effect ${effect}, @fgaudo/effect-tea from ${tarball}`)
     // TypeScript resolves a `.ts` import of a declaration to its `.d.ts` by itself, so no typecheck below would notice
@@ -219,10 +249,27 @@ const command = Command.make(
           for (const problem of problems) yield* Console.log(problem)
         }
       }
+      const { stdout } = yield* exec(
+        ChildProcess.make("node", [
+          join(dir, `node_modules/typescript-${version}/bin/tsc`),
+          "-p",
+          "tsconfig.misprint.json"
+        ], {
+          cwd: dir
+        })
+      )
+      const problems = misprintProblemsOf(stdout)
+      yield* Console.log(`typescript ${exact}, the errors of misprint.ts: ${problems.length === 0 ? "ok" : "failed"}`)
+      if (problems.length > 0) {
+        failed.push(`typescript ${exact}, the errors of misprint.ts`)
+        for (const problem of problems) yield* Console.log(problem)
+      }
     }
     if (failed.length > 0) {
       return yield* new Failed({
-        message: `The declarations do not typecheck, or spell out what program returns, with ${failed.join("; ")}`
+        message: `The declarations do not typecheck, spell out what program returns, or print too much, with ${
+          failed.join("; ")
+        }`
       })
     }
     // The renderers are optional peers: installed only now, so that what is checked above needs none of them. React's

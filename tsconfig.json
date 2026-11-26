@@ -48,5 +48,5 @@
   },
   "include": ["src", "test", "tools"],
   // The consumers of the packed package, typechecked by the smoke test against its declarations.
-  "exclude": ["tools/smoke/consumer.ts", "tools/smoke/bridges.ts"]
+  "exclude": ["tools/smoke/consumer.ts", "tools/smoke/bridges.ts", "tools/smoke/misprint.ts"]
 }
