@@ -26,12 +26,12 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 89 and 90 come before the release of 0.9.0, which the owner asked on 25 November 2026 to wait for a bridge to
+Step 90 comes before the release of 0.9.0, which the owner asked on 25 November 2026 to wait for a bridge to
 React Native, which step 83 made, for whether a view of React can have a `messagesSentBy`, and for a reading of the
 names of the API. Step 84 decided the first, after a spike ([`react-view-tests.md`](docs/records/react-view-tests.md)):
 it has none, and step 85 showed the check with React's tools, in `bridges/react.test.ts` and
 `examples/react-native/views.test_jest.tsx`. Step 86 read the names ([`names.md`](docs/records/names.md)): five
-change, two of them with a break, and step 87 applied them. Steps 89 and 90 are the agent's own proposals, which the
+change, two of them with a break, and step 87 applied them. Step 90 is the agent's own proposal, which the
 owner may strike. The owner's fourth point has no step: the bridges stay in `bridges/`
 ([`rejected.md`](docs/rejected.md), "The bridges"). Step 82 decided what the bridge to React is on React Native
 ([`react-native.md`](docs/records/react-native.md)): `./react` as it is, with no entry and no peer of its own.
@@ -50,25 +50,6 @@ reads each `](…#…)` into its page, before and after.
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 89. A check of an upgrade, across the names of step 87
-
-**Model and effort.** Opus 5.5, `medium`, with the agent that upgrades as a subagent.
-
-**Depends on** no open step. Proposed by the agent. Step 86 changed two names with a break, the `messages` of a
-`Simulated` and the `kind` of a declaration ([`names.md`](docs/records/names.md)), and step 87 applied them.
-
-**Why.** The `Upgrade:` lines of step 87 are all that a user of the package has to follow its names. An application
-written before them shows whether they are enough.
-
-**How.** By [`guide-reader`](.agents/skills/guide-reader/SKILL.md), "A check of an upgrade", on the application of
-step 81's reader, kept at `D:/Project/effect-tea-readers/booking-react` with its acceptance tests and the package it
-was written for, packed at `3f86a68` (`bun install` first): 21 of its own tests and 35 acceptance tests pass there.
-Its `main.test.ts` imports `main` once happy-dom is registered, and the acceptance tests run alone, as the skill says:
-run with the reader's tests in one `bun test`, 8 fail, both files registering a DOM.
-
-**Done when** the application, brought to the package packed after step 87 from the package and its changelog alone,
-passes its own tests and the acceptance tests, and each gap of the changelog is fixed.
 
 ### 90. The first reading of the promises by the skill
 

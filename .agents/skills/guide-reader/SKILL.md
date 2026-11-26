@@ -81,8 +81,10 @@ version.
      bookings of its own, the panel started from the site as flags and anew under a new key when it changes, rooms
      loaded by a call that may fail and is retried, a room and a duration chosen in selects, a checkbox that narrows
      the rooms, a typed title, and a booking that may fail, which the application counts (2026-11-25, package, one
-     program; 35 of 35 acceptance tests passed, once 2 failures, both of the tests, were fixed; the kept project is
-     the application of the next check of an upgrade).
+     program; 35 of 35 acceptance tests passed, once 2 failures, both of the tests, were fixed; the project is kept at
+     `D:/Project/effect-tea-readers/booking-react`, with its acceptance tests; brought to the package of step 87 on
+     2026-11-26, it used none of the names that step changed, and passed its 21 tests and the 35 acceptance tests as
+     it was).
    - a locker pickup screen: a part of an application in React Native whose header counts the pickups, a code typed
      and checked, a `Switch`, an unlock that may fail, a door feed that ends and is listened to anew on a reconnect,
      and a next pickup that starts over, under React Native's jest preset (2026-11-26, package, one program; 41 of 41
@@ -384,7 +386,9 @@ changelog's entries, a breaking one first ("The changelog entry" in [`release`](
 
 1. The application is the owner's, where they give one and its path, or the project of an earlier check of this skill,
    kept with its acceptance tests. It was written for a version before the one checked, and compiles and passes its
-   tests there: note the counts.
+   tests there: note the counts. It uses what the entries checked change, as a search of its code for their names
+   shows. One that uses none of them checks no entry: run its tests and the acceptance tests on the new version, for a
+   change that no entry announced, and start no agent.
 2. Copy it into a new directory outside the repository, never into the owner's own tree, without
    `acceptance-harness.ts` and `acceptance.test.ts`: the agent never sees them. Pack the version checked into it (step
    4 of "Before it starts") and point the dependency on `@fgaudo/effect-tea` at the new `.tgz`. Leave `effect` and the
