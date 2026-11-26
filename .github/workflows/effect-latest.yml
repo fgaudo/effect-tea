@@ -1,10 +1,10 @@
 name: Effect latest
 
-# The peer range (`~4.1.6`) accepts the later patches of the minor of the lockfile, and the library is developed, and
-# what it rests on of Effect tested, at the version of the lockfile alone (`docs/premises.md`): what Effect does not
-# document may change in a patch too. This runs the tests at the newest Effect the range accepts, so that a premise a
-# new patch breaks is known the day after it is published, not at the next upgrade. A failure here is a lead for an
-# upgrade (`.agents/skills/upgrade-effect/SKILL.md`), not a red commit.
+# The peer range (`^4.1.6`) accepts every later Effect 4, and the library is developed, and what it rests on of Effect
+# tested, at the version of the lockfile alone, the oldest the range accepts (`docs/premises.md`). This runs the tests
+# at the newest Effect the range accepts, of the lockfile's minor and of a later one, and at what Effect has merged and
+# not released, so that a premise a new version breaks is known the day after it is published, or before. A failure
+# here is read as `.agents/skills/upgrade-effect/SKILL.md` says ("A premise that falls"), and is not a red commit.
 on:
   schedule:
     - cron: '47 3 * * *'
@@ -24,8 +24,8 @@ jobs:
         with:
           node-version: 24
       - run: bun install --frozen-lockfile
-      # The newest version within the range of `package.json`, which is the peer range, and the same of
-      # `@effect/platform-bun`, which the tools run on.
+      # The newest version within the range of `devDependencies`, the patches of the lockfile's minor, and the same
+      # of `@effect/platform-bun`, which the tools run on. The job `next-minor` runs a later minor.
       - run: bun update effect @effect/platform-bun
       - run: bun pm ls | grep effect
       - run: bun run typecheck
@@ -34,10 +34,10 @@ jobs:
       - run: bun run test
       - run: bun run test:node
 
-  # What Effect has merged and not released: a patch of it reaches the range from the day it is published, and the
-  # newest job above learns of it only then. Effect's own `snapshot.yml` publishes a build of each push to its `main`
+  # What Effect has merged and not released: a release of it reaches the range from the day it is published, and the
+  # other jobs learn of it only then. Effect's own `snapshot.yml` publishes a build of each push to its `main`
   # to pkg.pr.new (one superseded by the next push is cancelled), and its releases are cut from that branch, so the
-  # newest build that succeeded is what the next patch will hold. Its npm tags do not: `snapshot` stopped in 2024, and
+  # newest build that succeeded is what the next release will hold. Its npm tags do not: `snapshot` stopped in 2024, and
   # `staging` holds a release for the minutes before it is `latest`. The build's version is still the last release, so
   # its commit names it. One issue for each build that fails, and none for one that passes.
   unreleased:
@@ -105,14 +105,15 @@ jobs:
           gh issue create --title "Effect main at $sha fails the tests" --body "The typecheck, \`test\`, \
           \`test:node\` or \`interleavings\` fails at the build of Effect's \`main\` at \
           https://github.com/Effect-TS/effect/commit/$sha, which Effect has not released: a premise may fall in the \
-          next patch (\`docs/premises.md\`), and the owner decides whether to tell Effect before it is released \
+          next release (\`docs/premises.md\`), and the owner decides whether to tell Effect before it is released \
           (\`.agents/skills/upgrade-effect/SKILL.md\`). A search that fails prints its seed and path in the run. The \
           run: $run"
           exit 1
 
-  # A minor of Effect after the one of the lockfile, which the peer range does not accept: its tests are a lead for an
-  # upgrade, and an issue tells the owner of the result, green or red, since GitHub mails nobody when a scheduled run
-  # passes. One issue per version, and none while the newest is in the range.
+  # A minor of Effect after the one of the lockfile, which the peer range accepts and the job `newest` does not reach.
+  # One issue for each version that fails, and none for one that passes, as for a build of Effect's `main`: a version
+  # with an issue is not run again, and one that passes is, each day. Nothing runs while the newest Effect is of the
+  # lockfile's minor.
   next-minor:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -150,9 +151,9 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24
-      # The search draws a new seed on each run, so it runs ten times, once a version: what the newest minor changes in
-      # the runtime of Effect may break a premise no one has named, which only an order of the fibers shows. Its own
-      # timeout, short of the job's, lets a search that hangs still reach the issue, as a failure.
+      # The search draws a new seed on each run, so it runs ten times: what the newest minor changes in the runtime of
+      # Effect may break a premise no one has named, which only an order of the fibers shows. Its own timeout, short of
+      # the job's, lets a search that hangs still reach the issue, as a failure.
       - id: checks
         if: steps.newest.outputs.version != ''
         continue-on-error: true
@@ -167,20 +168,13 @@ jobs:
           bun run test
           bun run test:node
           for run in $(seq 10); do bun run interleavings; done
-      - if: steps.newest.outputs.version != ''
+      - if: steps.newest.outputs.version != '' && steps.checks.outcome != 'success'
         run: |
           version=${{ steps.newest.outputs.version }}
           run=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          if [ "${{ steps.checks.outcome }}" = success ]; then
-            title="Effect $version passes the tests"
-            body="The typecheck, the lint, \`test\`, \`test:node\` and ten runs of \`interleavings\` pass at Effect \
-          $version, outside the peer range: a lead for an upgrade (\`.agents/skills/upgrade-effect/SKILL.md\`). \
-          The run: $run"
-          else
-            title="Effect $version fails the tests"
-            body="The typecheck, the lint, \`test\`, \`test:node\` or one of ten runs of \`interleavings\` fails at \
-          Effect \
-          $version, outside the peer range: a premise may have fallen (\`docs/premises.md\`); a search that fails \
+          gh issue create --title "Effect $version fails the tests" --body "The typecheck, the lint, \`test\`, \
+          \`test:node\` or one of ten runs of \`interleavings\` fails at Effect $version, which the peer range \
+          accepts: a premise may have fallen (\`docs/premises.md\`), and \
+          \`.agents/skills/upgrade-effect/SKILL.md\` says what follows (\"A premise that falls\"). A search that fails \
           prints its seed and path in the run. The run: $run"
-          fi
-          gh issue create --title "$title" --body "$body"
+          exit 1

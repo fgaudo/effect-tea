@@ -1,7 +1,7 @@
 name: Renderers latest
 
-# The renderers are optional peers of the bridges with a caret (`^19.3.0` for React, `^3.6.4` for snabbdom), wider than
-# Effect's tilde (`AGENTS.md`), and the bridges are developed, and what they rest on of their renderer tested, at the
+# The renderers are optional peers of the bridges with a caret (`^19.3.0` for React, `^3.6.4` for snabbdom), as Effect
+# is of the library (`AGENTS.md`), and the bridges are developed, and what they rest on of their renderer tested, at the
 # version of the lockfile alone (`docs/premises.md`). This runs the bridges' tests, those of the premises on the
 # renderers among them, on happy-dom and in real browsers, and the examples' at the newest versions the ranges accept,
 # and the check of React Native at its newest version, so that a minor that breaks a bridge is known the day after it

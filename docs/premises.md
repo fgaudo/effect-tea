@@ -8,7 +8,8 @@ here, each with its own test, by [the rule](#the-rule) below: what a stable API 
 ## The premises
 
 Each premise names what rests on it, what its dependency documents of it, and its test, in `test/premises.test.ts`
-unless it says otherwise, named after it, with what it fails with.
+unless it says otherwise, named after it, with what it fails with. One on Effect names its kind too, **by the model**
+or **open** ([the rule](#the-rule)), with the reason, and whether it was asked of Effect.
 
 The testing tools take no premise of a fork of their own: `drive` runs the run; `rehearse` runs the engine through the
 handle the run makes (`partsOf` in `run.ts`), and `simulate` builds it (`Engine.build`): both run its thunk, its
@@ -18,27 +19,29 @@ afresh) is none of its own.
 
 - **`HashMap` calls a key's `Equal` and `Hash` only during a call of its functions, never after the call returns, and
   lets what they throw leave that call**: so `reconcile` compares keys all inside `'subscriptions'`, in the thunk that
-  makes a state, in the run and in the tools, and a key whose `Equal` or `Hash` throws dies there, as `DefectSite`
-  promises. `FiberMap` compares its keys in a fiber's observer as well, which is why the run keeps its fibers by their
-  start. Both are read only in the source. Its tests are of a key watched across the calls of a map, and of keys whose
-  `Equal` and `Hash` throw; "the watch of that test sees a FiberMap call a key's Equal after the call, in a fiber's
-  observer" is what the watch fails with. Not asked of Effect: when they are called follows from the shape of the API,
-  since a function that returns no `Effect` does its work during the call (Effect-TS/effect#10877 asked it, and
-  Effect-TS/effect#10878 left it out, as the owner then agreed); that a throw leaves the call falls under a rule for
-  callbacks that throw, which Effect-TS/effect#10683 declined.
+  makes a state, in the run and in the tools, and a key whose `Equal` or `Hash` throws dies there. `FiberMap` compares
+  its keys in a fiber's observer as well, which is why the run keeps its fibers by their start. Both are read only in
+  the source. Its tests are of a key watched across the calls of a map, and of keys whose `Equal` and `Hash` throw;
+  "the watch of that test sees a FiberMap call a key's Equal after the call, in a fiber's observer" is what the watch
+  fails with. When they are called is by the model: a function that returns no `Effect` does its work during the call
+  (Effect-TS/effect#10877 asked it, and Effect-TS/effect#10878 left it out, as the owner then agreed). That a throw
+  leaves the call is open, under a rule for callbacks that throw, which Effect-TS/effect#10683 declined, and holds no
+  promise: the guide leaves an `Equal` or a `Hash` that throws to the program ("Guarantees", "What is left to you").
 - **`Equal.equals` and `Hash.hash` let what a value's `Equal` and `Hash` throw leave the call**, though the JSDoc of
   `equals` says that it never throws: so what a parent compares by them, what `key` gives, flags, an id and the value
-  of a declared `tell` (`compose.ts`, `forwardTo` in `dispatch.ts`), dies where the parent compares it, and is never
+  of a declared `tell` (`compose.ts`, `forwardTo` in `dispatch.ts`), dies where the parent compares it, and is not
   taken for another value, which would start a child again at every step of its parent, in silence. Read only in the
-  source. Its test is of values whose `Equal` and `Hash` throw. Not asked of Effect, as for `HashMap`: a rule for
-  callbacks that throw, which Effect-TS/effect#10683 declined.
+  source. Its test is of values whose `Equal` and `Hash` throw. Open, and not asked, as the throw of a key's is, and it
+  holds no promise, by the same rule of the guide: that JSDoc is what makes not throwing a rule of Effect's for an
+  `Equal`, and for the `Hash` that `equals` reads first.
 - **A fiber that waits on a `Deferred` runs on the stack of whoever completes it, until it waits again**, a fiber or
   plain code. No guarantee rests on it, only killers of mutations: those of "the end of the run may begin inside a
   step" and "drive wakes its waits inside the step", which tell a wake inside the step only where it is resumed there,
   and those of `rehearse` refusing a command's answer and a subscription's message once it has ended. Should it fall,
   `bun run mutations` reports those mutations as survivors, and the library stays correct. Read in the source
   (`Deferred.doneUnsafe` resumes each waiter on the caller's stack, `internal/effect.ts`). Its test fails with the
-  `Deferred` completed by a fiber of its own.
+  `Deferred` completed by a fiber of its own. Open, and not asked: when a waiter resumes is a turn of the scheduler,
+  and the JSDoc promises none, as it says of a fork ("without promising a scheduler turn").
 - **Code that a fiber runs on the stack of the fiber that forks it sees the forked fiber as its own**, through
   `Effect.withFiber`, `Fiber.getCurrent` and `Effect.fiber` alike, from its first step on; and no stable API gives a
   fiber the one that forked it. So the root of a fiber the run forks (`rootedIn`) knows that an unmarked interruption
@@ -46,23 +49,44 @@ afresh) is none of its own.
   `testing/stage.ts` reads the fiber of a command in its first step, which `FiberSet.run` runs on the stack of the
   fiber of effects. Agreed by the owner on 19 November 2026. That `Fiber.getCurrent` gives the fiber that runs is
   documented; that it is the forked one on its forker's stack is read in the source. Its tests, for
-  `Effect.forkChild` with `startImmediately`, `FiberSet.run` and `FiberMap.run`, fail where it sees the forker.
+  `Effect.forkChild` with `startImmediately`, `FiberSet.run` and `FiberMap.run`, fail where it sees the forker. By the
+  model, and not asked: the JSDoc says that `Effect.fiber` gives "the fiber currently executing the effect", and that a
+  fiber forked so "runs synchronously" before the fork returns, so the fiber that executes the forked effect is the
+  forked one, on whoever's stack. That no API gives the forker is no behaviour that can fall: one added would be a lead
+  for a simpler root.
 - **What the cleanup of `Effect.onExit` fails with comes after the cause of the effect**: so each fiber of the engine,
   in the run and in the tools, records what it dies of in order, interrupted or not, merging no causes. That the
   cleanup runs however the effect ends, and that the causes are merged, is documented; their order is read only in the
-  source. Its tests are of an effect that dies and of one that is interrupted.
+  source. Its tests are of an effect that dies and of one that is interrupted. Open, and not asked: how the failures
+  of cleanups combine is among what Effect-TS/effect#10683 declined. It holds no promise: the guide leaves the order
+  of the defects unspecified.
 - **`Scope.close` dies with every defect its finalizers die of, none merged by `Equal`**, those of the scopes forked
   from it included: so `scopedIn` records each defect of a release as a defect of its site. `Effect.scoped` is no such
   close: it joins with `Cause.combine`, which keeps one of two reasons equal by `Equal` (documented). The JSDoc of
   `Scope.close` says how the finalizers run, not what the close dies of, which is read in the source
   (`scopeCloseFinalizers`, `exitAsVoidAll`). Its tests are of two finalizers closed with a success and with a defect,
-  and of one in a scope forked from it.
+  and of one in a scope forked from it. Not asked. That the close dies of the defect of the one finalizer that died is
+  by the model: the close runs the finalizer, and an effect that runs one that dies, dies of it, unless it says that it
+  recovers. What it dies of where several died is open, how the failures of cleanups combine being among what
+  Effect-TS/effect#10683 declined, and holds no promise: of several releases of one command or one subscription that
+  die, the guide promises that the run dies, and leaves unspecified which of their defects are in the cause ("Running",
+  "The defects in the cause").
 - **A fiber that fails as it is interrupted keeps its own reasons and gets those it received added, and
   `Effect.interruptible`, entered by an interrupted fiber where it is uninterruptible, fails with exactly those it
   received**: so `diesIn` tells a self-interruption from the run's interruption that meets it. That a pending
   interruption takes effect as the fiber enters `Effect.interruptible` is documented; which reasons it fails with is
   read in the source (`exitFailCause`, `causeAddInterrupts`). Its test enters `Effect.interruptible` where it is
-  uninterruptible.
+  uninterruptible. Not asked. Of its first half, that the fiber keeps a defect of its own is by the model: an
+  interruption that meets a failure takes nothing from it, as the JSDoc says of `Effect.awaitAllChildren` ("both the
+  original failure and the interruption are retained in the cause"). That it keeps an interruption of its own beside
+  those it received is open, and holds no promise: the guide leaves unspecified whether a fiber that interrupts itself
+  as the run stops it dies of a defect. **Its second half is open, and holds a promise: the one exception to the
+  rule.** `dying` in `shell.ts` asks a fiber what it received by entering `Effect.interruptible`, and "Only the run,
+  and whoever runs it, interrupt them" rests on the answer. The JSDoc says that a pending interruption takes effect as
+  the fiber enters it, and that a request's annotations are on its `Interrupt` reason: not that an interruption
+  already caught makes it fail again, nor that it fails with those reasons alone. With fewer reasons, each stop by the
+  run would be a defect, which fails most of the suite. With one more, of the fiber itself, a self-interruption would
+  end in silence. Step 106 of `ROADMAP.md` weighs a design without it.
 - **Every fiber of a run asks the `Scheduler` it is given before each step, and every task it makes goes to that
   scheduler's dispatcher, or resumes inline where the scheduler of the tests makes it yield first**: so
   `test/scheduled.test_scheduler.ts` decides where each fiber yields and which runs next, and the search and the
@@ -72,22 +96,27 @@ afresh) is none of its own.
   children runs its loop again in the same task and interrupts them there; and one that begins on the stack of another
   gives it back as it yields, in the same task. Its tests are a file of their own, `test/effect-scheduler.test.ts`,
   named after each. No killer of a mutation rests on it: a scheduler gone wrong costs a false alarm, or a missed one.
+  Open, and not asked: how the loop asks its scheduler is the runtime's own.
 - **One channel runs afresh each time it is run, one run after another or several at once**: so a `listen` that gives
   the same value for every start, as `listen: () => ticks` in the guide and the examples, starts it anew each time its
   key comes back. The library's code makes no channel that runs twice: the form the guide gives rests on it. Taken in
   step 57 over asking every `listen` for a new channel ([`rejected.md`](rejected.md)). The JSDoc does not say whether a
   value runs more than once; that each run makes its state anew is read in the source (`toTransform`). Its tests, of
   `Channel.fromIterator` with `Channel.concatWith`, `Channel.forever` and `Stream.toChannel` under `Channel.unwrap`,
-  fail with an iterator made once for all runs. Not asked yet (`ROADMAP.md`, step 47).
+  fail with an iterator made once for all runs. By the model, and not asked: a value of Effect describes a
+  computation, and each run of it is another, as the JSDoc of `Channel.failSync` supposes ("computed each time the
+  channel runs").
 - **A collection reclaims what nobody holds, and a `FinalizationRegistry` then calls back for each target it
   reclaimed**: so the cache of `forwardTo` forgets the ids nobody shows (`forgotten` in `dispatch.ts`), and a child's
   model is let go. ECMAScript requires neither. Its test, on Bun and on Node, fails with a callback that never runs.
 - **A `Queue` keeps nothing of a value taken from it**: so the queue of the jobs, which lives as long as the run, lets
   go of the jobs done. The JSDoc says what is taken, not what is kept. Agreed by the owner on 21 November 2026. Its
-  test, on Bun and on Node, fails with a `MutableList.take` that keeps what it takes.
+  test, on Bun and on Node, fails with a `MutableList.take` that keeps what it takes. By the model, and not asked: a
+  fall would be a leak, which Effect fixes as a bug.
 - **Effect keeps nothing of a fiber that has ended, nor of what its scope released**: so a command or a subscription
   that ended leaves nothing in a run that goes on, once its `FiberSet` or `FiberMap` has removed it, as their JSDoc
   says. Agreed by the owner on 21 November 2026. Its test, on Bun and on Node, fails with a fiber kept as it is made.
+  By the model, and not asked, as that of a `Queue`.
 - **snabbdom reuses an `<input>` with no key in the same place**: so a controlled element of the bridge to snabbdom
   keeps its focus, caret and selection while the program changes its value. snabbdom's README describes the reuse of
   keyed elements only. Its test, in `bridges/snabbdom.test.ts`, fails with a key of its own for the second input.
@@ -114,7 +143,7 @@ afresh) is none of its own.
 
 A premise about what code does when it runs is checked before the change that rests on it is written, and never only
 reasoned. A new one is taken only where no design without it is as good (value 5 of "Deciding" in
-[`AGENTS.md`](../AGENTS.md)), and the report of the change names it, with what rests on it and its test.
+[`AGENTS.md`](../AGENTS.md)), and the report of the change names it, with its kind, what rests on it and its test.
 
 - **Documented, on a stable API**: no premise, and not listed. For Effect, the JSDoc of its declarations at the version
   of the lockfile; for the JavaScript engine, the ECMAScript specification; for what the bridges rest on of the DOM,
@@ -123,18 +152,33 @@ reasoned. A new one is taken only where no design without it is as good (value 5
   what it says.
 - **Not documented**: a premise, listed here with a test that fails without it, written before the change, and never
   made unneeded by code of the library's written for it alone (an explicit `Effect.interruptible`, a scope closed by
-  hand), which would look redundant and let what it stood in for change unseen. For Effect, the range accepts only the
-  patches of the lockfile's version, and the daily jobs run the tests beyond it (`upgrade-effect`, which says what
-  follows a premise that falls). For the JavaScript engine, the test runs on Bun (JavaScriptCore) and on Node (V8).
+  hand), which would look redundant and let what it stood in for change unseen. For the JavaScript engine, the test
+  runs on Bun (JavaScriptCore) and on Node (V8). One on Effect is of one of two kinds:
+  - **By the model**: it follows from what Effect documents and from the model of its API, so that no version could do
+    otherwise without breaking programs written as Effect teaches. Its entry gives the argument in a sentence. A fall
+    would be a bug of Effect's, as a fall of what it documents would be, so it may hold a promise of the guide. It is
+    not asked of Effect, whose answer in Effect-TS/effect#10878 left out what follows from the shape of an API.
+  - **Open**: Effect could do otherwise and be right, as where it declined a rule (Effect-TS/effect#10683: callbacks
+    that throw, `run` on a closed container, when a loser is interrupted, how the failures of cleanups combine). It
+    holds no promise of the guide: only what the guide leaves unspecified or undefined, which the engine keeps as it
+    is, or a test, a tool of development or a killer of a mutation. A promise that would rest on one is kept by another
+    design, or narrowed. A premise whose argument does not fit a sentence is open. One open premise holds a promise
+    still, and its entry says so: what `Effect.interruptible` fails with.
+- **The range of Effect is a caret from the lockfile's version**: but for that one premise, no promise rests on what
+  Effect may change within a major, and a patch may change what a minor may, so a narrower range kept nothing out. The
+  daily jobs run the tests at the newest Effect the range accepts, and at what Effect has merged and not released
+  (`upgrade-effect`, which says what follows a premise that falls).
 - **A premise's test is its own**: it checks the dependency and nothing of the library, in `test/premises.test.ts`, in
   a file of its own in `test/` where it needs a harness, or, for a bridge's renderer, in the bridge's test file. So a
   test of a premise that fails names the premise that fell, and a premise dropped takes its test with it.
 - A guarantee says what it promises in the library's terms, never in those of a function of Effect (the order of the
   defects is no promise, since a user would rely on what `Cause.squash` returns). What keeps a guarantee may rest on a
-  premise, as the span and the self-interruption do. Two cases that half a premise holds are left unspecified by the
-  guide ("Running", "The defects in the cause"), and kept by the engine: a fiber that interrupts itself as the run stops
-  it is a defect, and two releases of one scope that die of defects equal by `Equal` are two.
-  [`premises-and-range.md`](records/premises-and-range.md) sorts what falls with each premise.
+  premise by the model, as the defect of a release does. What an open premise holds, but for the one exception, is
+  kept by the engine and left by the guide. Unspecified: the order of the defects; a fiber that interrupts itself as
+  the run stops it, which is a defect; and several releases of one command or one subscription that die, each of whose
+  defects is in the cause, two equal by `Equal` too ("Running", "The defects in the cause"). Undefined: an `Equal` or a
+  `Hash` of the program that throws, which is a defect where it is compared ("Guarantees", "What is left to you").
+  [`premises-and-range.md`](records/premises-and-range.md) sorted what fell with each premise of 23 November 2026.
 - What the dependencies of development do is no premise, but for the bridges' renderers: the bridges are entries of
   the package, each names in its opening comment the versions it was checked with, and a daily job
   (`.github/workflows/renderers-latest.yml`) runs their premises' tests at the newest version the range accepts.

@@ -86,7 +86,7 @@ command or a subscription dies when its effect ends with a defect, or when what 
 scope has released all it holds.
 
 From the defect on, the run applies no message, and every defect of the program is in the cause, each with where it
-happened.
+happened, with one exception (see [the defects in the cause](#the-defects-in-the-cause)).
 
 **The run never recovers from a defect, and does not log it.** Reporting the defect, and choosing what the user sees
 next, are the job of the app around the run. The screen keeps what was drawn last: show a crash screen, or run the
@@ -135,9 +135,9 @@ const stop = (): Promise<void> => {
 ### The defects in the cause
 
 A defect met while the run ends joins the cause. The order of the defects in the cause is unspecified: rely on each
-defect being in the cause, not on its place. Whether two releases of one scope that die of defects equal by `Equal` are
-two defects is unspecified too, and so is whether a command or a subscription that interrupts itself while the run
-stops it dies of a defect.
+defect being in the cause, not on its place. Several releases of one command or one subscription that die are the
+exception: the run dies, and which of their defects are in the cause is unspecified. So is whether a command or a
+subscription that interrupts itself while the run stops it dies of a defect.
 
 ## Advice
 

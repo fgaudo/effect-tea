@@ -188,9 +188,12 @@ the engine and in the testing tools.
   - `scopedIn` closes the scope itself and takes each defect of each release as it is: never join them with
     `Cause.combine`, which keeps one of two defects equal by `Equal`. What `scopedIn` ends with once the scope has
     closed (`Core.released`) is read only by the register and by a tool's `run`, so that join has no mutation.
-  - The order of the defects is the engine's to keep, and no promise: the guide leaves it unspecified, with two cases
-    that each rest on half of a premise read only in Effect's source (`premises.md`). No promise rests on what a
-    function of Effect makes of a cause.
+  - The order of the defects is the engine's to keep, and no promise: the guide leaves it unspecified, with what else
+    rests on a premise that Effect may change (`premises.md`, "The rule"): a self-interruption as the run stops the
+    fiber, and which defects of several releases of one command or one subscription are in the cause. An `Equal` or a
+    `Hash` of the program that throws it leaves undefined. One promise rests on such a premise still, that only the
+    run interrupts a fiber the run forks: `dying` asks the fiber what it received, and `premises.md` says what of the
+    answer Effect does not document.
   - The register is read once, as the run ends: its effects end once a defect is recorded (`died`), or as whoever runs
     it interrupts it, and the run then reads the register, and ends with the defects first, in that order, then what
     else it ended with (`endedWith` in `core.ts`, which the tools end with too). Where `init` threw there is no engine,

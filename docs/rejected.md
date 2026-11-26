@@ -22,10 +22,10 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
 - **Leaving "Only the run, and whoever runs it, interrupt them" to the program.** Reasoned, 19 November 2026, and
   weighed again on 24 November, when the owner closed the step that was to spike it and kept the guarantee: it would
   keep ways to end in silence (a run that hangs, a `hearNext` that waits for ever, `simulate` succeeding) in a library
-  that forbids them elsewhere. Of its six premises, four are documented since Effect 4.1.5, and two are asked of Effect
-  (`ROADMAP.md`, step 47). Weighed again in step 61, by the values: a command that never answers ends in silence
-  (value 1), which no simpler engine pays for (value 5). _Reopen if_ a fiber the run forks can be interrupted without
-  the run's mark by anything but the program.
+  that forbids them elsewhere. Of its six premises, four are documented since Effect 4.1.5, one is by the model, and
+  one is open, which step 106 of `ROADMAP.md` weighs ([`premises.md`](premises.md)). Weighed again in step 61, by the
+  values: a command that never answers ends in silence (value 1), which no simpler engine pays for (value 5).
+  _Reopen if_ a fiber the run forks can be interrupted without the run's mark by anything but the program.
 - **`onApplied` and `onIgnored` as effects, each call in a fiber of its own.** Spiked, 19 November 2026 (`542cb6d` on
   `spike/strict-interruptions`, against `c69b78f` on `spike/synchronous-options`): correct under 1,424 interruptions,
   but about 28% fewer messages a second, where functions gave some 7% more. The owner chose functions as the cleaner
@@ -169,11 +169,14 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   it is told, and on comparing states by `Equal`. Telling the child as a start does keeps "A child was last told what
   its parent's state gives" by construction, and a rule of the guide asking a test for such states was the last rung
   (value 2). _Reopen if_ a test must hold a child in a state that its declared `tell` would change.
-- **A caret as the peer range of Effect** (`^4.1.4`). Reasoned, 23 November 2026
-  ([`premises-and-range.md`](records/premises-and-range.md)): the owner kept the tilde, since a published version keeps
-  its range and a patch that leaves a broken Effect out reaches only who installs after it. The range was a caret from
-  12 to 17 November 2026. _Reopen if_ the premises that hold a guarantee are documented by Effect, or the library no
-  longer rests on them.
+- **A tilde as the peer range of Effect** (`~4.1.6`), with a release of the library at each minor of Effect. The range
+  from 17 to 26 November 2026, which the owner kept on 23 November against a caret
+  ([`premises-and-range.md`](records/premises-and-range.md)) and undid on 26 November. Reasoned, on a new fact:
+  Effect's answers (Effect-TS/effect#10683, Effect-TS/effect#10878) left premises that it will not document, so the
+  tilde would have meant following each release of Effect for good, and it kept no broken Effect out, since a patch
+  may change what a minor may. The promises that rested on what Effect may change were narrowed instead, but one
+  ([`premises.md`](premises.md), "The rule"). _Reopen if_ step 106 of `ROADMAP.md` leaves that promise on an open
+  premise, or another comes to rest on one that no design avoids.
 
 ## The API
 

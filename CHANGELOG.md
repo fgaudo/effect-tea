@@ -48,6 +48,12 @@ version, and everything else, features included, the patch version.
   `init: { state }`, keeps what each child was told until the value changes. A state given as `init: { state }` is one
   that the program made, or that `stateOf` made for it ("Guarantees").
   Upgrade: a state kept across a reload after a declaration changed is not given back; start from `init`.
+- **Breaking**: an `Equal` and a `Hash` that the program writes do not throw: what the library does of one that throws
+  is undefined, where it was a defect, a key's in `'subscriptions'` ("Guarantees", "What is left to you").
+  Upgrade: an `Equal` or a `Hash` that may throw returns a value instead.
+- **Breaking**: unspecified, and no longer promised: which defects of several releases of one command or one
+  subscription that die are in the cause. The run dies, as before ("Running", "The defects in the cause").
+  Upgrade: a crash report that lists each defect of a command's releases may now list fewer.
 - **Breaking**: `hearNext` whose message is applied returns it once the job of the message is done, as `send` returns,
   though a fiber of the program dies meanwhile, its message's model among them: the rehearsal then fails with the
   defect. It failed with the defect at once. It fails with the defect while it waits for its message.
@@ -59,7 +65,7 @@ version, and everything else, features included, the patch version.
   Upgrade: declare each child with `child` or `childById`, and give `withChildren` what they return; a program that
   read a member of a declaration (`_tag`, `program`, `there`, `key`, `listening`, `tell`, `listed`, `flagged`) keeps
   what it gave to `child` or `childById` instead, and a type written for a child names its own `There` and `Id`.
-- The peer dependency on `effect` is `~4.1.6`, where it was `~4.1.5`.
+- The peer dependency on `effect` is `^4.1.6`, where it was `~4.1.5`: every later Effect 4 is accepted.
 - The skill for coding agents, `skills/effect-tea/SKILL.md`, is an index of the guide: the title of each rule and of
   each piece of advice, under its page and its section, in place of a summary of the rules in its own words.
 

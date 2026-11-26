@@ -84,7 +84,7 @@
     "minimatch": "^11.0.1"
   },
   "peerDependencies": {
-    "effect": "~4.1.6",
+    "effect": "^4.1.6",
     "react": "^19.3.0",
     "snabbdom": "^3.6.4"
   },

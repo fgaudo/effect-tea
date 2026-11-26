@@ -3,7 +3,8 @@
 **Status:** sorted on 23 November 2026 by a session of Fable 5.2, for step 8 of [`ROADMAP.md`](../../ROADMAP.md). The
 owner decided the same day ("Decided"): the two finest guarantees are described, which is done, and the range stays a
 tilde, against the advice. It answers part 6 of [`architecture-review.md`](architecture-review.md). Reasoned, not run:
-no premise was taken away to see what fails. Last read against the code at `476d754`.
+no premise was taken away to see what fails. Last read against the code at `476d754`. The owner undid the range on 26
+November 2026 ("Since"): the sort below is of the premises of 23 November.
 
 ## In short
 
@@ -217,3 +218,19 @@ By the owner, on 23 November 2026:
   owner took three steps instead, 45 to 47 of [`ROADMAP.md`](../../ROADMAP.md): an alarm before a version of Effect is
   released, the guarantee that six of the twelve premises keep weighed again with a spike, and requests to Effect to
   document what is left.
+
+## Since
+
+On 26 November 2026 the owner undid the range: it is a caret, `^4.1.6`. What was new since "Decided":
+
+- **Effect will not document what was left.** Its answers (Effect-TS/effect#10683, Effect-TS/effect#10878) declined
+  some rules, and left out what follows from the shape of an API. So [`premises.md`](../premises.md) sorts the premises
+  on Effect in two kinds: by the model, whose fall would be a bug of Effect's, and open, which Effect may change.
+- **The tilde kept no broken Effect out**, since a patch may change what a minor may ("Decided", its third point), and
+  it asked for a release of the library at each minor of Effect.
+- **One promise rests on an open premise still.** Two more did, and were narrowed as the two finest were: an `Equal`
+  or a `Hash` of the program that throws is left to the program, and of several releases of one command or one
+  subscription that die, the guide promises that the run dies, not which defects are in the cause. No code, test or
+  mutation changed. The one left is what `Effect.interruptible` fails with, which holds "Only the run, and whoever
+  runs it, interrupt them": step 106 of [`ROADMAP.md`](../../ROADMAP.md) weighs a design without it. The tilde is in
+  [`rejected.md`](../rejected.md).

@@ -109,10 +109,11 @@ each bridge's to promise (see [view](./view.md#rules)).
   `key`, start a child again. A function made anew in `flags` or `key` is other flags each time, since `Equal` compares
   a function by reference. Nothing says so: the child starts again, and loses its state (see
   [composition](./composition.md#when-a-child-is-there)).
-  - An `Equal` and a `Hash` that your program writes, for a key, what `key` gives, an id or flags, keep Effect's rules:
-    values that `Equal` finds equal have the same `Hash`, and both give the same answer each time. Nothing checks
-    them. Where one breaks them, what the library does with that value is undefined: which subscriptions and children
-    it keeps, and which dispatch it gives a child.
+  - An `Equal` and a `Hash` that your program writes, for a key, what `key` gives, an id, flags or what a declared
+    `tell` gives, keep Effect's rules: values that `Equal` finds equal have the same `Hash`, both give the same answer
+    each time, and neither throws. Nothing checks them. Where one breaks them, what the library does with that value
+    is undefined: which subscriptions and children it keeps, which dispatch it gives a child, what it tells a child,
+    and whether the run dies.
 - **A state that starts a program elsewhere is one that the program made.** A state given as `init: { state }` is one
   that this program made, by every function of its declarations, or one that `stateOf` made for it. What the library
   does with another, as one kept across a reload in development after a declaration changed, is unspecified.

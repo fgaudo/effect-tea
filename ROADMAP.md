@@ -32,11 +32,11 @@ What a task or a review found that no failing test shows and no user met ("How a
 the case of the inference matrix (`bun run inference --filter <case>`). None is a step of its own: they are weighed
 together before a release, and one not taken then goes to `docs/rejected.md`.
 
-- **The peer range of Effect as a caret**, again. The owner kept the tilde (`docs/rejected.md`, "A caret as the peer
-  range of Effect"), and step 47 works toward what its "Reopen if" names. Meanwhile a user waits for a release of the
-  library at each minor of Effect, and the daily run against Effect's `main` (`effect-latest.yml`) would tell of a
-  break first. What would show it: a user who cannot install the library beside the Effect that another package of
-  theirs asks for.
+- **The fibers of the run kept by their start, and when `HashMap` calls a key's `Equal`.** An `Equal` or a `Hash` that
+  throws is undefined since 26 November 2026 ("Guarantees", "What is left to you"), so a program that keeps the rule
+  cannot see when they are called: that half of the premise (`docs/premises.md`), and "keeps its fibers by their
+  start" (`docs/invariants.md`), may serve undefined behaviour alone. What would show it: no test failing with the
+  fibers kept in a `FiberMap` by their keys, but those of an `Equal` that throws.
 
 ## Next, in order
 
@@ -68,6 +68,36 @@ closed step 90 (`git log --grep "Close step 90"`), each against the whole of the
 **Done when** each gap is closed, or is a step of this file, and, in place of this step, one line here names the
 commit that closed it, for the next reading.
 
+### 106. Tell the run's stops without asking Effect what a fiber received
+
+**Model and effort.** Fable 5.2, `high`: a premise questioned, and a design whose constraints pull apart.
+
+**Depends on** no other step. It changes the engine ([`change-engine`](.agents/skills/change-engine/SKILL.md)).
+
+**Why.** One promise rests on a premise that Effect may change (`docs/premises.md`, "The rule"): "Only the run, and
+whoever runs it, interrupt them". `dying` in `shell.ts` asks a fiber which interruptions it received, by entering
+`Effect.interruptible` where it is uninterruptible, and takes for the program's each interruption of the cause that the
+fiber did not receive (`Core.otherwiseDefect`). The JSDoc says neither that an interruption already caught makes that
+region fail again, nor that it fails with the reasons of the requests alone. The caret of the peer range stands with
+this one exception known (`docs/rejected.md`, "A tilde as the peer range of Effect").
+
+**How.** Three ways, weighed in this order, and the first that holds is taken.
+
+1. A design that asks Effect nothing. The run makes each stop itself, with a mark made anew (`stopping`): a mark that
+   names the fiber it stops would tell that fiber's own stop from one it joined, with no question of what it received.
+   To weigh against it: the fiber that whoever runs the program interrupts, with no mark; `rehearse` and `simulate`,
+   which stop a command themselves (`runFirst` in `testing/stage.ts`); and what `docs/rejected.md` holds of this
+   guarantee, the spike of 19 November 2026 among it.
+2. A request to Effect for the general rule, which the owner opens: what an interrupted fiber fails with each time it
+   enters an interruptible region. It is not on the list that Effect-TS/effect#10683 declined, nor does it follow from
+   the shape of an API.
+3. A check of this premise alone as a run starts, so that a published version refuses an Effect on which it fell.
+
+**Done when** the premise is gone from `docs/premises.md` with its test, or Effect documents it, or its entry names
+the request that the owner opened and what guards a run meanwhile; "The rule" there, `upgrade-effect`, the record
+[`premises-and-range.md`](docs/records/premises-and-range.md) and the entry of the tilde in `docs/rejected.md` name no
+exception, or say why one stays; and the checks of `change-engine` pass where the engine changed.
+
 ## For the owner
 
 What leaves this machine, or decides what the project is ("Deciding" in `AGENTS.md`): an agent prepares it, and the
@@ -78,63 +108,6 @@ owner does it.
 - **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
   decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API, after a
   reading of the promises and a review of the premises over everything. Until then, releases stay at 0.x.
-
-### 47. Ask Effect to document what the library rests on
-
-**Model and effort.** Opus 5.5, `high`, for the drafts: each request states a general rule of Effect, true of its
-source.
-
-**Depends on** no other step. Step 46, which weighed the guarantee of an interruption by the program, was closed on 24
-November 2026 with the guarantee kept: its two premises stay in `docs/premises.md`, and are asked here.
-
-**Since the upgrade to Effect 4.1.5** (23 November 2026), its JSDoc documents seventeen of the thirty-one premises on
-Effect, which left `docs/premises.md` with their tests: what `FiberSet.run` and `FiberMap.run` promise of the fiber
-they fork, a fork's region and `startImmediately`, the cleanup of `Effect.onExit`, the order of a scope's finalizers, a
-handler that an interrupted fiber skips, the annotations of `Fiber.interruptAs`, the races, `acquireUseRelease`,
-`suspend`, `Fiber.await`, and the clock of a timeout and its default. Since the upgrade to Effect 4.1.6 (26 November
-2026), four more: `Stream.callback`, `Channel.toPull`, the external span and the `Logger`. Nine are left, the
-scheduler's aside.
-
-**Why.** A behaviour that a stable API documents is no premise (`docs/premises.md`, "The rule"): Effect
-keeps it within the major, and a change of it is Effect's to announce. It is the one way a premise leaves the list
-with nothing of the library changed, and what would reopen the caret (`docs/rejected.md`, "A caret as the peer range of
-Effect").
-
-**How.** Each premise on Effect, in the order of the sort: those that hold a guarantee, the broad ones first; then
-the where and the order of a defect; then the testing tools'. A request asks for the general rule, never for the
-library's case: when a scope runs its finalizers, not that the engine's end runs before its sets close. Read first
-whether the JSDoc of the newest Effect says it already (`upgrade-effect`, step 4 of "Upgrading Effect"), what
-effect.website and the `ai-docs` of the package say of it, and whether an issue asks it: the request cites what they
-say, as Effect-TS/effect#10719 cited the website, since a maintainer reads it with them in mind. A request is an issue,
-or a pull request of the JSDoc alone where the rule is a sentence. An agent drafts each, with its text, and the owner
-opens it, in the owner's name. The premise of the scheduler of the tests, and that of the JavaScript engine, are not
-asked.
-
-**Asked on 24 November 2026**, in Effect-TS/effect#10877, after the two requests answered (Effect-TS/effect#10667 by
-Effect-TS/effect#10683, and Effect-TS/effect#10719 by Effect-TS/effect#10731), and answered by Effect-TS/effect#10878,
-in Effect 4.1.6: its JSDoc now states three of the four rules asked, the scope a stream runs in, an external span that
-records nothing, and a logger called synchronously in the fiber that logs. The fourth, that the hash collections call
-`Equal` and `Hash` only during a call, it left out, and the owner agreed there that it should not have been asked: it
-follows from the shape of the API, since a function that returns no `Effect` does its work during the call. So what
-follows from Effect's model is not asked: only what an implementation Effect could choose would do otherwise, where a
-user of Effect would then write other code. The premise of `HashMap` stays, with its tests, since `DefectSite` promises
-where a key's `Equal` throws. What the first answer chose not to promise is not asked again: a rule for callbacks that
-throw, `run` on a closed container, when a loser is interrupted, how the failures of cleanups combine, and the turn of a
-deferred fork.
-
-Not asked: the two premises of how the failures of cleanups combine (`Effect.onExit`, `Scope.close`) and that of a
-`Deferred` resuming on the stack of whoever completes it, which fall under what the first answer declined; and those of
-what a `Queue` and the runtime keep, whose fall would be a leak that Effect fixes as a bug.
-
-**Still to ask**, since step 46 kept the guarantee that rests on them: what `Effect.interruptible` fails with, entered
-by an interrupted fiber where it is uninterruptible (the second half of its premise; the first half holds only what
-the guide leaves unspecified), and the fiber that code run on the stack of its forker sees as its own. Since step 57,
-also that one channel runs afresh each time it is run, which the guide's `listen: () => ticks` rests on: a rule of
-`Channel` in general, not of `listen`. Each is read first against what the first answer declined, as the others were.
-
-**Done when** each premise on Effect names, in `docs/premises.md`, the request that the owner opened for it, or says
-that none was asked and why. A premise leaves the list by an upgrade to the Effect that documents it
-(`upgrade-effect`).
 
 ## Any time
 
