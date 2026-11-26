@@ -3,7 +3,9 @@
 // what the call waits for, a command taken and run, and the end that stops the engine. The engine is made by the tool,
 // told what the stage gives it (`Staging`), and given to the stage once made (`on`): `rehearse` makes it through the
 // handle the run makes, with the fibers of its starts, and `simulate` with starts that run nothing
-// (`docs/records/tools-on-the-engine.md`).
+// (`docs/records/tools-on-the-engine.md`). A call of a tool waits in two ways only, both given here: before it has
+// applied anything, raced with a death (`waiting`, `afterJobs`), and once it has applied its message, for the job whole
+// (what `apply` and `dispatch` return). The lint holds the tools to them: they await no `Deferred` themselves.
 import * as Arr from "effect/Array"
 import * as Cause from "effect/Cause"
 import type * as Context from "effect/Context"
@@ -14,7 +16,7 @@ import * as Fiber from "effect/Fiber"
 import * as Opt from "effect/Option"
 import * as Scope from "effect/Scope"
 import type { RunCommand } from "../command.ts"
-import { type Arrived, endedWith, fromCommand, type Generation, type Source } from "../core.ts"
+import { type Arrived, endedWith, fromCommand, fromDispatch, type Generation, type Source } from "../core.ts"
 import type * as Engine from "../engine.ts"
 import { commandFiber, type Deaths, stopping } from "../shell.ts"
 import * as Ledger from "./ledger.ts"
@@ -34,20 +36,6 @@ export type Parked<Message, R> = Readonly<{
   fiber: Deferred.Deferred<Fiber.Fiber<void>>
   given: Deferred.Deferred<Given<Message, R>>
 }>
-
-/**
- * What a thunk that applied a message leaves to its call: the run had died, or it died there (`Dead`); a message the
- * test sent and `update` rejected (`Rejected`); or the completion of a job after its own, which the call awaits
- * (`Queued`).
- */
-export type Outcome =
-  | Readonly<{ _tag: "Dead" }>
-  | Readonly<{ _tag: "Rejected" }>
-  | Readonly<{ _tag: "Queued"; done: Opt.Option<Deferred.Deferred<void>> }>
-
-const deadOutcome: Outcome = { _tag: "Dead" }
-
-const rejectedOutcome: Outcome = { _tag: "Rejected" }
 
 /** What a take of the oldest pending command a `select` matches came to: none, or the command and the wait for its job. */
 export type Ran<Command> =
@@ -107,10 +95,11 @@ export interface Stage<State, Message, Command, Event, CommandServices, Key, S, 
   readonly ignored: () => ReadonlyArray<Message>
   readonly deadOr: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
   /**
-   * Races a call that waits for a subscription or a command with a death, whichever fiber dies, as the run dies at
-   * once: what it waits for would come in a run that died.
+   * How a call waits before it has applied anything, for a start, a subscription's message or a command: raced with a
+   * death, whichever fiber dies, as the run dies at once, since what it waits for would come in a run that died. A call
+   * that was told what it heard (`told`, `deferred` by default) as the death came waits on for `deferred`.
    */
-  readonly orDead: <A, E, R>(waiting: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
+  readonly waiting: <A, T = A>(deferred: Deferred.Deferred<A>, told?: Deferred.Deferred<T>) => Effect.Effect<A>
   /**
    * Runs `decide` in one thunk with the check of the end: once the end is marked, `decide` is not called, and the call
    * is `refused`, an interruption unless it says otherwise.
@@ -120,23 +109,32 @@ export interface Stage<State, Message, Command, Event, CommandServices, Key, S, 
     refused?: Effect.Effect<A, E, R>
   ) => Effect.Effect<A, E, R>
   /**
-   * A job that only tells, after every job offered so far, that of the step this thunk applied included: what it
-   * tells, then its completion.
+   * Offers, at once, a job that only tells, after every job offered so far: `then`, then its completion, which the
+   * effect returned waits for, as a call waits before it has applied anything (`waiting`, with `told`).
    */
-  readonly afterJobs: (then?: () => void) => Deferred.Deferred<void>
+  readonly afterJobs: <T>(then: () => void, told?: Deferred.Deferred<T>) => Effect.Effect<void>
   /**
-   * In a thunk that has checked the end: the message given to the engine, and what the call waits for, the job of its
-   * step and those before. A message `update` rejects is `Rejected` when `rejected` is `"fail"`, and listed in
-   * `ignored` otherwise. `told` is called by the job, once done.
+   * In a thunk that has checked the end: a message of a subscription given to the engine, and how its call waits once
+   * it is applied, for the job of its step and those before, whole, though another fiber dies meanwhile; or for the
+   * defects, where the step died. A message `update` rejects is listed in `ignored`.
    */
-  readonly apply: (
-    source: Source<Key>,
-    message: Message,
-    rejected: "fail" | "list",
-    told?: () => void
-  ) => Outcome
-  /** What the call that applied a message waits for: its job, or the defects, or `rejected`. */
-  readonly outcomeOf: (outcome: Outcome, rejected?: () => Effect.Effect<void>) => Effect.Effect<void>
+  readonly apply: (source: Source<Key>, message: Message) => Effect.Effect<void>
+  /**
+   * As `apply`, for a call that waits, in another fiber, to be told what it heard: `tell` is given how the call waits
+   * for the job, and called before the message is applied, so that the call is told before any death the message
+   * meets, and waits for its job (`waiting`).
+   */
+  readonly applyFor: (source: Source<Key>, message: Message, tell: (applied: Effect.Effect<void>) => void) => void
+  /**
+   * Applies a message of the test's as a dispatch: once the register is checked, in a thunk that checks the end,
+   * `decide` is called and gives the call's effect, through `applying` where it applies `message`, which waits as
+   * `apply` waits. A message `update` rejects ends the call with `rejected`.
+   */
+  readonly dispatch: (
+    decide: (
+      applying: (message: Message, rejected: () => Effect.Effect<void>) => Effect.Effect<void>
+    ) => Effect.Effect<void>
+  ) => Effect.Effect<void>
   /** Runs the oldest pending command `select` matches, and waits for the job of its answer; or finds none. */
   readonly runFirst: (
     select: (command: Command) => boolean
@@ -177,8 +175,12 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
   // Given once, by `on`, before anything below that reads it runs: the engine's thunk and its jobs run only once the
   // engine is made, and a call only once the stage is.
   let engine: Engine.Engine<State, Message, never, Key>
-  const orDead = <A, E, R>(waiting: Effect.Effect<A, E, R>) =>
-    Effect.raceFirst(waiting, Effect.andThen(register.died, failedOr(Effect.never)))
+  // A death fails the wait, unless the call was told what it heard as it came (`waiting`).
+  const orDead = <A, E, R>(wait: Effect.Effect<A, E, R>, told: () => boolean = () => false) =>
+    Effect.raceFirst(
+      wait,
+      Effect.andThen(register.died, Effect.suspend(() => told() ? wait : failedOr(Effect.never)))
+    )
   const submit = <A, E, R>(decide: () => Effect.Effect<A, E, R>, refused: Effect.Effect<A, E, R> = Effect.interrupt) =>
     Effect.suspend(() => engine.ended() ? refused : decide())
   let events: ReadonlyArray<Event> = []
@@ -197,7 +199,7 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
     }
     stage.ledger = listenedTo(stage.ledger, step.gone, step.fresh)
   }
-  const afterJobs = (then: () => void = () => undefined): Deferred.Deferred<void> => {
+  const told = (then: () => void = () => undefined): Deferred.Deferred<void> => {
     const done = Deferred.makeUnsafe<void>()
     undelivered.add(done)
     engine.after(() => {
@@ -207,50 +209,55 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
     })
     return done
   }
+  // A death that comes once the call is told what it heard, in the thunk that applies its message (`applyFor`), as a
+  // defect of the model of its state, leaves the call to what it was told: its message is applied, and it waits for
+  // its job. That thunk may run inside the job the call waits for, which wakes a subscription on its stack.
+  const waiting = <A, T = A>(deferred: Deferred.Deferred<A>, told?: Deferred.Deferred<T>) =>
+    orDead(
+      Deferred.await(deferred),
+      () => told === undefined ? Deferred.isDoneUnsafe(deferred) : Deferred.isDoneUnsafe(told)
+    )
   // The pure half of a step is the engine's, called in a thunk that has checked the end: what it came to decides what
   // the call waits for, the job of its step and those before. A step that a defect stopped leaves the call to the
   // defect: `update` or `subscriptions` threw, which the engine recorded where it happened, or the run had died. A
   // defect of a later model is recorded by the engine where its listener reads it, and the step goes on whole.
-  const apply = (
+  const applying = (
     source: Source<Key>,
     message: Message,
-    rejected: "fail" | "list",
-    told: () => void = () => undefined
-  ): Outcome => {
+    rejected: Opt.Option<() => Effect.Effect<void>>
+  ): Effect.Effect<void> => {
     arrived = Opt.none()
     engine.send(message, source)
-    if (Opt.isNone(arrived)) return deadOutcome
+    if (Opt.isNone(arrived)) return failedOr(Effect.never)
     const step = arrived.value
     switch (step._tag) {
       case "Dead":
-        return deadOutcome
+        return failedOr(Effect.never)
       // No call gives the engine a message whose start is no longer active: `hear` fails on a key gone from the
       // current state, and the ledger forgets a start in the thunk that stops it, so that `hearNext` hears nothing
       // more of it.
       case "Dropped":
-        return { _tag: "Queued", done: Opt.none() }
+        return Effect.void
       case "Ignored":
-        if (rejected === "fail") return rejectedOutcome
+        if (Opt.isSome(rejected)) return rejected.value()
         ignored = [...ignored, message]
         break
       case "Applied":
         accepted(message, step)
     }
-    return { _tag: "Queued", done: Opt.some(afterJobs(told)) }
+    return Deferred.await(told())
   }
-  const outcomeOf = (
-    outcome: Outcome,
-    rejected: () => Effect.Effect<void> = () => Effect.void
-  ): Effect.Effect<void> => {
-    switch (outcome._tag) {
-      case "Dead":
-        return failedOr(Effect.never)
-      case "Rejected":
-        return rejected()
-      case "Queued":
-        return Opt.match(outcome.done, { onNone: () => Effect.void, onSome: Deferred.await })
-    }
+  const apply = (source: Source<Key>, message: Message) => applying(source, message, Opt.none())
+  const applyFor = (source: Source<Key>, message: Message, tell: (applied: Effect.Effect<void>) => void) => {
+    const applied = Deferred.makeUnsafe<Effect.Effect<void>>()
+    tell(Effect.flatten(Deferred.await(applied)))
+    Deferred.doneUnsafe(applied, Exit.succeed(apply(source, message)))
   }
+  const dispatch = (
+    decide: (
+      applying: (message: Message, rejected: () => Effect.Effect<void>) => Effect.Effect<void>
+    ) => Effect.Effect<void>
+  ) => failedOr(submit(() => decide((message, rejected) => applying(fromDispatch, message, Opt.some(rejected)))))
   // Calls the program where the call is decided, in the thunk that checks the register: what it throws is a defect of
   // the effect it would have returned, in the site and the scope that effect gets.
   const calling = <A, E, R>(call: () => Effect.Effect<A, E, R>): Effect.Effect<A, E, R> => {
@@ -266,9 +273,9 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
   // as the engine's fiber does (`commandFiber`), interruptible throughout: an interruption that lands before the thunk
   // of the answer leaves it unapplied, and the root makes one without the run's mark a defect. The thunk applies the
   // answer and leaves what its `run` does last, the wait for the job of the answer, and the command is no longer under
-  // way from that thunk on. Refused, as the stage has ended, the answer is applied by nobody, and the command was under
-  // way when it ended: its fiber ends with nothing to do, since one that interrupts itself is a defect. However the
-  // fiber ends, the command is no longer under way.
+  // way from that thunk on. Refused, as the stage has ended, or as its run was interrupted before it and cancelled it
+  // (`Ledger.settle`), the answer is applied by nobody: its fiber ends with nothing to do, since one that interrupts
+  // itself is a defect. However the fiber ends, the command is no longer under way.
   const answering = (command: Command): Effect.Effect<void> => {
     const parked: Parked<Message, CommandServices> = { fiber: Deferred.makeUnsafe(), given: Deferred.makeUnsafe() }
     stage.ledger = Ledger.owe(stage.ledger, [{ command, handle: parked }])
@@ -276,25 +283,25 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
       // The engine forks it to run what this function returns, which succeeds with nothing and cannot fail.
       Deferred.doneUnsafe(parked.fiber, Exit.succeed(own as Fiber.Fiber<void>))
       return Effect.flatMap(Deferred.await(parked.given), ({ answer, context, effect, ticket }) => {
-        const settle = () => {
-          stage.ledger = Ledger.settle(stage.ledger, ticket)
-        }
         // What the `run` does last is the wait for the job of the answer, once it is applied, and nothing otherwise:
-        // with no answer, or one the end refused. The completion that follows the fiber's body leaves an earlier one as
-        // it is.
+        // with no answer, or one refused. The completion that follows the fiber's body leaves an earlier one as it is.
         return commandFiber(
           register,
           effect,
           (message: Message) =>
             submit(() => {
-              settle()
-              Deferred.doneUnsafe(answer, Exit.succeed(outcomeOf(apply(fromCommand, message, "list"))))
+              const settled = Ledger.settle(stage.ledger, ticket)
+              if (Opt.isNone(settled)) return Effect.void
+              stage.ledger = settled.value
+              Deferred.doneUnsafe(answer, Exit.succeed(apply(fromCommand, message)))
               return Effect.void
             }, Effect.void)
         ).pipe(
           Effect.provideContext(context),
           Effect.andThen(Deferred.succeed(answer, Effect.void)),
-          Effect.ensuring(Effect.sync(settle)),
+          Effect.ensuring(Effect.sync(() => {
+            stage.ledger = Opt.getOrElse(Ledger.settle(stage.ledger, ticket), () => stage.ledger)
+          })),
           Effect.asVoid
         )
       })
@@ -367,7 +374,7 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
     (ran) => ran._tag === "None" ? Effect.void : runAll
   )
   // Waits until the engine has done every job offered before.
-  const finish = Effect.suspend(() => Deferred.await(afterJobs()))
+  const finish = Effect.suspend(() => Deferred.await(told()))
   // From its scope on, nothing interrupts the stage but in its scenario: the scope and the effects started in it are
   // one region with the end that closes and stops them, as `drive` forks its run, so that an interruption from outside
   // as it sets up meets the end too.
@@ -392,9 +399,11 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
         yield* engine.stop
         yield* Effect.forEach(Arr.fromIterable(undelivered), Deferred.interrupt, { discard: true })
         yield* Scope.close(forks, Exit.void)
-        yield* Effect.forEach(stage.ledger.underWay.values(), ({ handle }) => Deferred.interrupt(handle.fiber), {
-          discard: true
-        })
+        yield* Effect.forEach(
+          [...stage.ledger.underWay.values(), ...stage.ledger.cancelled],
+          ({ handle }) => Deferred.interrupt(handle.fiber),
+          { discard: true }
+        )
         yield* Effect.suspend(last)
       })
       // A defect of the program comes first, as the run keeps first what ended it, then what the scenario ended with,
@@ -427,11 +436,12 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
     events: () => events,
     ignored: () => ignored,
     deadOr: failedOr,
-    orDead,
+    waiting,
     submit,
-    afterJobs,
+    afterJobs: (then, heard) => waiting(told(then), heard),
     apply,
-    outcomeOf,
+    applyFor,
+    dispatch,
     runFirst,
     runAll,
     play

@@ -2037,6 +2037,7 @@ describe("rehearse, as a call is interrupted between what it took and its job", 
       subscriptions: () => [],
       makeModel: (state) => state
     }
+    let answered = false
     const exit = yield* Effect.exit(rehearse(
       program,
       Effect.fnUntraced(function*(rehearsal) {
@@ -2047,10 +2048,12 @@ describe("rehearse, as a call is interrupted between what it took and its job", 
         yield* Fiber.await(running)
         yield* Fiber.await(interrupting)
         yield* rehearsal.send(() => Opt.some("Noop"))
-        return (yield* rehearsal.state).answered
+        answered = (yield* rehearsal.state).answered
+        return answered
       })
     ))
-    return { seen, unanswered: Exit.isSuccess(exit) && !exit.value }
+    const cancelled = Exit.isFailure(exit) && Cause.pretty(exit.cause).includes("interrupted before they answered")
+    return { seen, unanswered: Exit.isSuccess(exit) && !exit.value, answeredAndCancelled: answered && cancelled }
   })
 
   const runs = { runs: 1000, depth: 3, first: 1, resumptions: "inline" } as const
@@ -2070,6 +2073,15 @@ describe("rehearse, as a call is interrupted between what it took and its job", 
     prioritizedSchedules(interrupted, { ...runs, pinned: [8, 17, 29, 44] }, (exit) => {
       if (Exit.isFailure(exit)) throw new Error(Cause.pretty(exit.cause))
       expect(exit.value.unanswered && !exit.value.seen.includes("started")).toBe(false)
+    })
+  })
+
+  // The interruption reaches the call as the command answers: the answer is applied, or the command is cancelled,
+  // never both.
+  test("a run interrupted as its command answers applies the answer or reports it cancelled, never both", () => {
+    prioritizedSchedules(interrupted, { ...runs, pinned: [105, 132, 225, 253] }, (exit) => {
+      if (Exit.isFailure(exit)) throw new Error(Cause.pretty(exit.cause))
+      expect(exit.value.answeredAndCancelled).toBe(false)
     })
   })
 
@@ -2555,8 +2567,8 @@ describe("rehearse, as a scenario that failed stops its fiber of effects in the 
     expect(outcome).toContain("The subscription under a was stopped while hearNext waited for its message")
   })
 
-  // Under `a`, `Stop` and nothing more; under `b`, a subscription that lingers. The call that hears `Stop` is out
-  // of its start, to be told once the job of the message is done, while that job waits for the release of `b`.
+  // Under `a`, `Stop` and nothing more; under `b`, a subscription that lingers. The call that hears `Stop` waits for
+  // the job of the message, whole, while that job waits for the release of `b`.
   const stoppingBoth = (
     stopped: Deferred.Deferred<void>
   ): Program<{ state: Listening; model: Listening; message: Message; key: "a" | "b" }> => ({
@@ -2566,7 +2578,7 @@ describe("rehearse, as a scenario that failed stops its fiber of effects in the 
       key === "a" ? Channel.succeed<Message>("Stop").pipe(Channel.concatWith(() => Channel.never)) : lingers(stopped)
   })
 
-  test("a hearNext whose message was stopping a subscription as the scenario failed fails as one waiting", async () => {
+  test("a hearNext whose message's job the end stops, as the scenario failed, is interrupted as a send is", async () => {
     const outcome = await Effect.runPromise(Effect.gen(function*() {
       const stopped = yield* Deferred.make<void>()
       let call: Fiber.Fiber<Message> | undefined
@@ -2583,10 +2595,10 @@ describe("rehearse, as a scenario that failed stops its fiber of effects in the 
       const ended = call === undefined ? Opt.none() : yield* Effect.timeoutOption(Fiber.await(call), "1 second")
       return Opt.match(ended, {
         onNone: () => "hung",
-        onSome: (exit) => Exit.isFailure(exit) ? String(Cause.squash(exit.cause)) : "heard"
+        onSome: (exit) => Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause) ? "interrupted" : "other"
       })
     }))
-    expect(outcome).toContain("The subscription under a was stopped while hearNext waited for its message")
+    expect(outcome).toBe("interrupted")
   })
 })
 
@@ -2826,27 +2838,6 @@ describe("rehearse, as the job of a message waits for a release", () => {
     expect(Opt.isSome(exit) && Exit.isFailure(exit.value) && String(Cause.squash(exit.value.cause))).toContain(
       "The subscription under b was stopped while hearNext waited"
     )
-    expect(log).toEqual([])
-  })
-
-  test("a hearNext whose job comes after a defect starts no subscription", async () => {
-    const log: Array<string> = []
-    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
-      const releasing = yield* Deferred.make<void>()
-      const gate = yield* Deferred.make<void>()
-      return yield* rehearse(
-        swapping(releasing, gate, log),
-        Effect.fnUntraced(function*(rehearsal) {
-          const swapped = yield* holding(rehearsal, releasing)
-          const hearing = yield* Effect.forkChild(rehearsal.hearNext((key) => key === "b"), { startImmediately: true })
-          yield* Effect.exit(rehearsal.send(() => Opt.some<Swap>("Boom")))
-          yield* Deferred.succeed(gate, undefined)
-          yield* Fiber.await(swapped)
-          yield* Fiber.await(hearing)
-        })
-      )
-    }))
-    expect(Exit.isFailure(exit)).toBe(true)
     expect(log).toEqual([])
   })
 
@@ -3134,5 +3125,33 @@ describe("rehearse, with a value that throws as it is named", () => {
       `Commands still pending when the scenario ended: ${unnamed}, ${unnamed}`,
       ["Error: tag", "Error: tag"]
     ])
+  })
+})
+
+describe("rehearse, as a call that has applied its message meets a defect", () => {
+  type Count = Readonly<{ count: number }>
+  // The model of the state that `Tick` makes throws: a defect recorded in the thunk that applies the message, before
+  // the call is told what it heard.
+  const program: Program<{ state: Count; model: Count; message: "Tick"; key: "k" }> = {
+    init: { state: { count: 0 } },
+    update: () => (state) => ({ state: { count: state.count + 1 } }),
+    subscriptions: () => ["k" as const],
+    listen: () => Channel.succeed<"Tick">("Tick").pipe(Channel.concatWith(() => Channel.never)),
+    makeModel: (state) => {
+      if (state.count === 1) throw new Error("model")
+      return state
+    }
+  }
+
+  test("a hearNext whose message's model throws returns the message, as a send does", async () => {
+    let heard: Opt.Option<Exit.Exit<"Tick">> = Opt.none()
+    const exit = await Effect.runPromiseExit(rehearse(
+      program,
+      Effect.fnUntraced(function*(rehearsal) {
+        heard = Opt.some(yield* Effect.exit(rehearsal.hearNext((key) => key === "k")))
+      })
+    ))
+    expect(heard).toEqual(Opt.some(Exit.succeed("Tick")))
+    expect(Exit.isFailure(exit)).toBe(true)
   })
 })

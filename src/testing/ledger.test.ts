@@ -55,20 +55,19 @@ describe("the commands", () => {
     expect(Ledger.owe(empty, [])).toBe(empty)
   })
 
-  test("a command interrupted is cancelled and stays under way until it settles", () => {
+  test("a command interrupted is cancelled with the handle of its fiber, and settled by no answer after", () => {
     const [{ ticket }, under] = taken(empty, () => true)
     const cancelled = Ledger.cancel(under, ticket)
-    expect(cancelled.cancelled).toEqual(["A"])
-    expect(cancelled.underWay.has(ticket)).toBe(true)
-    const settled = Ledger.settle(cancelled, ticket)
-    expect(settled.underWay.size).toBe(0)
-    expect(settled.cancelled).toEqual(["A"])
+    expect(cancelled.cancelled).toEqual([{ command: "A", handle: "a1" }])
+    expect(cancelled.underWay.size).toBe(0)
+    expect(Opt.isNone(Ledger.settle(cancelled, ticket))).toBe(true)
   })
 
-  test("a ticket no longer under way changes nothing", () => {
+  test("a command that answered is settled once, and cancelled by no interruption after", () => {
     const [{ ticket }, under] = taken(empty, () => true)
-    const settled = Ledger.settle(under, ticket)
-    expect(Ledger.settle(settled, ticket)).toBe(settled)
+    const settled = Opt.getOrThrow(Ledger.settle(under, ticket))
+    expect(settled.underWay.size).toBe(0)
+    expect(Opt.isNone(Ledger.settle(settled, ticket))).toBe(true)
     expect(Ledger.cancel(settled, ticket)).toBe(settled)
   })
 })

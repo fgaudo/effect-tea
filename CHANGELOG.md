@@ -48,6 +48,10 @@ version, and everything else, features included, the patch version.
   `init: { state }`, keeps what each child was told until the value changes. A state given as `init: { state }` is one
   that the program made, or that `stateOf` made for it ("Guarantees").
   Upgrade: a state kept across a reload after a declaration changed is not given back; start from `init`.
+- **Breaking**: `hearNext` whose message is applied returns it once the job of the message is done, as `send` returns,
+  though a fiber of the program dies meanwhile, its message's model among them: the rehearsal then fails with the
+  defect. It failed with the defect at once. It fails with the defect while it waits for its message.
+  Upgrade: a test that expects such a call to fail with the defect expects the rehearsal to fail with it.
 - The peer dependency on `effect` is `~4.1.6`, where it was `~4.1.5`.
 
 ### Fixed
@@ -60,6 +64,10 @@ version, and everything else, features included, the patch version.
   could fail with a defect of the answer's `update`.
 - `hear` that waits for the start of its key fails as soon as another fiber dies, as `hearNext` does once it waits for
   a message. It waited until the release that held the start had ended.
+- `hearNext` that waits for its message while a release holds the job that opens it fails as soon as another fiber
+  dies, as its doc comment says. It waited until the release had ended.
+- A `run` of a rehearsal interrupted as its command answers applies the answer, or fails the rehearsal as a command
+  whose run was interrupted, never both: the answer could come between the cancel of the command and its stop.
 
 ## 0.9.0 (2026-11-26)
 

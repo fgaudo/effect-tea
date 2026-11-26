@@ -1,6 +1,5 @@
 import * as Effect from "effect/Effect"
 import type * as Scope from "effect/Scope"
-import { fromDispatch } from "../core.ts"
 import * as Engine from "../engine.ts"
 import { runCommandOf, type WithRunCommand } from "../program.ts"
 import { makeDeaths } from "../shell.ts"
@@ -107,12 +106,7 @@ export const simulate = Effect.fnUntraced(function*<State, Message, Command = ne
   const [state] = yield* stage.play(Effect.gen(function*() {
     yield* stage.runAll
     for (const [index, message] of messages.entries()) {
-      yield* stage.deadOr(stage.submit(() =>
-        stage.outcomeOf(
-          stage.apply(fromDispatch, message, "fail"),
-          () => Effect.die(unexpectedRejection(index, message))
-        )
-      ))
+      yield* stage.dispatch((applying) => applying(message, () => Effect.die(unexpectedRejection(index, message))))
       yield* stage.runAll
     }
     return stage.engine.current()

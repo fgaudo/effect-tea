@@ -39,11 +39,12 @@ export type Hearing<S, W, M> =
 
 /**
  * The commands `update` started whose fiber waits for a `run`, oldest first, with the handle of that fiber; those taken
- * that have not answered, by their ticket; and those whose run was interrupted before they answered: commands cannot be
- * cancelled, so in the run each of them would still answer. How each start of a key is heard, by its generation; the
- * starts whose fiber the engine has not begun yet, each with what was made for it as its key appeared, kept apart from
- * its hearing, which is forgotten as its key goes, though its fiber still begins; and the calls that waited on a start
- * whose key went away, to tell once its fiber has released what it held. The calls of `hearNext` whose job has not made
+ * that have not answered, by their ticket; and those whose run was interrupted before they answered, with the handle of
+ * their fiber, no longer under way, so that their answer is applied by nobody: commands cannot be cancelled, so in the
+ * run each of them would still answer. How each start of a key is heard, by its generation; the starts whose fiber the
+ * engine has not begun yet, each with what was made for it as its key appeared, kept apart from its hearing, which is
+ * forgotten as its key goes, though its fiber still begins; and the calls that waited on a start whose key went away,
+ * to tell once its fiber has released what it held. The calls of `hearNext` whose job has not made
  * them wait on a start yet, each with the start it looked up: one that leaves before is no longer among them, and its
  * job makes it wait on nothing. And every call of `hearNext` from the thunk that looks its key up until it ends,
  * whatever its job has made of it: the end of the rehearsal tells them all, those a step it interrupted took out of
@@ -52,7 +53,7 @@ export type Hearing<S, W, M> =
 export type Ledger<Command, P, S, W, M> = Readonly<{
   pending: ReadonlyArray<Owed<Command, P>>
   underWay: ReadonlyMap<Ticket, Owed<Command, P>>
-  cancelled: ReadonlyArray<Command>
+  cancelled: ReadonlyArray<Owed<Command, P>>
   taken: Ticket
   hearings: ReadonlyMap<Generation, Hearing<S, W, M>>
   starting: ReadonlyMap<Generation, S>
@@ -106,24 +107,34 @@ export const take = <Command, P, S, W, M>(
   }])
 }
 
-/** The ledger with the command taken under `ticket` among those whose run was interrupted before they answered. */
+/**
+ * The ledger with the command taken under `ticket`, while it is under way, among those whose run was interrupted before
+ * they answered, and no longer under way: an answer that comes after is applied by nobody (`settle`).
+ */
 export const cancel = <Command, P, S, W, M>(
   ledger: Ledger<Command, P, S, W, M>,
   ticket: Ticket
 ): Ledger<Command, P, S, W, M> => {
   const owed = ledger.underWay.get(ticket)
-  return owed === undefined ? ledger : { ...ledger, cancelled: [...ledger.cancelled, owed.command] }
+  if (owed === undefined) return ledger
+  const underWay = new Map(ledger.underWay)
+  underWay.delete(ticket)
+  return { ...ledger, underWay, cancelled: [...ledger.cancelled, owed] }
 }
 
-/** The ledger with the command taken under `ticket` no longer under way: it answered, or its run ended otherwise. */
+/**
+ * The ledger with the command taken under `ticket` no longer under way, or nothing where it was not: it had answered,
+ * or its run was interrupted before it answered. An answer is applied only with the ledger this gives, so that the
+ * answer and the cancel of one command exclude each other.
+ */
 export const settle = <Command, P, S, W, M>(
   ledger: Ledger<Command, P, S, W, M>,
   ticket: Ticket
-): Ledger<Command, P, S, W, M> => {
-  if (!ledger.underWay.has(ticket)) return ledger
+): Opt.Option<Ledger<Command, P, S, W, M>> => {
+  if (!ledger.underWay.has(ticket)) return Opt.none()
   const underWay = new Map(ledger.underWay)
   underWay.delete(ticket)
-  return { ...ledger, underWay }
+  return Opt.some({ ...ledger, underWay })
 }
 
 type OpenedOf<S, W, M> = Extract<Hearing<S, W, M>, { _tag: "Opened" }>

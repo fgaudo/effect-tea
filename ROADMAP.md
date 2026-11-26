@@ -24,26 +24,6 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 lead of the types has no `test.failing`: its fix adds the test of the types that holds it, and a lead of the inference
 matrix is shown by its case (`bun run inference --filter <case>`).
 
-- **A `hearNext` whose job a release holds fails only once the release has ended**, though another fiber died
-  before: its doc comment says it fails with the defect "also when it was already waiting". From the review of the
-  premises of 26 November 2026; `test.failing` "hearNext waiting for the job that opens its call fails as soon as
-  another fiber of the test's dies" in `src/testing/contract.test.ts`. `hear` had the same form, fixed by racing its
-  wait for its start with `orDead`. The same race in `hearNext` (`stage.orDead(Deferred.await(done))` in
-  `rehearse.ts`) passes the test, and leaves the mutation "the job of a hearNext starts its subscription after the
-  first defect" with no killer: the call leaves at the defect before its job, so no deterministic test reaches the
-  `dead()` check of the job, which a schedule still may. The fix needs that check reached again, or shown not needed.
-  `send` waits for its job the same way, on purpose: its message is applied, and the job goes on whole. Step 102
-  closes it, with a lead for "shown not needed".
-- **An answer can be applied after its `run` has cancelled the command**, and the rehearsal then reports the command
-  as interrupted before it answered. From the review of step 101, on 26 November 2026: the release of an interrupted
-  `run` (`runFirst` in `testing/stage.ts`) cancels by its ticket (`Ledger.cancel`), then stops the fiber
-  (`stopping`), and the scheduler may yield between the two, while the thunk of the answer checks only the end
-  (`submit`), never the ticket. A probe that varied `Scheduler.MaxOpsBeforeYield` and the yields of the test found
-  both outcomes together in 55 of 1,440 runs, and in 232 before step 101, whose mask let the run's interruption through
-  to the answer. No deterministic test reaches it: a lead of the search, to be found under
-  `test/scheduled.test_scheduler.ts`. A fix makes the cancel and the answer exclusive in one thunk: the thunk of the
-  answer refuses a ticket that is cancelled, as it refuses a stage that has ended, or the cancel and the interruption
-  are one thunk. Step 102 closes it.
 - **A `Child` written by hand compiles, and one that says it is always there dies where it is not.** A lead of the
   types, from the review of the premises of 26 November 2026: `const liar: Child<Own, Leaf, 'always'> = { _tag:
   'Child', program: leaf, there: 'always', key: (state) => state.on ? Opt.some(undefined) : Opt.none() }`, given to
@@ -63,55 +43,21 @@ Both readings are due before the release after 0.9.0, whose breaking changes go 
 The last review of the premises is the commit that closed it (`git log --grep "the premises reviewed since step 65"`):
 the next one reads the changes since.
 
-Steps 102 and 103 come from a reading of the testing tools against the engine, of 26 November 2026, after that review.
-The step of a message is the engine's, and the tools differed from the run only at two seams of their own: the mask of
-a command's fiber, gone at step 101, and the waits of a call. They stand before step 100, which then reads what they
-and step 101 change of the doc comments. They rest on no new premise, so the next review of the premises reads them,
-and none is due for them before the release: a step that finds it needs a premise says so here.
-
-### 102. The waits of a call, given by the stage
-
-**Model and effort.** Opus 5.5, `high`: code that must keep invariants (`change-engine`).
-
-**Depends on** no other step. It closes the open problem of `hearNext`.
-
-**Why.** Which wait of a call is raced with a death is chosen at each wait, by wrapping it in `orDead` by hand: so step
-99 set `hear` right and left `hearNext`, of the same form. A call waits in two ways only. Before it has applied
-anything, for a start, a subscription's message or a command, it fails as soon as any fiber dies. Once it has applied
-its message, it waits for the job whole (`outcomeOf`). The stage would give both, and `rehearse.ts` and `simulate.ts`
-would await no `Deferred` of a call themselves, held by the types or the shape first, and by the lint where they
-cannot: a wait then names its kind, and a fix of a kind reaches each of its sites. The wait of a start's fiber for an
-ask (`nextAsk`) is no call's.
-
-**What was tried**, on 26 November 2026, in edits not kept: with `hearNext`'s wait for its job raced
-(`stage.orDead(Deferred.await(done))`), its `test.failing` passes and nothing else fails; with the `dead()` check of
-that job taken out too, the same, and `bun run interleavings` passes.
-
-**A lead for the open problem: the check goes, with its mutation.** The open problem asks that the check be reached
-again, or shown not needed. Three facts say that it is not needed. The engine starts the subscriptions of a job after
-the first defect too, since a job goes on whole (`docs/invariants.md`, "From the first defect on"): a start that such a
-job opens is what the run does. The check of the thunk (`arrive`) is the one check that keeps a message from `update`,
-so what that start sends is applied by nothing. And the call fails with the defect either way, through `orDead` in
-`toldOf`, so `"Dead"` leaves `Opened`. What the step weighs against it: the test "a hearNext whose job comes after a
-defect starts no subscription" then passes only because the call has left (`Ledger.opening`, `"Left"`), and a schedule
-that runs the job before the call leaves calls `listen` after the defect; and `runFirst` keeps its own check of the
-register, which stands in the thunk that calls `runCommand`.
-
-**Also here**, since it is the same seam: the open problem of an answer applied after its `run` has cancelled the
-command, with the test that the search finds for it; and the message of the test's that `rehearse`'s `send` and `simulate` each apply
-as a dispatch (`deadOr`, `submit`, `apply`, `outcomeOf`), as one function of the stage.
-
-**Done when** the `test.failing` of `hearNext` has lost its mark and both open problems are gone; each wait of a call in
-`rehearse.ts` and `simulate.ts` is one of the stage's two, or the step says why one cannot be; `docs/invariants.md`
-says the rule of the two waits where it says today which wait is raced; and the checks of `change-engine` pass, the
-mutations too.
+Step 103 comes from a reading of the testing tools against the engine, of 26 November 2026, after that review. The
+step of a message is the engine's, and the tools differed from the run only at two seams of their own, closed by steps
+101 and 102: the mask of a command's fiber, and the waits of a call, which the stage now gives in two kinds alone. It
+stands before step 100, which then reads what steps 101 to 103 change of the doc comments, the sentence of `hearNext`
+on a defect among them. None rests on a new premise, so the next review of the premises reads them, and none is due
+for them before the release: a step that finds it needs a premise says so here.
 
 ### 103. The contracts, each scenario given to every tool
 
 **Model and effort.** Opus 5.5, `medium` (`change-engine`): which tool can say a scenario takes judgment, and the edits
 repeat a pattern.
 
-**Depends on** step 102, whose tests it would otherwise rewrite twice.
+**Depends on** no other step. The tests of `hear` and `hearNext` racing a death (`waitingPastBoom`, at the end of the
+file) are of `rehearse` alone; the scheduled alarm "never both" of `rehearse.test.ts` stays there, since `simulate`
+interrupts no `run`.
 
 **Why.** `src/testing/contract.test.ts` writes each scenario once for each tool, by hand, so a scenario written for the
 tool where a bug was found reaches another tool only if its author thinks of it. One group gives one program to a table

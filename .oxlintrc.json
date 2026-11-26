@@ -48,5 +48,14 @@
         }]
       }]
     }
+  }, {
+    "files": ["src/testing/rehearse.ts", "src/testing/simulate.ts"],
+    "rules": {
+      "no-restricted-properties": ["error", {
+        "object": "Deferred",
+        "property": "await",
+        "message": "A call of a testing tool waits only as the stage lets it (testing/stage.ts): before it has applied anything, raced with a death (`waiting`, `afterJobs`), and once it has applied its message, for its job whole (what `apply` and `dispatch` return)."
+      }]
+    }
   }]
 }

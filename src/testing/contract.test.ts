@@ -2159,8 +2159,7 @@ describe("a message heard while the job of its own start is under way", () => {
     }
   )
 
-  // An open problem of ROADMAP.md: `hearNext` waits for the job that opens its call as `send` waits for its job.
-  test.failing("hearNext waiting for the job that opens its call fails as soon as another fiber of the test's dies", async () => {
+  test("hearNext waiting for the job that opens its call fails as soon as another fiber of the test's dies", async () => {
     expect(await waitingPastBoom((rehearsal) => rehearsal.hearNext((key) => key === "b"))).toEqual(Opt.some("command"))
   })
 })

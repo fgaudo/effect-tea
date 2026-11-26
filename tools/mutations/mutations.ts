@@ -2902,15 +2902,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "the job of a hearNext starts its subscription after the first defect",
-    file: "src/testing/rehearse.ts",
-    from: "opened = dead() ? \"Dead\" : openFor(generation, call, context)",
-    to: "opened = openFor(generation, call, context)",
-    killedBy: [
-      ["src/testing/rehearse.test.ts", "a hearNext whose job comes after a defect starts no subscription"]
-    ]
-  },
-  {
     name: "the job of a hearNext starts its subscription once the rehearsal has ended",
     file: "src/testing/rehearse.ts",
     from: "        if (engine.ended()) return\n",
@@ -2953,8 +2944,9 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a call of rehearse waits on through another fiber's death",
     file: "src/testing/stage.ts",
-    from: "    Effect.raceFirst(waiting, Effect.andThen(register.died, failedOr(Effect.never)))",
-    to: "    waiting",
+    from:
+      "    Effect.raceFirst(\n      wait,\n      Effect.andThen(register.died, Effect.suspend(() => told() ? wait : failedOr(Effect.never)))\n    )",
+    to: "    wait",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
@@ -2963,6 +2955,43 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/testing/rehearse.test.ts",
         "a run waiting for its command fails as soon as another fiber of the test's dies"
+      ],
+      [
+        "src/testing/contract.test.ts",
+        "hear waiting for the start of its key fails as soon as another fiber of the test's dies, as hearNext does"
+      ],
+      [
+        "src/testing/contract.test.ts",
+        "hearNext waiting for the job that opens its call fails as soon as another fiber of the test's dies"
+      ]
+    ]
+  },
+  {
+    name: "a command whose run was interrupted is still under way, and answers",
+    file: "src/testing/ledger.ts",
+    from:
+      "  const underWay = new Map(ledger.underWay)\n  underWay.delete(ticket)\n  return { ...ledger, underWay, cancelled: ",
+    to: "  const underWay = ledger.underWay\n  return { ...ledger, underWay, cancelled: ",
+    killedBy: [
+      [
+        "src/testing/ledger.test.ts",
+        "a command interrupted is cancelled with the handle of its fiber, and settled by no answer after"
+      ]
+    ]
+  },
+  {
+    name: "a command no longer under way answers",
+    file: "src/testing/ledger.ts",
+    from: "  if (!ledger.underWay.has(ticket)) return Opt.none()\n",
+    to: "",
+    killedBy: [
+      [
+        "src/testing/ledger.test.ts",
+        "a command interrupted is cancelled with the handle of its fiber, and settled by no answer after"
+      ],
+      [
+        "src/testing/ledger.test.ts",
+        "a command that answered is settled once, and cancelled by no interruption after"
       ]
     ]
   },
@@ -2982,18 +3011,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "              Effect.void\n",
     killedBy: [
       ["src/testing/rehearse.test.ts", "the command is released before the interrupted call returns"]
-    ]
-  },
-  {
-    name: "hear waits for the start of its key past another fiber's death",
-    file: "src/testing/rehearse.ts",
-    from: "stage.orDead(Deferred.await(starting.begun))",
-    to: "Deferred.await(starting.begun)",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "hear waiting for the start of its key fails as soon as another fiber of the test's dies, as hearNext does"
-      ]
     ]
   },
   {
@@ -3127,10 +3144,6 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/testing/rehearse.test.ts",
         "a hearNext waiting on a start whose key went away fails, though the scenario failed"
-      ],
-      [
-        "src/testing/rehearse.test.ts",
-        "a hearNext whose message was stopping a subscription as the scenario failed fails as one waiting"
       ]
     ]
   },
@@ -3144,10 +3157,6 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/testing/rehearse.test.ts",
         "a hearNext waiting on a start whose key went away fails, though the scenario failed"
-      ],
-      [
-        "src/testing/rehearse.test.ts",
-        "a hearNext whose message was stopping a subscription as the scenario failed fails as one waiting"
       ]
     ]
   },
@@ -3278,11 +3287,48 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
+    name: "a call of rehearse told what it heard fails at a death that comes as its message is applied",
+    file: "src/testing/stage.ts",
+    from: "Effect.suspend(() => told() ? wait : failedOr(Effect.never))",
+    to: "failedOr(Effect.never)",
+    killedBy: [
+      [
+        "src/testing/rehearse.test.ts",
+        "a hearNext whose message's model throws returns the message, as a send does"
+      ]
+    ]
+  },
+  {
+    name: "the job that opens a hearNext fails it at a death that comes as its message is applied",
+    file: "src/testing/rehearse.ts",
+    from: "      }, heard)\n",
+    to: "      })\n",
+    killedBy: [
+      [
+        "src/testing/rehearse.test.ts",
+        "a hearNext whose message's model throws returns the message, as a send does"
+      ]
+    ]
+  },
+  {
+    name: "a hearNext is told what it heard once its message is applied",
+    file: "src/testing/stage.ts",
+    from:
+      "    tell(Effect.flatten(Deferred.await(applied)))\n    Deferred.doneUnsafe(applied, Exit.succeed(apply(source, message)))\n",
+    to:
+      "    Deferred.doneUnsafe(applied, Exit.succeed(apply(source, message)))\n    tell(Effect.flatten(Deferred.await(applied)))\n",
+    killedBy: [
+      [
+        "src/testing/rehearse.test.ts",
+        "a hearNext whose message's model throws returns the message, as a send does"
+      ]
+    ]
+  },
+  {
     name: "hear plays, after the wait for its start's fiber, the start it found before",
     file: "src/testing/rehearse.ts",
-    from: "Effect.andThen(stage.orDead(Deferred.await(starting.begun)), hear(select, message))",
-    to:
-      "Effect.andThen(stage.orDead(Deferred.await(starting.begun)), stage.submit(() => play(key, generation, message)))",
+    from: "Effect.andThen(stage.waiting(starting.begun), hear(select, message))",
+    to: "Effect.andThen(stage.waiting(starting.begun), stage.submit(() => play(key, generation, message)))",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
@@ -3395,7 +3441,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse finishes before the engine has done the jobs offered before",
     file: "src/testing/stage.ts",
-    from: "const finish = Effect.suspend(() => Deferred.await(afterJobs()))",
+    from: "const finish = Effect.suspend(() => Deferred.await(told()))",
     to: "const finish = Effect.void",
     killedBy: [
       [
@@ -3413,6 +3459,10 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/testing/rehearse.test.ts",
         "a scenario that failed stops the fiber of effects at once, its job under way included"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a hearNext whose message's job the end stops, as the scenario failed, is interrupted as a send is"
       ]
     ]
   },

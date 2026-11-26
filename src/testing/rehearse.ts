@@ -10,7 +10,7 @@ import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Opt from "effect/Option"
 import * as Scope from "effect/Scope"
-import { fromDispatch, type Generation } from "../core.ts"
+import type { Generation } from "../core.ts"
 import { type AnyProgram, type FlagsOption, listenOf, type Program, runCommandOf } from "../program.ts"
 import { partsOf, readEach } from "../run.ts"
 import { makeDeaths, startFiber } from "../shell.ts"
@@ -137,7 +137,8 @@ export type Rehearsal<
    *   however it ends. A defect in what the subscription releases then fails the test. What it sent that `update` has
    *   not seen is dropped, as the run drops it, and a `hearNext` still waiting for it, or for its start, fails the
    *   test.
-   * - After a defect of the program, `hearNext` fails with the defect, also when it was already waiting.
+   * - After a defect of the program, `hearNext` fails with the defect, also when it was already waiting for its
+   *   message.
    * - Under a `TestClock`, move the clock while `hearNext` waits: race the call against `TestClock.adjust` in a loop.
    *   Time moved before the subscription starts to sleep does not count.
    *
@@ -157,11 +158,12 @@ export type Rehearsal<
   readonly ignored: Effect.Effect<ReadonlyArray<Message>>
 }
 
-// What a call of `hearNext` is told: the message it heard, that its start has ended, or that its start was stopped
-// while it waited, its key gone or the rehearsal ended. Data alone, told by the fiber of effects and by the end, where
-// nothing builds a text: the call makes its error of it.
+// What a call of `hearNext` is told: the message it heard, by the thunk that applies it, with how the call waits for
+// its job (`applyFor` of the stage); that its start has ended; or that its start was stopped while it waited, its key
+// gone or the rehearsal ended. Data alone, told by the fiber of effects and by the end, where nothing builds a text:
+// the call makes its error of it.
 type Told<Message> =
-  | Readonly<{ _tag: "Heard"; message: Message }>
+  | Readonly<{ _tag: "Heard"; message: Message; applied: Effect.Effect<void> }>
   | Readonly<{ _tag: "Ended" }>
   | Readonly<{ _tag: "Stopped" }>
 
@@ -173,8 +175,8 @@ const stopped: Told<never> = { _tag: "Stopped" }
 type Call<Message> = Readonly<{ key: unknown; heard: Deferred.Deferred<Told<Message>> }>
 
 // What the job of a call of `hearNext` decides, which the call turns into its effect: it waits on the start, or the
-// run has died, or the test plays the start with `hear`, or the start has ended.
-type Opened = "Waits" | "Dead" | "Scripted" | "Ended"
+// test plays the start with `hear`, or the start has ended.
+type Opened = "Waits" | "Scripted" | "Ended"
 
 // What the fiber of a start is given by the calls of `hearNext`: each ask for a message, with the services of the call,
 // and the wait of the fiber for the next one. Its subscription runs with the services of the first. Made by plain code
@@ -196,6 +198,7 @@ const nextAsk = <R>(asks: Asks<R>): Effect.Effect<Context.Context<R>> =>
     if (next !== undefined) return Effect.succeed(next)
     const wake = Deferred.makeUnsafe<void>()
     asks.wake = wake
+    // oxlint-disable-next-line no-restricted-properties -- the wait of a start's fiber for an ask, which is no call's
     return Effect.andThen(Deferred.await(wake), nextAsk(asks))
   })
 
@@ -242,7 +245,6 @@ const rehearsing = Effect.fnUntraced(function*<
   // engine's. The rehearsal fails with what is recorded at its end, and what the test asks for after the first defect
   // fails with it, as nothing happens in a run that died.
   const register = makeDeaths(() => true)
-  const { dead } = register
   const deadOr = Stage.deadOr(register)
   type SubscriptionNeeds = Exclude<SubscriptionServices, Scope.Scope>
   type CallOf = Call<Message>
@@ -271,18 +273,18 @@ const rehearsing = Effect.fnUntraced(function*<
       )
     )
   // In a thunk that has checked the end: while a call waits on the start and a message it sent is not heard, the
-  // first call hears the first message, applied as `hear` would apply it, and told once its job is done; its last one
-  // tells the calls still waiting that it has ended. A call interrupted once it is told is told all the same: what
-  // the message applies, it applies whole.
+  // first call hears the first message, applied as `hear` would apply it, and is told so with how it waits for the job
+  // of the message, whole; its last one tells the calls still waiting that it has ended. A call interrupted once it is
+  // told is told all the same: what the message applies, it applies whole.
   const hearHeld = (key: Key, generation: Generation) => {
     while (true) {
       const found = Ledger.hear(stage.ledger, generation)
       if (Opt.isNone(found)) return
       const { call, sent: { message }, ended: told } = found.value
       stage.ledger = found.value.ledger
-      stage.apply({ _tag: "Subscription", key, generation }, message, "list", () => {
+      stage.applyFor({ _tag: "Subscription", key, generation }, message, (applied) => {
         for (const { heard } of told) Deferred.doneUnsafe(heard, Exit.succeed(ended))
-        Deferred.doneUnsafe(call.heard, Exit.succeed({ _tag: "Heard", message }))
+        Deferred.doneUnsafe(call.heard, Exit.succeed({ _tag: "Heard", message, applied }))
       })
     }
   }
@@ -344,11 +346,11 @@ const rehearsing = Effect.fnUntraced(function*<
   yield* deadOr(Effect.void)
   // Selected on the model of the state it applies to, in the thunk that applies it.
   const send = (select: (model: Model) => Opt.Option<Message>) =>
-    stage.submit(() => {
+    stage.dispatch((applying) => {
       const model = app.model()
       return Opt.match(select(model), {
         onNone: () => Effect.die(new Error("The model does not show what the test sends", { cause: model })),
-        onSome: (message) => stage.outcomeOf(stage.apply(fromDispatch, message, "fail"), doesNothing(message))
+        onSome: (message) => applying(message, doesNothing(message))
       })
     })
   // In a thunk: the one key of the current state that `select` matches, as the program listed it, with its start, or
@@ -372,11 +374,11 @@ const rehearsing = Effect.fnUntraced(function*<
         return hasEnded(key)
       case "Scripted":
         stage.ledger = scripted.ledger
-        return stage.outcomeOf(stage.apply({ _tag: "Subscription", key, generation }, message, "list"))
+        return stage.apply({ _tag: "Subscription", key, generation }, message)
     }
   }
   // In one thunk: the key `select` matches in the current state; a start whose fiber has not begun waited for, as a
-  // wait for a subscription, raced with a death, and `select` given the keys again after it, since it may have gone, or
+  // call waits before it has applied anything, and `select` given the keys again after it, since it may have gone, or
   // come back with another start, so that the start played is always the current state's.
   const hear = (select: (key: unknown) => boolean, message: Message): Effect.Effect<void> =>
     stage.submit(() => {
@@ -385,14 +387,16 @@ const rehearsing = Effect.fnUntraced(function*<
       const [key, generation] = found
       const starting = stage.ledger.starting.get(generation)
       if (starting !== undefined) {
-        return Effect.andThen(stage.orDead(Deferred.await(starting.begun)), hear(select, message))
+        return Effect.andThen(stage.waiting(starting.begun), hear(select, message))
       }
       return play(key, generation, message)
     })
   // The job of a call of `hearNext`, after the stops of every step before it, and so after the job that begins its
-  // start, in a thunk that has checked the end and the register: the call waits on the start and asks it for a
-  // message, the start it opens included, so that a later step that stops the start finds the call waiting. A call
-  // that left before its job starts nothing: the test no longer asks for it.
+  // start, in a thunk that has checked the end: the call waits on the start and asks it for a message, the start it
+  // opens included, so that a later step that stops the start finds the call waiting. A call that left before its job
+  // starts nothing: the test no longer asks for it. One whose job comes after a defect, the call still there, opens
+  // its start all the same, as a job of the run goes on whole: the call fails with the defect, and nothing the start
+  // sends reaches `update` (`arrive` in `core.ts`).
   const openFor = (generation: Generation, call: CallOf, context: Context.Context<SubscriptionNeeds>): Opened => {
     const found = Ledger.opening(stage.ledger, generation, call)
     switch (found._tag) {
@@ -426,9 +430,7 @@ const rehearsing = Effect.fnUntraced(function*<
   const toldOf = (call: CallOf, opened: Opened): Effect.Effect<Told<Message>> => {
     switch (opened) {
       case "Waits":
-        return stage.orDead(Deferred.await(call.heard))
-      case "Dead":
-        return deadOr(Effect.never)
+        return stage.waiting(call.heard)
       case "Scripted":
         return Effect.die(playedWithHear(call.key))
       case "Ended":
@@ -436,8 +438,9 @@ const rehearsing = Effect.fnUntraced(function*<
     }
   }
   // The call finds the key `select` matches in the current state, is among the calls from then on, and asks for its
-  // job, in one thunk; it leaves however it ends: what it is told meanwhile is what it hears, and what it asked for and did not
-  // hear is the next call's. A defect of the program, in whichever fiber, ends the wait, as it ends the run.
+  // job, in one thunk; it leaves however it ends: what it is told meanwhile is what it hears, and what it asked for and
+  // did not hear is the next call's. A defect of the program, in whichever fiber, ends each wait until its message is
+  // applied, as it ends the run; once applied, the call waits for the job of its message whole.
   const hearNext = Effect.fnUntraced(function*(select: (key: unknown) => boolean) {
     const context = yield* Effect.context<SubscriptionNeeds>()
     const heard = yield* Deferred.make<Told<Message>>()
@@ -450,12 +453,12 @@ const rehearsing = Effect.fnUntraced(function*<
       entered = call
       stage.ledger = Ledger.enter(stage.ledger, call, generation)
       let opened: Opened = "Waits"
-      const done = stage.afterJobs(() => {
+      const opening = stage.afterJobs(() => {
         if (engine.ended()) return
-        opened = dead() ? "Dead" : openFor(generation, call, context)
-      })
+        opened = openFor(generation, call, context)
+      }, heard)
       return Effect.andThen(
-        Deferred.await(done),
+        opening,
         Effect.suspend(() => Effect.map(toldOf(call, opened), (told) => [key, told] as const))
       )
     }).pipe(
@@ -465,6 +468,7 @@ const rehearsing = Effect.fnUntraced(function*<
     )
     switch (told._tag) {
       case "Heard":
+        yield* told.applied
         return told.message
       case "Ended":
         return yield* hasEnded(key)
@@ -482,7 +486,7 @@ const rehearsing = Effect.fnUntraced(function*<
   const rehearsal: Rehearsal<State, Model, Message, Command, Event, CommandServices, SubscriptionServices> = {
     state: Effect.sync(() => engine.current()),
     model: deadOr(Effect.sync(() => app.model())),
-    send: (select) => deadOr(send(select)),
+    send,
     pending: Effect.sync(() => Ledger.pendingOf(stage.ledger)),
     run,
     runAll: stage.runAll,
@@ -505,9 +509,12 @@ const rehearsing = Effect.fnUntraced(function*<
   const { cancelled, underWay } = owed
   const pending = Ledger.pendingOf(stage.ledger)
   if (cancelled.length > 0) {
+    const interrupted = Arr.map(cancelled, ({ command }) => command)
     return yield* Effect.die(
       failure(({ tags }) =>
-        `Commands whose run was interrupted before they answered: ${describeAll(tags, cancelled)}. A command cannot be `
+        `Commands whose run was interrupted before they answered: ${
+          describeAll(tags, interrupted)
+        }. A command cannot be `
         + "cancelled: its answer would still arrive"
       )
     )
