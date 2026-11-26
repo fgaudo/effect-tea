@@ -26,6 +26,13 @@ version, and everything else, features included, the patch version.
   `child(program, { there: (state) => state.page })`; where it always gave `Some`, give the flags to `flags` alone, and
   read the child with no `Option`. Where the flags are typed `unknown` or `object`, an `Option` is flags too and the
   old call still compiles, as a child always there: check each `child(…, { flags })` of such a program.
+- **Breaking**: `hear` and `hearNext` of a rehearsal take `select: (key) => boolean` over the keys of the current
+  state, as `run` takes one over the commands, in place of a key, and fail the test where it matches no key, or more
+  than one. A test of a parent selects a child's key by its `_tag` with no count of the starts. What a key's `Equal`
+  throws in `select` is the test's failure, not a defect of the program.
+  Upgrade: `hear(key, message)` becomes `hear((listed) => Equal.equals(listed, key), message)`, and
+  `hearNext(key)` becomes `hearNext((listed) => Equal.equals(listed, key))`; `(listed) => listed === 'ticks'` for a key
+  that is a string.
 - **Breaking**: `forwardTo` no longer takes a name whose type is a union of names, which could send one child's
   message as another's.
   Upgrade: call `forwardTo` once for each name, each a literal.

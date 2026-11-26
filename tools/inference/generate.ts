@@ -1888,7 +1888,7 @@ const takerLines = (
           ]
           : [
             `  ${takes("Parameters<typeof rehearsal.hear>[1]")}`,
-            ...given.messages.map((message) => `  rehearsal.hear('heard', ${message})`)
+            ...given.messages.map((message) => `  rehearsal.hear((key) => key === 'heard', ${message})`)
           ]),
         `})${flags})`
       ]

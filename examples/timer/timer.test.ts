@@ -136,7 +136,7 @@ describe("timer", () => {
       rehearse(
         { ...timer, init: { state: { minutes: 1, phase: Phase.Running({ secondsLeft: 1 }) } } },
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hear("ticks", { _tag: "Ticked" })
+          yield* rehearsal.hear((key) => key === "ticks", { _tag: "Ticked" })
           const finished = (yield* rehearsal.model)._tag
           expect(rings).toBe(0)
           yield* rehearsal.run((command) => command._tag === "Ring")

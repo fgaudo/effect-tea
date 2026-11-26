@@ -8,11 +8,9 @@ import type * as Context from "effect/Context"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
-import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 import * as Scope from "effect/Scope"
 import { fromDispatch, type Generation } from "../core.ts"
-import * as Engine from "../engine.ts"
 import { type AnyProgram, type FlagsOption, listenOf, type Program, runCommandOf } from "../program.ts"
 import { partsOf, readEach } from "../run.ts"
 import { makeDeaths, startFiber } from "../shell.ts"
@@ -101,34 +99,39 @@ export type Rehearsal<
    */
   readonly runAll: Effect.Effect<void, never, Exclude<CommandServices, Scope.Scope>>
   /**
-   * Applies a message as the subscription under `key` would send it, without running the subscription.
+   * Applies a message as the subscription under the key `select` matches would send it, without running the
+   * subscription.
    *
+   * - `select` is given each key of the current state, as the program lists it. A key of a child's subscriptions names
+   *   the child and its instance, as its parent lists it: `{ _tag: 'Row', id, instance, key: 'ticks' }`.
+   * - It fails the test when `select` matches no key, or more than one.
    * - The test answers for what it says was heard, and for whether the subscription had ended.
-   * - It fails the test when the key is not in the state. Keys compare by value, as the run compares them.
    * - A key that has just appeared is heard once its subscription would have started: once what the message before it
-   *   stopped has released what it held. The key is then looked up again, and the test fails when it is gone.
+   *   stopped has released what it held. The keys are then read again, and `select` given them again.
    * - It fails the test on a key whose subscription `hearNext` runs, until the key goes away and comes back.
    * - After the subscription's end value, `hear` does not hear the key until the key goes away and comes back.
    * - A message that `update` rejects is listed in `ignored`.
    *
-   * @param key - The subscription's key, as the program lists it. A key of a child's subscriptions names the child and
-   * its instance, as its parent lists it: `{ _tag: 'Clock', instance: 1, key: 'ticks' }`, and
-   * `{ _tag: 'Row', id, instance: 1, key: 'ticks' }` for children by id.
+   * @param select - Whether a key is the one the test hears, as `(key) => key === 'ticks'`, or
+   * `(key) => Equal.equals(key, { _tag: 'Clock', instance: 1, key: 'ticks' })` to compare by value, as the run does.
    * @param message - What the subscription sends, as a message of the program.
    *
    * @see The guide, "Testing tools".
    */
-  readonly hear: (key: unknown, message: Message) => Effect.Effect<void>
+  readonly hear: (select: (key: unknown) => boolean, message: Message) => Effect.Effect<void>
   /**
-   * Hears the next message of the subscription under `key`, applies it as `hear` would, and returns it.
+   * Hears the next message of the subscription under the key `select` matches, applies it as `hear` would, and
+   * returns it.
    *
+   * - `select` is given each key of the current state, as `hear` gives them, and the test fails when it matches no
+   *   key, or more than one.
    * - The first call on a key starts its subscription, made by the program's `listen` from the key, with the services
    *   provided, in a scope of its own, once what the messages before it stopped has released what it held. The
    *   subscription runs for as long as the key stays in the state, whichever fiber of the test's heard it first.
    * - Each call waits for the subscription's next message, and the message waits for its call. The last message is
    *   the subscription's end value. After it, the key is not heard until the key goes away and comes back. A
    *   `hearNext` that was waiting at the same time as the one that heard the end fails the test.
-   * - It fails the test when the key is not in the state, or when `hear` has played the key's current start.
+   * - It fails the test when `hear` has played the key's current start.
    * - A key that goes away interrupts its subscription, and so does the end of the scenario or of the rehearsal,
    *   however it ends. A defect in what the subscription releases then fails the test. What it sent that `update` has
    *   not seen is dropped, as the run drops it, and a `hearNext` still waiting for it, or for its start, fails the
@@ -137,11 +140,13 @@ export type Rehearsal<
    * - Under a `TestClock`, move the clock while `hearNext` waits: race the call against `TestClock.adjust` in a loop.
    *   Time moved before the subscription starts to sleep does not count.
    *
-   * @param key - The subscription's key, as `hear` takes it.
+   * @param select - Whether a key is the one the test hears, as `hear` takes it.
    *
    * @see The guide, "Testing tools".
    */
-  readonly hearNext: (key: unknown) => Effect.Effect<Message, never, Exclude<SubscriptionServices, Scope.Scope>>
+  readonly hearNext: (
+    select: (key: unknown) => boolean
+  ) => Effect.Effect<Message, never, Exclude<SubscriptionServices, Scope.Scope>>
   /** The events `update` raised for the program's parent, in order. */
   readonly events: Effect.Effect<ReadonlyArray<Event>>
   /**
@@ -345,21 +350,19 @@ const rehearsing = Effect.fnUntraced(function*<
         onSome: (message) => stage.outcomeOf(stage.apply(fromDispatch, message, "fail"), doesNothing(message))
       })
     })
-  // The program's keys are compared with the test's, by their `Equal`: a defect of theirs is in `subscriptions`, as
-  // in the run. In a thunk: the key's start, or the effect the call ends with. The test's key stands for the program's
-  // where the engine is given a message as a subscription's, whose key only says where it came from.
-  const startUnder = (key: unknown): Generation | Effect.Effect<never> => {
-    try {
-      const found = HashMap.get(engine.active().keys, key as Key)
-      return Opt.isSome(found) ? found.value : Effect.die(nothingListensUnder(key))
-    } catch (thrown) {
-      Engine.recordThrown(register, "subscriptions", thrown)
-      return deadOr(Effect.never)
-    }
+  // In a thunk: the one key of the current state that `select` matches, as the program listed it, with its start, or
+  // the effect the call ends with. What `select` throws is the test's, and fails the call.
+  const startOf = (select: (key: unknown) => boolean): readonly [Key, Generation] | Effect.Effect<never> => {
+    const keys = Arr.fromIterable(engine.active().keys)
+    const matched = Arr.filter(keys, ([key]) => select(key))
+    if (matched.length === 1) return matched[0]!
+    return Effect.die(
+      matched.length === 0 ? noKeyMatches(Arr.map(keys, ([key]) => key)) : keysMatch(Arr.map(matched, ([key]) => key))
+    )
   }
   // In a thunk that has checked the end and found the start under the key in the current state: the start played,
   // unless `hearNext` runs it, and the message applied.
-  const play = (key: unknown, generation: Generation, message: Message): Effect.Effect<void> => {
+  const play = (key: Key, generation: Generation, message: Message): Effect.Effect<void> => {
     const scripted = Ledger.script(stage.ledger, generation)
     switch (scripted._tag) {
       case "Opened":
@@ -368,18 +371,19 @@ const rehearsing = Effect.fnUntraced(function*<
         return hasEnded(key)
       case "Scripted":
         stage.ledger = scripted.ledger
-        return stage.outcomeOf(stage.apply({ _tag: "Subscription", key: key as Key, generation }, message, "list"))
+        return stage.outcomeOf(stage.apply({ _tag: "Subscription", key, generation }, message, "list"))
     }
   }
-  // In one thunk: the key looked up in the current state; a start whose fiber has not begun waited for, and the key
-  // looked up again after it, since it may have gone, or come back with another start, so that the start played is
+  // In one thunk: the key `select` matches in the current state; a start whose fiber has not begun waited for, and
+  // `select` given the keys again after it, since it may have gone, or come back with another start, so that the start played is
   // always the current state's.
-  const hear = (key: unknown, message: Message): Effect.Effect<void> =>
+  const hear = (select: (key: unknown) => boolean, message: Message): Effect.Effect<void> =>
     stage.submit(() => {
-      const generation = startUnder(key)
-      if (typeof generation !== "number") return generation
+      const found = startOf(select)
+      if (Effect.isEffect(found)) return found
+      const [key, generation] = found
       const starting = stage.ledger.starting.get(generation)
-      if (starting !== undefined) return Effect.andThen(Deferred.await(starting.begun), hear(key, message))
+      if (starting !== undefined) return Effect.andThen(Deferred.await(starting.begun), hear(select, message))
       return play(key, generation, message)
     })
   // The job of a call of `hearNext`, after the stops of every step before it, and so after the job that begins its
@@ -428,25 +432,32 @@ const rehearsing = Effect.fnUntraced(function*<
         return Effect.succeed(ended)
     }
   }
-  // The call looks its key up in the current state, is among the calls from then on, and asks for its job, in one
-  // thunk; it leaves however it ends: what it is told meanwhile is what it hears, and what it asked for and did not
+  // The call finds the key `select` matches in the current state, is among the calls from then on, and asks for its
+  // job, in one thunk; it leaves however it ends: what it is told meanwhile is what it hears, and what it asked for and did not
   // hear is the next call's. A defect of the program, in whichever fiber, ends the wait, as it ends the run.
-  const hearNext = Effect.fnUntraced(function*(key: unknown) {
+  const hearNext = Effect.fnUntraced(function*(select: (key: unknown) => boolean) {
     const context = yield* Effect.context<SubscriptionNeeds>()
-    const call: CallOf = { key, heard: yield* Deferred.make<Told<Message>>() }
-    const told = yield* stage.submit(() => {
-      const generation = startUnder(key)
-      if (typeof generation !== "number") return generation
+    const heard = yield* Deferred.make<Told<Message>>()
+    let entered: CallOf | undefined
+    const [key, told] = yield* stage.submit(() => {
+      const found = startOf(select)
+      if (Effect.isEffect(found)) return found
+      const [key, generation] = found
+      const call: CallOf = { key, heard }
+      entered = call
       stage.ledger = Ledger.enter(stage.ledger, call, generation)
       let opened: Opened = "Waits"
       const done = stage.afterJobs(() => {
         if (engine.ended()) return
         opened = dead() ? "Dead" : openFor(generation, call, context)
       })
-      return Effect.andThen(Deferred.await(done), Effect.suspend(() => toldOf(call, opened)))
+      return Effect.andThen(
+        Deferred.await(done),
+        Effect.suspend(() => Effect.map(toldOf(call, opened), (told) => [key, told] as const))
+      )
     }).pipe(
       Effect.ensuring(Effect.sync(() => {
-        stage.ledger = Ledger.leave(stage.ledger, call)
+        if (entered !== undefined) stage.ledger = Ledger.leave(stage.ledger, entered)
       }))
     )
     switch (told._tag) {
@@ -472,8 +483,8 @@ const rehearsing = Effect.fnUntraced(function*<
     pending: Effect.sync(() => Ledger.pendingOf(stage.ledger)),
     run,
     runAll: stage.runAll,
-    hear: (key, message) => deadOr(hear(key, message)),
-    hearNext: (key) => deadOr(hearNext(key)),
+    hear: (select, message) => deadOr(hear(select, message)),
+    hearNext: (select) => deadOr(hearNext(select)),
     events: Effect.sync(stage.events),
     ignored: Effect.sync(stage.ignored)
   }
@@ -513,8 +524,17 @@ const rehearsing = Effect.fnUntraced(function*<
 })
 
 // The errors of a call that name its key, each made in the call's fiber.
-const nothingListensUnder = (key: unknown) =>
-  failure((names) => `Nothing listens under ${names.key(key)} in the current state`)
+const noKeyMatches = (keys: ReadonlyArray<unknown>) =>
+  failure((names) =>
+    `No key of the current state matches what the test selects: its keys are ${
+      keys.length === 0 ? "none" : Arr.map(keys, names.key).join(", ")
+    }`
+  )
+
+const keysMatch = (keys: ReadonlyArray<unknown>) =>
+  failure((names) =>
+    `More than one key of the current state matches what the test selects: ${Arr.map(keys, names.key).join(", ")}`
+  )
 
 const untilItComesBack = "until its key goes away and comes back"
 

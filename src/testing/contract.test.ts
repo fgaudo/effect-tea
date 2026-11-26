@@ -148,7 +148,7 @@ describe("the testing tools and the run, on the same program and inputs", () => 
       Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.send(({ type }) => type("a"))
         yield* rehearsal.send(({ save }) => save)
-        yield* rehearsal.hearNext("ticks")
+        yield* rehearsal.hearNext((key) => key === "ticks")
         yield* rehearsal.send(({ cancel }) => cancel)
         yield* rehearsal.run(() => true)
         return { state: yield* rehearsal.state, ignored: yield* rehearsal.ignored }
@@ -260,17 +260,17 @@ describe("a subscription that sends A, then ends with B", () => {
     const { heard, failures } = await Effect.runPromise(rehearse(
       said,
       Effect.fnUntraced(function*(rehearsal) {
-        yield* rehearsal.hearNext("k")
-        yield* rehearsal.hearNext("k")
+        yield* rehearsal.hearNext((key) => key === "k")
+        yield* rehearsal.hearNext((key) => key === "k")
         const failures = yield* Effect.forEach(
-          [rehearsal.hearNext("k"), rehearsal.hear("k", "A")],
+          [rehearsal.hearNext((key) => key === "k"), rehearsal.hear((key) => key === "k", "A")],
           (after) =>
             Effect.map(Effect.exit(after), (exit) => Exit.isFailure(exit) ? String(Cause.squash(exit.cause)) : "")
         )
         yield* rehearsal.send(() => Opt.some("Stop"))
         yield* rehearsal.send(() => Opt.some("Listen"))
-        yield* rehearsal.hearNext("k")
-        yield* rehearsal.hearNext("k")
+        yield* rehearsal.hearNext((key) => key === "k")
+        yield* rehearsal.hearNext((key) => key === "k")
         return { heard: (yield* rehearsal.state).heard, failures }
       })
     ))
@@ -317,7 +317,7 @@ describe("how a stopped subscription ends", () => {
       const ended = yield* Deferred.make<string>()
       return yield* rehearse(
         listener(ended),
-        (rehearsal) => Effect.andThen(rehearsal.hearNext("ticks"), Deferred.await(ended))
+        (rehearsal) => Effect.andThen(rehearsal.hearNext((key) => key === "ticks"), Deferred.await(ended))
       )
     }))
     expect(end).toBe("interrupted")
@@ -333,7 +333,9 @@ describe("how a stopped subscription ends", () => {
           Channel.onExit(() => Effect.die("release"))
         )
     }
-    const exit = await Effect.runPromiseExit(rehearse(dying, (rehearsal) => rehearsal.hearNext("ticks")))
+    const exit = await Effect.runPromiseExit(
+      rehearse(dying, (rehearsal) => rehearsal.hearNext((key) => key === "ticks"))
+    )
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
     expect(defect instanceof ProgramDefect && defect.where === "subscription" && defect.cause).toBe("release")
   })
@@ -422,7 +424,7 @@ describe("how a stopped subscription ends", () => {
     const exit = await Effect.runPromiseExit(rehearse(
       noting,
       Effect.fnUntraced(function*(rehearsal) {
-        yield* rehearsal.hearNext("ticks")
+        yield* rehearsal.hearNext((key) => key === "ticks")
         const sent = yield* Effect.exit(rehearsal.send(() => Opt.some("Stop")))
         const after = yield* Effect.exit(rehearsal.send(() => Opt.some("Tick")))
         seen.push(Exit.isSuccess(sent), yield* rehearsal.state, yield* rehearsal.pending, reasonsOf(after))
@@ -441,9 +443,11 @@ describe("how a stopped subscription ends", () => {
       Effect.exit(rehearse(
         stopping,
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("ticks")
+          yield* rehearsal.hearNext((key) => key === "ticks")
           // Started on this stack, the call has offered its job before `Tick` and `Stop` are sent.
-          const waiting = yield* Effect.forkChild(rehearsal.hearNext("ticks"), { startImmediately: true })
+          const waiting = yield* Effect.forkChild(rehearsal.hearNext((key) => key === "ticks"), {
+            startImmediately: true
+          })
           if (waits) yield* rehearsal.send(() => Opt.some("Tick"))
           yield* Effect.exit(rehearsal.send(() => Opt.some("Stop")))
           return yield* Fiber.join(waiting)
@@ -488,7 +492,7 @@ describe("how a stopped subscription ends", () => {
       return yield* rehearse(
         awaiting(releasing, seen),
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("ticks")
+          yield* rehearsal.hearNext((key) => key === "ticks")
           const stopped = yield* Effect.forkChild(rehearsal.send(() => Opt.some("Stop")), { startImmediately: true })
           yield* Deferred.await(releasing)
           const shown = [yield* rehearsal.state, yield* rehearsal.model]
@@ -607,7 +611,7 @@ describe("what the run dies of, and the tools fail on", () => {
 
   test("rehearse fails in the subscription, with its key, as the run dies, of what listen throws", async () => {
     const exit = await Effect.runPromiseExit(
-      rehearse(unlistened, (rehearsal) => rehearsal.hearNext({ _tag: "Feed", room: "a" }))
+      rehearse(unlistened, (rehearsal) => rehearsal.hearNext((key) => Equal.equals(key, { _tag: "Feed", room: "a" })))
     )
     expect(diedOfListen(exit)).toEqual({ where: "subscription", key: { _tag: "Feed", room: "a" }, cause: true })
   })
@@ -617,7 +621,9 @@ describe("what the run dies of, and the tools fail on", () => {
       ...row,
       listen: () => Channel.fromEffect(Effect.interrupt).pipe(Channel.mapDone((): "Seen" => "Seen"))
     }
-    const exit = await Effect.runPromiseExit(rehearse(leaving, (rehearsal) => rehearsal.hearNext("ticks")))
+    const exit = await Effect.runPromiseExit(
+      rehearse(leaving, (rehearsal) => rehearsal.hearNext((key) => key === "ticks"))
+    )
     expect(diedIn(exit)).toBe("subscription")
   })
 
@@ -706,7 +712,7 @@ describe("what the run dies of, and the tools fail on", () => {
       return yield* rehearse(
         stopping(started),
         Effect.fnUntraced(function*(rehearsal) {
-          yield* Effect.forkChild(rehearsal.hearNext("ticks"))
+          yield* Effect.forkChild(rehearsal.hearNext((key) => key === "ticks"))
           yield* Deferred.await(started)
           yield* rehearsal.send(() => Opt.some("Seen"))
         })
@@ -799,7 +805,7 @@ describe("what the run dies of, and the tools fail on", () => {
           rehearse(
             listensOnceInterrupted(started, stale),
             Effect.fnUntraced(function*(rehearsal) {
-              yield* Effect.forkDetach(rehearsal.hearNext("ticks"))
+              yield* Effect.forkDetach(rehearsal.hearNext((key) => key === "ticks"))
               yield* Deferred.await(started)
             })
           )
@@ -907,7 +913,7 @@ describe("what the run dies of, and the tools fail on", () => {
 
   test("rehearse fails, as the run dies, in a subscription, with its key, on a subscription that throws", async () => {
     const exit = await Effect.runPromiseExit(
-      rehearse(ticking, (rehearsal) => rehearsal.hearNext("ticks"), { flags: 0 })
+      rehearse(ticking, (rehearsal) => rehearsal.hearNext((key) => key === "ticks"), { flags: 0 })
     )
     expect(keyed(exit)).toEqual(["subscription", "ticks"])
   })
@@ -944,9 +950,11 @@ describe("what the run dies of, and the tools fail on", () => {
   })
 
   test(
-    "rehearse fails, as the run dies, with the key the program listed, though hearNext was given another equal to it",
+    "rehearse fails, as the run dies, with the key the program listed, though the test selected it by another equal to it",
     async () => {
-      const exit = await Effect.runPromiseExit(rehearse(listing, (rehearsal) => rehearsal.hearNext(new Key(1, "test"))))
+      const exit = await Effect.runPromiseExit(
+        rehearse(listing, (rehearsal) => rehearsal.hearNext((key) => Equal.equals(key, new Key(1, "test"))))
+      )
       expect(keyOf(exit)).toBe(listed)
     }
   )
@@ -1223,7 +1231,10 @@ describe("a message whose tag throws as the defect of update is said", () => {
     const exit = await Effect.runPromiseExit(rehearse(
       saying,
       (rehearsal) =>
-        Effect.andThen(rehearsal.send(sending(() => ({ _tag: "Listen" }))), Effect.exit(rehearsal.hearNext("k")))
+        Effect.andThen(
+          rehearsal.send(sending(() => ({ _tag: "Listen" }))),
+          Effect.exit(rehearsal.hearNext((key) => key === "k"))
+        )
     ))
     expect(sites(exit)).toEqual(both)
   })
@@ -1323,7 +1334,7 @@ describe("a defect of makeModel", () => {
     const exit = await Effect.runPromiseExit(rehearse(
       noting(released),
       Effect.fnUntraced(function*(rehearsal) {
-        yield* rehearsal.hearNext("ticks")
+        yield* rehearsal.hearNext((key) => key === "ticks")
         const sent = yield* Effect.exit(rehearsal.send(() => Opt.some("Go")))
         seen.push(Exit.isSuccess(sent), [...released])
         const after = yield* Effect.exit(rehearsal.model)
@@ -1625,7 +1636,9 @@ describe("a command or a subscription that a fiber of the program interrupts", (
   test(
     "rehearse fails with a defect, as the run dies, of a subscription a fiber of the program interrupts as it releases, though the scenario catches it",
     async () => {
-      const exit = await Effect.runPromiseExit(rehearse(ending, (rehearsal) => Effect.exit(rehearsal.hearNext("once"))))
+      const exit = await Effect.runPromiseExit(
+        rehearse(ending, (rehearsal) => Effect.exit(rehearsal.hearNext((key) => key === "once")))
+      )
       expect(diedIn(exit)).toBe("subscription")
     }
   )
@@ -1722,7 +1735,7 @@ describe("a message applied while a release holds the effects of the step before
       return yield* rehearse(
         holding(given),
         Effect.fnUntraced(function*(rehearsal) {
-          yield* Effect.forkChild(rehearsal.hearNext("a"), { startImmediately: true })
+          yield* Effect.forkChild(rehearsal.hearNext((key) => key === "a"), { startImmediately: true })
           const stopping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<HeldMessage>("Stop")))
           yield* Deferred.await(given.releasing)
           // Started on this stack, the send has applied its message once the fork returns.
@@ -1779,11 +1792,13 @@ describe("a message applied while a release holds the effects of the step before
           return yield* rehearse(
             holding(given),
             Effect.fnUntraced(function*(rehearsal) {
-              yield* Effect.forkChild(rehearsal.hearNext("a"), { startImmediately: true })
+              yield* Effect.forkChild(rehearsal.hearNext((key) => key === "a"), { startImmediately: true })
               const swapping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<HeldMessage>("Swap")))
               yield* Deferred.await(given.releasing)
               const hearing = yield* Effect.forkChild(
-                how === "hear" ? rehearsal.hear("b", "Tick") : rehearsal.hearNext("b"),
+                how === "hear"
+                  ? rehearsal.hear((key) => key === "b", "Tick")
+                  : rehearsal.hearNext((key) => key === "b"),
                 { startImmediately: true }
               )
               const meanwhile = (yield* rehearsal.state).count
@@ -1827,11 +1842,13 @@ describe("a message applied while a release holds the effects of the step before
           return yield* rehearse(
             holding(given),
             Effect.fnUntraced(function*(rehearsal) {
-              yield* Effect.forkChild(rehearsal.hearNext("a"), { startImmediately: true })
+              yield* Effect.forkChild(rehearsal.hearNext((key) => key === "a"), { startImmediately: true })
               const swapping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<HeldMessage>("Swap")))
               yield* Deferred.await(given.releasing)
               const hearing = yield* Effect.forkChild(
-                how === "hear" ? rehearsal.hear("b", "Tick") : rehearsal.hearNext("b"),
+                how === "hear"
+                  ? rehearsal.hear((key) => key === "b", "Tick")
+                  : rehearsal.hearNext((key) => key === "b"),
                 { startImmediately: true }
               )
               const dropping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<HeldMessage>("DropB")), {
@@ -1928,7 +1945,7 @@ describe("an end where the release of a fiber waits for the release of another",
       rehearse(
         holding(waiting, given),
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("k")
+          yield* rehearsal.hearNext((key) => key === "k")
           yield* rehearsal.send(() => Opt.some("Go"))
           yield* Effect.forkDetach(rehearsal.run(() => true))
           yield* Deferred.await(given.started)

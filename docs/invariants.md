@@ -180,7 +180,7 @@ the engine and in the testing tools.
     nothing interrupts (`Effect.onExit`), and a fiber with a scope as it dies, before its scope releases (`scopedIn`,
     with what a subscription's channel adds to it, `runSubscription`): so the defects are in the order they happened,
     and what a release dies of is wrapped apart. What a function of the program throws outside a fiber of the run (in
-    the thunk, in the handle, where `rehearse` compares a key) is recorded at once, in the same register.
+    the thunk, in the handle) is recorded at once, in the same register.
   - `'render'` is the site of what a renderer meets: `makeModel` wherever the model is read, a listener, and what a
     renderer gives `die`. A defect of `makeModel` is recorded where the model is read, once for each state, and a
     listener's site and `die` take that very defect as it is, as they take the defect of an `init` that threw. Once the

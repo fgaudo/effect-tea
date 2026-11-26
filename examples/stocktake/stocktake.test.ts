@@ -373,10 +373,10 @@ describe("rehearse", () => {
           yield* rehearsal.run((command) => command._tag === "Load")
           // The feed, as the scanner sends it, then its end.
           const heard = [
-            yield* rehearsal.hearNext("scanner"),
-            yield* rehearsal.hearNext("scanner"),
-            yield* rehearsal.hearNext("scanner"),
-            yield* rehearsal.hearNext("scanner")
+            yield* rehearsal.hearNext((key) => key === "scanner"),
+            yield* rehearsal.hearNext((key) => key === "scanner"),
+            yield* rehearsal.hearNext((key) => key === "scanner"),
+            yield* rehearsal.hearNext((key) => key === "scanner")
           ]
           expect(heard.map((message) => message._tag)).toEqual(["Scanned", "Scanned", "Scanned", "ScannerDisconnected"])
           const unplugged = counting(yield* rehearsal.model)
@@ -389,7 +389,7 @@ describe("rehearse", () => {
               : Opt.none()
           )
           // Heard as the test says, without running the scanner again.
-          yield* rehearsal.hear("scanner", { _tag: "Scanned", code: "C-NUT" })
+          yield* rehearsal.hear((key) => key === "scanner", { _tag: "Scanned", code: "C-NUT" })
           yield* rehearsal.send((model) => typing(model, "i1", "10"))
           yield* rehearsal.send((model) => typing(model, "i2", "4"))
           yield* rehearsal.send(submitOf)

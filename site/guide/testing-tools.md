@@ -100,8 +100,9 @@ rehearse(
   it, or `runAll`.
 - **A subscription is heard one way.** `hear` runs nothing: the test says what was heard, and answers for it.
   `hearNext` runs the subscription, for as long as its key stays in the state, and hears its next message. A start of a
-  key is heard by one or the other, not both. Its key names the instance of a child, as its parent lists it (see
-  [the number of an instance](./testing.md#the-number-of-an-instance)).
+  key is heard by one or the other, not both. Each takes a `select` of the keys of the current state, as `run` takes
+  one of the commands, and fails the test where it matches no key, or more than one. A key of a child names its
+  instance, as its parent lists it (see [the number of an instance](./testing.md#the-number-of-an-instance)).
 
 ### drive
 
@@ -128,7 +129,7 @@ race the call against a clock that keeps moving, as [`list`](../../examples/list
 `TestClock`. A subscription that does not sleep needs none of it.
 
 ```ts
-const message = yield * rehearsal.hearNext("ticks").pipe(
+const message = yield * rehearsal.hearNext((key) => key === "ticks").pipe(
   Effect.raceFirst(Effect.forever(TestClock.adjust("1 second").pipe(Effect.andThen(Effect.yieldNow))))
 )
 ```

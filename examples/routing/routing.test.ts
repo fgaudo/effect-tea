@@ -99,7 +99,7 @@ describe("routing", () => {
         rehearse(
           routing,
           Effect.fnUntraced(function*(rehearsal) {
-            yield* rehearsal.hear("popped", { _tag: "AddressPopped", query: "" })
+            yield* rehearsal.hear((key) => key === "popped", { _tag: "AddressPopped", query: "" })
             return { model: yield* rehearsal.model, pending: yield* rehearsal.pending }
           }),
           { flags: { query: "?topic=view" } }

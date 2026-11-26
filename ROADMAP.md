@@ -26,10 +26,9 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Step 98 comes from the report of an application written again on 0.9.0, weighed on 26 November 2026
-([`application-report-0.9.md`](docs/records/application-report-0.9.md)). It decides its point by "Deciding": a step
-that decides against its point writes its entry of [`rejected.md`](docs/rejected.md), and is done. The breaking
-changes of the steps of the report go out together, in the release after 0.9.0.
+Steps 92 to 98 came from the report of an application written again on 0.9.0, weighed on 26 November 2026
+([`application-report-0.9.md`](docs/records/application-report-0.9.md)), and no step of it is left. Their breaking
+changes go out together, in the release after 0.9.0.
 
 Step 92 decided the report's third point ([`instance-in-view.md`](docs/records/instance-in-view.md)): `makeModel`
 reads the number of a child's instance, and `forwardTo` takes it, so that a message of a view names its instance where
@@ -46,7 +45,9 @@ children's declarations, and `CommandOf`, with `Returned` under it, is inferred 
 hover over them prints no program; the smoke test's `misprint.ts` bounds what TypeScript prints of such errors. Step 97
 decided the first ([`functions-written-apart.md`](docs/records/functions-written-apart.md)): `OutputsOf` and `TellOf`,
 read from a parent's children declared apart from `withChildren`, type a function written apart from `make`, and
-`examples/list/halting.ts` is one.
+`examples/list/halting.ts` is one. Step 98 decided the last item of the sixth
+([`hear-by-predicate.md`](docs/records/hear-by-predicate.md)): `hear` and `hearNext` take a `select` of the keys of the
+current state, as `run` takes one of the commands, and fail where it matches none, or more than one.
 
 The release of 0.9.0 waited, as the owner asked on 25 November 2026, for a bridge to
 React Native, which step 83 made, for whether a view of React can have a `messagesSentBy`, and for a reading of the
@@ -75,27 +76,6 @@ after 0.9.0, reads the changes since that commit, and one of everything is due b
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 98. `hear` and `hearNext` by a predicate
-
-**Model and effort.** Opus 5.5, `medium`.
-
-**Depends on** no other step.
-
-**Why.** `run` takes `(command) => boolean`, and `hear` and `hearNext` a whole key, which for a child names its
-instance: `{ _tag: 'Row', id, instance: 1, key: 'ticks' }`. So a test of a parent counts the starts to hear a child,
-and an application wrote a function that builds the key
-([`application-report-0.9.md`](docs/records/application-report-0.9.md), point 6). One role has two forms.
-
-**How.** `hear(select, message)` and `hearNext(select)`, with `select: (key) => boolean` over the keys of the current
-state: the test fails where none matches, and where more than one does. One way, so the form by key goes, with a
-breaking change whose note of "Upgrade" gives the predicate that compares a key with `Equal`. Weigh it against
-`rejected.md` ("A subscription made from its key alone, in other forms", for `hear` taking a key of the program's
-type; "Other names in a `Rehearsal` and a `Driver`"). "Testing", "The number of an instance", then says less.
-
-**Done when** the tests of `src/testing/rehearse.test.ts` and of the contract hold it, the examples' tests are written
-with it, "Testing tools" and "Testing" say it, the changelog has its entry, and `bun run test:node` and
-`bun run interleavings` pass.
 
 ## For the owner
 

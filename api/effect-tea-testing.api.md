@@ -176,8 +176,8 @@ export type Rehearsal<State, Model, Message, Command = never, Event = never, Com
     readonly pending: Effect.Effect<ReadonlyArray<Command>>;
     readonly run: (select: (command: Command) => boolean) => Effect.Effect<Command, never, Exclude<CommandServices, Scope.Scope>>;
     readonly runAll: Effect.Effect<void, never, Exclude<CommandServices, Scope.Scope>>;
-    readonly hear: (key: unknown, message: Message) => Effect.Effect<void>;
-    readonly hearNext: (key: unknown) => Effect.Effect<Message, never, Exclude<SubscriptionServices, Scope.Scope>>;
+    readonly hear: (select: (key: unknown) => boolean, message: Message) => Effect.Effect<void>;
+    readonly hearNext: (select: (key: unknown) => boolean) => Effect.Effect<Message, never, Exclude<SubscriptionServices, Scope.Scope>>;
     readonly events: Effect.Effect<ReadonlyArray<Event>>;
     readonly ignored: Effect.Effect<ReadonlyArray<Message>>;
 };

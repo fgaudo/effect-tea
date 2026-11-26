@@ -261,12 +261,12 @@ describe("volume", () => {
         Effect.fnUntraced(function*(rehearsal) {
           yield* rehearsal.send(ringer)
           const pressedAt = (yield* rehearsal.model).ringer.level
-          yield* rehearsal.hear("Ringer", { _tag: "Moved", clientX: 90 })
+          yield* rehearsal.hear((key) => key === "Ringer", { _tag: "Moved", clientX: 90 })
           const loud = (yield* rehearsal.model).ringer.level
           yield* rehearsal.send((model) => model.limit._tag === "Full" ? Opt.some(model.limit.quiet) : Opt.none())
-          yield* rehearsal.hear("Ringer", { _tag: "Moved", clientX: 95 })
+          yield* rehearsal.hear((key) => key === "Ringer", { _tag: "Moved", clientX: 95 })
           const quiet = (yield* rehearsal.model).ringer.level
-          yield* rehearsal.hear("Ringer", { _tag: "DragEnded" })
+          yield* rehearsal.hear((key) => key === "Ringer", { _tag: "DragEnded" })
           return { pressedAt, loud, quiet, after: yield* rehearsal.model }
         })
       ).pipe(Effect.provideService(Pointer, Pointer.of({ moves: Stream.empty })))

@@ -200,7 +200,7 @@ describe("rehearse", () => {
     const running = rehearse(pinged, (rehearsal) => rehearsal.runAll)
     const commands: Exactly<Effect.Services<typeof running>, Storage> = true
     expect(commands).toBe(true)
-    const hearing = rehearse(pinged, (rehearsal) => rehearsal.hearNext("ping"))
+    const hearing = rehearse(pinged, (rehearsal) => rehearsal.hearNext((key) => key === "ping"))
     const subscriptions: Exactly<Effect.Services<typeof hearing>, Pings> = true
     expect(subscriptions).toBe(true)
   })
@@ -215,7 +215,7 @@ describe("rehearse", () => {
     const note = await Effect.runPromise(rehearse(
       pinged,
       Effect.fnUntraced(function*(rehearsal) {
-        yield* rehearsal.hearNext("ping").pipe(Effect.provideService(Pings, pings))
+        yield* rehearsal.hearNext((key) => key === "ping").pipe(Effect.provideService(Pings, pings))
         yield* rehearsal.send(typing("milk"))
         yield* rehearsal.send(saving)
         yield* rehearsal.runAll.pipe(Effect.provideService(Storage, storage))
@@ -362,7 +362,7 @@ describe("rehearse", () => {
     const played = await Effect.runPromise(withStorage(rehearse(
       editor,
       Effect.fnUntraced(function*(rehearsal) {
-        yield* rehearsal.hear("ping", late)
+        yield* rehearsal.hear((key) => key === "ping", late)
         return { state: yield* rehearsal.state, ignored: yield* rehearsal.ignored }
       })
     )))
@@ -374,7 +374,7 @@ describe("rehearse", () => {
     const heard = await Effect.runPromise(withStorage(rehearse(
       sending,
       Effect.fnUntraced(function*(rehearsal) {
-        const message = yield* rehearsal.hearNext("ping")
+        const message = yield* rehearsal.hearNext((key) => key === "ping")
         return { message, state: yield* rehearsal.state, ignored: yield* rehearsal.ignored }
       })
     )))
@@ -385,7 +385,7 @@ describe("rehearse", () => {
     const pings = await Effect.runPromise(withStorage(rehearse(
       editor,
       Effect.fnUntraced(function*(rehearsal) {
-        yield* rehearsal.hear("ping", { _tag: "Pinged" })
+        yield* rehearsal.hear((key) => key === "ping", { _tag: "Pinged" })
         return (yield* rehearsal.state).pings
       })
     )))
@@ -395,13 +395,24 @@ describe("rehearse", () => {
       Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.send(typing("milk"))
         yield* rehearsal.send(saving)
-        yield* rehearsal.hear("ping", { _tag: "Pinged" })
+        yield* rehearsal.hear((key) => key === "ping", { _tag: "Pinged" })
       })
     ))
-    expect(String(failure)).toContain("Nothing listens under ping in the current state")
+    expect(String(failure)).toContain("No key of the current state matches what the test selects: its keys are none")
+  })
+
+  test("hear and hearNext fail the test when select matches more than one key, naming each", async () => {
     // Keys may hold any value a `HashSet` compares, JSON or not.
-    const unheard = await failureOf(rehearse(editor, (rehearsal) => rehearsal.hear(["Row", 1n], { _tag: "Pinged" })))
-    expect(String(unheard)).toContain("Nothing listens under [\"Row\",\"1n\"] in the current state")
+    const twice = { ...editor, subscriptions: () => ["ping", ["Row", 1n]], listen: () => Channel.never }
+    const failures = [
+      await failureOf(rehearse(twice, (rehearsal) => rehearsal.hear(() => true, { _tag: "Pinged" }))),
+      await failureOf(rehearse(twice, (rehearsal) => rehearsal.hearNext(() => true)))
+    ]
+    for (const failure of failures.map(String)) {
+      expect(failure).toContain("More than one key of the current state matches what the test selects: ")
+      expect(failure).toContain("ping")
+      expect(failure).toContain("[\"Row\",\"1n\"]")
+    }
   })
 
   test("hear takes any message of the program, typed as the whole message, a child's too", async () => {
@@ -441,9 +452,13 @@ describe("rehearse", () => {
         for (const message of heard) {
           yield* rehearsal.hear(
             // The child's subscription is lifted under its instance, the first the parent started.
-            typeof message === "object" && message._tag === "Field"
-              ? { _tag: "Field", instance: 1, key: "ping" }
-              : "ping",
+            (key) =>
+              Equal.equals(
+                key,
+                typeof message === "object" && message._tag === "Field"
+                  ? { _tag: "Field", instance: 1, key: "ping" }
+                  : "ping"
+              ),
             message
           )
         }
@@ -473,13 +488,15 @@ describe("rehearse", () => {
     })
     // Row 7 starts with the list, its first instance, and row 8 once `Added` lists it, the second: each message of a
     // child's subscription names its instance.
-    const eight = { _tag: "Row", id: 8, instance: 2, key: "ticks" }
+    const eight = (key: unknown) => Equal.equals(key, { _tag: "Row", id: 8, instance: 2, key: "ticks" })
     const ticked: MessageOf<typeof list> = { _tag: "Row", id: 8, instance: 2, message: "Ticked" }
     const { heard, model, state } = await Effect.runPromise(rehearse(
       list,
       Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.send(() => Opt.some<MessageOf<typeof list>>("Added"))
-        const heard = yield* rehearsal.hearNext({ _tag: "Row", id: 7, instance: 1, key: "ticks" })
+        const heard = yield* rehearsal.hearNext((key) =>
+          Equal.equals(key, { _tag: "Row", id: 7, instance: 1, key: "ticks" })
+        )
         yield* rehearsal.hear(eight, ticked)
         yield* rehearsal.hear(eight, ticked)
         return { heard, model: yield* rehearsal.model, state: yield* rehearsal.state }
@@ -508,7 +525,7 @@ describe("rehearse", () => {
       const { message, pings } = await Effect.runPromise(withStorage(rehearse(
         pinging(log),
         Effect.fnUntraced(function*(rehearsal) {
-          const message = yield* rehearsal.hearNext("ping")
+          const message = yield* rehearsal.hearNext((key) => key === "ping")
           return { message, pings: (yield* rehearsal.state).pings }
         })
       )))
@@ -522,7 +539,7 @@ describe("rehearse", () => {
       const state = await Effect.runPromise(withStorage(Effect.uninterruptible(rehearse(
         pinging(log),
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("ping")
+          yield* rehearsal.hearNext((key) => key === "ping")
           yield* rehearsal.send(typing("milk"))
           yield* rehearsal.send(saving)
           yield* rehearsal.run(isStore)
@@ -561,11 +578,11 @@ describe("rehearse", () => {
       const pings = await Effect.runPromise(withStorage(rehearse(
         twice(log, Effect.void),
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("ping")
+          yield* rehearsal.hearNext((key) => key === "ping")
           // A window of absence, once the first ping is heard: a correct rehearsal makes no second one until asked.
           yield* Effect.sleep("20 millis")
           expect(log).toEqual(["first"])
-          yield* rehearsal.hearNext("ping")
+          yield* rehearsal.hearNext((key) => key === "ping")
           return (yield* rehearsal.state).pings
         })
       )))
@@ -581,14 +598,14 @@ describe("rehearse", () => {
         return yield* withStorage(rehearse(
           twice(log, Effect.andThen(Deferred.succeed(waits, undefined), Deferred.await(gate))),
           Effect.fnUntraced(function*(rehearsal) {
-            yield* rehearsal.hearNext("ping")
+            yield* rehearsal.hearNext((key) => key === "ping")
             // The subscription goes on to its second message only once a call asks for it.
-            const call = yield* Effect.forkChild(rehearsal.hearNext("ping"))
+            const call = yield* Effect.forkChild(rehearsal.hearNext((key) => key === "ping"))
             yield* Deferred.await(waits)
             yield* Fiber.interrupt(call)
             expect(Exit.hasInterrupts(yield* Fiber.await(call))).toBe(true)
             yield* Deferred.succeed(gate, undefined)
-            yield* rehearsal.hearNext("ping")
+            yield* rehearsal.hearNext((key) => key === "ping")
             return (yield* rehearsal.state).pings
           })
         ))
@@ -603,8 +620,8 @@ describe("rehearse", () => {
         twice(log, Effect.void),
         Effect.fnUntraced(function*(rehearsal) {
           // `timeoutOption` runs the call in a fiber of its own, which ends with it.
-          yield* Effect.timeoutOption(rehearsal.hearNext("ping"), "1 second")
-          const second = yield* Effect.exit(rehearsal.hearNext("ping"))
+          yield* Effect.timeoutOption(rehearsal.hearNext((key) => key === "ping"), "1 second")
+          const second = yield* Effect.exit(rehearsal.hearNext((key) => key === "ping"))
           return { second: Exit.isSuccess(second), pings: (yield* rehearsal.state).pings }
         })
       )))
@@ -618,7 +635,7 @@ describe("rehearse", () => {
         const fiber = yield* Effect.forkChild(withStorage(rehearse(
           pinging(log),
           (rehearsal) =>
-            rehearsal.hearNext("ping").pipe(
+            rehearsal.hearNext((key) => key === "ping").pipe(
               Effect.andThen(Deferred.succeed(heard, undefined)),
               Effect.andThen(Effect.never)
             )
@@ -655,7 +672,9 @@ describe("rehearse", () => {
           listening,
           Effect.fnUntraced(function*(rehearsal) {
             // Started on this stack, the call is offered to the fiber of effects before `Stop` is.
-            const waiting = yield* Effect.forkChild(rehearsal.hearNext("k"), { startImmediately: true })
+            const waiting = yield* Effect.forkChild(rehearsal.hearNext((key) => key === "k"), {
+              startImmediately: true
+            })
             yield* Deferred.succeed(gate, undefined)
             yield* rehearsal.send(() => Opt.some("Stop"))
             yield* Fiber.await(waiting)
@@ -683,7 +702,9 @@ describe("rehearse", () => {
           silent,
           Effect.fnUntraced(function*(rehearsal) {
             // Started on this stack, the call has offered its job before `Noop` and `Stop` are sent.
-            const waiting = yield* Effect.forkChild(rehearsal.hearNext("k"), { startImmediately: true })
+            const waiting = yield* Effect.forkChild(rehearsal.hearNext((key) => key === "k"), {
+              startImmediately: true
+            })
             if (waits) yield* rehearsal.send(() => Opt.some<"Noop">("Noop"))
             yield* rehearsal.send(() => Opt.some<"Stop">("Stop"))
             // Bounded: a call that is never told waits only under a mutant.
@@ -735,7 +756,7 @@ describe("rehearse", () => {
           Effect.fnUntraced(function*(rehearsal) {
             // Started on this stack, the run starts the command before `hearNext` starts the subscription.
             const running = yield* Effect.forkChild(rehearsal.run(() => true), { startImmediately: true })
-            yield* rehearsal.hearNext("k")
+            yield* rehearsal.hearNext((key) => key === "k")
             yield* Fiber.join(running)
             return yield* rehearsal.state
           })
@@ -751,7 +772,7 @@ describe("rehearse", () => {
         return yield* rehearse(
           counting(Effect.void, Effect.andThen(Deferred.succeed(releasing, undefined), Deferred.await(gate))),
           Effect.fnUntraced(function*(rehearsal) {
-            const hearing = yield* Effect.forkChild(rehearsal.hearNext("k"))
+            const hearing = yield* Effect.forkChild(rehearsal.hearNext((key) => key === "k"))
             yield* Deferred.await(releasing)
             // Started on this stack, the run takes its command while the release holds the fiber of effects.
             const running = yield* Effect.forkChild(rehearsal.run(() => true), { startImmediately: true })
@@ -771,7 +792,9 @@ describe("rehearse", () => {
         subscriptions: () => ["ping" as const],
         listen: () => Channel.end<Edit>({ _tag: "Pinged" })
       }
-      const message = await Effect.runPromise(withStorage(rehearse(ending, (rehearsal) => rehearsal.hearNext("ping"))))
+      const message = await Effect.runPromise(
+        withStorage(rehearse(ending, (rehearsal) => rehearsal.hearNext((key) => key === "ping")))
+      )
       expect(message).toEqual({ _tag: "Pinged" })
     })
 
@@ -792,10 +815,10 @@ describe("rehearse", () => {
       const { failure, pings } = await Effect.runPromise(withStorage(rehearse(
         pinging(log),
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("ping")
-          const failure = yield* failingWith(rehearsal.hear("ping", { _tag: "Pinged" }))
+          yield* rehearsal.hearNext((key) => key === "ping")
+          const failure = yield* failingWith(rehearsal.hear((key) => key === "ping", { _tag: "Pinged" }))
           yield* comingBack(rehearsal)
-          yield* rehearsal.hear("ping", { _tag: "Pinged" })
+          yield* rehearsal.hear((key) => key === "ping", { _tag: "Pinged" })
           return { failure, pings: (yield* rehearsal.state).pings }
         })
       )))
@@ -808,10 +831,10 @@ describe("rehearse", () => {
       const { failure, pings } = await Effect.runPromise(withStorage(rehearse(
         ending,
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("ping")
-          const failure = yield* failingWith(rehearsal.hear("ping", { _tag: "Pinged" }))
+          yield* rehearsal.hearNext((key) => key === "ping")
+          const failure = yield* failingWith(rehearsal.hear((key) => key === "ping", { _tag: "Pinged" }))
           yield* comingBack(rehearsal)
-          yield* rehearsal.hear("ping", { _tag: "Pinged" })
+          yield* rehearsal.hear((key) => key === "ping", { _tag: "Pinged" })
           return { failure, pings: (yield* rehearsal.state).pings }
         })
       )))
@@ -824,11 +847,11 @@ describe("rehearse", () => {
       const { failure, pings } = await Effect.runPromise(withStorage(rehearse(
         pinging(log),
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hear("ping", { _tag: "Pinged" })
-          yield* rehearsal.hear("ping", { _tag: "Pinged" })
-          const failure = yield* failingWith(rehearsal.hearNext("ping"))
+          yield* rehearsal.hear((key) => key === "ping", { _tag: "Pinged" })
+          yield* rehearsal.hear((key) => key === "ping", { _tag: "Pinged" })
+          const failure = yield* failingWith(rehearsal.hearNext((key) => key === "ping"))
           yield* comingBack(rehearsal)
-          yield* rehearsal.hearNext("ping")
+          yield* rehearsal.hearNext((key) => key === "ping")
           return { failure, pings: (yield* rehearsal.state).pings }
         })
       )))
@@ -843,13 +866,13 @@ describe("rehearse", () => {
         Effect.fnUntraced(function*(rehearsal) {
           yield* rehearsal.send(typing("milk"))
           yield* rehearsal.send(saving)
-          yield* rehearsal.hearNext("ping")
+          yield* rehearsal.hearNext((key) => key === "ping")
         })
       ))
-      expect(String(failure)).toContain("Nothing listens under ping in the current state")
+      expect(String(failure)).toContain("No key of the current state matches what the test selects: its keys are none")
     })
 
-    test("dies in subscriptions when a key's Equal throws, as the run does", async () => {
+    test("fails the test with what select throws, a key's Equal included", async () => {
       class Key implements Equal.Equal {
         [Equal.symbol](): boolean {
           throw new Error("boom")
@@ -860,9 +883,9 @@ describe("rehearse", () => {
       }
       const failure = await failureOf(rehearse(
         { ...editor, subscriptions: () => [new Key()], listen: () => Channel.never },
-        (rehearsal) => rehearsal.hearNext(new Key())
+        (rehearsal) => rehearsal.hearNext((key) => Equal.equals(key, new Key()))
       ))
-      expect(failure instanceof ProgramDefect && failure.where).toBe("subscriptions")
+      expect(String(failure)).toBe("Error: boom")
     })
   })
 
@@ -969,8 +992,8 @@ describe("rehearse", () => {
       return yield* rehearse(
         listening,
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("a")
-          yield* rehearsal.hearNext("b")
+          yield* rehearsal.hearNext((key) => key === "a")
+          yield* rehearsal.hearNext((key) => key === "b")
           yield* rehearsal.send(() => Opt.some("Clear"))
           return begun
         })
@@ -1030,7 +1053,7 @@ describe("rehearse, under fibers of the test's and of whoever runs it", () => {
       return yield* rehearse(
         gated(releasing, Deferred.await(gate)),
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("k")
+          yield* rehearsal.hearNext((key) => key === "k")
           const dropping = yield* Effect.forkChild(rehearsal.send(() => Opt.some({ _tag: "Drop" })))
           yield* Deferred.await(releasing)
           // Started on this stack, the send has applied its message once the fork returns, while the release holds the
@@ -1058,7 +1081,7 @@ describe("rehearse, under fibers of the test's and of whoever runs it", () => {
       return yield* rehearse(
         gated(releasing, Deferred.await(gate)),
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("k")
+          yield* rehearsal.hearNext((key) => key === "k")
           const dropping = yield* Effect.forkChild(rehearsal.send(() => Opt.some({ _tag: "Drop" })))
           yield* Deferred.await(releasing)
           // Started on this stack, the interruption has reached the call once the fork returns.
@@ -1081,7 +1104,7 @@ describe("rehearse, under fibers of the test's and of whoever runs it", () => {
       return yield* rehearse(
         gated(releasing, Deferred.await(gate)),
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("k")
+          yield* rehearsal.hearNext((key) => key === "k")
           const dropping = yield* Effect.forkChild(rehearsal.send(() => Opt.some({ _tag: "Drop" })))
           yield* Deferred.await(releasing)
           const whileReleasing = dropping.pollUnsafe() !== undefined
@@ -1115,7 +1138,9 @@ describe("rehearse, under fibers of the test's and of whoever runs it", () => {
       pingingTwice,
       Effect.fnUntraced(function*(rehearsal) {
         const both = yield* Effect.timeoutOption(
-          Effect.all([rehearsal.hearNext("k"), rehearsal.hearNext("k")], { concurrency: "unbounded" }),
+          Effect.all([rehearsal.hearNext((key) => key === "k"), rehearsal.hearNext((key) => key === "k")], {
+            concurrency: "unbounded"
+          }),
           "1 second"
         )
         return { both: Opt.isSome(both), pings: (yield* rehearsal.state).pings }
@@ -1162,7 +1187,10 @@ describe("rehearse, under fibers of the test's and of whoever runs it", () => {
     const exit = await Effect.runPromise(Effect.gen(function*() {
       const started = yield* Deferred.make<void>()
       const fiber = yield* Effect.forkChild(
-        rehearse(dying(started), (rehearsal) => Effect.andThen(rehearsal.hearNext("ticks"), Effect.never))
+        rehearse(
+          dying(started),
+          (rehearsal) => Effect.andThen(rehearsal.hearNext((key) => key === "ticks"), Effect.never)
+        )
       )
       yield* Deferred.await(started)
       yield* Fiber.interrupt(fiber)
@@ -1180,7 +1208,7 @@ describe("rehearse, under fibers of the test's and of whoever runs it", () => {
       return yield* rehearse(
         dying(started),
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("ticks")
+          yield* rehearsal.hearNext((key) => key === "ticks")
           yield* rehearsal.send(() => Opt.some("Go"))
           // Awaited, never joined: what the call ends with does not reach the scenario.
           yield* Fiber.await(yield* Effect.forkChild(rehearsal.run(() => true)))
@@ -1225,15 +1253,15 @@ describe("rehearse, under fibers of the test's and of whoever runs it", () => {
       return yield* rehearse(
         counting(Effect.andThen(Deferred.succeed(started, undefined), Deferred.await(gate))),
         Effect.fnUntraced(function*(rehearsal) {
-          const hearing = yield* Effect.forkChild(rehearsal.hearNext("k"))
+          const hearing = yield* Effect.forkChild(rehearsal.hearNext((key) => key === "k"))
           yield* Deferred.await(started)
           yield* Fiber.interrupt(hearing)
           yield* Deferred.succeed(gate, undefined)
           // A call under `k` waits until the subscription has died.
-          yield* Effect.exit(rehearsal.hearNext("k"))
+          yield* Effect.exit(rehearsal.hearNext((key) => key === "k"))
           after = Opt.some({
             sent: yield* Effect.exit(rehearsal.send(() => Opt.some("Tick"))),
-            heard: yield* Effect.exit(rehearsal.hear("nobody", "Tick")),
+            heard: yield* Effect.exit(rehearsal.hear((key) => key === "nobody", "Tick")),
             model: yield* Effect.exit(rehearsal.model),
             count: (yield* rehearsal.state).count
           })
@@ -1281,15 +1309,15 @@ describe("rehearse, under fibers of the test's and of whoever runs it", () => {
       entered,
       Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.send(() => Opt.some("Go"))
-        yield* rehearsal.hear("k", "Late")
+        yield* rehearsal.hear((key) => key === "k", "Late")
         yield* Effect.exit(rehearsal.send(() => Opt.some("Boom")))
         after = Opt.some({
           calls: [
             yield* Effect.exit(rehearsal.send(() => Opt.some("Go"))),
             yield* Effect.exit(rehearsal.run(() => true)),
             yield* Effect.exit(rehearsal.runAll),
-            yield* Effect.exit(rehearsal.hear("k", "Go")),
-            yield* Effect.exit(rehearsal.hearNext("k")),
+            yield* Effect.exit(rehearsal.hear((key) => key === "k", "Go")),
+            yield* Effect.exit(rehearsal.hearNext((key) => key === "k")),
             yield* Effect.exit(rehearsal.model)
           ],
           read: {
@@ -1363,7 +1391,7 @@ describe("rehearse, under fibers of the test's and of whoever runs it", () => {
       return yield* rehearse(
         gated(releasing, Effect.andThen(Deferred.await(returned), Effect.die("release"))),
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("k")
+          yield* rehearsal.hearNext((key) => key === "k")
           yield* Effect.forkChild(rehearsal.send(() => Opt.some({ _tag: "Drop" })))
           yield* Deferred.await(releasing)
         }, Effect.ensuring(Deferred.succeed(returned, undefined)))
@@ -1391,7 +1419,7 @@ describe("rehearse, under fibers of the test's and of whoever runs it", () => {
           )
         ),
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("k")
+          yield* rehearsal.hearNext((key) => key === "k")
           yield* Effect.forkChild(rehearsal.send(() => Opt.some({ _tag: "Drop" })))
           yield* Deferred.await(releasing)
         }, Effect.ensuring(Deferred.succeed(returned, undefined)))
@@ -1409,7 +1437,7 @@ describe("rehearse, under fibers of the test's and of whoever runs it", () => {
       return yield* rehearse(
         gated(releasing, Deferred.await(gate)),
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("k")
+          yield* rehearsal.hearNext((key) => key === "k")
           yield* rehearsal.send(() => Opt.some({ _tag: "Go" }))
           const running = yield* Effect.forkChild(rehearsal.run(() => true))
           yield* Deferred.await(releasing)
@@ -1433,7 +1461,7 @@ describe("rehearse, under fibers of the test's and of whoever runs it", () => {
       return yield* rehearse(
         gated(releasing, Deferred.await(gate), { _tag: "Drop" }),
         Effect.fnUntraced(function*(rehearsal) {
-          const hearing = yield* Effect.forkChild(rehearsal.hearNext("k"))
+          const hearing = yield* Effect.forkChild(rehearsal.hearNext((key) => key === "k"))
           yield* Deferred.await(releasing)
           // Started on this stack, the interruption has reached the call once the fork returns.
           const interrupting = yield* Effect.forkChild(Fiber.interrupt(hearing), { startImmediately: true })
@@ -1496,7 +1524,7 @@ describe("rehearse, while a fiber of the test's waits for what nothing will send
       Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.send(() => Opt.some("Go"))
         yield* Effect.forkChild(rehearsal.run((command) => command === "Dies"))
-        yield* rehearsal.hearNext("k")
+        yield* rehearsal.hearNext((key) => key === "k")
       })
     ))
     expect(whereDied(outcome)).toEqual(["command"])
@@ -1521,7 +1549,10 @@ describe("rehearse, while a fiber of the test's waits for what nothing will send
       rehearse(
         waiting(Channel.end<Waited>("Last")),
         (rehearsal) =>
-          Effect.all([Effect.exit(rehearsal.hearNext("k")), Effect.exit(rehearsal.hearNext("k"))], {
+          Effect.all([
+            Effect.exit(rehearsal.hearNext((key) => key === "k")),
+            Effect.exit(rehearsal.hearNext((key) => key === "k"))
+          ], {
             concurrency: "unbounded"
           })
       )
@@ -1544,7 +1575,7 @@ describe("rehearse, while a fiber of the test's waits for what nothing will send
       const call = yield* rehearse(
         waiting(silent),
         Effect.fnUntraced(function*(rehearsal) {
-          const call = yield* Effect.forkDetach(rehearsal.hearNext("k"))
+          const call = yield* Effect.forkDetach(rehearsal.hearNext((key) => key === "k"))
           // Started by the call, which waits on it from then on.
           yield* Deferred.await(started)
           return call
@@ -1625,8 +1656,8 @@ describe("rehearse, as the release of what died lets another fiber die", () => {
         Effect.fnUntraced(
           function*(rehearsal) {
             // Started on this stack, the call is offered to the fiber of effects before the next one is.
-            yield* Effect.forkChild(rehearsal.hearNext("second"), { startImmediately: true })
-            yield* rehearsal.hearNext("first")
+            yield* Effect.forkChild(rehearsal.hearNext((key) => key === "second"), { startImmediately: true })
+            yield* rehearsal.hearNext((key) => key === "first")
           }
         )
       )
@@ -1673,8 +1704,8 @@ describe("rehearse, as the release of what died lets another fiber die", () => {
         program,
         Effect.fnUntraced(function*(rehearsal) {
           // Started on this stack, the call is offered to the fiber of effects before the next one is.
-          yield* Effect.forkChild(rehearsal.hearNext("second"), { startImmediately: true })
-          yield* rehearsal.hearNext("first")
+          yield* Effect.forkChild(rehearsal.hearNext((key) => key === "second"), { startImmediately: true })
+          yield* rehearsal.hearNext((key) => key === "first")
         })
       )
     }))
@@ -1874,7 +1905,7 @@ describe("rehearse, as a fiber of the test's runs a command while it ends", () =
       return yield* rehearse(
         program,
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("k")
+          yield* rehearsal.hearNext((key) => key === "k")
           yield* Effect.forkChild(rehearsal.run(() => true))
           yield* Deferred.await(started)
           // Started on this stack, the call waits for its job before the scenario goes on.
@@ -1925,7 +1956,7 @@ describe("rehearse, as a fiber of the test's runs a command while it ends", () =
       return yield* rehearse(
         program,
         Effect.fnUntraced(function*(rehearsal) {
-          yield* Effect.forkChild(rehearsal.hearNext("k"), { startImmediately: true })
+          yield* Effect.forkChild(rehearsal.hearNext((key) => key === "k"), { startImmediately: true })
           yield* Effect.forkChild(rehearsal.run(() => true))
           yield* Deferred.await(started)
           yield* Deferred.await(listening)
@@ -2062,14 +2093,14 @@ describe("rehearse, as a call is interrupted between what it took and its job", 
     return yield* rehearse(
       program,
       Effect.fnUntraced(function*(rehearsal) {
-        const hearing = yield* Effect.forkChild(rehearsal.hearNext("k"))
+        const hearing = yield* Effect.forkChild(rehearsal.hearNext((key) => key === "k"))
         const interrupting = yield* Effect.forkChild(
           Effect.andThen(Deferred.succeed(gate, undefined), Fiber.interrupt(hearing))
         )
         yield* Fiber.await(hearing)
         yield* Fiber.await(interrupting)
         yield* rehearsal.send(() => Opt.some("Noop"))
-        if ((yield* rehearsal.state).count === 0) yield* rehearsal.hearNext("k")
+        if ((yield* rehearsal.state).count === 0) yield* rehearsal.hearNext((key) => key === "k")
         return (yield* rehearsal.state).count
       })
     )
@@ -2115,17 +2146,17 @@ describe("rehearse, as a call leaves while the fiber of effects is in a release"
       return yield* rehearse(
         program,
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("a")
+          yield* rehearsal.hearNext((key) => key === "a")
           const stopping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>("Stop")))
           yield* Deferred.await(releasing)
           // Started on this stack, the call waits in the queue of the jobs once the fork returns.
-          const hearing = yield* Effect.forkChild(rehearsal.hearNext("k"), { startImmediately: true })
+          const hearing = yield* Effect.forkChild(rehearsal.hearNext((key) => key === "k"), { startImmediately: true })
           yield* Fiber.interrupt(hearing)
           yield* Deferred.succeed(gate, undefined)
           yield* Fiber.join(stopping)
           // Returns once the job of the call that left is done: a job that started `k` would have it run by then.
           yield* rehearsal.send(() => Opt.some<Message>("Tick"))
-          yield* rehearsal.hear("k", "Tick")
+          yield* rehearsal.hear((key) => key === "k", "Tick")
           return yield* rehearsal.state
         })
       )
@@ -2160,7 +2191,7 @@ describe("rehearse, as a call leaves while the fiber of effects is in a release"
       return yield* rehearse(
         program,
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("a")
+          yield* rehearsal.hearNext((key) => key === "a")
           const stopping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>("Stop")))
           yield* Deferred.await(releasing)
           yield* rehearsal.run(() => true)
@@ -2240,7 +2271,7 @@ describe("rehearse and a scenario that throws before it returns its effect", () 
     }
     let call: Fiber.Fiber<"Tick"> | undefined
     const exit = await Effect.runPromiseExit(rehearse(program, (rehearsal) => {
-      call = Effect.runFork(rehearsal.hearNext("k"))
+      call = Effect.runFork(rehearsal.hearNext((key) => key === "k"))
       throw new Error("boom")
     }))
     // Bounded, so that a call left waiting still lets the test end.
@@ -2295,7 +2326,7 @@ describe("rehearse, as the scenario ends while its fiber of effects waits for a 
       return yield* rehearse(
         program,
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("a")
+          yield* rehearsal.hearNext((key) => key === "a")
           yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>("Stop")))
           yield* Deferred.await(releasing)
           yield* Effect.forkChild(Effect.gen(function*() {
@@ -2319,7 +2350,7 @@ describe("rehearse, as the scenario ends while its fiber of effects waits for a 
       return yield* rehearse(
         holding(gate, releasing),
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext("a")
+          yield* rehearsal.hearNext((key) => key === "a")
           const stopping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>("Stop")))
           yield* Deferred.await(releasing)
           yield* Effect.forkChild(Effect.gen(function*() {
@@ -2348,7 +2379,7 @@ describe("rehearse, as the scenario ends while its fiber of effects waits for a 
         )
       )
       const rehearsal = yield* Deferred.await(handed)
-      yield* rehearsal.hearNext("a")
+      yield* rehearsal.hearNext((key) => key === "a")
       const stopping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>("Stop")))
       yield* Deferred.await(releasing)
       const interrupting = yield* Effect.forkChild(Fiber.interrupt(rehearsing))
@@ -2441,7 +2472,7 @@ describe("rehearse, as a scenario that failed stops its fiber of effects in the 
           yield* Fiber.interrupt(fiber)
           yield* Deferred.succeed(stale, fiber)
           // Started on this stack, the call is offered to the fiber of effects before `Stop` is.
-          yield* Effect.forkChild(rehearsal.hearNext("a"), { startImmediately: true })
+          yield* Effect.forkChild(rehearsal.hearNext((key) => key === "a"), { startImmediately: true })
           yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>("Stop")))
           yield* Deferred.await(stopped)
           return yield* Effect.fail("boom")
@@ -2476,7 +2507,7 @@ describe("rehearse, as a scenario that failed stops its fiber of effects in the 
         lingering(stopped),
         Effect.fnUntraced(function*(rehearsal) {
           // Started on this stack, the call is offered to the fiber of effects before `Stop` is.
-          call = yield* Effect.forkDetach(rehearsal.hearNext("a"), { startImmediately: true })
+          call = yield* Effect.forkDetach(rehearsal.hearNext((key) => key === "a"), { startImmediately: true })
           yield* Effect.forkChild(rehearsal.send(() => Opt.some<Message>("Stop")))
           yield* Deferred.await(stopped)
           return yield* Effect.fail("boom")
@@ -2510,8 +2541,8 @@ describe("rehearse, as a scenario that failed stops its fiber of effects in the 
         stoppingBoth(stopped),
         Effect.fnUntraced(function*(rehearsal) {
           // Started on this stack, the call is offered to the fiber of effects before the next one is.
-          yield* Effect.forkChild(rehearsal.hearNext("b"), { startImmediately: true })
-          call = yield* Effect.forkDetach(rehearsal.hearNext("a"))
+          yield* Effect.forkChild(rehearsal.hearNext((key) => key === "b"), { startImmediately: true })
+          call = yield* Effect.forkDetach(rehearsal.hearNext((key) => key === "a"))
           yield* Deferred.await(stopped)
           return yield* Effect.fail("boom")
         })
@@ -2623,7 +2654,7 @@ describe("rehearse, as the job of a message waits for a release", () => {
     rehearsal: Rehearsal<Swapping, Swapping, Swap, "Note", "Went">,
     releasing: Deferred.Deferred<void>
   ) {
-    yield* Effect.forkChild(rehearsal.hearNext("a"), { startImmediately: true })
+    yield* Effect.forkChild(rehearsal.hearNext((key) => key === "a"), { startImmediately: true })
     const swapping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<Swap>("Swap")))
     yield* Deferred.await(releasing)
     return swapping
@@ -2666,7 +2697,9 @@ describe("rehearse, as the job of a message waits for a release", () => {
         Effect.fnUntraced(function*(rehearsal) {
           const swapped = yield* holding(rehearsal, releasing)
           // Started on this stack: a `hear` that did not wait would have applied its message once the fork returns.
-          const hearing = yield* Effect.forkChild(rehearsal.hear("b", "Tick"), { startImmediately: true })
+          const hearing = yield* Effect.forkChild(rehearsal.hear((key) => key === "b", "Tick"), {
+            startImmediately: true
+          })
           const meanwhile = (yield* rehearsal.state).count
           yield* Deferred.succeed(gate, undefined)
           yield* Fiber.join(swapped)
@@ -2686,7 +2719,9 @@ describe("rehearse, as the job of a message waits for a release", () => {
         swapping(releasing, gate),
         Effect.fnUntraced(function*(rehearsal) {
           const swapped = yield* holding(rehearsal, releasing)
-          const hearing = yield* Effect.forkChild(rehearsal.hear("b", "Tick"), { startImmediately: true })
+          const hearing = yield* Effect.forkChild(rehearsal.hear((key) => key === "b", "Tick"), {
+            startImmediately: true
+          })
           const dropping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<Swap>("DropB")), {
             startImmediately: true
           })
@@ -2697,7 +2732,9 @@ describe("rehearse, as the job of a message waits for a release", () => {
         })
       )
     }))
-    expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain("Nothing listens under b")
+    expect(Exit.isFailure(exit) && String(Cause.squash(exit.cause))).toContain(
+      "No key of the current state matches what the test selects"
+    )
     expect(count).toBe(0)
   })
 
@@ -2709,7 +2746,9 @@ describe("rehearse, as the job of a message waits for a release", () => {
         swapping(releasing, gate),
         Effect.fnUntraced(function*(rehearsal) {
           const swapped = yield* holding(rehearsal, releasing)
-          const hearing = yield* Effect.forkChild(rehearsal.hear("b", "Tick"), { startImmediately: true })
+          const hearing = yield* Effect.forkChild(rehearsal.hear((key) => key === "b", "Tick"), {
+            startImmediately: true
+          })
           // Each applies its message on this stack, while the release holds the fiber of effects.
           const dropping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<Swap>("DropB")), {
             startImmediately: true
@@ -2739,7 +2778,7 @@ describe("rehearse, as the job of a message waits for a release", () => {
         Effect.fnUntraced(function*(rehearsal) {
           const swapped = yield* holding(rehearsal, releasing)
           // Started on this stack, the call has offered its job, behind that of `Swap`, once the fork returns.
-          const hearing = yield* Effect.forkChild(rehearsal.hearNext("b"), { startImmediately: true })
+          const hearing = yield* Effect.forkChild(rehearsal.hearNext((key) => key === "b"), { startImmediately: true })
           const dropping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<Swap>("DropB")), {
             startImmediately: true
           })
@@ -2766,7 +2805,7 @@ describe("rehearse, as the job of a message waits for a release", () => {
         swapping(releasing, gate, log),
         Effect.fnUntraced(function*(rehearsal) {
           const swapped = yield* holding(rehearsal, releasing)
-          const hearing = yield* Effect.forkChild(rehearsal.hearNext("b"), { startImmediately: true })
+          const hearing = yield* Effect.forkChild(rehearsal.hearNext((key) => key === "b"), { startImmediately: true })
           yield* Effect.exit(rehearsal.send(() => Opt.some<Swap>("Boom")))
           yield* Deferred.succeed(gate, undefined)
           yield* Fiber.await(swapped)
@@ -2845,11 +2884,11 @@ describe("rehearse, as the job of a hearNext comes once the scenario has returne
       yield* rehearse(
         program,
         Effect.fnUntraced(function*(rehearsal) {
-          yield* Effect.forkChild(rehearsal.hearNext("a"), { startImmediately: true })
+          yield* Effect.forkChild(rehearsal.hearNext((key) => key === "a"), { startImmediately: true })
           yield* Effect.forkChild(rehearsal.send(() => Opt.some<"Stop">("Stop")))
           yield* Deferred.await(releasing)
           // Detached, so that the call is still asking when its job comes; started on this stack, it has offered it.
-          yield* Effect.forkDetach(rehearsal.hearNext("k"), { startImmediately: true })
+          yield* Effect.forkDetach(rehearsal.hearNext((key) => key === "k"), { startImmediately: true })
         }, Effect.ensuring(Deferred.succeed(returned, undefined)))
       )
     }))
@@ -2874,7 +2913,7 @@ describe("rehearse's send, made by a hearNext that a job wakes", () => {
     const after = await Effect.runPromise(rehearse(
       heard,
       Effect.fnUntraced(function*(rehearsal) {
-        yield* rehearsal.hearNext("k")
+        yield* rehearsal.hearNext((key) => key === "k")
         yield* rehearsal.send(() => Opt.some<"Ping" | "Go">("Go"))
         return yield* rehearsal.state
       })
@@ -2888,7 +2927,7 @@ describe("rehearse's send, made by a hearNext that a job wakes", () => {
       heard,
       Effect.fnUntraced(function*(rehearsal) {
         const waiting = yield* Effect.forkChild(
-          rehearsal.hearNext("k").pipe(
+          rehearsal.hearNext((key) => key === "k").pipe(
             Effect.andThen(rehearsal.send(() => Opt.some<"Ping" | "Go">("Go"))),
             Effect.andThen(rehearsal.state)
           ),
@@ -2924,6 +2963,7 @@ describe("rehearse, with a value that throws as it is named", () => {
     }
   }
   const key = new Unprintable()
+  const isKey = (listed: unknown) => listed === key
   const shown = (subscription: Subscription<Said>): Program<
     { state: Shown; model: Shown; message: Said; key: Unprintable }
   > => ({
@@ -2954,7 +2994,7 @@ describe("rehearse, with a value that throws as it is named", () => {
     const outcome = await bounded(rehearse(
       shown(Channel.never),
       Effect.fnUntraced(function*(rehearsal) {
-        const waiting = yield* Effect.forkChild(rehearsal.hearNext(key), { startImmediately: true })
+        const waiting = yield* Effect.forkChild(rehearsal.hearNext(isKey), { startImmediately: true })
         yield* rehearsal.send(() => Opt.some<Said>("Off"))
         return yield* Effect.exit(Fiber.join(waiting))
       })
@@ -2970,8 +3010,8 @@ describe("rehearse, with a value that throws as it is named", () => {
     const outcome = await bounded(rehearse(
       shown(Channel.end<Said>("Done")),
       Effect.fnUntraced(function*(rehearsal) {
-        yield* rehearsal.hearNext(key)
-        return yield* Effect.exit(rehearsal.hearNext(key))
+        yield* rehearsal.hearNext(isKey)
+        return yield* Effect.exit(rehearsal.hearNext(isKey))
       })
     ))
     expect(outcome).toEqual([
@@ -2984,8 +3024,8 @@ describe("rehearse, with a value that throws as it is named", () => {
     const outcome = await bounded(rehearse(
       shown(Channel.never),
       Effect.fnUntraced(function*(rehearsal) {
-        yield* rehearsal.hear(key, "Done")
-        return yield* Effect.exit(rehearsal.hearNext(key))
+        yield* rehearsal.hear(isKey, "Done")
+        return yield* Effect.exit(rehearsal.hearNext(isKey))
       })
     ))
     expect(outcome).toEqual([
@@ -3001,7 +3041,7 @@ describe("rehearse, with a value that throws as it is named", () => {
       const call = yield* rehearse(
         shown(Channel.unwrap(Effect.as(Deferred.succeed(started, undefined), Channel.never))),
         Effect.fnUntraced(function*(rehearsal) {
-          const call = yield* Effect.forkDetach(rehearsal.hearNext(key))
+          const call = yield* Effect.forkDetach(rehearsal.hearNext(isKey))
           // Started by the call, which waits on it from then on.
           yield* Deferred.await(started)
           return call

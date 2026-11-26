@@ -2866,12 +2866,15 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "rehearse records a defect of a key's Equal, looked up for a call, in update",
+    name: "hear and hearNext take the first of the keys select matches",
     file: "src/testing/rehearse.ts",
-    from: "      Engine.recordThrown(register, \"subscriptions\", thrown)\n      return deadOr(Effect.never)",
-    to: "      Engine.recordThrown(register, \"update\", thrown)\n      return deadOr(Effect.never)",
+    from: "if (matched.length === 1) return matched[0]!",
+    to: "if (matched.length >= 1) return matched[0]!",
     killedBy: [
-      ["src/testing/rehearse.test.ts", "dies in subscriptions when a key's Equal throws, as the run does"]
+      [
+        "src/testing/rehearse.test.ts",
+        "hear and hearNext fail the test when select matches more than one key, naming each"
+      ]
     ]
   },
   {
@@ -2887,10 +2890,10 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "rehearse plays a key nothing listens under after the first defect",
+    name: "rehearse plays a key after the first defect",
     file: "src/testing/rehearse.ts",
-    from: "hear: (key, message) => deadOr(hear(key, message)),",
-    to: "hear: (key, message) => hear(key, message),",
+    from: "hear: (select, message) => deadOr(hear(select, message)),",
+    to: "hear: (select, message) => hear(select, message),",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
@@ -3163,8 +3166,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse's hearNext lets no call leave as it ends",
     file: "src/testing/rehearse.ts",
-    from:
-      "      Effect.ensuring(Effect.sync(() => {\n        stage.ledger = Ledger.leave(stage.ledger, call)\n      }))\n",
+    from: "        if (entered !== undefined) stage.ledger = Ledger.leave(stage.ledger, entered)\n",
     to: "",
     killedBy: [
       [
@@ -3266,7 +3268,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "hear plays, after the wait for its start's fiber, the start it found before",
     file: "src/testing/rehearse.ts",
-    from: "Effect.andThen(Deferred.await(starting.begun), hear(key, message))",
+    from: "Effect.andThen(Deferred.await(starting.begun), hear(select, message))",
     to: "Effect.andThen(Deferred.await(starting.begun), stage.submit(() => play(key, generation, message)))",
     killedBy: [
       [
