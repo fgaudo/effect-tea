@@ -17,12 +17,10 @@ import * as FiberMap from "effect/FiberMap"
 import * as FiberSet from "effect/FiberSet"
 import * as Hash from "effect/Hash"
 import * as HashMap from "effect/HashMap"
-import * as Logger from "effect/Logger"
 import * as Pull from "effect/Pull"
 import * as Queue from "effect/Queue"
 import * as Scope from "effect/Scope"
 import * as Stream from "effect/Stream"
-import * as Tracer from "effect/Tracer"
 import { collectGarbage } from "./gc.test_helper.ts"
 
 const reasonsOf = <A, E>(exit: Exit.Exit<A, E>): ReadonlyArray<Cause.Reason<E>> =>
@@ -258,79 +256,6 @@ describe("a fiber that fails as it is interrupted keeps its own reasons and gets
   })
 })
 
-test("Effect calls each Logger synchronously, in the fiber that logs", async () => {
-  const thrown = new Error("the logger")
-  const loggedBy: Array<number> = []
-  const throwing = Logger.make(({ fiber }) => {
-    loggedBy.push(fiber.id)
-    throw thrown
-  })
-  const [logging, exit] = await Effect.runPromise(
-    Effect.gen(function*() {
-      return [yield* Effect.fiberId, yield* Effect.exit(Effect.logInfo("a log"))] as const
-    }).pipe(Effect.provide(Logger.layer([throwing])))
-  )
-  expect(loggedBy).toEqual([logging])
-  expect(described(exit)).toEqual([["Die", thrown]])
-})
-
-test("an external span keeps no event of the logs written under it", async () => {
-  const span = Tracer.externalSpan({ spanId: "span", traceId: "trace" })
-  const before = { ...span }
-  const current = await Effect.runPromise(
-    Effect.gen(function*() {
-      yield* Effect.logInfo("a log")
-      return yield* Effect.orDie(Effect.currentParentSpan)
-    }).pipe(
-      Effect.provideService(Tracer.ParentSpan, span),
-      Effect.provide(Logger.layer([Logger.tracerLogger]))
-    )
-  )
-  expect(current).toBe(span)
-  expect("events" in current ? current.events : []).toEqual([])
-  expect({ ...current }).toEqual(before)
-})
-
-const dies = Channel.fromEffectDone(Effect.die("boom"))
-
-describe("Channel.toPull keeps what a channel adds to the scope it is given, and releases none of it as the pull fails", () => {
-  test("a finalizer the channel adds to its scope runs only as that scope closes", async () => {
-    const log: Array<string> = []
-    await Effect.runPromise(Effect.gen(function*() {
-      const scope = yield* Scope.make()
-      const channel = Channel.unwrap(
-        Effect.as(Effect.addFinalizer(() => Effect.sync(() => log.push("released"))), dies)
-      )
-      const pull = yield* Channel.toPull(channel).pipe(Scope.provide(scope))
-      const exit = yield* Effect.exit(pull)
-      log.push(`pull ${Exit.isFailure(exit) && Cause.hasDies(exit.cause) ? "died" : "did not die"}`)
-      yield* Scope.close(scope, Exit.void)
-    }))
-    expect(log).toEqual(["pull died", "released"])
-  })
-})
-
-describe("while a release the channel wraps around itself runs as its pull fails, before the failure leaves it", () => {
-  const wrapped = (release: Effect.Effect<void>) => ({
-    "Channel.onExit": Channel.onExit(dies, () => release),
-    "Channel.acquireUseRelease": Channel.acquireUseRelease(Effect.void, () => dies, () => release),
-    "Channel.ensuring": Channel.ensuring(dies, release)
-  })
-
-  test.each(["Channel.onExit", "Channel.acquireUseRelease", "Channel.ensuring"] as const)("%s", async (operator) => {
-    const log: Array<string> = []
-    await Effect.runPromise(Effect.gen(function*() {
-      const scope = yield* Scope.make()
-      const channel = wrapped(Effect.sync(() => void log.push("released")))[operator]
-      const pull = yield* Channel.toPull(channel).pipe(Scope.provide(scope))
-      const exit = yield* Effect.exit(pull)
-      log.push(`pull ${Exit.isFailure(exit) && Cause.hasDies(exit.cause) ? "died" : "did not die"}`)
-      yield* Scope.close(scope, Exit.void)
-    }))
-    expect(log).toEqual(["released", "pull died"])
-  })
-})
-
 describe("one channel runs afresh each time it is run, one run after another or several at once", () => {
   // Of the forms the guide and the examples give `listen` as one value for every start.
   const channels = {
@@ -529,52 +454,5 @@ describe("Scope.close dies with every defect its finalizers die of, none merged 
       })
     )
     expect(described(exit)).toEqual([["Die", closing()], ["Die", closing()]])
-  })
-})
-
-describe("Stream.callback gives its callback the scope the stream runs in", () => {
-  // A source of callbacks as "Subscriptions" shows it, pulled in a scope as `runSubscription` pulls it: the log says
-  // when it listens, when the pull ends and when it stops.
-  const source = (log: Array<string>, listened: Deferred.Deferred<() => void>) =>
-    Stream.callback<number>((queue) =>
-      Effect.acquireRelease(
-        Effect.gen(function*() {
-          log.push("listen")
-          yield* Deferred.succeed(listened, () => Queue.endUnsafe(queue))
-          return () => log.push("stop")
-        }),
-        (stop) => Effect.sync(stop)
-      )
-    ).pipe(Stream.toChannel, Channel.flattenArray, Channel.mapDone(() => "ended"))
-
-  const pulled = (log: Array<string>, listened: Deferred.Deferred<() => void>) =>
-    Effect.scoped(
-      Channel.toPull(source(log, listened)).pipe(
-        Effect.flatMap((pull) => Effect.forever(pull)),
-        Pull.catchDone((done) => Effect.sync(() => log.push(`pull ${done}`)))
-      )
-    )
-
-  test("released as the scope of the pull closes, once the pull has ended by the end of its queue", async () => {
-    const log: Array<string> = []
-    await Effect.runPromise(Effect.gen(function*() {
-      const listened = yield* Deferred.make<() => void>()
-      const fiber = yield* Effect.forkChild(pulled(log, listened))
-      const end = yield* Deferred.await(listened)
-      end()
-      yield* Fiber.join(fiber)
-    }))
-    expect(log).toEqual(["listen", "pull ended", "stop"])
-  })
-
-  test("released as the scope of the pull closes, the fiber that pulls interrupted", async () => {
-    const log: Array<string> = []
-    await Effect.runPromise(Effect.gen(function*() {
-      const listened = yield* Deferred.make<() => void>()
-      const fiber = yield* Effect.forkChild(pulled(log, listened))
-      yield* Deferred.await(listened)
-      yield* Fiber.interrupt(fiber)
-    }))
-    expect(log).toEqual(["listen", "stop"])
   })
 })

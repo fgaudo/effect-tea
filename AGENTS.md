@@ -112,7 +112,7 @@ stay local ("Deciding"). One made with an AI agent ends with an `Assisted-by: <m
 - **Only stable APIs**: nothing `@stability unstable` of Effect, nor `unstable_` or `experimental_` of React, but what
   `tsconfig.json` lists for `tools/`, outside its files that stand for a user's code; and **nothing deprecated**, of
   any dependency, in the library, its tests or its examples. The typecheck and the lint fail on one.
-- **The peer range is the patches of the Effect the library is developed with** (`~4.1.5`), raised with
+- **The peer range is the patches of the Effect the library is developed with** (`~4.1.6`), raised with
   `devDependencies` in one commit; an API of a newer Effect calls for an upgrade, not a workaround (`upgrade-effect`).
   Effect v4 is [`Effect-TS/effect`](https://github.com/Effect-TS/effect). A renderer's range is a caret.
 - **A change a consumer can notice has a changelog entry** in the same commit (`release`).

@@ -7,7 +7,7 @@ description: How @fgaudo/effect-tea depends on Effect: the peer range is the pat
 
 ## The peer range
 
-`peerDependencies.effect` (`~4.1.5`) is the version of `devDependencies.effect` with a tilde, and the lockfile holds
+`peerDependencies.effect` (`~4.1.6`) is the version of `devDependencies.effect` with a tilde, and the lockfile holds
 exactly that version. No older Effect is supported, and no later minor: what Effect does not document may change in a
 minor, and the premises rest on some of it, so a new minor is supported only by an upgrade and a release. A renderer's
 range is a caret from the version its bridge is developed with (`^19.3.0`, `^3.6.4`): a tilde would refuse the whole
@@ -24,7 +24,7 @@ the newest renderer the range accepts. The oldest TypeScript supported is Effect
 
 A published version keeps its range. When the daily job fails at a version the range accepts, on a premise's test:
 
-1. Release a patch whose range leaves that version out (`>=4.1.5 <4.1.7`), with a `Changed` entry that names it.
+1. Release a patch whose range leaves that version out (`>=4.1.6 <4.1.8`), with a `Changed` entry that names it.
 2. Tell the owner which versions of the library accept the broken Effect, for `npm deprecate`, which the owner runs.
 3. Then fix it by an upgrade (below) to a version the library holds on.
 

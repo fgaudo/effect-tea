@@ -46,6 +46,7 @@ version, and everything else, features included, the patch version.
   `init: { state }`, keeps what each child was told until the value changes. A state given as `init: { state }` is one
   that the program made, or that `stateOf` made for it ("Guarantees").
   Upgrade: a state kept across a reload after a declaration changed is not given back; start from `init`.
+- The peer dependency on `effect` is `~4.1.6`, where it was `~4.1.5`.
 
 ## 0.9.0 (2026-11-26)
 

@@ -13,14 +13,15 @@ unless it says otherwise, named after it, with what it fails with.
 The testing tools take no premise of a fork of their own: `drive` runs the run; `rehearse` runs the engine through the
 handle the run makes (`partsOf` in `run.ts`), and `simulate` builds it (`Engine.build`): both run its thunk, its
 jobs, its fibers and its end. So each rests on what the engine rests on, and on what `testing/stage.ts` adds, named
-below by `answering`. `simulate` runs no subscription, so the premises of a subscription's channel (`Channel.toPull`,
-one channel run afresh, `Stream.callback`) are none of its own.
+below by `answering`. `simulate` runs no subscription, so the premise of a subscription's channel (one channel run
+afresh) is none of its own.
 
 - **`HashMap` calls a key's `Equal` and `Hash` only within the call it is given the key in**, synchronously, never
   later: so `reconcile` compares keys all inside `'subscriptions'`, in the thunk that makes a state, in the run and in
   the tools. `FiberMap` compares its keys in a fiber's observer as well, which is why the run keeps its fibers by their
   start. Both are read only in the source. The second test, "the watch of that test sees a FiberMap call a key's Equal
-  after the call, in a fiber's observer", is what the first fails with. Asked in Effect-TS/effect#10877.
+  after the call, in a fiber's observer", is what the first fails with. Asked in Effect-TS/effect#10877, and withdrawn
+  there by the owner: Effect-TS/effect#10878, which answered it, documents the three other rules.
 - **A fiber that waits on a `Deferred` runs on the stack of whoever completes it, until it waits again**, a fiber or
   plain code. No guarantee rests on it, only killers of mutations: those of "the end of the run may begin inside a
   step" and "drive wakes its waits inside the step", which tell a wake inside the step only where it is resumed there,
@@ -61,21 +62,6 @@ one channel run afresh, `Stream.callback`) are none of its own.
   children runs its loop again in the same task and interrupts them there; and one that begins on the stack of another
   gives it back as it yields, in the same task. Its tests are a file of their own, `test/effect-scheduler.test.ts`,
   named after each. No killer of a mutation rests on it: a scheduler gone wrong costs a false alarm, or a missed one.
-- **Effect calls each `Logger` synchronously, in the fiber that logs**: so what it throws is a defect of that fiber,
-  which `diesIn` wraps where the program logs, as the guide's "Running" says. Read only in the source. Its test fails
-  with `Logger.batched`, by an error of the logger. Asked in Effect-TS/effect#10877.
-- **An external span keeps no event of the logs written under it**: so no span lives as long as the run
-  (`withExternalSpan`). That a log is an event of the current span, and that a span opened under an external one has it
-  as its parent, is documented; that an external span keeps none is not. Its test fails with a span of Effect's own as
-  the parent. Asked in Effect-TS/effect#10877.
-- **`Channel.toPull` keeps what a channel adds to the scope it is given, and releases none of it as the pull fails,
-  while a release the channel wraps around itself (`Channel.onExit`, `Channel.acquireUseRelease`, and every operator
-  that makes a scope of its own) runs as its pull fails, before the failure leaves it**. The first lets
-  `runSubscription` leave a channel's releases to the scope of `scopedIn`, once its defect is recorded, so that no
-  message applies meanwhile. The second makes a release the channel wraps its own, as `Effect.ensuring` is a command's.
-  That it takes the scope it is run in is documented; what a failing pull releases is read in the source
-  (`fromTransformBracket`). Its tests fail with `Channel.runForEach`, which closes a scope of its own first, and with a
-  channel that adds its release to the scope it is given. Asked in Effect-TS/effect#10877.
 - **One channel runs afresh each time it is run, one run after another or several at once**: so a `listen` that gives
   the same value for every start, as `listen: () => ticks` in the guide and the examples, starts it anew each time its
   key comes back. The library's code makes no channel that runs twice: the form the guide gives rests on it. Taken in
@@ -92,14 +78,6 @@ one channel run afresh, `Stream.callback`) are none of its own.
 - **Effect keeps nothing of a fiber that has ended, nor of what its scope released**: so a command or a subscription
   that ended leaves nothing in a run that goes on, once its `FiberSet` or `FiberMap` has removed it, as their JSDoc
   says. Agreed by the owner on 21 November 2026. Its test, on Bun and on Node, fails with a fiber kept as it is made.
-- **`Stream.callback` gives its callback the scope the stream runs in**: for a subscription, the scope of `scopedIn`,
-  which closes once the subscription ends, however it ends. With the premise of `Channel.toPull`, a release the
-  callback acquires stops the source as the subscription ends: the guide's "A source of callbacks as a subscription"
-  and the examples `volume` and `bounce` rest on it. Under a pull, that scope is not one of the callback's own. The
-  JSDoc shows the `Scope` only in its type; the example in `ai-docs` (`03_stream/10_creating-streams.ts`) removes its
-  listener "when the stream is finished", which holds under a run function and not under a pull. Agreed by the owner
-  on 22 and 23 November 2026. Its tests, a pull that ends by the end of its queue and one whose fiber is interrupted,
-  fail with a release added to a scope of the test's. Asked in Effect-TS/effect#10877.
 - **snabbdom reuses an `<input>` with no key in the same place**: so a controlled element of the bridge to snabbdom
   keeps its focus, caret and selection while the program changes its value. snabbdom's README describes the reuse of
   keyed elements only. Its test, in `bridges/snabbdom.test.ts`, fails with a key of its own for the second input.
