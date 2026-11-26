@@ -53,8 +53,9 @@ that waits for a microtask before it reads the model draws once the new states t
 browser calls, made, as the bridge to snabbdom does.
 
 **A program starts elsewhere from another first step**: `{ ...program, init: { state } }`, with the step's commands,
-if any. The state may be one that `onApplied` saved, or one kept across a reload in development. A test gives such a
-program to `drive` and `rehearse` the same way, and plays a session recorded with `onApplied` again with `applyAll`.
+if any. The state is one that this program made, as one that `onApplied` saved in a run of it (see
+[what is left to you](./guarantees.md#what-is-left-to-you)). A test gives such a program to `drive` and `rehearse`
+the same way, and plays a session recorded with `onApplied` again with `applyAll`.
 
 **What is done does not pile up.** While the run goes on, it lets go of what a finished step used: its message and
 what `onApplied` heard of it, the state it replaced and that state's model, a command or a subscription that ended or

@@ -23,6 +23,10 @@ version, and everything else, features included, the patch version.
   Upgrade: a test that gives a child a state that being told changes gets the state that the child's `external` makes
   of it, and what its parent's `onEvent` makes of the child's answer, or its errors; one that gives a state the child
   would keep sees no change.
+- **Breaking**: unspecified, and no longer promised: that a state made by a program of another `tell`, and given as
+  `init: { state }`, keeps what each child was told until the value changes. A state given as `init: { state }` is one
+  that the program made, or that `stateOf` made for it ("Guarantees").
+  Upgrade: a state kept across a reload after a declaration changed is not given back; start from `init`.
 
 ## 0.9.0 (2026-11-26)
 

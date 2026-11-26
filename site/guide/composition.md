@@ -79,8 +79,8 @@ A parent declares each child by name, in `withChildren`, with functions of the p
   it as it starts, and again only where the state gives another value, by `Equal` (see
   [what you can rely on](./guarantees.md#what-you-can-rely-on), and
   [a child that must wait for its parent](./events-and-external-messages.md#a-child-that-must-wait-for-its-parent)).
-  A state given back as `{ ...program, init: { state } }` keeps what each child was last told, until the value
-  changes.
+  What the library does with a state that another program made is in
+  [what is left to you](./guarantees.md#what-is-left-to-you).
 
 ### How a parent and its children start
 

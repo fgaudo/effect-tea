@@ -1594,18 +1594,6 @@ describe("what a declaration tells its children", () => {
     expect(heard(poked)).toEqual([["given", "b", "poke"]])
   })
 
-  // As a state kept across a reload in development, under a `tell` that has changed since.
-  test("a state given back as init to a program of another tell keeps what each child was told, until the value changes", () => {
-    const quiet = parent(start)
-    const saved = accepted(quiet.update({ _tag: "Set", condition: "c" })(quiet.init.state)).state
-    const loud = parent(start, undefined, (condition) => condition.toUpperCase())
-    const reloaded = { ...loud, init: { state: saved } }
-    const touched = accepted(reloaded.update({ _tag: "Touched" })(reloaded.init.state)).state
-    expect(heard(touched)).toEqual([["a", "c"], ["a", "c"]])
-    const changed = accepted(reloaded.update({ _tag: "Set", condition: "d" })(touched)).state
-    expect(heard(changed)).toEqual([["a", "c", "D"], ["a", "c", "D"]])
-  })
-
   test("stateOf refuses a handler that gives another own state, and one that raises an event of the parent's own", () => {
     const app = parent(start)
     expect(() => stateOf(app, { condition: "b", ids: [1], bounces: 0 })).toThrow(
@@ -1739,8 +1727,15 @@ describe("what a declaration tells its children, over random histories", () => {
     fc.constant({ _tag: "Solo", message: "Ping" } as const)
   )
   // Every child was last told what the own state gives, and never one value twice in a row. What a child given to
-  // `stateOf` heard before is the test's, by the instance's number: only what follows it is checked.
+  // `stateOf` heard before is the test's, by the instance's number: only what follows it is checked. The instances are
+  // distinct, and none is above the number of starts.
   const agrees = (state: StateOf<typeof scripted>, given: ReadonlyMap<number, number> = new Map()) => {
+    const instances = [
+      ...Arr.map([...HashMap.values(state.children.Kid)], (kept) => kept.instance),
+      ...Arr.map(Opt.toArray(state.children.Solo), (kept) => kept.instance)
+    ]
+    expect(new Set(instances).size).toBe(instances.length)
+    for (const instance of instances) expect(instance).toBeLessThanOrEqual(state.starts)
     const told = (kept: Instance<Heard>, value: string) => {
       const heard = kept.state.heard.slice(given.get(kept.instance) ?? 0)
       expect(heard.at(-1)).toBe(value)

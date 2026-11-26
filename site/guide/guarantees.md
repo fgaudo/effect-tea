@@ -113,10 +113,9 @@ each bridge's to promise (see [view](./view.md#rules)).
     values that `Equal` finds equal have the same `Hash`, and both give the same answer each time. Nothing checks
     them. Where one breaks them, what the library does with that value is undefined: which subscriptions and children
     it keeps, and which dispatch it gives a child.
-- **A state that starts a program elsewhere is one that the program made.** A child was last told what its parent's
-  state gives in the states that the program makes from its first step on. A state saved under another `tell`, as one
-  kept across a reload in development, and given back as `init: { state }`, keeps what each child was told then, until
-  the value changes (see [composition](./composition.md#when-a-child-is-there)).
+- **A state that starts a program elsewhere is one that the program made.** A state given as `init: { state }` is one
+  that this program made, by every function of its declarations, or one that `stateOf` made for it. What the library
+  does with another, as one kept across a reload in development after a declaration changed, is unspecified.
 - **What must stay private is in a service, not in a key.** A key carries what its subscription needs (see
   [subscriptions](./subscriptions.md#rules)), and is shown whole: in a defect of its subscription, and in the `origin`
   that `onApplied` and `onIgnored` hear (see [running](./running.md)).

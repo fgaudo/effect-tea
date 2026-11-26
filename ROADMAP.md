@@ -54,10 +54,9 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Step 99 runs first: it ends what step 93 began, from a reading of the states that the library does not make, on 26
-November 2026. Steps 94 to 98 come from the report of an application written again on 0.9.0, weighed on 26 November
-2026 ([`application-report-0.9.md`](docs/records/application-report-0.9.md)), and run in the order of their numbers
-after it. Each decides its point by "Deciding": a step that decides against its point writes its entry of
+Steps 94 to 98 come from the report of an application written again on 0.9.0, weighed on 26 November 2026
+([`application-report-0.9.md`](docs/records/application-report-0.9.md)), and run in the order of their numbers. Each
+decides its point by "Deciding": a step that decides against its point writes its entry of
 [`rejected.md`](docs/rejected.md), and is done. Their breaking changes go out together, in the release after 0.9.0.
 
 Step 92 decided the report's third point ([`instance-in-view.md`](docs/records/instance-in-view.md)): `makeModel`
@@ -94,38 +93,6 @@ after 0.9.0, reads the changes since that commit, and one of everything is due b
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 99. A state that the program did not make, said once
-
-**Model and effort.** Opus 5.5, `medium`: the wording of a rule, and two lines of a test.
-
-**Depends on** no other step. It runs before step 94: it ends what step 93 began, and cuts words from "Composition",
-which step 94 adds to.
-
-**Why.** The engine checks a state against its program only where a step changes it: `reconcile` runs where the own
-state changed (`ownStep` in `src/compose.ts`), skips children by id whose `ids` gives the very same object, and `sync`
-skips a `tell` of the same value. So a state given as `init: { state }` that another program made, as one kept across
-a reload after a declaration changed, keeps children that its own state does not list, and lacks some that it lists:
-the model of such a child is a `CompositionDefect`, and a name added to `withChildren` since leaves a slot that
-`update` and `subscriptions` read as `undefined`. "Running" invites such a state, the doc comment of `Kept` calls only
-a state written by hand unspecified, and "Guarantees", "Composition" and the skill speak of `tell` alone.
-
-**How.** No change of the engine: a start that reconciled could not know what a child was last told
-([`rejected.md`](docs/rejected.md), "what a child was last told kept in its instance", whose "Reopen if" no fact
-meets), and no check sets right a state of another program's shape. One rule, in "Guarantees" ("A state that starts a
-program elsewhere is one that the program made"): a state is of the program that made it, by every function of its
-declarations, named by no list, and what the library does with another is unspecified. The sentence of "Composition"
-on `tell` goes, for a link; "Running" links the rule; the skill and `Kept` say the same. That such a state keeps what
-each child was told "until the value changes" is withdrawn with the rest, a breaking change: its test,
-`compose.test.ts`, "a state given back as init to a program of another tell keeps what each child was told, until the
-value changes", stays only where it holds an invariant. In `compose.test.ts`, `agrees` ("what a declaration tells its
-children, over random histories") also checks that the instances of a state are distinct and none is above `starts`.
-The search already holds the answers by instance (`interleaving.test.ts`, "an answer reaches the row that asked for
-it, or is rejected"): no property is added.
-
-**Done when** the three pages, the skill and `Kept` say one rule, the changelog has its entry of a promise withdrawn,
-`agrees` holds the numbering from `init` and from `stateOf`, and `bun run comments`, `bun run test` and
-`bun run test:node` pass.
 
 ### 94. A child with flags that is always there
 
@@ -344,8 +311,9 @@ owner left them here on 25 November 2026, while the steps of "Next, in order" ar
 - **A devtools bridge over `onApplied`** (e.g. Redux DevTools), with time travel through `init: { state }` and
   replay through `applyAll`.
 - **An example of hot module reloading** that keeps the state, which the guide hints at (the view lives in a
-  module of its own) without showing. It says what it does with a kept state once a declaration changed (step 99):
-  `stateOf` makes a state of the new program from an own state and its children's states, and is a testing tool today.
+  module of its own) without showing. It says what it does with a kept state once a declaration changed, which the
+  library leaves unspecified ("Guarantees", "What is left to you"): `stateOf` makes a state of the new program from an
+  own state and its children's states, and is a testing tool today.
 - **An example of saving each state before its commands start**, which the guide names ("Running", "Work that must
   wait goes to the effects of the program") without showing: `onApplied` offers the state to a queue, a fiber of
   whoever runs the program saves it, and a wrapped `runCommand` waits until the state its step heard is saved.

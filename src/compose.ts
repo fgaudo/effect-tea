@@ -91,8 +91,8 @@ export type Instance<State> = {
  * The state of a parent: its own state, and the children that the library keeps for it.
  *
  * The parent's functions are given its own state alone. A test makes a whole state with `stateOf`, of
- * `@fgaudo/effect-tea/testing`, or by folding messages from `init`. What a parent does with a state written by hand
- * that does not hold the children its own state lists is unspecified.
+ * `@fgaudo/effect-tea/testing`, or by folding messages from `init`. What a parent does with another, written by hand
+ * or made by a program of other declarations, is unspecified.
  *
  * @see The guide, "Composition".
  */

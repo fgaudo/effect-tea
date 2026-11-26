@@ -130,9 +130,9 @@ No type refuses a break of these, and most often the run goes on. So check each 
   that value is undefined. The guide, "Guarantees", "What is left to you".
 - **What must stay private is in a service, not in a key.** A key is shown whole, in a defect of its subscription and
   to `onApplied` and `onIgnored`. The guide, "Guarantees", "What must stay private is in a service, not in a key".
-- **A state that starts a program elsewhere is one that the program made.** A child declared with `tell` was last
-  told what its parent's state gives in the states that the program makes. One saved under another `tell`, and given
-  back as `init: { state }`, keeps what each child was told then, until the value changes. The guide, "Guarantees",
+- **A state that starts a program elsewhere is one that the program made.** A state given as `init: { state }` is one
+  that this program made, by every function of its declarations, or one that `stateOf` made for it. What the library
+  does with another, as one kept across a reload after a declaration changed, is unspecified. The guide, "Guarantees",
   "A state that starts a program elsewhere is one that the program made".
 - **A function of the program never interrupts the fiber it runs in.** It runs where the library calls it: in the call
   of `start` or `make`, where a message is sent, or where the model is read. That may be any fiber, or none. One that
