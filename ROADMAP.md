@@ -26,56 +26,29 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 92 to 98 came from the report of an application written again on 0.9.0, weighed on 26 November 2026
-([`application-report-0.9.md`](docs/records/application-report-0.9.md)), and no step of it is left. Their breaking
-changes go out together, in the release after 0.9.0.
+Both readings are due before the release after 0.9.0, whose breaking changes go out together ("What may change" in
+`AGENTS.md`), and in this order (`release`, point 1 of "Releasing").
 
-Step 92 decided the report's third point ([`instance-in-view.md`](docs/records/instance-in-view.md)): `makeModel`
-reads the number of a child's instance, and `forwardTo` takes it, so that a message of a view names its instance where
-the view gives one. A message that names none is still a message, which reaches the child that is there, so no test
-written before it changes. Step 93 decided the first two items of the sixth point: `stateOf` tells each child once it
-is in the state given for it, and a test reads what a step told in the child's state and commands, with no list of it
-in the tools ([`rejected.md`](docs/rejected.md), "A list of what a step told"). Step 94 decided the fourth
-([`flags-always-there.md`](docs/records/flags-always-there.md)): `child(program, { flags })` is always there, and
-`flags` gives the flags, while `child(program, { there })` gives `Some` of them where the child is there. Step 95
-decided the fifth ([`subscriptions-read-outputs.md`](docs/records/subscriptions-read-outputs.md)): a parent's own
-`subscriptions` takes its children's outputs last, and the options of a declaration still read its own state alone. Step
-96 took the eighth: the types of a parent's program are written in place in `MakeParent`, with no alias over its
-children's declarations, and `CommandOf`, with `Returned` under it, is inferred through a tuple, so that an error or a
-hover over them prints no program; the smoke test's `misprint.ts` bounds what TypeScript prints of such errors. Step 97
-decided the first ([`functions-written-apart.md`](docs/records/functions-written-apart.md)): `OutputsOf` and `TellOf`,
-read from a parent's children declared apart from `withChildren`, type a function written apart from `make`, and
-`examples/list/halting.ts` is one. Step 98 decided the last item of the sixth
-([`hear-by-predicate.md`](docs/records/hear-by-predicate.md)): `hear` and `hearNext` take a `select` of the keys of the
-current state, as `run` takes one of the commands, and fail where it matches none, or more than one.
+### 99. Review the premises since step 65
 
-The release of 0.9.0 waited, as the owner asked on 25 November 2026, for a bridge to
-React Native, which step 83 made, for whether a view of React can have a `messagesSentBy`, and for a reading of the
-names of the API. Step 84 decided the first, after a spike ([`react-view-tests.md`](docs/records/react-view-tests.md)):
-it has none, and step 85 showed the check with React's tools, in `bridges/react.test.ts` and
-`examples/react-native/views.test_jest.tsx`. Step 86 read the names ([`names.md`](docs/records/names.md)): five
-change, two of them with a break, and step 87 applied them. The owner's fourth point has no step: the bridges stay in
-`bridges/` ([`rejected.md`](docs/rejected.md), "The bridges"). Step 82 decided what the bridge to React is on React
-Native ([`react-native.md`](docs/records/react-native.md)): `./react` as it is, with no entry and no peer of its own.
-`bun run test:react-native` checks it there, a job of the CI.
+**Model and effort.** Opus 5.5, `high`: a review.
 
-Step 73 decided the form of the smaller guide ([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md`
-holds it, under "What belongs here". The owner approved it on 25 November 2026, and steps 74 to 77 wrote every page by
-it: each has "In short", "An example", "Rules", and "Advice" where it advises, and its ceiling of words in
-`tools/comments.ts`. A doc comment names a page of the guide, never a section, and `tools/comments.ts` refuses one
-that names a section; the skill, the index, the glossary, the tutorial and the README were read again against the
-smaller guide (step 78). The guide went from 34,025 words to 21,807, most of what left it being in a doc comment, or in
-"Guarantees", already. A promise withdrawn is a breaking change, whose changelog entry is the one that starts
-"**Breaking**: unspecified, and no longer promised". No link checker runs on the guide: a step that changes a heading
-reads each `](…#…)` into its page, before and after.
+**Depends on** no other step. It reads the changes of the engine and of the testing tools since the commit that closed
+step 65 (`git log --grep "Close step 65"`), by [`premise-review`](.agents/skills/premise-review/SKILL.md).
 
-The last reading of the promises ([`promise-reading`](.agents/skills/promise-reading/SKILL.md)) read everything,
-guide, doc comments and examples, in step 90 (`git log --grep "Close step 90"`): the next one, before the release
-after 0.9.0, reads the changes since that commit, and one of everything is due before 1.0.
+**Done when** each finding is fixed, or is an open problem of this file with its `test.failing`, and, in place of this
+step, one line here names the commit that closed it, for the next review.
 
-The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
-after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
-65 together read every change since `ce1ffd1`.
+### 100. Read the promises since step 90
+
+**Model and effort.** Opus 5.5, `high`: a review.
+
+**Depends on** step 99. It reads the guide, the doc comments and the examples changed since the commit that closed
+step 90 (`git log --grep "Close step 90"`), each against the whole of the other side, by
+[`promise-reading`](.agents/skills/promise-reading/SKILL.md).
+
+**Done when** each gap is closed, or is a step of this file, and, in place of this step, one line here names the
+commit that closed it, for the next reading.
 
 ## For the owner
 
@@ -85,8 +58,8 @@ owner does it.
 - **0.9.0** is committed and tagged `v0.9.0`, locally, on 26 November 2026, after the checks of point 2 of
   "Releasing" passed on it: the owner pushes the commit and the tag, which deploys the site, and publishes the package.
 - **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
-  decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API. Until then,
-  releases stay at 0.x.
+  decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API, after a
+  reading of the promises and a review of the premises over everything. Until then, releases stay at 0.x.
 
 ### 47. Ask Effect to document what the library rests on
 

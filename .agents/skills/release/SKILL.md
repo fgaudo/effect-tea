@@ -24,8 +24,8 @@ Before a commit, answer these in order:
    which says the final result, the old spelling and the new. Changes of one kind are one entry.
 4. **Which heading?** `Added` for what is new; `Changed` for what behaves or is spelled otherwise; `Fixed` for what did
    not do what the last release promised. A program that compiled and no longer does is `**Breaking**`, under
-   `Changed`, even when the types were wrong before, and so is a promise that no longer holds. What the guide does not
-   promise has no entry.
+   `Changed`, even when the types were wrong before, and so is a promise that no longer holds, whose entry starts
+   `**Breaking**: unspecified, and no longer promised:`. What the guide does not promise has no entry.
 
 An entry is one line, two at most: what changes, in the user's words, with no why and no example. One that groups
 changes of one kind lists them, a few words each. A breaking entry starts with `**Breaking**:` and adds below it,
