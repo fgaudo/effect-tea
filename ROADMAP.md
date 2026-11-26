@@ -32,8 +32,8 @@ matrix is shown by its case (`bun run inference --filter <case>`).
   `rehearse.ts`) passes the test, and leaves the mutation "the job of a hearNext starts its subscription after the
   first defect" with no killer: the call leaves at the defect before its job, so no deterministic test reaches the
   `dead()` check of the job, which a schedule still may. The fix needs that check reached again, or shown not needed.
-  `send` waits for its job the same way, on purpose: its message is applied, and the job goes on whole. Opus 5.5,
-  `high` (`change-engine`).
+  `send` waits for its job the same way, on purpose: its message is applied, and the job goes on whole. Step 102
+  closes it, with a lead for "shown not needed".
 - **A `Child` written by hand compiles, and one that says it is always there dies where it is not.** A lead of the
   types, from the review of the premises of 26 November 2026: `const liar: Child<Own, Leaf, 'always'> = { _tag:
   'Child', program: leaf, there: 'always', key: (state) => state.on ? Opt.some(undefined) : Opt.none() }`, given to
@@ -52,6 +52,106 @@ Both readings are due before the release after 0.9.0, whose breaking changes go 
 
 The last review of the premises is the commit that closed it (`git log --grep "the premises reviewed since step 65"`):
 the next one reads the changes since.
+
+Steps 101 to 103 come from a reading of the testing tools against the engine, of 26 November 2026, after that review.
+The step of a message is the engine's, and the tools differ from the run only at two seams of their own: the mask of a
+command's fiber, and the waits of a call. They stand before step 100, which then reads what they change of the doc
+comments. They rest on no new premise, so the next review of the premises reads them, and none is due for them before
+the release: a step that finds it needs a premise says so here.
+
+### 101. A command's fiber of a stage under the engine's interruptibility
+
+**Model and effort.** Opus 5.5, `high`: code that must keep invariants (`change-engine`).
+
+**Depends on** no other step.
+
+**Why.** `answering` (`testing/stage.ts`) holds the command's fiber under an `Effect.uninterruptibleMask` of its own,
+from the effect's answer until the answer is applied, where the run's fiber is interruptible. Step 99 found what that
+difference let through, and closed it with `interruptedByTheProgram` (`shell.ts`), which says again, for the tool, what
+the engine's root already does: the tool follows the engine there by a compensation, not by running it. The mask dates
+from a rehearsal whose command gave its answer to a loop through a queue
+([`rehearse-owned-effects.md`](docs/records/rehearse-owned-effects.md), rule 1). Since the tools run on the engine,
+only the engine's end, the call of an interrupted `run` (`runFirst`) and the program can interrupt that fiber.
+
+**What was tried**, on 26 November 2026, in edits not kept:
+
+- Without the mask and without `interruptedByTheProgram` (`commandFiber(register, effect, …)` as it is, the import
+  gone), `bun run test` passes whole, 1141 tests, the contracts of step 99 that no answer is applied among them, and so
+  does `bun run interleavings`. Not run: `bun run mutations`, `bun run test:node`, and the tests of `rehearse.test.ts`
+  under the scheduler of the tests beyond their own seeds.
+- With `interruptedByTheProgram` failing on any interruption received, the run's included (`Exit.isFailure(received)`
+  alone), the tests of `src/testing/`, `engine.test.ts` and `run.test.ts` pass, 510 of them: nothing checks that the
+  run's interruptions are left behind, and no mutation takes that check out.
+
+**What a user could notice** without the mask: a `run` interrupted just as its command has answered applies no answer,
+where today it may. The rehearsal fails either way, on a command whose run was interrupted, as the record accepted
+("What a consumer could notice"). A changelog entry says so.
+
+**Done when** the mask and `interruptedByTheProgram` are gone, with its name in `.oxlintrc.json` and its mutation;
+`docs/invariants.md` says that a command's fiber of a stage is interrupted as the engine's is (the paragraph of
+`answering`, wrapped again, and the third form of "A region nothing may interrupt"); and the checks of `change-engine`
+pass, the mutations too. Or, where a test or a schedule shows what the mask holds: the mask stays, with that test, an
+entry of `docs/rejected.md`, a mutation of the check inside `interruptedByTheProgram` with its killer, and its name
+under the premise of `Effect.interruptible` in `docs/premises.md`, which it rests on and which names only `diesIn`
+today.
+
+### 102. The waits of a call, given by the stage
+
+**Model and effort.** Opus 5.5, `high`: code that must keep invariants (`change-engine`).
+
+**Depends on** step 101, which changes `testing/stage.ts` too. It closes the open problem of `hearNext`.
+
+**Why.** Which wait of a call is raced with a death is chosen at each wait, by wrapping it in `orDead` by hand: so step
+99 set `hear` right and left `hearNext`, of the same form. A call waits in two ways only. Before it has applied
+anything, for a start, a subscription's message or a command, it fails as soon as any fiber dies. Once it has applied
+its message, it waits for the job whole (`outcomeOf`). The stage would give both, and `rehearse.ts` and `simulate.ts`
+would await no `Deferred` of a call themselves, held by the types or the shape first, and by the lint where they
+cannot: a wait then names its kind, and a fix of a kind reaches each of its sites. The wait of a start's fiber for an
+ask (`nextAsk`) is no call's.
+
+**What was tried**, on 26 November 2026, in edits not kept: with `hearNext`'s wait for its job raced
+(`stage.orDead(Deferred.await(done))`), its `test.failing` passes and nothing else fails; with the `dead()` check of
+that job taken out too, the same, and `bun run interleavings` passes.
+
+**A lead for the open problem: the check goes, with its mutation.** The open problem asks that the check be reached
+again, or shown not needed. Three facts say that it is not needed. The engine starts the subscriptions of a job after
+the first defect too, since a job goes on whole (`docs/invariants.md`, "From the first defect on"): a start that such a
+job opens is what the run does. The check of the thunk (`arrive`) is the one check that keeps a message from `update`,
+so what that start sends is applied by nothing. And the call fails with the defect either way, through `orDead` in
+`toldOf`, so `"Dead"` leaves `Opened`. What the step weighs against it: the test "a hearNext whose job comes after a
+defect starts no subscription" then passes only because the call has left (`Ledger.opening`, `"Left"`), and a schedule
+that runs the job before the call leaves calls `listen` after the defect; and `runFirst` keeps its own check of the
+register, which stands in the thunk that calls `runCommand`.
+
+**Also here**, since it is the same seam: the message of the test's that `rehearse`'s `send` and `simulate` each apply
+as a dispatch (`deadOr`, `submit`, `apply`, `outcomeOf`), as one function of the stage.
+
+**Done when** the `test.failing` of `hearNext` has lost its mark and the open problem is gone; each wait of a call in
+`rehearse.ts` and `simulate.ts` is one of the stage's two, or the step says why one cannot be; `docs/invariants.md`
+says the rule of the two waits where it says today which wait is raced; and the checks of `change-engine` pass, the
+mutations too.
+
+### 103. The contracts, each scenario given to every tool
+
+**Model and effort.** Opus 5.5, `medium` (`change-engine`): which tool can say a scenario takes judgment, and the edits
+repeat a pattern.
+
+**Depends on** steps 101 and 102, whose tests it would otherwise rewrite twice.
+
+**Why.** `src/testing/contract.test.ts` writes each scenario once for each tool, by hand, so a scenario written for the
+tool where a bug was found reaches another tool only if its author thinks of it. One group gives one program to a table
+of the three (`tools`, in "what the run dies of, and the tools fail on"). A probe of 26 November 2026, not kept, gave
+`simulate` the program of "a message whose tag throws as the defect of update is said", as a message of the test's and
+as a command's answer: it fails with both defects, as the run and `rehearse` do, and the file has no test of it.
+
+**How.** A group whose scenario the run, `rehearse` and `simulate` can each say gives it to them through such a table,
+with one expectation; a group that a tool cannot say (`simulate` runs no subscription, and has no model) says so in a
+line. No language of scenarios common to the tools: it would be a mechanism to keep, for what a table of three
+functions gives (`AGENTS.md`, value 7). A difference found is a `test.failing` and an open problem, as the invariant
+says. A test renamed is renamed in `tools/mutations/mutations.ts`.
+
+**Done when** each `describe` of the file names each of the run, `rehearse` and `simulate`, in a test or in the line
+that says why not, and `bun run test`, `bun run test:node` and `bun run mutations` pass.
 
 ### 100. Read the promises since step 90
 
