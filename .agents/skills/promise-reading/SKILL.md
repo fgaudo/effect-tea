@@ -49,8 +49,8 @@ What has changed, on each side:
   changelog entry ([`release`](../release/SKILL.md)), or gets it.
 - **A line of the API's reports** that is removed or narrowed. It is a refusal, which perhaps no sentence states: its
   test of the types is looked for as a sentence's is. The reports are read by their diff alone, in a reading of
-  everything too, from the commit or the tag that the roadmap's line names: each check of the types that was there
-  before has its mutation ([`change-engine`](../change-engine/SKILL.md)).
+  everything too, from the commit or the tag that the roadmap's line names: a check of the types that was there
+  before had its test of the types read then.
 - **A test** that is removed, or that lost an assertion, and a mutation removed. The sentence that it held is looked
   for among the promises, and then another test of that sentence. A test may hold a sentence by how the program that
   it runs is written, as a test of an example does: where that program changed, the test is matched again.

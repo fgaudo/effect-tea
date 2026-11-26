@@ -3086,16 +3086,6 @@ describe("what the types reject", () => {
     expect([alone, byId, forgedAlone, forgedById, widened, narrowed]).toHaveLength(6)
   })
 
-  test("a child that child or childById did not make, as a copy of one, is a CompositionDefect as its parent is made", () => {
-    const Parent = program<{ state: Ticks }>()
-    // A copy that the types take, as `Object.assign` types it: what `child` made is not copied with it.
-    const copied = Object.assign({}, Parent.child(ticker))
-    expect(
-      thrown(() => Parent.withChildren({ Copied: copied }).make({ init: { state: noTicks }, makeModel: () => null }))
-    )
-      .toMatchObject({ _tag: "CompositionDefect", child: "Copied" })
-  })
-
   test("a child declared for another state is no child of a parent, alone or by id", () => {
     type Other = Readonly<{ other: string }>
     const elsewhere = program<{ state: Other }>()

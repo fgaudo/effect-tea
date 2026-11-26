@@ -55,15 +55,9 @@ fails on a title the list lacks and on an item no mutation names, and `bun run g
 tripwire: an item reworded, or given a sentence, is weighed by hand, for which check holds it and which test fails
 without it.
 
-### Mutations of the types
-
-Each check of the types of `program.ts` and `compose.ts` has a mutation that lets through what it refuses. Its killers
-are tests of the types, named with `"typecheck"` (`["src/compose.test.ts", "<test>", "typecheck"]`): such a test fails
-when `tsc`, run once on the copy, reports a diagnostic in its lines, and none may be there without the mutation. A
-killer is a test of the check, the one that refuses what the check refuses, written as a user writes. A kill is checked
-under TypeScript 7.0 alone, as in the CI. A check whose removal changes nothing that compiles has no mutation: it is
-listed, with why, at the head of the mutations of the types. What the checks refuse is in the doc comments of
-`program.ts` and `compose.ts`, and no list of the guide names it.
+A check of the types has no mutation (`docs/rejected.md`, "The checks"): its test of the types refuses what it refuses,
+written as a user writes, and is seen to fail without the check, once, as the test is written. What the checks refuse
+is in the doc comments of `program.ts` and `compose.ts`, and no list of the guide names it.
 
 ### A lead of the search
 

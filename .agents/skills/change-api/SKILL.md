@@ -27,9 +27,9 @@ judged as "What belongs here" in `AGENTS.md` says. An export removed or refused 
   `childById`) or a message (a `Dispatch`, `forwardTo`, `send`, `hear`, `simulate`, `applyAll`), or of the types of
   `program.ts` or `compose.ts`, runs `bun run inference` and `bun run inference --run`. A new function that takes a
   program goes in its `uses`, one that takes a message in its `takers` (`tools/inference/generate.ts`).
-- A change of the types of `program.ts` or `compose.ts` runs `bun run mutations` too. A check added gets a test of the
-  types that refuses what it refuses, and a mutation ([`change-engine`](../change-engine/SKILL.md), "Mutations of the
-  types").
+- A check added to the types of `program.ts` or `compose.ts` gets a test of the types that refuses what it refuses,
+  written as a user writes, and seen to fail without the check. It refuses what a program written as the guide and the
+  doc comments teach could get wrong, and no more (`AGENTS.md`, "Deciding", value 2).
 - A testing tool's test shows it on a program, and an example's test uses it
   ([`add-example`](../add-example/SKILL.md)); the README's "Examples" table stays true.
 

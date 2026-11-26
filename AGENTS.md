@@ -27,17 +27,17 @@ that read this section, and the precedents it names, decide alike.
 ### The values, in order
 
 When two of them pull apart, the higher one wins. When the lower one would lose much, look first for a third design,
-changing an invariant, a premise or the API if that is what it takes. Look for one also where nothing pulls apart:
-when a task shows a more elegant way to solve a problem, or a better form of the API, explore it. Take it where the
-task reaches it, and otherwise write it in the roadmap as a lead, for a step to weigh.
+changing an invariant, a premise or the API if that is what it takes.
 
 1. **Correct.** Every behaviour is defined, and nothing fails in silence.
-2. **Misuse is impossible by construction.** Only a misuse that leaves the library's behaviour undefined needs a
-   refusal: one that only exposes users to their own bugs is allowed. A refusal comes from the types or the shape of
-   the API first; where they cannot give one, from a defect as the program is made (`make`); last, from a rule that
-   nothing checks, listed in "Guarantees", under "What is left to you". Three things are axioms, never checked: the
-   functions of a program are pure, a user's values are immutable (none that a user gives the library, or takes from
-   it, is mutated once made, nested objects included), and a model holds no function.
+2. **A misuse that would leave the library's behaviour undefined is refused.** One that only exposes users to their own
+   bugs is allowed. A refusal is owed to a program written as the guide and the doc comments teach: past a cast, an
+   `any`, or a value that only a function of the library makes, written by hand, what the library does is unspecified.
+   A refusal comes from the types or the shape of the API first; where they cannot give one, from a defect as the
+   program is made (`make`); last, from a rule that nothing checks, listed in "Guarantees", under "What is left to
+   you". Three things are axioms, never checked: the functions of a program are pure, a user's values are immutable
+   (none that a user gives the library, or takes from it, is mutated once made, nested objects included), and a model
+   holds no function.
 3. **The public API is small, clear and symmetric.** Few concepts. One word for each concept, and one concept for each
    word: the guide's glossary is the dictionary. A name says what the thing is to a user, the same role has the same
    form, and a thing is done one way. Users judge the library by its API first.
@@ -70,11 +70,14 @@ functions. A change that leaves it makes another library.
 ### How a decision is taken and kept
 
 - Read the precedents first: `docs/rejected.md`, and the records that the change touches. A decision is not reopened
-  without a new fact (a bug, a user's report, a change of Effect, or an argument that the precedent did not weigh),
-  and the proposal names it, as the "Reopen if" of an entry asks. A decision taken before this section, on 24 November
-  2026, the owner's or an agent's, was not weighed by its values: an argument from them is its new fact.
-- Write the decision where the next agent will look: one line in the report of the step and in its commit. A decision
-  on the API or on an invariant also gets a record of a page at most, in `docs/records/`.
+  without a new fact: a bug that a test shows, a user's report, or a change of Effect. An argument alone is none, and
+  the proposal names the fact, as the "Reopen if" of an entry asks.
+- What a task or a review finds that is no such fact is a lead: a form that the types take and no page teaches, a more
+  elegant design, a better name. It is a line of `ROADMAP.md`, under "Leads", and no step of its own: the leads are
+  weighed together before a release (`release`).
+- Write the decision where the next agent will look: one line in the report of the step and in its commit, and an
+  entry of `docs/rejected.md` for a design weighed and rejected. A record, in `docs/records/`, is for a decision whose
+  reasons do not fit the body of a commit, and is a page at most: most decisions need none.
 - A decision that the owner undoes goes in `docs/rejected.md`, with the owner's reason: it is a precedent too.
 - A question that must go to the owner is one question, with the agent's choice first, the difference said by what it
   changes for a user of the library, and whether it can be undone.
@@ -100,11 +103,12 @@ stay local ("Deciding"). One made with an AI agent ends with an `Assisted-by: <m
   only where the library must do what Effect cannot: inspect it in tests without running it, keep it the same across
   draws (`forwardTo`), or enforce what its type cannot.
 - **The types of a program keep three rules, and only these.** Every correct program can be written (a concrete one: a
-  function over any program is an overload over erased types). No broken combination can: pieces that cannot work
-  together, and what compiles and then dies where the types could have prevented it. And what a program names is what
-  its types give back, however it is written. A form may be refused, never taken wrongly. The first rule is owed to a
-  program of `make`, a value typed `Program<…>` and `{ ...program, init }`, the others to every form a function takes.
-  A misspelled name, a form that repeats another and a type empty but true are no gaps (`docs/rejected.md`, "The API").
+  function over any program is an overload over erased types). No broken combination can, of a program written as the
+  guide and the doc comments teach ("Deciding", value 2): pieces that cannot work together, and what compiles and then
+  dies where the types could have prevented it. And what a program names is what its types give back, however it is
+  written. A form may be refused, never taken wrongly. The first rule is owed to a program of `make`, a value typed
+  `Program<…>` and `{ ...program, init }`, the others to every form a function takes. A misspelled name, a form that
+  repeats another and a type empty but true are no gaps (`docs/rejected.md`, "The API").
 - **A function earns its place by doing what Effect alone cannot**, or by being the one place where a rule of the
   library is applied (`reject`, `program`): never a name over Effect's combinators, a documented literal or an operator
   (`docs/rejected.md`, "The API"). A declaration that takes a standard type of Effect (the `flags` of a child, an
@@ -173,8 +177,8 @@ without it is as good ([`docs/premises.md`](docs/premises.md)).
   run (`src/testing/contract.test.ts`); the boundary of a run or of a tool, a premise's own test among them; and the
   types. A bug found is held by one of them. The tests of `src/` and `test/` run on Node too, so their TypeScript is
   erasable.
-- **Each check an invariant rests on has a mutation**, and so has each check of the types of `program.ts` and
-  `compose.ts` (`change-engine`).
+- **Each check an invariant rests on has a mutation** (`change-engine`). A check of the types has none: a test of the
+  types refuses what it refuses, and fails without it.
 - **A test never rests on the clock for an order**: what must come first is awaited. A clock may bound a wait that only
   a failing test reaches, be what is tested, or hold a window of absence (`docs/invariants.md`).
 - **A test that loops in one call is ended by the memory guard**, which no timeout can do: a listener that sends stops

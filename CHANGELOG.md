@@ -54,9 +54,8 @@ version, and everything else, features included, the patch version.
   Upgrade: a test that expects such a call to fail with the defect expects the rehearsal to fail with it.
 - **Breaking**: a `Child` and a `ChildById` are made only by `child` and `childById`. An object written as one, which
   could say that a child is always there and then not give it, no longer compiles, and a program reads none of their
-  members. A copy of one, as `Object.assign` makes, is a `CompositionDefect` as its parent is made. A child always
-  there no longer compiles typed as one that may not be, whose model it read as an `Option`, nor children by id typed
-  with fewer ids than theirs.
+  members. A child always there no longer compiles typed as one that may not be, whose model it read as an `Option`,
+  nor children by id typed with fewer ids than theirs.
   Upgrade: declare each child with `child` or `childById`, and give `withChildren` what they return; a program that
   read a member of a declaration (`_tag`, `program`, `there`, `key`, `listening`, `tell`, `listed`, `flagged`) keeps
   what it gave to `child` or `childById` instead, and a type written for a child names its own `There` and `Id`.

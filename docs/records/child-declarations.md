@@ -49,3 +49,11 @@ there.**
   mutation, killed by its test.
 - **Breaking**, for a program that wrote, copied or read a `Child` or a `ChildById`, or typed one with another `There`
   or `Id`; the changelog says it. None of the examples or the tools did.
+
+## Revised, on 26 November 2026
+
+The owner took out the `WeakMap`, and the defect for a copy with it, the same day and before any release
+([`rejected.md`](../rejected.md), "A copy of a child refused as its parent is made"). The declaration is the member of
+the class, which its constructor writes: the types refuse the same forms, a copy holds the declaration that `child`
+made and is a child like the one it copies, and `CompositionDefect` has four cases again. The mutations of the types
+went too (`rejected.md`, "The checks"), so the refusals above are held by their tests alone.

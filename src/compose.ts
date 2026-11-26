@@ -105,12 +105,14 @@ export type Kept<Own, Children> = {
   readonly children: Children
 }
 
-// A `Child` and a `ChildById` are classes whose constructor is private, and whose one member is `protected` and
-// typed alone: the types refuse an object written as one, with the member or without it, so that none lies to the
-// library, as a child said to be always there whose `key` gives `None` would. What `child` and `childById` made is kept
-// here, by the object they made: a copy, which `Object.assign` makes and its types take, has no declaration, and
-// `make` refuses it. `There` and `Id` are invariant: a child typed as another would read back what it is not.
-const declarations = new WeakMap<object, UntypedChild>()
+// A `Child` and a `ChildById` are classes whose constructor is private, and whose one member is `protected`: the types
+// refuse an object written as one, with the member or without it, so that none lies to the library, as a child said to
+// be always there whose `key` gives `None` would. A copy, which `Object.assign` makes and its types take, holds the
+// declaration that `child` or `childById` made, so it cannot lie either. `There` and `Id` are invariant: a child typed
+// as another would read back what it is not.
+const declaration = "~@fgaudo/effect-tea/Child/declaration"
+
+type Declared = { readonly [declaration]: UntypedChild }
 
 /**
  * A child alone: what `child` returns, for `withChildren`.
@@ -120,8 +122,7 @@ const declarations = new WeakMap<object, UntypedChild>()
  * - Another value of `key`, or other flags, start the child again, as another instance.
  *
  * Only `child` makes one: the types refuse an object written as one, a `new` of it, a class that extends it, and a
- * child always there typed as one that may not be, or the reverse. A copy of one is a `CompositionDefect` as its
- * parent is made.
+ * child always there typed as one that may not be, or the reverse.
  *
  * @example
  * ```ts
@@ -132,8 +133,10 @@ const declarations = new WeakMap<object, UntypedChild>()
  */
 export class Child<State, P, in out There extends "always" | "sometimes"> {
   /** The declaration, as the library reads it. */
-  declare protected readonly "~@fgaudo/effect-tea/Child/declaration": ChildDeclaration<State, P, There>
-  private constructor() {}
+  protected readonly "~@fgaudo/effect-tea/Child/declaration": ChildDeclaration<State, P, There>
+  private constructor(declared: ChildDeclaration<State, P, There>) {
+    this[declaration] = declared
+  }
 }
 
 type ChildDeclaration<State, P, There> = {
@@ -153,7 +156,7 @@ type ChildDeclaration<State, P, There> = {
  * - Ids are compared by value, with `Equal`.
  *
  * Only `childById` makes one: the types refuse an object written as one, a `new` of it, a class that extends it, and
- * children typed with another id than theirs. A copy of one is a `CompositionDefect` as its parent is made.
+ * children typed with another id than theirs.
  *
  * @example
  * ```ts
@@ -164,8 +167,10 @@ type ChildDeclaration<State, P, There> = {
  */
 export class ChildById<State, in out Id, P> {
   /** The declaration, as the library reads it. */
-  declare protected readonly "~@fgaudo/effect-tea/Child/declaration": ChildByIdDeclaration<State, Id, P>
-  private constructor() {}
+  protected readonly "~@fgaudo/effect-tea/Child/declaration": ChildByIdDeclaration<State, Id, P>
+  private constructor(declared: ChildByIdDeclaration<State, Id, P>) {
+    this[declaration] = declared
+  }
 }
 
 type ChildByIdDeclaration<State, Id, P> = {
@@ -179,11 +184,8 @@ type ChildByIdDeclaration<State, Id, P> = {
 }
 
 // How `child` and `childById` make one: the constructor is the class's own.
-const declare = (made: typeof Child | typeof ChildById, declared: unknown): unknown => {
-  const child = new (made as unknown as new() => object)()
-  declarations.set(child, declared as UntypedChild)
-  return child
-}
+const declare = (made: typeof Child | typeof ChildById, declared: unknown): unknown =>
+  new (made as unknown as new(declared: unknown) => object)(declared)
 
 /** No children: what a program that declares none has. */
 type None = Readonly<Record<never, never>>
@@ -564,20 +566,8 @@ const none: ReadonlyArray<unknown> = []
 const nothing: ReadonlySet<string> = new Set()
 
 // One `make` for a program and for a parent: `children` is `undefined` for a program, whose state is its own alone.
-const make = (
-  children: Readonly<Record<string, unknown>> | undefined,
-  config: UntypedConfig
-): unknown => {
-  const programs = children === undefined ? {} : mapOwn(children, (child, name) => {
-    const declared = declarations.get(child as object)
-    if (declared === undefined) {
-      throw compositionDefect({
-        message: `The child "${name}", which \`child\` or \`childById\` did not make`,
-        child: name
-      })
-    }
-    return declared
-  })
+const make = (children: Readonly<Record<string, Declared>> | undefined, config: UntypedConfig): unknown => {
+  const programs = children === undefined ? {} : mapOwn(children, (child) => child[declaration])
   const composed = children !== undefined
   const names = Object.keys(programs)
   const childOf = (name: string) => programs[name] as UntypedChild
@@ -1190,9 +1180,7 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> =>
         ...(options.tell === undefined ? {} : { tell: options.tell })
       }),
     make: (config: UntypedConfig) => make(undefined, config),
-    withChildren: (
-      children: Readonly<Record<string, unknown>>
-    ) => ({
+    withChildren: (children: Readonly<Record<string, Declared>>) => ({
       make: (config: UntypedConfig) => make(children, config)
     })
   }) as unknown as ProgramMaker<T>

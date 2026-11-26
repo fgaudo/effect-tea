@@ -6,7 +6,8 @@ again. An idea rejected is added here, and taken out of [`ROADMAP.md`](../ROADMA
 Each entry is a short paragraph: what the idea was, why it was rejected, on what evidence (**spiked**: code was
 written and run, and the entry names where; **reasoned**: weighed by reading and argument alone), and what would
 reopen it. A record that has the full account is linked, and not repeated. An entry is not a ban: it is reopened by
-what its "Reopen if" names, or by a reason it does not answer, which the proposal says.
+what its "Reopen if" names, or by another new fact, which the proposal names ("How a decision is taken and kept" in
+[`AGENTS.md`](../AGENTS.md)).
 
 ## The engine and its guarantees
 
@@ -420,9 +421,15 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   `childById` what it says in `child`: the flags of each child that is there. Reopened on 26 November 2026, in step
   105 ([`child-declarations.md`](records/child-declarations.md)), by what it did not weigh: a program could write one,
   as a child always there whose `key` gives `None`, which compiled and died. Each is now a class whose constructor is
-  private, whose one member no program writes or reads, and whose declaration the library keeps, so a mirror has
-  still less to mirror.
+  private, and whose one member, the declaration, no program writes or reads, so a mirror has still less to mirror.
   _Reopen if_ a user comes to need what a declaration holds, outside the library.
+- **A copy of a child refused as its parent is made**: what `child` and `childById` made kept in a `WeakMap` of the
+  object they made, and a `CompositionDefect` for an object that has none, as `Object.assign({}, child(p))`, which the
+  types take. Written in step 105, and taken out by the owner on 26 November 2026: a copy holds the declaration that
+  `child` made, so it cannot lie, and the defect was a promise, with its test and its mutation, that only the `WeakMap`
+  needed. The declaration is the member of the class, and a copy is a child like the one it copies. Reasoned, with a
+  sketch outside git that the types refuse the same forms either way. _Reopen if_ a copy that the types take is found
+  to hold a declaration that `child` or `childById` did not make.
 - **One word for the state in `Applied` and in `Ignored`**: `state` for `after`, or `before` for the `state` of an
   `Ignored`. Reasoned, in the same step: an applied message has two states and an ignored one has one. `state` beside
   `before` would not say which of the two it is, and `before` alone would promise an `after`. _Reopen if_ a third
@@ -570,6 +577,12 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   check names against a matrix it never runs. The mutations of the types named the items instead (`refuses`), until
   the lists of "Composition" and of "Anatomy of a program" went to the doc comments, on 25 November 2026: no list of
   the guide is left to name. _Reopen if_ the matrix runs in the CI, or the guide gathers every refusal in one list.
+- **A mutation for each check of the types** of `program.ts` and `compose.ts`, killed by a test of the types under
+  `tsc`. Kept from step 44, of 23 November 2026, and taken out by the owner on 26 November: 64 mutations in 875 lines,
+  each a text of the types to keep in step with every change of them, and a second half of the runner, to show that a
+  check has a test, which the test shows as it is written: an `@ts-expect-error` fails once nothing is refused under
+  it. What is lost is the proof, at every run, that no check has lost its test. Reasoned; the list is in the history,
+  at the commit before this entry. _Reopen if_ a check of the types is found removed with no test of the types failing.
 - **The boundary of the testing tools in other forms**: a list of the names of `core.ts` and `shell.ts` refused to
   `src/testing/`; the two files refused whole, with what it takes of them exported again by `engine.ts` and `run.ts`;
   a script that reads the uses, as `tools/comments.ts` reads the doc comments; `no-restricted-properties` on

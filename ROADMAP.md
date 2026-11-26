@@ -21,9 +21,14 @@ tool reports it: a step that the rest of the week cannot pay for waits for the r
 
 A lead of the search (`bun run interleavings`) goes here with its seed and path, until a fix leaves a deterministic
 test of it. A finding of a review goes here with its `test.failing`, until its fix removes the mark and the item. A
-lead of the types has no `test.failing`: its fix adds the test of the types that holds it, and a lead of the inference
-matrix is shown by its case (`bun run inference --filter <case>`). A problem whose fix is due before a step of "Next,
-in order" leaves this list for a step of its own there.
+problem whose fix is due before a step of "Next, in order" leaves this list for a step of its own there.
+
+## Leads
+
+What a task or a review found that no failing test shows and no user met ("How a decision is taken and kept" in
+`AGENTS.md`): a line each, with what would show it, as the test of the types that would hold a lead of the types, or
+the case of the inference matrix (`bun run inference --filter <case>`). None is a step of its own: they are weighed
+together before a release, and one not taken then goes to `docs/rejected.md`.
 
 ## Next, in order
 
@@ -42,8 +47,7 @@ among them. None rests on a new premise, so the next review of the premises read
 the release: a step that finds it needs a premise says so here.
 
 Step 105, of 26 November 2026, made a `Child` and a `ChildById` classes that only `child` and `childById` make, and
-changed the doc comments of `Child`, `ChildById` and `CompositionDefect`, a fifth case among them, which step 100 reads
-too.
+changed the doc comments of `Child` and `ChildById`, which step 100 reads too.
 
 ### 100. Read the promises since step 90
 

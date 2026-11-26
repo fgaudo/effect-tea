@@ -109,9 +109,8 @@ type CompositionFields = Readonly<{
 /**
  * A parent that breaks what it declared of a child.
  *
- * A program meets it in five cases:
+ * A program meets it in four cases:
  *
- * - `make` is given a child that `child` or `childById` did not make, as a copy of one that `Object.assign` makes;
  * - a step of a parent tells a child that is not there once the step is taken;
  * - children by id whose `ids` or `flags` list an id twice;
  * - the model or the output of a child by id is read at an id that the parent's state does not list;
