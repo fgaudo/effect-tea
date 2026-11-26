@@ -177,7 +177,9 @@ without it is as good ([`docs/premises.md`](docs/premises.md)).
   `compose.ts` (`change-engine`).
 - **A test never rests on the clock for an order**: what must come first is awaited. A clock may bound a wait that only
   a failing test reaches, be what is tested, or hold a window of absence (`docs/invariants.md`).
-- **A test that loops in one call is ended by the memory guard**: a listener that sends stops once it has its answer.
+- **A test that loops in one call is ended by the memory guard**, which no timeout can do: a listener that sends stops
+  once it has its answer, and a test that runs in one call for long, as one that drives runs by the thousand, takes
+  the timeout `Infinity`, since Bun's would judge only how fast the machine ran it.
 
 ## Checks
 

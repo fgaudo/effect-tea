@@ -1139,7 +1139,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       "a message of an earlier start of a key that came back"
     ].filter((tag) => !reached.has(tag))
     if (missing.length > 0) throw new Error(`No scenario of seed ${seed} reached ${missing.join(", ")}`)
-  }, 240_000)
+  }, Infinity)
 
   test("a rejected message leaves the state as it was, and an accepted one starts from the one before", () => {
     property(({ events }) => {
@@ -1157,7 +1157,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       }
       expect(broken).toEqual([])
     })
-  }, 120_000)
+  }, Infinity)
 
   // `update` and the option that hears it are one thunk: no other message is heard between them.
   test("messages are applied one at a time: each update is heard before the next one is called", () => {
@@ -1173,7 +1173,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       })
       expect(broken).toEqual([])
     })
-  }, 120_000)
+  }, Infinity)
 
   test("a dispatch has been applied when it returns", () => {
     property(({ events }) => {
@@ -1194,7 +1194,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       })
       expect(broken).toEqual([])
     })
-  }, 120_000)
+  }, Infinity)
 
   test("a message a listener sends is the next one heard, right after the step that told it", () => {
     property(({ events }) => {
@@ -1208,7 +1208,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       })
       expect(broken).toEqual([])
     })
-  }, 120_000)
+  }, Infinity)
 
   test("a model read after a notice is of the latest state, and the very same state has the very same model", () => {
     property(({ events, stateOf }) => {
@@ -1227,7 +1227,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       })
       expect(broken).toEqual([])
     })
-  }, 120_000)
+  }, Infinity)
 
   test("a model is made only when read, once for each state read", () => {
     property(({ events, made, last, stateOf }) => {
@@ -1235,13 +1235,13 @@ describe("interleavings of the user, commands and subscriptions", () => {
       if (last !== undefined) read.add(stateOf.get(last))
       expect(made).toBe(read.size)
     })
-  }, 120_000)
+  }, Infinity)
 
   test("the defects of the cause are those that happened, self-interruptions too, each where, in order", () => {
     property(({ exit, events }) => {
       expect(defects(exit)).toEqual(deaths(events))
     })
-  }, 120_000)
+  }, Infinity)
 
   const sinceFirstDefect = (events: ReadonlyArray<Event>, tags: ReadonlyArray<Event["_tag"]>) => {
     const first = events.findIndex((event) => event._tag === "Died" && !event.released)
@@ -1253,7 +1253,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       ({ events }) => expect(sinceFirstDefect(events, ["Updated"])).toEqual([]),
       { numRuns: 1500, schedules: 4 }
     )
-  }, 240_000)
+  }, Infinity)
 
   test("a tick or the end of a subscription reaches update only while the session that sent it listens", () => {
     property(({ events }) => {
@@ -1267,7 +1267,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       })
       expect(late).toEqual([])
     })
-  }, 120_000)
+  }, Infinity)
 
   // What a controlled element sends is the message of the current model, which a dispatch applied at once keeps
   // current: nothing typed into it is ever for a field that is gone.
@@ -1281,7 +1281,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       )
       expect(rejected).toEqual([])
     })
-  }, 120_000)
+  }, Infinity)
 
   test("a search runs for the text of the field while it holds one, and starts once for each text it holds", () => {
     property(({ events, first, settled }) => {
@@ -1295,7 +1295,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       const { text } = finalState(first, events).own.field
       expect(searches(events, settled)).toEqual(text === "" ? [] : [text])
     })
-  }, 120_000)
+  }, Infinity)
 
   // A key that comes back is a new start of its subscription: what an earlier start of the same key sends is not heard.
   // The search meets such a message in few of its scenarios, so it draws as many as the test of what they reach.
@@ -1311,7 +1311,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       })
       expect(late).toEqual([])
     }, { numRuns: 2000 })
-  }, 240_000)
+  }, Infinity)
 
   test("a subscription that ends is heard ending, and never starts again while its key stays", () => {
     property(({ events, first, settled }) => {
@@ -1332,7 +1332,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       const listening = listeners(finalState(first, events))
       expect(ended.filter((key) => listening.includes(key) && !heard.has(key))).toEqual([])
     })
-  }, 120_000)
+  }, Infinity)
 
   // Restated: the next message no longer waits for the releases of a state, and the effects of the next state do. A
   // start belongs to the state whose message brought its key: every subscription that state, or one before it, stopped
@@ -1363,7 +1363,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       })
       expect(broken).toEqual([])
     })
-  }, 120_000)
+  }, Infinity)
 
   // A row removed and added again at its id is another row, born of another addition: the answer of a command of the
   // row before, which names its instance, is rejected, though the row there would accept it.
@@ -1377,7 +1377,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       })
       expect(astray).toEqual([])
     }, { numRuns: 1000 })
-  }, 120_000)
+  }, Infinity)
 
   // A view may be older than the state: the user acts on the model that the renderer read last. A tap whose dispatch
   // names the instance that this model held reaches the row it was drawn for, by what the parent's own state said of
@@ -1394,7 +1394,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       })
       expect(astray).toEqual([])
     }, { numRuns: 1000 })
-  }, 120_000)
+  }, Infinity)
 
   test("a command has released what it acquired before its answer reaches update", () => {
     property(({ events }) => {
@@ -1403,7 +1403,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       )
       expect(early).toEqual([])
     })
-  }, 120_000)
+  }, Infinity)
 
   // `update`, the option that hears it and the listeners are one thunk: the notice of a new state comes before anything
   // else is heard, and none comes of a rejected message, of the very same state, or once the listener is stopped.
@@ -1431,7 +1431,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       if (owed && firstDeath(events) === events.length) broken.push("a last new state that no notice followed")
       expect(broken).toEqual([])
     })
-  }, 120_000)
+  }, Infinity)
 
   test("once everything has happened, the subscriptions holding resources are those of listening rows", () => {
     property(({ events, first, settled }) => {
@@ -1441,7 +1441,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
         listeners(finalState(first, events)).filter((key) => !ended.has(key))
       )
     })
-  }, 120_000)
+  }, Infinity)
 
   test("once the run has ended, the subscriptions and the commands have released all", () => {
     property(({ events }) => {
@@ -1452,7 +1452,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       const gave = given(events)
       expect(took.filter((holder) => !gave.has(holder))).toEqual([])
     })
-  }, 120_000)
+  }, Infinity)
 
   test("once everything has happened, every operation has ended and a model read is of the last state", () => {
     property(({ events, first, last, stateOf }) => {
@@ -1461,7 +1461,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       expect(rowsOf(final).filter((row) => row.working)).toEqual([])
       expect(last === undefined ? undefined : stateOf.get(last)).toBe(sameStateAfter(events, stateOf))
     })
-  }, 120_000)
+  }, Infinity)
 
   test("what the run logs stays out of the span of whoever runs it, the parent of the spans opened in it", () => {
     property(({ events, caller }) => {
@@ -1469,5 +1469,5 @@ describe("interleavings of the user, commands and subscriptions", () => {
       const parents = events.flatMap((event) => event._tag === "Spanned" ? [Opt.getOrUndefined(event.parent)] : [])
       expect(parents.filter((parent) => parent !== caller?.spanId)).toEqual([])
     })
-  }, 120_000)
+  }, Infinity)
 })

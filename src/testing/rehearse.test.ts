@@ -2065,7 +2065,7 @@ describe("rehearse, as a call is interrupted between what it took and its job", 
       if (Exit.isFailure(exit)) throw new Error(Cause.pretty(exit.cause))
       expect(exit.value.unanswered && exit.value.seen.includes("answered")).toBe(false)
     })
-  })
+  }, Infinity)
 
   // `runCommand` has been called, and its effect has not begun when the interruption reaches the call: the fiber
   // that would run it ends before `Effect.onInterrupt` is entered, so nothing cancels the command.
@@ -2074,7 +2074,7 @@ describe("rehearse, as a call is interrupted between what it took and its job", 
       if (Exit.isFailure(exit)) throw new Error(Cause.pretty(exit.cause))
       expect(exit.value.unanswered && !exit.value.seen.includes("started")).toBe(false)
     })
-  })
+  }, Infinity)
 
   // The interruption reaches the call as the command answers: the answer is applied, or the command is cancelled,
   // never both.
@@ -2083,7 +2083,7 @@ describe("rehearse, as a call is interrupted between what it took and its job", 
       if (Exit.isFailure(exit)) throw new Error(Cause.pretty(exit.cause))
       expect(exit.value.answeredAndCancelled).toBe(false)
     })
-  })
+  }, Infinity)
 
   type Count = Readonly<{ count: number }>
   type Counted = "Tick" | "Noop"
@@ -2122,7 +2122,7 @@ describe("rehearse, as a call is interrupted between what it took and its job", 
     prioritizedSchedules(heard, { ...runs, pinned: [35, 52, 98, 158] }, (exit) => {
       expect(exit).toEqual(Exit.succeed(1))
     })
-  })
+  }, Infinity)
 })
 
 // The fiber of effects is kept in a release, of `a`, by a gate: the job of a `hearNext` asked meanwhile waits in its

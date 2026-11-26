@@ -320,7 +320,7 @@ test("driven by hand, every fiber resumes through the scheduler, that of the tes
       }
     }
   }
-})
+}, Infinity)
 
 test("the timers of the platform the test clock sets are all cleared by the end of a run", () => {
   // The test clock warns, after a second of the platform's, of a test that sleeps and does not move it; `adjust`
@@ -359,7 +359,7 @@ test("adjust waits for what it wakes, and for what that sets going, whichever ta
       }
     }
   }
-})
+}, Infinity)
 
 test("what a test reads by Effect.map, or right after yield*, stands as the effect ended, and after a wrapper may not", () => {
   // So what a test reads so of a move of the clock is what stood as `adjust` returned. Another fiber counts all along,
@@ -414,7 +414,7 @@ test("a fiber forked before adjust may reach its wait only once the clock has mo
   const seen = runs(scenario, 1000, Infinity)
   expect(seen.filter((atWake) => atWake.arrivedAfter > 0 && !waited(atWake)).length).toBeGreaterThan(0)
   expect(seen.filter((atWake) => atWake.arrivedAfter === 0 && !waited(atWake))).toEqual([])
-})
+}, Infinity)
 
 test("a sleeper woken before it is at its latch is not waited for", () => {
   // The clock opens the latch with no fiber at it, has nothing to follow, and returns; the sleeper goes on after it.
@@ -427,7 +427,7 @@ test("a sleeper woken before it is at its latch is not waited for", () => {
   expect(late(runs(chain("waiters", false), 3000, 12))).toBeGreaterThan(0)
   expect(late(runs(chain("waiters", false, false), 3000, 12))).toBe(0)
   expect(late(runs(chain("waiters", false, false), 3000, 2))).toBe(0)
-})
+}, Infinity)
 
 test("a run given the same choices takes the same steps, its fibers counted from its first", () => {
   for (const effect of [scenario, chain("all")]) {

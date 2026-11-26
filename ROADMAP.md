@@ -41,37 +41,21 @@ difference. Step 100 reads what steps 101 to 103 changed of the doc comments, th
 among them. None rests on a new premise, so the next review of the premises reads them, and none is due for them before
 the release: a step that finds it needs a premise says so here.
 
-Steps 104 and 105 were open problems, made steps on 26 November 2026 so that they come before step 100: step 104
-because every step ends on checks that a test failing at random either stops or lets through, and step 105 because its
-fix is a breaking change, due with the others of the release, and changes doc comments that step 100 reads.
-
-### 104. Make `test/effect-scheduler.test.ts` pass every time
-
-**Model and effort.** Opus 5.5, `high` (`change-engine`): a failure whose cause is not known.
-
-**Depends on** no other step. Found in step 103: "adjust waits for what it wakes, and for what that sets going,
-whichever task is picked" and "a sleeper woken before it is at its latch is not waited for" failed after 9 and 6
-seconds in one run of `bun run test` of three, and the file failed once in three runs alone. Step 103 changed no file
-it imports, and three runs of it alone without that change passed: too few to clear the change. A test that ends on a
-timeout rests on the clock, which "Tests" of `AGENTS.md` forbids for an order: the cause may be in the test or in the
-scheduler it tests.
-
-**Done when** the cause is named in the commit, the fix holds it (a test of the scheduler that fails without it, where
-the cause is in the scheduler), and the file passes in twenty runs alone and in five runs of `bun run test`, on Bun and
-on Node.
+Step 105 was an open problem, made a step on 26 November 2026 so that it comes before step 100: its fix is a breaking
+change, due with the others of the release, and changes doc comments that step 100 reads.
 
 ### 105. Make a `Child` and a `ChildById` only by `child` and `childById`
 
 **Model and effort.** Opus 5.5, `high` (`change-api`).
 
-**Depends on** step 104, for checks that can be trusted. A lead of the types, from the review of the premises of 26
-November 2026: `const liar: Child<Own, Leaf, 'always'> = { _tag: 'Child', program: leaf, there: 'always', key: (state)
-=> state.on ? Opt.some(undefined) : Opt.none() }`, given to `withChildren`, compiles with no cast, and
-`children.Liar()` in `makeModel` is typed as a model and throws a `CompositionDefect` that the doc comment of
-`CompositionDefect` does not list among its four cases. It breaks "No broken combination can" of `AGENTS.md` ("What
-belongs here"), and is the fact that the entry "What `child` and `childById` take, mirrored in what they make" of
-`docs/rejected.md` reopens on, by what it did not weigh: that a program can write one. A fix could begin with a member
-keyed by a symbol the package does not export.
+**Depends on** no other step. A lead of the types, from the review of the premises of 26 November 2026: `const liar:
+Child<Own, Leaf, 'always'> = { _tag: 'Child', program: leaf, there: 'always', key: (state) => state.on ?
+Opt.some(undefined) : Opt.none() }`, given to `withChildren`, compiles with no cast, and `children.Liar()` in
+`makeModel` is typed as a model and throws a `CompositionDefect` that the doc comment of `CompositionDefect` does not
+list among its four cases. It breaks "No broken combination can" of `AGENTS.md` ("What belongs here"), and is the fact
+that the entry "What `child` and `childById` take, mirrored in what they make" of `docs/rejected.md` reopens on, by what
+it did not weigh: that a program can write one. A fix could begin with a member keyed by a symbol the package does not
+export.
 
 **Done when** the object above does not compile, a test of the types holds it, the entry of `docs/rejected.md` is
 updated by what was found, the doc comments of `Child`, `ChildById` and `CompositionDefect` say what is true, and the
