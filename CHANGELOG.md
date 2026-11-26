@@ -11,6 +11,9 @@ version, and everything else, features included, the patch version.
   instance })`, with `id` for children by id: a dispatch whose messages are rejected once the child has started again.
 - A parent's own `subscriptions` takes its children's outputs last, as its `update`, `external`, `onEvent`, `makeModel`
   and `output` read them: `subscriptions: (state, children) => …`, of the children of the state it is given.
+- `OutputsOf` and `TellOf`, read from a parent's children declared apart from `withChildren`: the `children` that its
+  `update`, `external`, `onEvent`, `output` and `subscriptions` take, and the `Tell` of its `Step`, for a function
+  written apart from `make`, as `examples/list/halting.ts` is.
 - Promised: a declared `tell` tells a child again only another value than it last told, by `Equal` ("Guarantees");
   `stateOf` numbers the instances as a start does ("Testing"); a view that throws under `Draw` is for the boundaries.
 

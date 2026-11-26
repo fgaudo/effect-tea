@@ -141,7 +141,8 @@ children (see [composition](./composition.md)).
   the program's `Command`, so that the other concern's step may carry commands of its own. So the parts read one
   state, with no copy and no message between them, which children cannot do. It does not hold for a part with a state
   of its own, which the others read only as a value that it declares: that part may be a child, and the value its
-  `output`.
+  `output`. A parent's concern types what it reads of its children with `OutputsOf`, and what it tells them with
+  `TellOf` (see [`list`](../../examples/list/halting.ts)).
 
   ```ts
   // The scanner owns a scan: it decides from what the counts export, and asks them for a step of theirs

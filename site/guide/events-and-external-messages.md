@@ -110,16 +110,14 @@ To tell many children, list one item for each in one `tell`, as a message to eve
 
 - **Read a condition of a child, do not copy it.** A parent that keeps a copy of what a child's state says must change
   the copy at each change of the child: it is derived data in a state (see
-  [state and messages](./structuring-a-program.md#state-and-messages)). [`list`](../../examples/list/list.ts) offers
+  [state and messages](./structuring-a-program.md#state-and-messages)). [`list`](../../examples/list/halting.ts) offers
   "Stop all" only while a stopwatch runs, and tells only those that run:
 
   ```ts
-  case "StopAllClicked": {
-    const running = runningOf(state.ids, children.Stopwatch.output)
-    return Arr.isReadonlyArrayEmpty(running)
-      ? reject
-      : { state, tell: Arr.map(running, (id) => ({ _tag: "Stopwatch", id, message: { _tag: "Halted" } })) }
-  }
+  const running = runningOf(state, children)
+  return Arr.isReadonlyArrayEmpty(running)
+    ? reject
+    : { state, tell: Arr.map(running, (id) => ({ _tag: "Stopwatch", id, message: { _tag: "Halted" } })) }
   ```
 
   It does not hold for a value fixed at a moment, such as what the child said when the user confirmed: that is a fact

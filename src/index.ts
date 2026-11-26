@@ -22,9 +22,11 @@ export {
   type Kept,
   type MakeParent,
   type MakeProgram,
+  type OutputsOf,
   type ParentMaker,
   program,
-  type ProgramMaker
+  type ProgramMaker,
+  type TellOf
 } from "./compose.ts"
 export type {
   AnyProgram,

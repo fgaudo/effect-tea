@@ -217,7 +217,7 @@ export type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, n
 type ExternalHandlerOf<State, C, External, Command, Event> = [External] extends [never] ? Readonly<{
     external?: never;
 }> : Readonly<{
-    external: (message: External, ...children: Reading<C>) => (state: State) => Step<State, Command, Event, Tells<C>>;
+    external: (message: External, ...children: Reading<C>) => (state: State) => Step<State, Command, Event, TellOf<C>>;
 }>;
 
 // @public
@@ -506,7 +506,7 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
 
 // @public (undocumented)
 type OnEvents<State, C, Command, Event> = {
-    readonly [K in keyof C & string as [EventOf<ProgramOf<C[K]>>] extends [never] ? never : K]: C[K] extends ChildByIdOf<infer Id, infer P> ? (id: Id, event: EventOf<P>, ...children: Reading<C>) => (state: State) => Step<State, Command, Event, Tells<C>> : (event: EventOf<ProgramOf<C[K]>>, ...children: Reading<C>) => (state: State) => Step<State, Command, Event, Tells<C>>;
+    readonly [K in keyof C & string as [EventOf<ProgramOf<C[K]>>] extends [never] ? never : K]: C[K] extends ChildByIdOf<infer Id, infer P> ? (id: Id, event: EventOf<P>, ...children: Reading<C>) => (state: State) => Step<State, Command, Event, TellOf<C>> : (event: EventOf<ProgramOf<C[K]>>, ...children: Reading<C>) => (state: State) => Step<State, Command, Event, TellOf<C>>;
 };
 
 // @public
@@ -532,11 +532,11 @@ export type OutputOf<P> = P extends {
 } ? O : never;
 
 // @public
-type Outputs<C> = {
+export type OutputsOf<C> = C extends unknown ? {
     readonly [K in keyof C & string as [OutputOf<ProgramOf<C[K]>>] extends [never] ? never : K]: Readonly<{
         output: ReadOutput<C[K]>;
     }>;
-};
+} : never;
 
 // @public
 export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T, "state">>> {
@@ -616,7 +616,7 @@ type ProgramTypes = Readonly<{
 type RanServices<Ran> = Ran extends Execution<any, infer R> ? R : never;
 
 // @public
-type Reading<C> = [keyof C] extends [never] ? [] : [children: Outputs<C>];
+type Reading<C> = [keyof C] extends [never] ? [] : [children: OutputsOf<C>];
 
 // @public
 type ReadInstance<C> = C extends ChildByIdOf<infer Id, any> ? (id: Id) => number : IsAlways<C> extends true ? () => number : () => Opt.Option<number>;
@@ -729,12 +729,12 @@ type Telling<State, P> = Readonly<{
 }>;
 
 // @public
-type Tells<C> = {
+export type TellOf<C> = C extends unknown ? {
     [K in keyof C & string]: [ExternalOf<ProgramOf<C[K]>>] extends [never] ? never : Readonly<{
         _tag: K;
         message: ExternalOf<ProgramOf<C[K]>>;
     }> & At<C[K]>;
-}[keyof C & string];
+}[keyof C & string] : never;
 
 // @public
 export type Transition<State, Command = never, Event = never, Tell = never> = Step<State, Command, Event, Tell> | Rejected;
@@ -746,7 +746,7 @@ export type Update<State, Message, Command = never, Event = never> = (message: M
 type UpdateOf<State, C, Own, Command, Event> = [Own] extends [never] ? Readonly<{
     update?: never;
 }> : Readonly<{
-    update: (message: Own, ...children: Reading<C>) => (state: State) => Transition<State, Command, Event, Tells<C>>;
+    update: (message: Own, ...children: Reading<C>) => (state: State) => Transition<State, Command, Event, TellOf<C>>;
 }>;
 
 // @public

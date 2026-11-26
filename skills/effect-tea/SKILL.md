@@ -246,6 +246,8 @@ Each sign goes against the rule or the advice named after it.
   of a child, do not copy it".
 - The `.state` of a step taken by hand: it drops that step's commands, its events and what it tells. Combine steps with
   `andThen`. The guide, "Events and external messages", "Combining steps".
+- A parent's function written apart from `make` that spells out by hand what it reads of its children, or what it
+  tells them, in place of `OutputsOf` and `TellOf`. The guide, "Structuring a program", "Splitting a program".
 - An `output` that gives a child's text for its parent to parse. The guide, "Structuring a program", "A value that the
   user writes belongs to the program whose rules use it".
 - An attempt to cancel a command. The guide, "Commands", "Commands cannot be cancelled".

@@ -26,10 +26,10 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 97 and 98 come from the report of an application written again on 0.9.0, weighed on 26 November 2026
-([`application-report-0.9.md`](docs/records/application-report-0.9.md)), and run in the order of their numbers. Each
-decides its point by "Deciding": a step that decides against its point writes its entry of
-[`rejected.md`](docs/rejected.md), and is done. Their breaking changes go out together, in the release after 0.9.0.
+Step 98 comes from the report of an application written again on 0.9.0, weighed on 26 November 2026
+([`application-report-0.9.md`](docs/records/application-report-0.9.md)). It decides its point by "Deciding": a step
+that decides against its point writes its entry of [`rejected.md`](docs/rejected.md), and is done. The breaking
+changes of the steps of the report go out together, in the release after 0.9.0.
 
 Step 92 decided the report's third point ([`instance-in-view.md`](docs/records/instance-in-view.md)): `makeModel`
 reads the number of a child's instance, and `forwardTo` takes it, so that a message of a view names its instance where
@@ -43,7 +43,10 @@ decided the fifth ([`subscriptions-read-outputs.md`](docs/records/subscriptions-
 `subscriptions` takes its children's outputs last, and the options of a declaration still read its own state alone. Step
 96 took the eighth: the types of a parent's program are written in place in `MakeParent`, with no alias over its
 children's declarations, and `CommandOf`, with `Returned` under it, is inferred through a tuple, so that an error or a
-hover over them prints no program; the smoke test's `misprint.ts` bounds what TypeScript prints of four such errors.
+hover over them prints no program; the smoke test's `misprint.ts` bounds what TypeScript prints of such errors. Step 97
+decided the first ([`functions-written-apart.md`](docs/records/functions-written-apart.md)): `OutputsOf` and `TellOf`,
+read from a parent's children declared apart from `withChildren`, type a function written apart from `make`, and
+`examples/list/halting.ts` is one.
 
 The release of 0.9.0 waited, as the owner asked on 25 November 2026, for a bridge to
 React Native, which step 83 made, for whether a view of React can have a `messagesSentBy`, and for a reading of the
@@ -72,29 +75,6 @@ after 0.9.0, reads the changes since that commit, and one of everything is due b
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 97. The types of a parent's handler written apart
-
-**Model and effort.** Opus 5.5, `high`.
-
-**Depends on** no other step: step 96 wrote the types of a parent in place, and step 95 changed them.
-
-**Why.** "Structuring a program" splits a program by concern, each part asked for a `Step`. For a parent, a handler
-written outside `make` takes its children's outputs and returns a step that tells them, and the package exports no
-name for either: `Outputs` and `Tells` are kept by `src/compose.ts`, so a program declares them again by hand
-([`application-report-0.9.md`](docs/records/application-report-0.9.md), point 1). Every correct program can be
-written, and this one is written twice.
-
-**How.** Leads: types read back from what `withChildren` returns, or from the declared children, in the family of
-`StateOf` and `MessageOf`, named by the guide's words, `tell` and `output`; or `Tells` and `Outputs` exported as they
-are. Both are still aliases over the declarations `C`: an error or a hover that names one prints `C`, each child with
-its whole program, as `KeptOf<C>` and `ChildMessages<C>` did before step 96 wrote them in place (62 KB for an error over
-the examples' messages). A name the package exports for them must not print `C`: `tools/smoke/misprint.ts` gets an
-error over the form taken. An example split by concern shows the form taken.
-
-**Done when** a handler of a parent's `update`, `onEvent` and `external`, written in a module of its own, is typed
-with names that the package exports, in an example and in a test of the types; "Structuring a program" ("Splitting a
-program") shows it; the changelog has its entry; and the checks of `change-api` pass.
 
 ### 98. `hear` and `hearNext` by a predicate
 

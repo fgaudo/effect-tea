@@ -51,9 +51,10 @@ const named = [
 // and `Step` were, 16 with `DeclareChild<State>`, in `docs/rejected.md`).
 const expectedSpellings = 13
 
-// What TypeScript prints of the errors of `misprint.ts`, at most, in bytes: about 5,400 with each supported TypeScript.
+// What TypeScript prints of the errors of `misprint.ts`, at most, in bytes: about 5,700 with each supported TypeScript.
 // A bound, not an equality: how a type prints is the compiler's, and changes with it. The children's programs printed
-// with a parent's types, and a program with what `CommandOf` read of it, gave 45,924.
+// with a parent's types, and a program with what `CommandOf` read of it, gave 45,924; `TellOf` and `OutputsOf` as
+// aliases over the children, 8,969.
 const misprintBound = 7000
 
 // What is wrong in what a consumer's TypeScript prints of the errors of `misprint.ts`, as the lines to print.
@@ -61,8 +62,8 @@ const misprintProblemsOf = (printed: string) => {
   const problems: Array<string> = []
   const errors = printed.match(/^misprint\.ts\(\d+,\d+\): error TS\d+:/gm)?.length ?? 0
   const total = printed.match(/error TS/g)?.length ?? 0
-  if (errors !== 4 || total !== 4) {
-    problems.push(`misprint.ts has ${errors} errors of its own and ${total} in all, not 4 and 4:\n${printed}`)
+  if (errors !== 6 || total !== 6) {
+    problems.push(`misprint.ts has ${errors} errors of its own and ${total} in all, not 6 and 6:\n${printed}`)
   }
   const programs = printed.match(/\bProgram</g)?.length ?? 0
   if (programs > 0) problems.push(`misprint.ts prints a program ${programs} times`)

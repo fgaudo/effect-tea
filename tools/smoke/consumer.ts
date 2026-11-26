@@ -15,12 +15,15 @@ import {
   type KeyOf,
   type MessageOf,
   type ModelOf,
+  type OutputsOf,
   type Program,
   program,
   ProgramDefect,
   reject,
   start,
   type SubscriptionServicesOf,
+  type TellOf,
+  type Transition,
   type Update
 } from "@fgaudo/effect-tea"
 import * as Library from "@fgaudo/effect-tea"
@@ -204,18 +207,28 @@ export const lamp = program<{ state: Lamp; model: boolean; message: "Pressed"; o
   makeModel: (state) => state.on
 })
 
-const lighting = program<
-  { state: Readonly<{ ids: ReadonlyArray<number>; lit: number }>; message: ResetAll; output: number }
->()
+type Lighting = Readonly<{ ids: ReadonlyArray<number>; lit: number }>
 
-export const lamps = lighting.withChildren({
-  Lamp: lighting.childById(lamp, { ids: (state) => state.ids }),
-  Main: lighting.child(counter)
-}).make({
+const lighting = program<{ state: Lighting; message: ResetAll; output: number }>()
+
+// Children declared apart, and a handler written apart that reads and tells them by their types.
+const lit = { Lamp: lighting.childById(lamp, { ids: (state) => state.ids }), Main: lighting.child(counter) }
+
+export const relight =
+  (_: ResetAll, children: OutputsOf<typeof lit>) =>
+  (state: Lighting): Transition<Lighting, never, never, TellOf<typeof lit>> => ({
+    state: { ...state, lit: Arr.filter(state.ids, children.Lamp.output).length },
+    tell: [{ _tag: "Main", message: { _tag: "Reset" } }]
+  })
+
+// A step tells a child only its external messages: a lamp has none.
+// @ts-expect-error
+const untold: TellOf<typeof lit> = { _tag: "Lamp", message: "Pressed" }
+void untold
+
+export const lamps = lighting.withChildren(lit).make({
   init: { state: { ids: [1, 2], lit: 0 } },
-  update: (_, children) => (state) => ({
-    state: { ...state, lit: Arr.filter(state.ids, children.Lamp.output).length }
-  }),
+  update: relight,
   onEvent: { Main: () => (state) => ({ state }) },
   output: (state, children) => Arr.filter(state.ids, children.Lamp.output).length,
   makeModel: (state, children) =>

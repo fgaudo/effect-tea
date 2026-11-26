@@ -3903,7 +3903,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   //   refused as `Names` is.
   // - The `runCommand` and `listen` that `Lacking` asks of a child: the member under a key that no program has refuses
   //   the same children, and these two are for the error that names the missing piece.
-  // - `Tells` for a child without external messages: its `message` would be `never`, which no `tell` can write either.
+  // - `TellOf` for a child without external messages: its `message` would be `never`, which no `tell` can write either.
   // - `Telling` for a child without external messages: its `tell` would return `never`, which only a function that
   //   throws can.
   // - `there` required where a child alone may not be there: the overload of a child always there takes every form of
@@ -4200,8 +4200,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a step tells a child any message",
     file: "src/compose.ts",
-    from: "    : Readonly<{ _tag: K; message: ExternalOf<ProgramOf<C[K]>> }> & At<C[K]>\n",
-    to: "    : Readonly<{ _tag: K; message: unknown }> & At<C[K]>\n",
+    from: "      : Readonly<{ _tag: K; message: ExternalOf<ProgramOf<C[K]>> }> & At<C[K]>\n",
+    to: "      : Readonly<{ _tag: K; message: unknown }> & At<C[K]>\n",
     killedBy: [
       [
         "src/compose.test.ts",
@@ -4213,8 +4213,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a step tells a child by id without its id",
     file: "src/compose.ts",
-    from: "    : Readonly<{ _tag: K; message: ExternalOf<ProgramOf<C[K]>> }> & At<C[K]>\n",
-    to: "    : Readonly<{ _tag: K; message: ExternalOf<ProgramOf<C[K]>> }>\n",
+    from: "      : Readonly<{ _tag: K; message: ExternalOf<ProgramOf<C[K]>> }> & At<C[K]>\n",
+    to: "      : Readonly<{ _tag: K; message: ExternalOf<ProgramOf<C[K]>> }>\n",
     killedBy: [
       [
         "src/compose.test.ts",
@@ -4226,8 +4226,9 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a parent reads the output of a child that declares none",
     file: "src/compose.ts",
-    from: "  readonly [K in keyof C & string as [OutputOf<ProgramOf<C[K]>>] extends [never] ? never : K]: Readonly<{\n",
-    to: "  readonly [K in keyof C & string]: Readonly<{\n",
+    from:
+      "    readonly [K in keyof C & string as [OutputOf<ProgramOf<C[K]>>] extends [never] ? never : K]: Readonly<{\n",
+    to: "    readonly [K in keyof C & string]: Readonly<{\n",
     killedBy: [
       [
         "src/compose.test.ts",
@@ -4252,7 +4253,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a parent reads its children's models outside makeModel",
     file: "src/compose.ts",
-    from: "type Reading<C> = [keyof C] extends [never] ? [] : [children: Outputs<C>]",
+    from: "type Reading<C> = [keyof C] extends [never] ? [] : [children: OutputsOf<C>]",
     to: "type Reading<C> = [keyof C] extends [never] ? [] : [children: Models<C>]",
     killedBy: [
       [
@@ -4302,8 +4303,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a handler of the events of a child alone may reject",
     file: "src/compose.ts",
-    from: "    ) => (state: State) => Step<State, Command, Event, Tells<C>>\n}",
-    to: "    ) => (state: State) => Transition<State, Command, Event, Tells<C>>\n}",
+    from: "    ) => (state: State) => Step<State, Command, Event, TellOf<C>>\n}",
+    to: "    ) => (state: State) => Transition<State, Command, Event, TellOf<C>>\n}",
     killedBy: [
       ["src/compose.test.ts", "a handler of onEvent answers with a step, and its type has no reject", "typecheck"]
     ]

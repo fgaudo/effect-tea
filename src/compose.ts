@@ -207,11 +207,33 @@ type At<C> = C extends ChildByIdOf<infer Id, any> ? Readonly<{ id: Id }> : unkno
 /** Whether a child alone is there in every state of its parent. */
 type IsAlways<C> = C extends Readonly<{ there: "always" }> ? true : false
 
-/** What a parent may tell its children: an external message of one, by name, and by id for children by id. */
-type Tells<C> = {
-  [K in keyof C & string]: [ExternalOf<ProgramOf<C[K]>>] extends [never] ? never
-    : Readonly<{ _tag: K; message: ExternalOf<ProgramOf<C[K]>> }> & At<C[K]>
-}[keyof C & string]
+/**
+ * What a step of a parent may tell its children `C`: an external message of one, by its name, with its id for children
+ * by id. It is the `Tell` of the parent's `Step`, for a function written apart from `make` that returns one.
+ *
+ * `C` is the type of the children that `withChildren` takes, declared apart from it. It is `never` for children that
+ * have no external messages.
+ *
+ * @example
+ * ```ts
+ * export const stopwatches = { Stopwatch: childById(Stopwatch.stopwatch, { ids: (state) => state.ids }) }
+ *
+ * const halt = (state: Own, ids: ReadonlyArray<number>): Step<Own, never, never, TellOf<typeof stopwatches>> => ({
+ *   state,
+ *   tell: ids.map((id) => ({ _tag: 'Stopwatch', id, message: { _tag: 'Halted' } })),
+ * })
+ * ```
+ *
+ * @see The guide, "Structuring a program".
+ */
+// A conditional, which TypeScript resolves where `C` is known, and prints as what it resolves to. An alias of another
+// kind prints by its name, with `C` spelled out, each child with its whole program, in every error and hover that names
+// it. The smoke test's `misprint.ts` bounds it.
+export type TellOf<C> = C extends unknown ? {
+    [K in keyof C & string]: [ExternalOf<ProgramOf<C[K]>>] extends [never] ? never
+      : Readonly<{ _tag: K; message: ExternalOf<ProgramOf<C[K]>> }> & At<C[K]>
+  }[keyof C & string]
+  : never
 
 // The services of a parent's own `runCommand` and `subscriptions`, read from all that each returns, `Ran` and `Heard`:
 // one parameter for the services, inferred from the branches of a `runCommand` or from the subscriptions of a map,
@@ -260,33 +282,41 @@ type ReadOutput<C> = C extends ChildByIdOf<infer Id, infer P> ? (id: Id) => Outp
   : () => Opt.Option<OutputOf<ProgramOf<C>>>
 
 /**
- * The outputs of the children that declare one, by name: `children` in a parent's `update`, `external`, `onEvent`,
- * `output` and `subscriptions`. It holds no model, and no child without `output`.
+ * The outputs of the children `C` that declare one, by name: the `children` that a parent's `update`, `external`,
+ * `onEvent`, `output` and `subscriptions` take last, for a function written apart from `make`.
+ *
+ * `C` is the type of the children that `withChildren` takes, declared apart from it. It holds no model, and no child
+ * without `output`. What `makeModel` is given has the outputs too, so a function of `OutputsOf` serves it as well.
  *
  * @example
  * ```ts
- * update: (message, children) => (state) => ({ state: { ...state, running: children.Clock.output() } }),
+ * export const stopwatches = { Stopwatch: childById(Stopwatch.stopwatch, { ids: (state) => state.ids }) }
+ *
+ * const running = (state: Own, children: OutputsOf<typeof stopwatches>) =>
+ *   state.ids.filter((id) => children.Stopwatch.output(id).running)
  * ```
  *
- * @see The guide, "Events and external messages".
+ * @see The guide, "Structuring a program".
  */
-type Outputs<C> = {
-  readonly [K in keyof C & string as [OutputOf<ProgramOf<C[K]>>] extends [never] ? never : K]: Readonly<{
-    output: ReadOutput<C[K]>
-  }>
-}
+// A conditional, as `TellOf` is, and for the same reason.
+export type OutputsOf<C> = C extends unknown ? {
+    readonly [K in keyof C & string as [OutputOf<ProgramOf<C[K]>>] extends [never] ? never : K]: Readonly<{
+      output: ReadOutput<C[K]>
+    }>
+  }
+  : never
 
 /** What a parent's functions take last: its children's outputs. A program without children takes nothing more. */
-type Reading<C> = [keyof C] extends [never] ? [] : [children: Outputs<C>]
+type Reading<C> = [keyof C] extends [never] ? [] : [children: OutputsOf<C>]
 
 type OnEvents<State, C, Command, Event> = {
   readonly [K in keyof C & string as [EventOf<ProgramOf<C[K]>>] extends [never] ? never : K]: C[K] extends
     ChildByIdOf<infer Id, infer P> ?
-    (id: Id, event: EventOf<P>, ...children: Reading<C>) => (state: State) => Step<State, Command, Event, Tells<C>>
+    (id: Id, event: EventOf<P>, ...children: Reading<C>) => (state: State) => Step<State, Command, Event, TellOf<C>>
     : (
       event: EventOf<ProgramOf<C[K]>>,
       ...children: Reading<C>
-    ) => (state: State) => Step<State, Command, Event, Tells<C>>
+    ) => (state: State) => Step<State, Command, Event, TellOf<C>>
 }
 
 /** `onEvent` is required exactly when a child emits events, so that none goes unhandled. */
@@ -336,7 +366,7 @@ type UpdateOf<State, C, Own, Command, Event> = [Own] extends [never] ? Readonly<
      *
      * @see The guide, "Anatomy of a program".
      */
-    update: (message: Own, ...children: Reading<C>) => (state: State) => Transition<State, Command, Event, Tells<C>>
+    update: (message: Own, ...children: Reading<C>) => (state: State) => Transition<State, Command, Event, TellOf<C>>
   }>
 
 /**
@@ -355,7 +385,7 @@ type ExternalHandlerOf<State, C, External, Command, Event> = [External] extends 
      *
      * @see The guide, "Events and external messages".
      */
-    external: (message: External, ...children: Reading<C>) => (state: State) => Step<State, Command, Event, Tells<C>>
+    external: (message: External, ...children: Reading<C>) => (state: State) => Step<State, Command, Event, TellOf<C>>
   }>
 
 /** `output` is required exactly when the program names an output, and refused when it names none. */

@@ -1,20 +1,23 @@
-// Four type errors a consumer may write over a parent's state, messages, commands, keys and services, in a tree of
+// Six type errors a consumer may write over a parent's state, messages, commands, keys and services, in a tree of
 // parents that holds every exported program of `consumer.ts` with keys or commands, a parent of parents, and a child
-// that needs other services. `smoke.ts` typechecks it with no truncation, and bounds what TypeScript prints: each
-// child's program printed with its parent's types would multiply it at each level of the tree.
+// that needs other services, and over what a function written apart reads of children of that tree and tells them.
+// `smoke.ts` typechecks it with no truncation, and bounds what TypeScript prints: each child's program printed with its
+// parent's types would multiply it at each level of the tree.
 import {
   type CommandOf,
   type CommandServicesOf,
   type KeyOf,
   type MessageOf,
+  type OutputsOf,
   program,
-  type StateOf
+  type StateOf,
+  type TellOf
 } from "@fgaudo/effect-tea"
 import * as Arr from "effect/Array"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Opt from "effect/Option"
-import { app, outer, served } from "./consumer.js"
+import { app, lamps, outer, relay, served } from "./consumer.js"
 
 class Clock extends Context.Service<Clock, { readonly now: Effect.Effect<number> }>()("Clock") {}
 
@@ -52,3 +55,14 @@ export const kept: number = state
 declare const services: CommandServicesOf<typeof tree>
 
 export const needed: number = services
+
+// Children with external messages and outputs, beside the whole tree.
+const told = { Lamps: treeOf.child(lamps), Relay: treeOf.child(relay), Tree: treeOf.child(tree) }
+
+declare const tell: TellOf<typeof told>
+
+export const telling: number = tell
+
+declare const outputs: OutputsOf<typeof told>
+
+export const reading: number = outputs

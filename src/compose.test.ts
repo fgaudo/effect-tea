@@ -13,7 +13,15 @@ import * as Opt from "effect/Option"
 import * as fc from "fast-check"
 import { collectGarbage } from "../test/gc.test_helper.ts"
 import type { Execution } from "./command.ts"
-import { type Child, type ChildById, type Instance, type Kept, program } from "./compose.ts"
+import {
+  type Child,
+  type ChildById,
+  type Instance,
+  type Kept,
+  type OutputsOf,
+  program,
+  type TellOf
+} from "./compose.ts"
 import { CompositionDefect, compositionDefect, defect } from "./defect.ts"
 import { type Dispatch, forwardTo } from "./dispatch.ts"
 import type { Ignored } from "./engine.ts"
@@ -40,7 +48,7 @@ import { drive } from "./testing/drive.ts"
 import { rehearse } from "./testing/rehearse.ts"
 import { simulate } from "./testing/simulate.ts"
 import { stateOf } from "./testing/state-of.ts"
-import { andThen, type Folded, reject, type Rejected, type Step, type Update } from "./update.ts"
+import { andThen, type Folded, reject, type Rejected, type Step, type Transition, type Update } from "./update.ts"
 
 /** The step of a message that must apply: a rejection fails the test. */
 const accepted = <T>(result: T | Rejected): T => {
@@ -2009,6 +2017,65 @@ describe("what a parent reads of its children", () => {
       }
     })
     expectTypeOf<ModelOf<typeof reading>>().toEqualTypeOf<boolean>()
+  })
+
+  test("a parent's functions written apart from make are typed by what its children output and are told", () => {
+    type Hall = Readonly<{ ids: ReadonlyArray<number>; lit: number }>
+    type Go = Readonly<{ _tag: "Go" }>
+    const Hall = program<{ state: Hall; message: Go; external: Go }>()
+    // Declared apart from `withChildren`, so that the handlers are typed by them.
+    const lamps = {
+      Main: Hall.child(lamp),
+      Wall: Hall.childById(lamp, { ids: (state) => state.ids }),
+      Ticker: Hall.child(ticker)
+    }
+    expectTypeOf<TellOf<typeof lamps>>().toEqualTypeOf<
+      Readonly<{ _tag: "Main"; message: Flip }> | (Readonly<{ _tag: "Wall"; message: Flip }> & Readonly<{ id: number }>)
+    >()
+    expectTypeOf<OutputsOf<typeof lamps>>().toEqualTypeOf<{
+      readonly Main: Readonly<{ output: () => boolean }>
+      readonly Wall: Readonly<{ output: (id: number) => boolean }>
+    }>()
+    expectTypeOf<TellOf<{ Ticker: typeof lamps.Ticker }>>().toEqualTypeOf<never>()
+    const lit = (state: Hall, children: OutputsOf<typeof lamps>): number =>
+      state.ids.filter((id) => children.Wall.output(id)).length
+    const update = (_: Go, children: OutputsOf<typeof lamps>) =>
+    (state: Hall): Transition<
+      Hall,
+      never,
+      never,
+      TellOf<typeof lamps>
+    > => ({ state: { ...state, lit: lit(state, children) }, tell: [{ _tag: "Main", message: flip }] })
+    const external = () => (state: Hall): Step<Hall, never, never, TellOf<typeof lamps>> => ({
+      state,
+      tell: state.ids.map((id) => ({ _tag: "Wall", id, message: flip }))
+    })
+    const flipped = (_: number, __: "Flipped", children: OutputsOf<typeof lamps>) => (state: Hall) => ({
+      state: { ...state, lit: lit(state, children) }
+    })
+    const hall = Hall.withChildren(lamps).make({
+      init: { state: { ids: [1, 2], lit: 0 } },
+      update,
+      external,
+      onEvent: { Main: () => (state) => ({ state }), Wall: flipped },
+      // What `makeModel` is given has the outputs too.
+      makeModel: (state, children) => lit(state, children)
+    })
+    const told = hall.external({ _tag: "Go" })(hall.init.state).state
+    expect(hall.makeModel(told)).toBe(2)
+    const counted = hall.update({ _tag: "Go" })(told)
+    expect(counted === reject ? undefined : counted.state.own.lit).toBe(2)
+    const pressed = hall.update({ _tag: "Wall", id: 1, message: "Pressed" })(told)
+    expect(pressed === reject ? undefined : pressed.state.own.lit).toBe(1)
+    // @ts-expect-error: a lamp is told its external messages alone, not its own.
+    const own: TellOf<typeof lamps> = { _tag: "Main", message: "Pressed" }
+    // @ts-expect-error: children by id are told with an id.
+    const unplaced: TellOf<typeof lamps> = { _tag: "Wall", message: flip }
+    // @ts-expect-error: the ticker has no external messages.
+    const quiet: TellOf<typeof lamps> = { _tag: "Ticker", message: flip }
+    // @ts-expect-error: the ticker declares no output.
+    const unread = (children: OutputsOf<typeof lamps>) => children.Ticker
+    void [own, unplaced, quiet, unread]
   })
 
   test("a program has an output exactly when it names one, and one without children reads none", () => {
