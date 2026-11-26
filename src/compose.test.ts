@@ -1914,6 +1914,32 @@ describe("what a parent reads of its children", () => {
     expect(house.makeModel(stateOf(house, {}, { Room: lit }))).toBe(2)
   })
 
+  test("subscriptions reads the outputs of the children of the state it is given", () => {
+    // A hall that listens for the dark while its ceiling's lamp is off, and to each lamp of its wall that is on.
+    type Key = "Dark" | Readonly<{ _tag: "Lit"; id: number }>
+    const Hall = program<{ state: Readonly<{ lamps: ReadonlyArray<number> }>; key: Key }>()
+    const hall = Hall.withChildren({
+      Ceiling: Hall.child(lamp),
+      Wall: Hall.childById(lamp, { ids: (state) => state.lamps })
+    }).make({
+      init: { state: { lamps: [1, 2] } },
+      subscriptions: (state, children) => [
+        ...(children.Ceiling.output() ? [] : ["Dark" as const]),
+        ...state.lamps.filter((id) => children.Wall.output(id)).map((id) => ({ _tag: "Lit", id }) as const)
+      ],
+      listen: () => Channel.never,
+      onEvent: { Ceiling: () => (state) => ({ state }), Wall: () => (state) => ({ state }) },
+      makeModel: () => null
+    })
+    expect(hall.subscriptions(hall.init.state)).toEqual(["Dark"])
+    const lit = stateOf(hall, { lamps: [1, 2] }, { Ceiling: { on: true }, Wall: [[2, { on: true }]] })
+    expect(hall.subscriptions(lit)).toEqual([{ _tag: "Lit", id: 2 }])
+    // A child's step alone, which leaves the hall's own state the very same, changes what the hall lists.
+    const pressed = accepted(hall.update({ _tag: "Wall", id: 1, message: "Pressed" })(lit)).state
+    expect(pressed.own).toBe(lit.own)
+    expect(hall.subscriptions(pressed)).toEqual([{ _tag: "Lit", id: 1 }, { _tag: "Lit", id: 2 }])
+  })
+
   test("the output of a child at an id that is not there is a defect that names it and its id", () => {
     const Peek = program<{ state: object; message: "Peeked" }>()
     const peek = Peek.withChildren({ Wall: Peek.childById(lamp, { ids: () => [1] }) }).make({
@@ -1930,7 +1956,7 @@ describe("what a parent reads of its children", () => {
   test("a parent reads only the outputs its children declare, and no model, outside makeModel", () => {
     // Each function is given the own state alone, which has no `children`.
     type Own = Readonly<{ looks: number }>
-    const Reading = program<{ state: Own; message: "Go"; external: "Went"; output: number }>()
+    const Reading = program<{ state: Own; message: "Go"; external: "Went"; output: number; key: "Lit" }>()
     const reading = Reading.withChildren({ Lamp: Reading.child(lamp), Counter: Reading.child(counter) }).make({
       init: { state: { looks: 0 } },
       update: (_, children) => (state) => {
@@ -1965,6 +1991,16 @@ describe("what a parent reads of its children", () => {
         void children.Lamp()
         return state.looks
       },
+      subscriptions: (state, children) => {
+        expectTypeOf(state).toEqualTypeOf<Own>()
+        expectTypeOf(children.Lamp.output).toEqualTypeOf<() => boolean>()
+        // @ts-expect-error: nor in `subscriptions`.
+        void children.Lamp()
+        // @ts-expect-error: the counter declares no output.
+        void children.Counter
+        return children.Lamp.output() ? ["Lit"] : []
+      },
+      listen: () => Channel.never,
       makeModel: (_, children) => {
         // @ts-expect-error: the counter declares no output.
         void children.Counter.output
@@ -2006,6 +2042,13 @@ describe("what a parent reads of its children", () => {
       external: (_, children) => (state) => ({ state: children === undefined ? state : state }),
       // @ts-expect-error: nor in its `output`.
       output: (state, children) => children === undefined && state.on,
+      makeModel: () => null
+    })
+    program<{ state: Lamp; key: "Lit" }>().make({
+      init: { state: { on: false } },
+      // @ts-expect-error: nor in its `subscriptions`.
+      subscriptions: (state, children) => (children === undefined && state.on ? ["Lit"] : []),
+      listen: () => Channel.never,
       makeModel: () => null
     })
     expect(unread.makeModel(unread.init.state)).toBeNull()

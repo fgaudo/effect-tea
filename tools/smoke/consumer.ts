@@ -238,6 +238,15 @@ forwardTo(toLamps, { _tag: "Lamp", instance: 1 })("Pressed")
 // @ts-expect-error
 forwardTo(toLamps, { _tag: "Main", id: 1, instance: 1 })(null as never)
 
+// A parent lists its own keys from its children's outputs too.
+const watching = program<{ state: Readonly<{ ids: ReadonlyArray<number> }>; key: "dark" }>()
+const watched = watching.withChildren({ Lamp: watching.childById(lamp, { ids: (state) => state.ids }) }).make({
+  init: { state: { ids: [1] } },
+  subscriptions: (state, children) => (Arr.some(state.ids, children.Lamp.output) ? [] : ["dark"]),
+  listen: () => Channel.never,
+  makeModel: () => null
+})
+
 // A parent reads only the output of a child that declares one.
 lighting.withChildren({ Main: lighting.child(counter) }).make({
   init: { state: { ids: [], lit: 0 } },
@@ -545,6 +554,12 @@ assert(
   read !== reject && read.state.own.lit === 1 && lamps.output(lampsLit) === 1 &&
     lamps.makeModel(lampsLit)[1]?.on === true,
   "a parent reads its children's outputs"
+)
+const pressedLamp = watched.update({ _tag: "Lamp", id: 1, message: "Pressed" })(watched.init.state)
+assert(
+  watched.subscriptions(watched.init.state)[0] === "dark" && pressedLamp !== reject &&
+    watched.subscriptions(pressedLamp.state).length === 0,
+  "a parent's subscriptions read its children's outputs"
 )
 
 const relayed = applyAll(outer.update, [{ _tag: "ResetAll" }], outer.init.state)

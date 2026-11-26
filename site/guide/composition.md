@@ -103,9 +103,9 @@ A parent declares each child by name, in `withChildren`, with functions of the p
   `children.Clock()` is the model of a child that is always there, `children.About()` an `Option` of the model of a
   child that may not be there, and `children.Row(id)` the model of a child by id.
 - **`update: (message, children) => (state) => …`** takes the parent's own messages, and its own state. Here
-  `children` holds no model: it holds what each child declares as its `output`, as it does in `external`, `onEvent`
-  and `output` (see [outputs](./events-and-external-messages.md#outputs)). A step of the parent lists in `tell` what it
-  tells its children (see [external messages](./events-and-external-messages.md#external-messages)).
+  `children` holds no model: it holds what each child declares as its `output`, as it does in `external`, `onEvent`,
+  `output` and `subscriptions` (see [outputs](./events-and-external-messages.md#outputs)). A step of the parent lists
+  in `tell` what it tells its children (see [external messages](./events-and-external-messages.md#external-messages)).
 
 ### What the library derives
 

@@ -218,10 +218,11 @@ does. The guide, "Testing", "The view".
 A break of these does not compile, so they need no remembering. A program names its types, then is made, and a type it
 does not name is one it does not have. An execution cannot fail: an expected failure becomes a message. A subscription
 is made from its key alone. A child answers an external message in `external`, in every state, never with `reject`. A
-parent is given no child's state: it reads what a child declares as its `output`, and the child's model in `makeModel`
-alone. The doc comments of `program`, `Program`, `child` and `childById` say what else the compiler refuses. The guide,
-"Anatomy of a program", "Its types are named first, then it is made". The guide, "Commands", "An execution cannot
-fail". The guide, "Events and external messages", "A child answers its external messages in every state".
+parent is given no child's state: it reads what a child declares as its `output`, in its `update`, `external`,
+`onEvent`, `makeModel`, `output` and `subscriptions`, and the child's model in `makeModel` alone. The doc comments of
+`program`, `Program`, `child` and `childById` say what else the compiler refuses. The guide, "Anatomy of a program",
+"Its types are named first, then it is made". The guide, "Commands", "An execution cannot fail". The guide, "Events
+and external messages", "A child answers its external messages in every state".
 
 ## Signs that the design went wrong
 

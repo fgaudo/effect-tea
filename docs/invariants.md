@@ -42,7 +42,8 @@ the engine and in the testing tools.
   - A parent is not given its children's states: the library keeps them beside its own, in the composed program's state
     ([`kept-children.md`](records/kept-children.md)). So only a child's own `update` and `external` change its state,
     and a parent reads only its `output`, a pure function of its state, of the children of the moment (`outputsOf`): of
-    before the step in `update` and `external`, as the child's step left them in a handler of `onEvent`.
+    before the step in `update` and `external`, as the child's step left them in a handler of `onEvent`, of the state
+    given in `makeModel`, `output` and `subscriptions`.
   - What a parent tells is data of its step, `tell`, given to the children once the step's state is reconciled, in
     order, each to its end (`ownStep`). An item bound to an instance that an earlier item dropped or started again is
     told nothing.

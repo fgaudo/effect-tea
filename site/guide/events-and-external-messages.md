@@ -80,7 +80,7 @@ given its children's models.
   event says that something happened. An output says what holds in a state, such as whether a stopwatch runs.
 - **A parent reads it as `children.Row.output(id)`**, as it reads a model: a value for a child that is always there and
   for a listed id, and an `Option` for a child alone that may not be there. It reads it in its `update`, `external`,
-  `onEvent`, `makeModel` and own `output`.
+  `onEvent`, `makeModel`, own `output` and own `subscriptions`.
   - In `update` and `external`, the outputs are of the children as they were before the step.
   - In a handler of `onEvent`, the outputs are of the children as the child's step that raised the event left them,
     and as the handlers of that step's earlier events, with what they told, left them.

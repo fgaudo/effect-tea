@@ -200,7 +200,7 @@ type CompositionFields = Readonly<{
 }>;
 
 // @public (undocumented)
-type Config<State, C, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, External, Flags, Output> = OnEventOf<State, C, OwnCommand, Event> & ListenOf<State, OwnKey, Own, Heard> & NoKeyClash<OwnKey, C> & RunCommandOf<OwnCommand, Own, Ran> & UpdateOf<State, C, Own, OwnCommand, Event> & ExternalHandlerOf<State, C, External, OwnCommand, Event> & OutputHandlerOf<State, C, Output> & NoClash<Own, OwnCommand, C> & Readonly<{
+type Config<State, C, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, External, Flags, Output> = OnEventOf<State, C, OwnCommand, Event> & ListenOf<State, C, OwnKey, Own, Heard> & NoKeyClash<OwnKey, C> & RunCommandOf<OwnCommand, Own, Ran> & UpdateOf<State, C, Own, OwnCommand, Event> & ExternalHandlerOf<State, C, External, OwnCommand, Event> & OutputHandlerOf<State, C, Output> & NoClash<Own, OwnCommand, C> & Readonly<{
     init: Init<State, OwnCommand, Flags>;
     makeModel: (state: State, children: Models<C>) => Model;
 }>;
@@ -420,11 +420,11 @@ type Listening<State> = Readonly<{
 }>;
 
 // @public
-type ListenOf<State, OwnKey, Message, Heard> = [OwnKey] extends [never] ? Readonly<{
+type ListenOf<State, C, OwnKey, Message, Heard> = [OwnKey] extends [never] ? Readonly<{
     subscriptions?: never;
     listen?: never;
 }> : Readonly<{
-    subscriptions: (state: State) => ReadonlyArray<OwnKey>;
+    subscriptions: (state: State, ...children: Reading<C>) => ReadonlyArray<OwnKey>;
     listen: (key: OwnKey) => Heard & Subscription<Message, any>;
 }>;
 

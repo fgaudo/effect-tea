@@ -624,6 +624,11 @@ reopened goes back there; one decided against becomes an entry above.
   would keep what each child was last told item by item, and say which items a change tells again, for one case.
   _Reopen if_ a child that two parents use must shape its external messages for the declaration of one of them, or a
   child must tell which of two conditions changed and its own state cannot say.
+- **A `listening` that reads the children's outputs**, as a parent's own `subscriptions` does since step 95, 26
+  November 2026 ([`subscriptions-read-outputs.md`](records/subscriptions-read-outputs.md)). Deferred the same day,
+  reasoned: `listening` is read once every child is in place, so it could, with no order among the children, but every
+  option of a declaration reads the parent's own state alone, and no program has asked for it. Added later, it breaks
+  nothing. _Reopen if_ a program must run a child's subscriptions only while another child's output says so.
 - **The check of step 87 on Firefox** (`bun run test:browsers`). Deferred by the owner on 26 November 2026: on the
   machine of the step, Windows 11 build 26300, the Firefox of Playwright 1.65.1 (`firefox-1572`) does not start, even
   installed again with `--force`. The event log says that the assembly `mozglue`, which `firefox.exe` depends on, could

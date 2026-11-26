@@ -54,7 +54,7 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 95 to 98 come from the report of an application written again on 0.9.0, weighed on 26 November 2026
+Steps 96 to 98 come from the report of an application written again on 0.9.0, weighed on 26 November 2026
 ([`application-report-0.9.md`](docs/records/application-report-0.9.md)), and run in the order of their numbers. Each
 decides its point by "Deciding": a step that decides against its point writes its entry of
 [`rejected.md`](docs/rejected.md), and is done. Their breaking changes go out together, in the release after 0.9.0.
@@ -66,7 +66,9 @@ written before it changes. Step 93 decided the first two items of the sixth poin
 is in the state given for it, and a test reads what a step told in the child's state and commands, with no list of it
 in the tools ([`rejected.md`](docs/rejected.md), "A list of what a step told"). Step 94 decided the fourth
 ([`flags-always-there.md`](docs/records/flags-always-there.md)): `child(program, { flags })` is always there, and
-`flags` gives the flags, while `child(program, { there })` gives `Some` of them where the child is there.
+`flags` gives the flags, while `child(program, { there })` gives `Some` of them where the child is there. Step 95
+decided the fifth ([`subscriptions-read-outputs.md`](docs/records/subscriptions-read-outputs.md)): a parent's own
+`subscriptions` takes its children's outputs last, and the options of a declaration still read its own state alone.
 
 The release of 0.9.0 waited, as the owner asked on 25 November 2026, for a bridge to
 React Native, which step 83 made, for whether a view of React can have a `messagesSentBy`, and for a reading of the
@@ -96,33 +98,11 @@ The next review of the premises ([`premise-review`](.agents/skills/premise-revie
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
 
-### 95. A parent's `subscriptions` given its children's outputs
-
-**Model and effort.** Opus 5.5, `high`.
-
-**Depends on** no other step.
-
-**Why.** A parent reads its children's outputs in `update`, `external`, `onEvent`, `makeModel` and `output`, and not
-in `subscriptions` (`ListenOf` in `src/compose.ts`). So it cannot list a key by what a child says of itself, as a
-back button listened to only while a child has something to go back to
-([`application-report-0.9.md`](docs/records/application-report-0.9.md), point 5), though "Structuring a program" keeps
-in the parent what spans the children. One role has two forms, and nothing was found that says why.
-
-**How.** `subscriptions: (state, children) => …` for a parent, with the outputs of the children of that state, as
-`makeModel` reads them. The `subscriptions` of the program that `make` gives stays a function of the whole state.
-Measure a parent's subscriptions before and after, with `bun run bench`, and give the figures in the commit. Say there
-too why `there`, `flags`, `key`, `ids`, `listening` and `tell` of a declaration stay functions of the parent's own
-state alone, or what would change them: a declaration that read a child would give the children an order.
-
-**Done when** a test of `src/compose.test.ts` and one of the types hold it, "Events and external messages"
-("Outputs"), "Subscriptions", the skill and the doc comments name the sixth place, the changelog has its entry, and
-the checks of `change-engine` and `change-api` pass.
-
 ### 96. A parent's types printed without its children's programs
 
 **Model and effort.** Opus 5.5, `high`.
 
-**Depends on** step 95, which changes the types it prints.
+**Depends on** no other step: step 95 changed the types it prints.
 
 **Why.** The lead of "Open problems". An error that names the keys, the messages or the state of a parent prints the
 declarations of its children, each with its whole program, at each level of the tree: a mistake of one line gave an
@@ -145,7 +125,7 @@ changelog has an entry only where a consumer's declarations name another type.
 
 **Model and effort.** Opus 5.5, `high`.
 
-**Depends on** steps 95 and 96: it names the types that they change, and that step 96 prints.
+**Depends on** step 96: it names the types that step 96 prints, which step 95 changed.
 
 **Why.** "Structuring a program" splits a program by concern, each part asked for a `Step`. For a parent, a handler
 written outside `make` takes its children's outputs and returns a step that tells them, and the package exports no

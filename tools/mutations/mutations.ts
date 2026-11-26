@@ -4479,8 +4479,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a program with keys of its own is made without subscriptions",
     file: "src/compose.ts",
-    from: "    subscriptions: (state: State) => ReadonlyArray<OwnKey>\n",
-    to: "    subscriptions?: (state: State) => ReadonlyArray<OwnKey>\n",
+    from: "    subscriptions: (state: State, ...children: Reading<C>) => ReadonlyArray<OwnKey>\n",
+    to: "    subscriptions?: (state: State, ...children: Reading<C>) => ReadonlyArray<OwnKey>\n",
     killedBy: [
       [
         "src/compose.test.ts",

@@ -55,6 +55,13 @@ listen: ({ dt }) => steps(dt),
 
 A new value of the key starts the subscription anew.
 
+**A parent lists its own keys from its own state and its children's outputs**, those of the children of that state
+(see [outputs](./events-and-external-messages.md#outputs)). A back button listens while a page says it can go back:
+
+```ts
+subscriptions: (state, children) => (children.Page.output().canGoBack ? ['back'] : []),
+```
+
 **A subscription never ends in silence.** Either it never ends, as a clock, or it ends with **one last message**, its
 end value, as a download that says it is done. An ended subscription is not restarted until its key goes away and
 comes back.

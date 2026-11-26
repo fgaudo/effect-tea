@@ -299,8 +299,8 @@ type ReadOutput<C> = C extends ChildByIdOf<infer Id, infer P> ? (id: Id) => Outp
   : () => Opt.Option<OutputOf<ProgramOf<C>>>
 
 /**
- * The outputs of the children that declare one, by name: `children` in a parent's `update`, `external`, `onEvent` and
- * `output`. It holds no model, and no child without `output`.
+ * The outputs of the children that declare one, by name: `children` in a parent's `update`, `external`, `onEvent`,
+ * `output` and `subscriptions`. It holds no model, and no child without `output`.
  *
  * @example
  * ```ts
@@ -404,9 +404,9 @@ type OutputHandlerOf<State, C, Output> = [Output] extends [never] ? Readonly<{ o
      * What the program's parent reads of it: a value of its state, as whether a stopwatch runs.
      *
      * It is required exactly when the program names an `output`, in `program`. A parent reads it as
-     * `children.Row.output(id)`, in its `update`, `external`, `onEvent`, `makeModel` and `output`. An event says that
-     * something happened, and an output says what holds in a state. A parent's own `output` takes its children's
-     * outputs last.
+     * `children.Row.output(id)`, in its `update`, `external`, `onEvent`, `makeModel`, `output` and `subscriptions`. An
+     * event says that something happened, and an output says what holds in a state. A parent's own `output` takes its
+     * children's outputs last.
      *
      * @see The guide, "Anatomy of a program".
      * @see The guide, "Events and external messages".
@@ -452,11 +452,14 @@ type NoKeyClash<OwnKey, C> = [TagsTaken<OwnKey, keyof C & string>] extends [neve
   : { readonly "an own key takes the name of a child": TagsTaken<OwnKey, keyof C & string> }
 
 /** `subscriptions` and `listen` are required exactly when the program names keys of its own. */
-type ListenOf<State, OwnKey, Message, Heard> = [OwnKey] extends [never]
+type ListenOf<State, C, OwnKey, Message, Heard> = [OwnKey] extends [never]
   ? Readonly<{ subscriptions?: never; listen?: never }>
   : Readonly<{
-    /** The keys the program listens to in a state, as data, from its own state. */
-    subscriptions: (state: State) => ReadonlyArray<OwnKey>
+    /**
+     * The keys of the program's own subscriptions in a state, as data, from its own state. A parent takes its
+     * children's outputs last, as they are in that state.
+     */
+    subscriptions: (state: State, ...children: Reading<C>) => ReadonlyArray<OwnKey>
     /**
      * Makes the subscription of one of the program's own keys, from the key alone. It sends messages of the program's
      * own, as a command answers with one: to tell a child something, a step lists it in `tell`.
@@ -466,7 +469,7 @@ type ListenOf<State, OwnKey, Message, Heard> = [OwnKey] extends [never]
 
 type Config<State, C, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, External, Flags, Output> =
   & OnEventOf<State, C, OwnCommand, Event>
-  & ListenOf<State, OwnKey, Own, Heard>
+  & ListenOf<State, C, OwnKey, Own, Heard>
   & NoKeyClash<OwnKey, C>
   // A command's answer is an own message, as a subscription's is: a parent tells a child only in a step's `tell`.
   & RunCommandOf<OwnCommand, Own, Ran>
@@ -546,7 +549,7 @@ type UntypedConfig = Readonly<{
   external?: (message: unknown, children?: unknown) => (state: unknown) => UntypedStep
   onEvent?: Readonly<Record<string, (...args: ReadonlyArray<unknown>) => (state: unknown) => UntypedStep>>
   runCommand?: (command: unknown) => Execution<unknown, unknown>
-  subscriptions?: (state: unknown) => ReadonlyArray<unknown>
+  subscriptions?: (state: unknown, children?: unknown) => ReadonlyArray<unknown>
   listen?: Listen<unknown, unknown, unknown>
   makeModel: (state: unknown, children: unknown) => unknown
   output?: (state: unknown, children?: unknown) => unknown
@@ -985,9 +988,9 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
     // A child's keys are under its name, its id and its instance, so two children never clash, and the types refuse an
     // own key that could take a child's name, as they refuse such a command.
     subscriptions: (state: unknown) => {
-      const own = config.subscriptions?.(ownOf(state)) ?? none
-      if (!composed) return own
+      if (!composed) return config.subscriptions?.(state) ?? none
       const whole = state as Kept<unknown, Slots>
+      const own = config.subscriptions?.(whole.own, outputsOf(whole.children)) ?? none
       // The own keys first, then each child's, in the order the children are declared: a thousand children list a
       // thousand keys on every change of state, each made once for each state of its child.
       const keys: Array<unknown> = [...own]
@@ -1452,8 +1455,8 @@ export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T
    * Makes the parent from its pieces, and from its children.
    *
    * - The parent's functions are given its own state alone. Its state is that state, and the children that the library
-   *   keeps. `makeModel` is given the children's models too, and it alone: `update`, `external`, `onEvent` and `output`
-   *   are given what each child declares as its `output`.
+   *   keeps. `makeModel` is given the children's models too, and it alone: `update`, `external`, `onEvent`, `output`
+   *   and `subscriptions` are given what each child declares as its `output`.
    * - A step of the parent's own lists in `tell` the external messages it gives its children, each by the child's
    *   name, with its id for children by id: nothing else compiles there. Each is given once the step is taken and its
    *   children are there, in order, to the instance that is there then: one that an earlier item of the same `tell`
