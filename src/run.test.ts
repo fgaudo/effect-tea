@@ -6,13 +6,11 @@ import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
-import * as Equal from "effect/Equal"
 import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import * as FiberHandle from "effect/FiberHandle"
 import * as FiberMap from "effect/FiberMap"
 import * as FiberSet from "effect/FiberSet"
-import * as Hash from "effect/Hash"
 import * as HashMap from "effect/HashMap"
 import * as Layer from "effect/Layer"
 import * as Logger from "effect/Logger"
@@ -1117,6 +1115,10 @@ describe("defects", () => {
     init: (count) => count === 1 ? boom() : { state: { count } },
     makeModel: () => null
   })
+  const started = program<{ state: Count; flags: number }>().make({
+    init: (count) => ({ state: { count } }),
+    makeModel: () => null
+  })
   const outputting = program<{ state: Count; output: number }>().make({
     init: { state: { count: 0 } },
     output: () => boom(),
@@ -1316,6 +1318,54 @@ describe("defects", () => {
         )
     ],
     [
+      "there as a parent with flags starts",
+      "init",
+      () =>
+        startedAtOne(
+          start(
+            Flagged.withChildren({ Child: Flagged.child(plain, { there: (state) => once(state) && boom() }) })
+              .make({ init: (count) => ({ state: { count } }), makeModel: () => null }),
+            { flags: 1 }
+          )
+        )
+    ],
+    [
+      "key as a parent with flags starts",
+      "init",
+      () =>
+        startedAtOne(
+          start(
+            Flagged.withChildren({ Child: Flagged.child(plain, { key: (state) => once(state) ? boom() : 0 }) })
+              .make({ init: (count) => ({ state: { count } }), makeModel: () => null }),
+            { flags: 1 }
+          )
+        )
+    ],
+    [
+      "ids as a parent with flags starts",
+      "init",
+      () =>
+        startedAtOne(
+          start(
+            Flagged.withChildren({ Rows: Flagged.childById(plain, { ids: (state) => once(state) ? boom() : [] }) })
+              .make({ init: (count) => ({ state: { count } }), makeModel: () => null }),
+            { flags: 1 }
+          )
+        )
+    ],
+    [
+      "the flags of a declaration as a parent with flags starts",
+      "init",
+      () =>
+        startedAtOne(
+          start(
+            Flagged.withChildren({ Child: Flagged.child(started, { flags: (state) => once(state) ? boom() : 0 }) })
+              .make({ init: (count) => ({ state: { count } }), makeModel: () => null }),
+            { flags: 1 }
+          )
+        )
+    ],
+    [
       "the tell of a declaration as a parent with flags starts",
       "init",
       () =>
@@ -1493,7 +1543,7 @@ describe("defects", () => {
             start(
               Desk.withChildren({
                 Leaf: Desk.child(flagged((flags) => ({ state: flags })), {
-                  there: (state) => state.step === 1 ? boom() : Opt.some({ on: false })
+                  flags: (state) => state.step === 1 ? boom() : { on: false }
                 })
               }).make({ init: initial, update: next, makeModel: () => null })
             ),
@@ -1704,26 +1754,6 @@ describe("defects", () => {
     const inId = Exit.isFailure(ided) ? Cause.squash(ided.cause) : undefined
     expect(inKey instanceof ProgramDefect && inKey.key).toBe(key)
     expect(inId instanceof ProgramDefect && inId.cause instanceof CompositionDefect && inId.cause.id).toBe(id)
-  })
-
-  // Equal throws when the run compares a key with the next state's; Hash, which Effect caches by object, when the
-  // key is first hashed.
-  test.each(["Equal", "Hash"])("a key whose %s throws dies in subscriptions", async (throwing) => {
-    class Key implements Equal.Equal {
-      [Equal.symbol](): boolean {
-        return boom()
-      }
-      [Hash.symbol](): number {
-        return throwing === "Hash" ? boom() : 0
-      }
-    }
-    const exit = await sentIncrement({
-      ...counter,
-      subscriptions: () => [new Key()],
-      listen: () => Channel.never
-    })
-    expect(defectsOf(exit).map((defect) => defect instanceof ProgramDefect ? [defect.where, defect.cause] : defect))
-      .toEqual([["subscriptions", new Boom()]])
   })
 
   test("every defect of the cause is kept, each with where it happened", async () => {

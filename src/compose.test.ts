@@ -13,15 +13,7 @@ import * as Opt from "effect/Option"
 import * as fc from "fast-check"
 import { collectGarbage } from "../test/gc.test_helper.ts"
 import type { Execution } from "./command.ts"
-import {
-  type Child,
-  type ChildById,
-  type Instance,
-  type Kept,
-  type OutputsOf,
-  program,
-  type TellOf
-} from "./compose.ts"
+import { Child, ChildById, type Instance, type Kept, type OutputsOf, program, type TellOf } from "./compose.ts"
 import { CompositionDefect, compositionDefect, defect } from "./defect.ts"
 import { type Dispatch, forwardTo } from "./dispatch.ts"
 import type { Ignored } from "./engine.ts"
@@ -1010,6 +1002,14 @@ describe("the instance of a child", () => {
     forwardTo(dispatch, { _tag: "Maybe", instance: Opt.getOrThrow(redrawn.maybe) })(bump)
     const bumped = accepted(shown.update(Opt.getOrThrow(Arr.head(sent)))(again)).state
     expect(stateAt(bumped.children.Maybe).count).toBe(1)
+    // A child alone started again in one step by a new key: the view drawn before named the old instance.
+    const opened = singleAfter("Opened").state
+    const toOne: Array<MessageOf<typeof single>> = []
+    const singleDispatch: Dispatch<MessageOf<typeof single>> = (message) => void toOne.push(message)
+    forwardTo(singleDispatch, { _tag: "One", instance: Opt.getOrThrow(instanceOf(opened)) })(bump)
+    const [toOld] = toOne as [MessageOf<typeof single>]
+    expect(single.update(toOld)(opened)).not.toBe(reject)
+    expect(single.update(toOld)(accepted(single.update({ _tag: "Renewed" })(opened)).state)).toBe(reject)
   })
 
   test("in a run, a message of a view drawn for an instance that is gone is ignored", () => {
@@ -1338,7 +1338,8 @@ describe("what a declaration tells its children", () => {
     | Readonly<{ _tag: "Added"; id: number }>
     | Readonly<{ _tag: "SetAndPoke"; condition: string; id: number }>
     | Readonly<{ _tag: "Touched" }>
-  const Telling = program<{ state: Own; message: Message }>()
+    | Readonly<{ _tag: "Told"; id: number; value: string }>
+  const Telling = program<{ state: Own; message: Message; external: Readonly<{ _tag: "Set"; condition: string }> }>()
   const parent = (
     first: Own,
     onBounce: (state: Own) => Own = (state) => state,
@@ -1365,8 +1366,14 @@ describe("what a declaration tells its children", () => {
             }
           case "Touched":
             return { state: { ...state } }
+          case "Told":
+            return {
+              state: { ...state },
+              tell: [{ _tag: "Kid", id: message.id, message: { _tag: "Cond", value: message.value } }]
+            }
         }
       },
+      external: ({ condition }) => (state) => ({ state: { ...state, condition } }),
       onEvent: { Kid: () => (state) => ({ state: { ...onBounce(state), bounces: state.bounces + 1 } }) },
       makeModel: (state, children) => state.ids.map((id) => children.Kid(id).heard)
     })
@@ -1427,6 +1434,27 @@ describe("what a declaration tells its children", () => {
     const app = parent(start)
     const { state } = accepted(app.update({ _tag: "SetAndPoke", condition: "c", id: 2 })(app.init.state))
     expect(heard(state)).toEqual([["a", "c"], ["a", "c", "poke"]])
+  })
+
+  test("a step of the parent's external that gives another value tells every child, and one that gives an equal value tells none", () => {
+    const app = parent(start)
+    const { state: changed } = app.external({ _tag: "Set", condition: "c" })(app.init.state)
+    expect(heard(changed)).toEqual([["a", "c"], ["a", "c"]])
+    const { state: same } = app.external({ _tag: "Set", condition: "c" })(changed)
+    expect(heard(same)).toEqual([["a", "c"], ["a", "c"]])
+  })
+
+  test("what a step lists in tell is told apart: even the value the declaration gives, and it is not what the declaration last told", () => {
+    const app = parent(start)
+    // The declaration last told "a", and the step tells "a" again.
+    const { state: again } = accepted(app.update({ _tag: "Told", id: 2, value: "a" })(app.init.state))
+    expect(heard(again)).toEqual([["a"], ["a", "a"]])
+    // The step tells "z", while the declaration still gives "a".
+    const { state: other } = accepted(app.update({ _tag: "Told", id: 2, value: "z" })(again))
+    expect(heard(other)).toEqual([["a"], ["a", "a", "z"]])
+    // A step that keeps the declaration's value tells nothing more: what it last told is still "a".
+    const { state: kept } = accepted(app.update({ _tag: "Touched" })(other))
+    expect(heard(kept)).toEqual([["a"], ["a", "a", "z"]])
   })
 
   test("what a step lists in tell is bound first: a child that an answer to the declaration dropped is told nothing", () => {
@@ -2022,7 +2050,7 @@ describe("what a parent reads of its children", () => {
   test("a parent's functions written apart from make are typed by what its children output and are told", () => {
     type Hall = Readonly<{ ids: ReadonlyArray<number>; lit: number }>
     type Go = Readonly<{ _tag: "Go" }>
-    const Hall = program<{ state: Hall; message: Go; external: Go }>()
+    const Hall = program<{ state: Hall; message: Go; external: Go; output: number; key: "Lit" }>()
     // Declared apart from `withChildren`, so that the handlers are typed by them.
     const lamps = {
       Main: Hall.child(lamp),
@@ -2053,16 +2081,25 @@ describe("what a parent reads of its children", () => {
     const flipped = (_: number, __: "Flipped", children: OutputsOf<typeof lamps>) => (state: Hall) => ({
       state: { ...state, lit: lit(state, children) }
     })
+    const output = (state: Hall, children: OutputsOf<typeof lamps>) => lit(state, children)
+    const subscriptions = (state: Hall, children: OutputsOf<typeof lamps>): ReadonlyArray<"Lit"> =>
+      lit(state, children) > 0 ? ["Lit"] : []
     const hall = Hall.withChildren(lamps).make({
       init: { state: { ids: [1, 2], lit: 0 } },
       update,
       external,
       onEvent: { Main: () => (state) => ({ state }), Wall: flipped },
+      output,
+      subscriptions,
+      listen: () => Channel.never,
       // What `makeModel` is given has the outputs too.
       makeModel: (state, children) => lit(state, children)
     })
     const told = hall.external({ _tag: "Go" })(hall.init.state).state
     expect(hall.makeModel(told)).toBe(2)
+    expect([hall.output(hall.init.state), hall.output(told)]).toEqual([0, 2])
+    expect(hall.subscriptions(hall.init.state).includes("Lit")).toBe(false)
+    expect(hall.subscriptions(told).includes("Lit")).toBe(true)
     const counted = hall.update({ _tag: "Go" })(told)
     expect(counted === reject ? undefined : counted.state.own.lit).toBe(2)
     const pressed = hall.update({ _tag: "Wall", id: 1, message: "Pressed" })(told)
@@ -3083,7 +3120,21 @@ describe("what the types reject", () => {
     const numbered = Parent.childById(ticker, { ids: (state) => state.ids })
     // @ts-expect-error: nor are children by id typed with fewer ids than theirs, which their messages would carry.
     const narrowed: ChildById<Own, 1 | 2, typeof ticker> = numbered
-    expect([alone, byId, forgedAlone, forgedById, widened, narrowed]).toHaveLength(6)
+    // @ts-expect-error: nor is a child that may not be there one always there, whose model would be no `Option`.
+    const assumed: Child<Own, typeof ticker, "always"> = Parent.child(ticker, { there: (state) => state.on })
+    // @ts-expect-error: nor with more ids than theirs, which a parent's functions would read them with.
+    const widenedIds: ChildById<Own, number | string, typeof ticker> = numbered
+    // @ts-expect-error: nor does a `new` make a child alone.
+    const built = new Child<Own, typeof ticker, "always">(lying)
+    // @ts-expect-error: nor children by id.
+    const builtById = new ChildById<Own, number, typeof labelled>(unflagged)
+    // @ts-expect-error: nor does a class that extends a child alone.
+    class Extended extends Child<Own, typeof ticker, "always"> {}
+    // @ts-expect-error: nor one that extends children by id.
+    class ExtendedById extends ChildById<Own, number, typeof labelled> {}
+    expect([alone, byId, forgedAlone, forgedById, widened, narrowed, assumed, widenedIds, built, builtById])
+      .toHaveLength(10)
+    expect([Extended, ExtendedById]).toHaveLength(2)
   })
 
   test("a child declared for another state is no child of a parent, alone or by id", () => {

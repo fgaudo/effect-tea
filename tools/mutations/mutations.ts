@@ -415,6 +415,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "a self-interruption beside the run's stop of the fiber is no defect",
+    guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
     from: "!Cause.isDieReason(reason) && !stops(reason, fiber)",
     to: "!Cause.isDieReason(reason)\n"
@@ -559,6 +560,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "an interruption with the mark of the fiber's stop, as another fiber, is taken for the run's",
+    guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
     from: " && mark.by === reason.fiberId",
     to: "",
@@ -2005,10 +2007,9 @@ export const mutations: ReadonlyArray<Mutation> = [
         "src/engine.test.ts",
         "a defect of subscriptions in a dispatch is recorded in subscriptions, never thrown to the caller, leaves the state as it was, and no update follows"
       ],
-      ["src/run.test.ts", "a key whose Equal throws dies in subscriptions"],
       [
         "src/testing/contract.test.ts",
-        "rehearse fails, as the run dies, on a key whose Equal throws against the key of the state before"
+        "rehearse fails, as the run dies, in subscriptions, on the subscriptions of a later state"
       ]
     ]
   },
@@ -2023,7 +2024,6 @@ export const mutations: ReadonlyArray<Mutation> = [
         "src/engine.test.ts",
         "a defect of subscriptions on the first state dies in subscriptions, as the engine is made"
       ],
-      ["src/run.test.ts", "a key whose Hash throws dies in subscriptions"],
       [
         "src/testing/contract.test.ts",
         "rehearse fails, as the run dies, in subscriptions, on the subscriptions of the state it starts from"

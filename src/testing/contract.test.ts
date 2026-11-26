@@ -544,21 +544,16 @@ describe("what the run dies of, and the tools fail on", () => {
     listen: () => Channel.never,
     makeModel: ({ seen }) => seen
   }
-  // A key whose Equal throws, under the same hash as every other: no state lists two, so only a comparison with
-  // the keys of the state before finds it, as the run's reconciliation does ("a key whose Equal throws dies in
-  // subscriptions", `run.test.ts`).
-  class Throwing implements Equal.Equal {
-    [Equal.symbol](): boolean {
-      throw new Error("boom")
-    }
-    [Hash.symbol](): number {
-      return 0
-    }
-  }
-  const renewing: Program<{ state: Row; model: number; message: "Seen"; key: Throwing }> = {
+  // A program whose subscriptions throw once a message is applied: the run reconciles the keys of the state after with
+  // those of the state before, in the thunk of the step.
+  const renewing: Program<{ state: Row; model: number; message: "Seen"; key: "ticks" }> = {
     ...row,
-    subscriptions: () => [new Throwing()],
-    listen: () => Channel.never
+    subscriptions: ({ seen }) => {
+      if (seen > 0) {
+        throw new Error("boom")
+      }
+      return ["ticks"]
+    }
   }
   const diesInSubscriptions = (exit: Exit.Exit<unknown, unknown>) => {
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
@@ -566,7 +561,7 @@ describe("what the run dies of, and the tools fail on", () => {
   }
 
   eachTool(
-    dies("on a key whose Equal throws against the key of the state before"),
+    dies("in subscriptions, on the subscriptions of a later state"),
     {
       "the run": drive(
         renewing,

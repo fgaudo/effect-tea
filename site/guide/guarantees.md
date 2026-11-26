@@ -58,7 +58,8 @@ each bridge's to promise (see [view](./view.md#rules)).
     `'render'`.
   - A command or a subscription that the program interrupts is a defect too: one that interrupts itself (with
     `Effect.interrupt`, or by joining an interrupted fiber), or that another fiber of the program interrupts. Only the
-    run, and whoever runs it, interrupt them.
+    run, and whoever runs it, interrupt them. Whether one that interrupts itself while the run stops it dies of a
+    defect is unspecified.
 - **A model is made only when it is read.** While a state is the current one, its model is made once, however many
   times it is read. So every read gives the very same model, and a bridge need not draw it again.
   - A model that throws is a defect in `'render'`, recorded where the model is read, once while its state is the
@@ -114,9 +115,10 @@ each bridge's to promise (see [view](./view.md#rules)).
     each time, and neither throws. Nothing checks them. Where one breaks them, what the library does with that value
     is undefined: which subscriptions and children it keeps, which dispatch it gives a child, what it tells a child,
     and whether the run dies.
-- **A state that starts a program elsewhere is one that the program made.** A state given as `init: { state }` is one
-  that this program made, by every function of its declarations, or one that `stateOf` made for it. What the library
-  does with another, as one kept across a reload in development after a declaration changed, is unspecified.
+- **A parent starts elsewhere from a state that it made.** A parent's state given as `init: { state }` is one that this
+  program made, by every function of its declarations, or one that `stateOf` made for it. What the library does with
+  another, as one kept across a reload in development after a declaration changed, is unspecified. A program without
+  children may start from any state of its own.
 - **What must stay private is in a service, not in a key.** A key carries what its subscription needs (see
   [subscriptions](./subscriptions.md#rules)), and is shown whole: in a defect of its subscription, and in the `origin`
   that `onApplied` and `onIgnored` hear (see [running](./running.md)).

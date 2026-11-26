@@ -10,6 +10,7 @@ import * as Fiber from "effect/Fiber"
 import * as Hash from "effect/Hash"
 import * as Metric from "effect/Metric"
 import * as Opt from "effect/Option"
+import * as Predicate from "effect/Predicate"
 import type * as Scope from "effect/Scope"
 import { prioritizedSchedules, scheduled } from "../../test/scheduled.test_scheduler.ts"
 import { program } from "../compose.ts"
@@ -505,6 +506,114 @@ describe("rehearse", () => {
     expect(heard).toEqual({ _tag: "Row", id: 7, instance: 1, message: "Ticked" })
     expect(model).toEqual([{ id: 7, ticks: 1 }, { id: 8, ticks: 2 }])
     expect(model).toEqual(list.makeModel(state))
+  })
+
+  test("run, hear and hearNext select a child alone by its _tag, with no count of its starts", async () => {
+    type Clock = Readonly<{ ticks: number; loaded: boolean }>
+    const Clock = program<{ state: Clock; message: "Ticked" | "Loaded"; command: "Load"; key: "ticks" }>()
+    const clock = Clock.make({
+      init: { state: { ticks: 0, loaded: false }, commands: ["Load"] },
+      update: (message) => (state) => ({
+        state: message === "Ticked" ? { ...state, ticks: state.ticks + 1 } : { ...state, loaded: true }
+      }),
+      runCommand: () => Effect.succeedSome<"Ticked" | "Loaded">("Loaded"),
+      subscriptions: () => ["ticks" as const],
+      listen: () => Channel.succeed<"Ticked">("Ticked").pipe(Channel.concatWith(() => Channel.never)),
+      makeModel: (state) => state
+    })
+    type Rounds = Readonly<{ round: number }>
+    const App = program<{ state: Rounds; message: "Restarted" }>()
+    // Each round starts the clock again, as another instance: `hear` plays the second, `hearNext` the third.
+    const app = App.withChildren({ Clock: App.child(clock, { key: (state) => state.round }) }).make({
+      init: { state: { round: 1 } },
+      update: () => ({ round }) => ({ state: { round: round + 1 } }),
+      makeModel: (state) => state
+    })
+    const isClock = (value: unknown) => Predicate.isTagged(value, "Clock")
+    const restarted = () => Opt.some<MessageOf<typeof app>>("Restarted")
+    const { ran, heard, state } = await Effect.runPromise(rehearse(
+      app,
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.run(isClock)
+        yield* rehearsal.send(restarted)
+        const second = yield* rehearsal.run(isClock)
+        yield* rehearsal.hear(isClock, { _tag: "Clock", message: "Ticked" })
+        const ticked = (yield* rehearsal.state).children.Clock
+        yield* rehearsal.send(restarted)
+        const third = yield* rehearsal.run(isClock)
+        const heard = yield* rehearsal.hearNext(isClock)
+        return { ran: [second, third], heard: { ticked, last: heard }, state: yield* rehearsal.state }
+      })
+    ))
+    expect(ran).toEqual([
+      { _tag: "Clock", instance: 2, command: "Load" },
+      { _tag: "Clock", instance: 3, command: "Load" }
+    ])
+    expect(Opt.map(heard.ticked, ({ instance, state }) => ({ instance, state })))
+      .toEqual(Opt.some({ instance: 2, state: { ticks: 1, loaded: true } }))
+    expect(heard.last).toEqual({ _tag: "Clock", instance: 3, message: "Ticked" })
+    expect(Opt.map(state.children.Clock, ({ instance, state }) => ({ instance, state })))
+      .toEqual(Opt.some({ instance: 3, state: { ticks: 1, loaded: true } }))
+  })
+
+  test("hear and hearNext fail the test when select matches none of the keys listed, naming them", async () => {
+    const failures = [
+      await failureOf(rehearse(editor, (rehearsal) => rehearsal.hear((key) => key === "other", { _tag: "Pinged" }))),
+      await failureOf(rehearse(editor, (rehearsal) => rehearsal.hearNext((key) => key === "other")))
+    ]
+    for (const failure of failures.map(String)) {
+      expect(failure).toContain("No key of the current state matches what the test selects: its keys are ping")
+    }
+  })
+
+  test("hear fails the test with what select throws, as it is", async () => {
+    const boom = new Error("boom")
+    const failure = await failureOf(rehearse(editor, (rehearsal) =>
+      rehearsal.hear(() => {
+        throw boom
+      }, { _tag: "Pinged" })))
+    expect(failure).toBe(boom)
+  })
+
+  test("hear gives select each key as the listing that started its subscription gave it, a later equal one aside", async () => {
+    // Equal by its name alone: each state lists a new object, which names the count of the state that listed it.
+    class Named implements Equal.Equal {
+      readonly name: string
+      readonly listedAt: number
+      constructor(name: string, listedAt: number) {
+        this.name = name
+        this.listedAt = listedAt
+      }
+      [Equal.symbol](that: Equal.Equal): boolean {
+        return that instanceof Named && that.name === this.name
+      }
+      [Hash.symbol](): number {
+        return Hash.string(this.name)
+      }
+    }
+    type Count = Readonly<{ count: number; pings: number }>
+    const counter: Program<{ state: Count; model: Count; message: "Bumped" | "Pinged"; key: Named }> = {
+      init: { state: { count: 0, pings: 0 } },
+      update: (message) => (state) => ({
+        state: message === "Bumped" ? { ...state, count: state.count + 1 } : { ...state, pings: state.pings + 1 }
+      }),
+      subscriptions: (state) => [new Named("ping", state.count)],
+      listen: () => Channel.never,
+      makeModel: (state) => state
+    }
+    const listedAt = (count: number) => (key: unknown) => key instanceof Named && key.listedAt === count
+    const { pings, later } = await Effect.runPromise(rehearse(
+      counter,
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.send(() => Opt.some<"Bumped" | "Pinged">("Bumped"))
+        yield* rehearsal.hear(listedAt(0), "Pinged")
+        const later = yield* Effect.exit(rehearsal.hear(listedAt(1), "Pinged"))
+        return { pings: (yield* rehearsal.state).pings, later }
+      })
+    ))
+    expect(pings).toBe(1)
+    expect(Exit.isFailure(later) && String(Cause.squash(later.cause)))
+      .toContain("No key of the current state matches what the test selects")
   })
 
   describe("hearNext", () => {

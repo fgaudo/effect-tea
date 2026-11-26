@@ -105,7 +105,7 @@ export type Rehearsal<
    * - `select` is given each key of the current state, as the listing that started its subscription gave it. A key of a
    *   child's subscriptions names the child and its instance, as its parent lists it:
    *   `{ _tag: 'Row', id, instance, key: 'ticks' }`.
-   * - It fails the test when `select` matches no key, or more than one.
+   * - It fails the test when `select` matches no key, or more than one, and with what `select` throws.
    * - The test answers for what it says was heard, and for whether the subscription had ended.
    * - A key that has just appeared is heard once its subscription would have started: once what the message before it
    *   stopped has released what it held. The keys are then read again, and `select` given them again.
@@ -125,7 +125,7 @@ export type Rehearsal<
    * returns it.
    *
    * - `select` is given each key of the current state, as `hear` gives them, and the test fails when it matches no
-   *   key, or more than one.
+   *   key, or more than one, and with what it throws.
    * - The first call on a key starts its subscription, made by the program's `listen` from the key, with the services
    *   provided, in a scope of its own, once what the messages before it stopped has released what it held. The
    *   subscription runs for as long as the key stays in the state, whichever fiber of the test's heard it first.

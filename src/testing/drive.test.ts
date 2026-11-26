@@ -140,6 +140,18 @@ describe("drive", () => {
     expect(() => drive(seeded, () => Effect.void)).toBeDefined()
   })
 
+  test("a program given back with another first step starts from its state and runs its commands", async () => {
+    const program = noteProgram(Effect.void)
+    const saved = await Effect.runPromise(drive(
+      {
+        ...program,
+        init: { state: { text: "milk", isSaving: true, saved: Opt.none(), pings: 0 }, commands: ["Store"] }
+      },
+      (driver) => driver.waitFor((model) => model.note.saved)
+    ))
+    expect(saved).toBe("milk")
+  })
+
   test("a program written as a plain object, without commands, needs no runCommand", async () => {
     const plain = {
       init: { state: { count: 0 } },

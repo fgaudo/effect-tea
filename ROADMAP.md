@@ -46,40 +46,14 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
 
 ## Next, in order
 
-Both readings are due before the release after 0.9.0, whose breaking changes go out together ("What may change" in
-`AGENTS.md`), and in this order (`release`, point 1 of "Releasing").
+The readings due before the release after 0.9.0 are done (`release`, point 1 of "Releasing"): the review of the
+premises closed by step 99 (`git log --grep "the premises reviewed since step 65"`), and the reading of the promises
+closed by step 100 (`git log --grep "the promises read since step 90"`). The next of each reads the changes since its
+commit. The next review of the premises reads the premise that step 106 added by the model, that the `Fiber` a fork
+returns is the very one its effect sees as its own (`docs/premises.md`, "Code that a fiber runs on the stack"), and
+what `Effect.interruptible` fails with, left a premise of tests alone.
 
-The last review of the premises is the commit that closed it (`git log --grep "the premises reviewed since step 65"`):
-the next one reads the changes since.
-
-Steps 101 to 103 came from a reading of the testing tools against the engine, of 26 November 2026, after that review.
-The step of a message is the engine's, and the tools differed from the run only at two seams of their own, closed by
-steps 101 and 102: the mask of a command's fiber, and the waits of a call, which the stage now gives in two kinds alone.
-Step 103 gave each scenario of `src/testing/contract.test.ts` to each of the three, through `eachTool`, and found no
-difference. Step 100 reads what steps 101 to 103 changed of the doc comments, the sentence of `hearNext` on a defect
-among them. None rests on a new premise, so the next review of the premises reads them, and none is due for them before
-the release: a step that finds it needs a premise says so here.
-
-Step 105, of 26 November 2026, made a `Child` and a `ChildById` classes that only `child` and `childById` make, and
-changed the doc comments of `Child` and `ChildById`, which step 100 reads too.
-
-Step 106, of 26 November 2026, made the mark of a stop name the fiber it stops and the fiber that stops it, so that the
-engine asks Effect nothing of what a fiber received (`dying` in `src/shell.ts`): no promise rests on an open premise
-any more. It changed no doc
-comment and no page of the guide. It added to one premise by the model, that the `Fiber` a fork returns is the very one
-its effect sees as its own (`docs/premises.md`, "Code that a fiber runs on the stack"), and left what
-`Effect.interruptible` fails with as a premise of tests alone: the next review of the premises reads both.
-
-### 100. Read the promises since step 90
-
-**Model and effort.** Opus 5.5, `high`: a review.
-
-**Depends on** no other step. It reads the guide, the doc comments and the examples changed since the commit that
-closed step 90 (`git log --grep "Close step 90"`), each against the whole of the other side, by
-[`promise-reading`](.agents/skills/promise-reading/SKILL.md).
-
-**Done when** each gap is closed, or is a step of this file, and, in place of this step, one line here names the
-commit that closed it, for the next reading.
+No step is open.
 
 ## For the owner
 

@@ -76,7 +76,7 @@ Advice binds nothing: each piece gives its reason, and the case where it does no
 - A view sends only what its model holds
 - The advice of structuring a program
 - Flags, and what `key` gives, made of values that `Equal` compares by value
-- A state that starts a program elsewhere is one that the program made
+- A parent starts elsewhere from a state that it made
 - What must stay private is in a service, not in a key
 - `update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated
 - A function of the program never interrupts the fiber it runs in

@@ -1485,7 +1485,7 @@ export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T
 
 /**
  * The function of `program` that makes a program without children from its pieces. With no children to read, its
- * `update`, `external` and `output` take no `children`.
+ * `update`, `external`, `output` and `subscriptions` take no `children`.
  *
  * @group Types of the signatures
  * @see The guide, "Anatomy of a program".

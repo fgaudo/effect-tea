@@ -1544,6 +1544,35 @@ describe("a makeModel that throws under Draw", () => {
   })
 })
 
+describe("a view that throws under Draw", () => {
+  test("is an error of the application: the nearest error boundary gets what it threw, as it is", async () => {
+    const thrown = new Error("A view that cannot draw")
+    const caught = witness<unknown>()
+    const { app, run } = start(counter)
+    const root = createRoot(page(), { onCaughtError: (error) => caught.settled(error) })
+    roots.push(root)
+    await acting(() =>
+      root.render(createElement(
+        Boundary,
+        null,
+        createElement(bridge.Draw<CounterModel, CounterMessage>, {
+          app,
+          view: (model, dispatch) => {
+            if (model.count > 0) throw thrown
+            return counterView(model, dispatch)
+          }
+        })
+      ))
+    )
+    forked(run)
+    settle()
+    await acting(() => button("+").click())
+    expect(await caught.promise).toBe(thrown)
+    settle()
+    expect(element("#app").textContent).toBe("Crashed")
+  })
+})
+
 describe("what the bridge to React leaves out", () => {
   // An alarm of what the guide leaves unspecified ("Writing a bridge", "What is left out", a value that a script
   // writes): React keeps the value it gave a controlled input, through the element's own `value`, a script's write goes

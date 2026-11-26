@@ -100,8 +100,8 @@ rehearse(
   it, or `runAll`.
 - **A subscription is heard one way.** `hear` runs nothing: the test says what was heard, and answers for it.
   `hearNext` runs the subscription, for as long as its key stays in the state, and hears its next message. A start of a
-  key is heard by one or the other, not both. Each takes a `select` of the keys of the current state, as `run` takes
-  one of the commands, and fails the test where it matches no key, or more than one. A key of a child names its
+  key is heard by one or the other, not both. Each takes a `select` of the keys of the current state, and fails the
+  test where it matches no key, or more than one. A key of a child names its
   instance, as its parent lists it (see [the number of an instance](./testing.md#the-number-of-an-instance)).
 
 ### drive

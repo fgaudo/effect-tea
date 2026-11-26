@@ -77,7 +77,7 @@ A parent declares each child by name, in `withChildren`, with functions of the p
   there. In the example above, `listening` stops the clock's ticks while About is open, and the clock keeps its state.
 - **`tell`** gives, from the parent's state, an external message that the child is told:
   `childById(row, { ids, tell: (state) => ({ _tag: 'LockChanged', locked: isLocked(state) }) })`. The child is told
-  it as it starts, and again only where the state gives another value, by `Equal` (see
+  it as it starts, and again only where the state gives another value, by `Equal`, than it last told the child (see
   [what you can rely on](./guarantees.md#what-you-can-rely-on), and
   [a child that must wait for its parent](./events-and-external-messages.md#a-child-that-must-wait-for-its-parent)).
   What the library does with a state that another program made is in

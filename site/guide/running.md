@@ -53,7 +53,7 @@ that waits for a microtask before it reads the model draws once the new states t
 browser calls, made, as the bridge to snabbdom does.
 
 **A program starts elsewhere from another first step**: `{ ...program, init: { state } }`, with the step's commands,
-if any. The state is one that this program made, as one that `onApplied` saved in a run of it (see
+if any. A parent's state is one that this program made, as one that `onApplied` saved in a run of it (see
 [what is left to you](./guarantees.md#what-is-left-to-you)). A test gives such a program to `drive` and `rehearse`
 the same way, and plays a session recorded with `onApplied` again with `applyAll`.
 
@@ -136,8 +136,9 @@ const stop = (): Promise<void> => {
 
 A defect met while the run ends joins the cause. The order of the defects in the cause is unspecified: rely on each
 defect being in the cause, not on its place. Several releases of one command or one subscription that die are the
-exception: the run dies, and which of their defects are in the cause is unspecified. So is whether a command or a
-subscription that interrupts itself while the run stops it dies of a defect.
+exception: the run dies, and which of their defects are in the cause is unspecified. Whether a command or a
+subscription that interrupts itself while the run stops it dies of a defect is in
+[what you can rely on](./guarantees.md#what-you-can-rely-on).
 
 ## Advice
 

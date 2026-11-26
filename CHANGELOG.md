@@ -45,8 +45,9 @@ version, and everything else, features included, the patch version.
   of it, and what its parent's `onEvent` makes of the child's answer, or its errors; one that gives a state the child
   would keep sees no change.
 - **Breaking**: unspecified, and no longer promised: that a state made by a program of another `tell`, and given as
-  `init: { state }`, keeps what each child was told until the value changes. A state given as `init: { state }` is one
-  that the program made, or that `stateOf` made for it ("Guarantees").
+  `init: { state }`, keeps what each child was told until the value changes. A parent's state given as
+  `init: { state }` is one that the program made, or that `stateOf` made for it; a program without children may start
+  from any state of its own ("Guarantees").
   Upgrade: a state kept across a reload after a declaration changed is not given back; start from `init`.
 - **Breaking**: an `Equal` and a `Hash` that the program writes do not throw: what the library does of one that throws
   is undefined, where it was a defect, a key's in `'subscriptions'` ("Guarantees", "What is left to you").

@@ -112,7 +112,8 @@ type CompositionFields = Readonly<{
  *
  * - a step of a parent tells a child that is not there once the step is taken;
  * - children by id whose `ids` or `flags` list an id twice;
- * - the model or the output of a child by id is read at an id that the parent's state does not list;
+ * - the model, the output or the number of the instance of a child by id is read at an id that the parent's state does
+ *   not list;
  * - a handler of `onEvent` that runs as the parent starts raises an event of the parent's own, which `stateOf` throws
  *   too.
  *

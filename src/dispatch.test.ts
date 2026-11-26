@@ -83,6 +83,9 @@ describe("forwardTo", () => {
     const clock = forwardTo(dispatch, { _tag: "Clock", instance: 5 })
     expect(forwardTo(dispatch, { _tag: "Row", id: 1, instance: 2 })).toBe(second)
     expect(forwardTo(dispatch, { _tag: "Clock", instance: 5 })).toBe(clock)
+    // An id compared by value: a tuple made anew is the same id.
+    const pair = forwardTo(dispatch, { _tag: "Row", id: ["milk", 1], instance: 2 })
+    expect(forwardTo(dispatch, { _tag: "Row", id: ["milk", 1], instance: 2 })).toBe(pair)
     const third = forwardTo(dispatch, { _tag: "Row", id: 1, instance: 3 })
     const there = forwardTo(dispatch, "Row", 1)
     expect(new Set([second, third, there, forwardTo(dispatch, { _tag: "Row", id: 2, instance: 2 })]).size).toBe(4)
