@@ -7,11 +7,14 @@ import {
   andThen,
   type CommandServicesOf,
   CompositionDefect,
+  type Dispatch,
+  forwardTo,
   type Instance,
   InvariantDefect,
   type Kept,
   type KeyOf,
   type MessageOf,
+  type ModelOf,
   type Program,
   program,
   ProgramDefect,
@@ -210,8 +213,24 @@ export const lamps = lighting.withChildren({
   onEvent: { Main: () => (state) => ({ state }) },
   output: (state, children) => Arr.filter(state.ids, children.Lamp.output).length,
   makeModel: (state, children) =>
-    Arr.map(state.ids, (id) => ({ model: children.Lamp(id), on: children.Lamp.output(id) }))
+    Arr.map(state.ids, (id) => ({
+      id,
+      instance: children.Lamp.instance(id),
+      model: children.Lamp(id),
+      on: children.Lamp.output(id)
+    }))
 })
+
+// A view's dispatch names the instance that its model holds, with the id of a child by id, and only there.
+export const pressing = (dispatch: Dispatch<MessageOf<typeof lamps>>, model: ModelOf<typeof lamps>) =>
+  Arr.map(model, ({ id, instance }) => forwardTo(dispatch, { _tag: "Lamp", id, instance }))
+const toLamps: Dispatch<MessageOf<typeof lamps>> = () => {}
+const pressed: ReadonlyArray<Dispatch<"Pressed">> = pressing(toLamps, lamps.makeModel(lamps.init.state))
+void pressed
+// @ts-expect-error
+forwardTo(toLamps, { _tag: "Lamp", instance: 1 })("Pressed")
+// @ts-expect-error
+forwardTo(toLamps, { _tag: "Main", id: 1, instance: 1 })(null as never)
 
 // A parent reads only the output of a child that declares one.
 lighting.withChildren({ Main: lighting.child(counter) }).make({

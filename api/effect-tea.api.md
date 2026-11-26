@@ -109,11 +109,21 @@ type ChildCommandServices<C> = {
 }[keyof C];
 
 // @public
-type ChildDispatch<Message, Name extends string> = string extends Name ? Readonly<{
-    "is not the literal name of a child": Name;
-}> : [ChildOf<Message, Name>] extends [never] ? Readonly<{
-    "is not a child": Name;
-}> : Dispatch<ChildOf<Message, Name>["message"]>;
+type ChildDispatch<Message, To extends string | OfInstance> = string extends NameOf<To> ? Readonly<{
+    "is not the literal name of a child": NameOf<To>;
+}> : IsUnion<NameOf<To>> extends true ? Readonly<{
+    "is not the literal name of a child": NameOf<To>;
+}> : [ChildOf<Message, NameOf<To>>] extends [never] ? Readonly<{
+    "is not a child": NameOf<To>;
+}> : [To] extends [string] ? Dispatch<ChildOf<Message, NameOf<To>>["message"]> : "instance" extends keyof ChildOf<Message, NameOf<To>> ? IdOf<Message, NameOf<To>> extends [id: infer Id] ? [To] extends [Readonly<{
+    id: Frozen<Id>;
+}>] ? Dispatch<ChildOf<Message, NameOf<To>>["message"]> : Readonly<{
+    "is a child by id, and its instance is named with its id": NameOf<To>;
+}> : "id" extends keyof To ? Readonly<{
+    "is a child alone, and its instance is named with no id": NameOf<To>;
+}> : Dispatch<ChildOf<Message, NameOf<To>>["message"]> : Readonly<{
+    "is a message that names no instance": NameOf<To>;
+}>;
 
 // @public
 type ChildKeys<C> = {
@@ -303,7 +313,12 @@ export type Folded<State, Command, Event, Tell = never> = {
 };
 
 // @public
-export const forwardTo: <Message, Name extends string>(dispatch: Dispatch<Message>, name: Name, ...id: IdOf<Message, Name>) => ChildDispatch<Message, Name>;
+export const forwardTo: <Message, const To extends string | OfInstance>(dispatch: Dispatch<Message>, to: To, ...id: [To] extends [string] ? IdOf<Message, To> : []) => ChildDispatch<Message, To>;
+
+// @public (undocumented)
+type Frozen<Id> = Id extends (...args: never) => unknown ? Id : Id extends object ? {
+    readonly [K in keyof Id]: Frozen<Id[K]>;
+} : Id;
 
 // @public (undocumented)
 type HeardServices<Heard> = Heard extends Subscription<any, infer R> ? R : never;
@@ -358,6 +373,9 @@ const InvariantDefect_base: new <A extends Record<string, any> = {}>(args: VoidI
 type IsAlways<C> = C extends Readonly<{
     there: "always";
 }> ? true : false;
+
+// @public
+type IsUnion<Name, Whole = Name> = Name extends unknown ? [Whole] extends [Name] ? false : true : never;
 
 // @public (undocumented)
 type Items<L> = L extends ReadonlyArray<infer I> ? I : never;
@@ -448,7 +466,9 @@ export type ModelOf<P> = P extends {
 
 // @public
 type Models<C> = {
-    readonly [K in keyof C & string]: (C[K] extends ChildByIdOf<infer Id, infer P> ? (id: Id) => ModelOf<P> : IsAlways<C[K]> extends true ? () => ModelOf<ProgramOf<C[K]>> : () => Opt.Option<ModelOf<ProgramOf<C[K]>>>) & ([OutputOf<ProgramOf<C[K]>>] extends [never] ? unknown : Readonly<{
+    readonly [K in keyof C & string]: (C[K] extends ChildByIdOf<infer Id, infer P> ? (id: Id) => ModelOf<P> : IsAlways<C[K]> extends true ? () => ModelOf<ProgramOf<C[K]>> : () => Opt.Option<ModelOf<ProgramOf<C[K]>>>) & Readonly<{
+        instance: ReadInstance<C[K]>;
+    }> & ([OutputOf<ProgramOf<C[K]>>] extends [never] ? unknown : Readonly<{
         output: ReadOutput<C[K]>;
     }>);
 };
@@ -457,6 +477,11 @@ type Models<C> = {
 type Named<T, K extends "model", Inferred> = T extends {
     readonly [P in K]: infer V;
 } ? V : Inferred;
+
+// @public
+type NameOf<To> = [To] extends [string] ? To : To extends Readonly<{
+    _tag: infer Name extends string;
+}> ? Name : never;
 
 // @public (undocumented)
 type Needed<Command, CommandServices, Key, SubscriptionServices> = Exclude<([Command] extends [never] ? never : CommandServices) | ([Key] extends [never] ? never : SubscriptionServices), Scope.Scope>;
@@ -478,6 +503,13 @@ type NoKeyClash<OwnKey, C> = [TagsTaken<OwnKey, keyof C & string>] extends [neve
 
 // @public
 type None = Readonly<Record<never, never>>;
+
+// @public
+type OfInstance = Readonly<{
+    _tag: string;
+    instance: number;
+    id?: unknown;
+}>;
 
 // @public
 type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Event>] extends [never] ? Readonly<{
@@ -599,6 +631,9 @@ type RanServices<Ran> = Ran extends Execution<any, infer R> ? R : never;
 
 // @public
 type Reading<C> = [keyof C] extends [never] ? [] : [children: Outputs<C>];
+
+// @public
+type ReadInstance<C> = C extends ChildByIdOf<infer Id, any> ? (id: Id) => number : IsAlways<C> extends true ? () => number : () => Opt.Option<number>;
 
 // @public
 type ReadOutput<C> = C extends ChildByIdOf<infer Id, infer P> ? (id: Id) => OutputOf<P> : IsAlways<C> extends true ? () => OutputOf<ProgramOf<C>> : () => Opt.Option<OutputOf<ProgramOf<C>>>;

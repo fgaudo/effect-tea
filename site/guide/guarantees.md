@@ -30,7 +30,8 @@ each bridge's to promise (see [view](./view.md#rules)).
   state. When a child is there, and when it starts again, is in [composition](./composition.md#when-a-child-is-there).
 - **An answer reaches the instance that asked for it, or is rejected.** Each start of a child is an instance of its
   own, and its commands and its subscriptions name it. Where that instance is no longer there, its answer is rejected,
-  even when the child, or a child at the same id, is there again.
+  even when the child, or a child at the same id, is there again. So is a message of a view whose dispatch names the
+  instance (see [composition](./composition.md#childrens-views)).
 - **A child was last told what its parent's state gives.** A child declared with `tell` is told its value as it
   starts, and after a step of its parent only a value that is another, by `Equal`, than the one its declaration last
   told it: a step that gives an equal value tells it nothing. What a step lists in `tell` is told apart. So

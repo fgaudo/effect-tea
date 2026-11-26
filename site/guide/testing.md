@@ -98,7 +98,8 @@ fills it into each message that the model holds without it, as the view does (se
 **Children.** A parent's reader calls the readers of its children, and wraps what they return as the parent receives
 it: `{ _tag: 'Clock', message }`, with the `id` for children by id, as [`pages`](../../examples/pages/app.test.ts) and
 [`list`](../../examples/list/list.test.ts) do. A value that a child's reader takes is a parameter of the parent's
-reader too.
+reader too. Where the view's dispatch names the instance of a child, the reader wraps with the number that the model
+holds, `{ _tag: 'About', instance, message }`, and the `candidates` of that child name it too.
 
 **The reader is complete only as far as the candidates go.** A reader that forgets a field of the model still passes
 `Rejected`, `Inert` and `ActsTwice`, which judge only what the reader returns. `Missing` finds the forgotten field when

@@ -105,7 +105,8 @@ Every bridge does what follows. [An example](#an-example) shows how the package'
   key is typed over a value that the program has replaced since, and its message carries the old value back. A
   renderer whose elements live in another thread breaks this rule, as React Native does. There, lock by the shape of
   the state: it rejects such a key, as it rejects any message that does not apply (see
-  [what an element gives](./what-an-element-gives.md#rules)).
+  [what an element gives](./what-an-element-gives.md#rules)). For a child that has started again since, see
+  [composition](./composition.md#advice).
 - **The renderer keeps an element drawn in the same place from one draw to the next**, as snabbdom and React do.
   Otherwise the element is made anew, and loses its focus, its caret and its selection.
 

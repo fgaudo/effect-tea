@@ -158,9 +158,11 @@ The library promises these, and a program that forgets them goes wrong.
   one last message. `listen` takes the key alone, so the key carries what the subscription needs. The guide,
   "Subscriptions", "A subscription never ends in silence". The guide, "Guarantees", "Subscriptions follow their keys".
 - **A parent's children are those its state lists.** A child dropped loses its state, and one listed again starts from
-  its `init`, as another instance. An answer reaches the instance that asked, or is rejected. A message of a view names
-  no instance: where a click on an old row must not reach a new one, never reuse ids. The guide, "Composition", "Ids
-  that come back".
+  its `init`, as another instance. An answer reaches the instance that asked, or is rejected. A message of a view
+  reaches the instance that is there, unless its dispatch names one: `children.X.instance()` in `makeModel` gives the
+  number, and `forwardTo(dispatch, { _tag: 'X', instance })` the dispatch. Where the screen may show an older draw,
+  give a child's view that dispatch, and the number as its key. The guide, "Composition", "Children's views". The
+  guide, "Composition", "Advice".
 - **A child declared with `tell` was last told what its parent's state gives.** It is told the value as it starts,
   and again only where the state gives another value, by `Equal`, than the one the declaration last told it: a step
   that gives an equal value tells it nothing. The guide, "Guarantees", "A child was last told what its parent's state

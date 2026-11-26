@@ -120,7 +120,8 @@ A parent declares each child by name, in `withChildren`, with functions of the p
   in place of `message`, and with the instance that asked: `{ _tag: <child>, instance, command }`. The answer of a
   command names that instance too. So an answer reaches the instance that asked for it, or is rejected, and a child
   started again starts its subscriptions again (see [guarantees](./guarantees.md#what-you-can-rely-on)). A message of
-  the child's view names no instance: it reaches the instance that is there.
+  the child's view names an instance only where its dispatch is given one (see
+  [children's views](#childrens-views)): otherwise it reaches the instance that is there.
 - **A child's model is kept.** `children.Clock()` is the same object while the child keeps the very same state. So a
   renderer can skip redrawing it (see `thunk` in [`pages`](../../examples/pages/view.ts)).
 
@@ -129,7 +130,7 @@ A parent declares each child by name, in `withChildren`, with functions of the p
 - **A child's view gets a dispatch of its own**: `forwardTo(dispatch, 'Clock')`, which wraps each message of the
   child as the parent receives it. A grandchild's dispatch is made from its parent's:
   `forwardTo(forwardTo(dispatch, 'Home'), 'Products')`.
-- **That dispatch is the same function in every draw**, for the same dispatch, name and id. So a view
+- **That dispatch is the same function in every draw**, for the same dispatch, name, id and instance. So a view
   [memoized](./glossary.md#what-the-user-sees) on its model and its dispatch is drawn again only when its model
   changes. A lambda that wraps the message, `(message) => dispatch({ _tag: 'Clock', message })`, sends the same
   messages. But it is a new function in every draw, so a view memoized on it is drawn every time.
@@ -147,6 +148,13 @@ const view: View<Model, Message> = (model, dispatch) =>
     ])
 ```
 
+- **A dispatch may name the instance of its child.** In `makeModel`, `children.About.instance()` is the number of the
+  child's instance, read as its model is: an `Option` for a child that may not be there, and
+  `children.Row.instance(id)` for a row. Given in place of the name, as
+  `forwardTo(dispatch, { _tag: 'About', instance })`, with the `id` for children by id, it makes each message name
+  that instance, as an answer does. Once the child has started again, such a message is rejected. When to give it is
+  in [advice](#advice).
+
 ### Children by id
 
 For children by id, such as the rows of a list, use `childById` in place of `child` (see
@@ -161,9 +169,20 @@ For children by id, such as the rows of a list, use `childById` in place of `chi
 - **Ids are compared by value**, with `Equal`, as flags and keys are. An id can be a string, a number, or a tuple or a
   struct of them. An id listed twice is a defect.
 - **Ids that come back.** A row removed in one step, and listed again at the same id in a later step, is another
-  instance. It starts again, from its `init`, and the old row's answers are rejected. But a message of a view names no
-  instance: a click on a view drawn for the old row reaches the new one. Where it must not, use ids that are never
-  reused.
+  instance. It starts again, from its `init`, and the old row's answers are rejected. A click on a view drawn for the
+  old row reaches the new one, unless the ids are never reused, or the view's dispatch names its instance (see
+  [children's views](#childrens-views)).
+
+## Advice
+
+**Where the screen may show an older draw, give a child's view the number of its instance, in its dispatch and as its
+key.** A handler may then run on a view older than the state (see
+[what a bridge does](./writing-a-bridge.md#what-a-bridge-does)), and its message would reach a child that has started
+again since. A dispatch that names the instance has that message rejected. But a renderer gives an element that it
+keeps the handlers of its latest draw, so a click on what the screen still shows may run a handler of the new
+instance. A key that is the number, `key` in snabbdom and in React, draws the new instance as other elements, and the
+old ones keep the old handlers. Neither is needed where each state is drawn before the next event, as with the
+package's bridges in a browser.
 
 ## A function over any program
 

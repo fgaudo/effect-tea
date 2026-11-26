@@ -1822,6 +1822,11 @@ const forwardLines = (dispatch: string, target: Target, form: MessageForm, prefi
     return [
       `const ${name} = forwardTo(${dispatch}, '${entry.tag}'${entry.id === undefined ? "" : `, ${entry.id}`})`,
       `const ${name}_takes: Exactly<Parameters<typeof ${name}>[0], ${entry.target.type}> = true`,
+      // The same child's, by an instance: it takes the same messages.
+      `const ${name}_instance = forwardTo(${dispatch}, { _tag: '${entry.tag}', ${
+        entry.id === undefined ? "" : `id: ${entry.id}, `
+      }instance: 1 })`,
+      `const ${name}_instance_takes: Exactly<Parameters<typeof ${name}_instance>[0], ${entry.target.type}> = true`,
       ...given.lines,
       ...given.messages.map((message) => `${name}(${message})`),
       ...forwardLines(name, entry.target, form, `${name}_to`)

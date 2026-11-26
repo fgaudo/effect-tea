@@ -903,7 +903,7 @@ describe("the instance of a child", () => {
     expect(countAt(answered, 1)).toEqual(Opt.some(7))
   })
 
-  test("a message of a view names no instance, and reaches the instance there", () => {
+  test("a message that names no instance reaches the instance there", () => {
     const { state } = singleAfter("Opened", "Closed", "Opened")
     const bumped = accepted(single.update({ _tag: "One", message: { _tag: "Bumped" } })(state)).state
     expect(stateAt(bumped.children.One).count).toBe(1)
@@ -913,6 +913,118 @@ describe("the instance of a child", () => {
       message: { _tag: "Bumped" }
     })
     expect(countAt(row.state, 1)).toEqual(Opt.some(1))
+  })
+
+  // A parent whose model holds the number of each child's instance, for its view: a child that is always there, one
+  // that is there while open, and rows by id.
+  type Shown = Readonly<{ open: boolean; ids: ReadonlyArray<number> }>
+  type ShownMessage = Readonly<{ _tag: "Toggled" }> | Readonly<{ _tag: "Listed"; ids: ReadonlyArray<number> }>
+  const Shown = program<{ state: Shown; message: ShownMessage }>()
+  const shown = Shown.withChildren({
+    Always: Shown.child(loader),
+    Maybe: Shown.child(loader, { there: (state) => state.open }),
+    Each: Shown.childById(loader, { ids: (state) => state.ids })
+  }).make({
+    init: { state: { open: true, ids: [7] } },
+    update: (message) => (state) =>
+      message._tag === "Toggled"
+        ? { state: { ...state, open: !state.open } }
+        : { state: { ...state, ids: message.ids } },
+    onEvent: {
+      Always: () => (state) => ({ state }),
+      Maybe: () => (state) => ({ state }),
+      Each: () => (state) => ({ state })
+    },
+    makeModel: (state, children) => ({
+      always: children.Always.instance(),
+      maybe: children.Maybe.instance(),
+      each: state.ids.map((id) => ({ id, instance: children.Each.instance(id) }))
+    })
+  })
+  type ShownAll = MessageOf<typeof shown>
+  const toggled: ShownAll = { _tag: "Toggled" }
+  const listed = (...ids: ReadonlyArray<number>): ShownAll => ({ _tag: "Listed", ids })
+  const shownAfter = (...messages: ReadonlyArray<ShownAll>) => applyAll(shown.update, messages, shown.init.state).state
+  const bump: RowMessage = { _tag: "Bumped" }
+
+  test("makeModel reads the number of an instance as a model: a value, an Option for a child that may not be there, by id", () => {
+    expectTypeOf<ModelOf<typeof shown>>().toEqualTypeOf<{
+      always: number
+      maybe: Opt.Option<number>
+      each: Array<{ id: number; instance: number }>
+    }>()
+    expect(shown.makeModel(shown.init.state)).toEqual({
+      always: 1,
+      maybe: Opt.some(2),
+      each: [{ id: 7, instance: 3 }]
+    })
+    expect(shown.makeModel(shownAfter(toggled)).maybe).toEqual(Opt.none())
+    // Each start is another instance, with the next number: of the child alone, then of the row at the id of before.
+    expect(shown.makeModel(shownAfter(toggled, toggled, listed(), listed(7, 8)))).toEqual({
+      always: 1,
+      maybe: Opt.some(4),
+      each: [{ id: 7, instance: 5 }, { id: 8, instance: 6 }]
+    })
+  })
+
+  test("a message of a view that names its instance is rejected once the child has started again", () => {
+    const sent: Array<ShownAll> = []
+    const dispatch: Dispatch<ShownAll> = (message) => void sent.push(message)
+    // The dispatches that a view makes as it draws the first state.
+    const drawn = shown.makeModel(shown.init.state)
+    const always = forwardTo(dispatch, { _tag: "Always", instance: drawn.always })
+    const maybe = forwardTo(dispatch, { _tag: "Maybe", instance: Opt.getOrThrow(drawn.maybe) })
+    const each = forwardTo(dispatch, { _tag: "Each", id: 7, instance: Opt.getOrThrow(Arr.head(drawn.each)).instance })
+    always(bump)
+    maybe(bump)
+    each(bump)
+    expect(sent).toEqual([
+      { _tag: "Always", instance: 1, message: bump },
+      { _tag: "Maybe", instance: 2, message: bump },
+      { _tag: "Each", id: 7, instance: 3, message: bump }
+    ])
+    const [toAlways, toMaybe, toEach] = sent as [ShownAll, ShownAll, ShownAll]
+    // While the instance it was drawn for is there, each applies, whatever else the state did.
+    const later = shownAfter(listed(7, 8))
+    expect(shown.update(toAlways)(later)).not.toBe(reject)
+    expect(shown.update(toMaybe)(later)).not.toBe(reject)
+    expect(shown.update(toEach)(later)).not.toBe(reject)
+    // Closed and opened again, and removed and listed again at its id: the child there is another instance.
+    const again = shownAfter(toggled, toggled, listed(), listed(7))
+    expect(shown.update(toAlways)(again)).not.toBe(reject)
+    expect(shown.update(toMaybe)(again)).toBe(reject)
+    expect(shown.update(toEach)(again)).toBe(reject)
+    // The same messages with no instance reach the instances there, and so do those of a view drawn for them.
+    expect(shown.update({ _tag: "Maybe", message: bump })(again)).not.toBe(reject)
+    expect(shown.update({ _tag: "Each", id: 7, message: bump })(again)).not.toBe(reject)
+    const redrawn = shown.makeModel(again)
+    sent.length = 0
+    forwardTo(dispatch, { _tag: "Maybe", instance: Opt.getOrThrow(redrawn.maybe) })(bump)
+    const bumped = accepted(shown.update(Opt.getOrThrow(Arr.head(sent)))(again)).state
+    expect(stateAt(bumped.children.Maybe).count).toBe(1)
+  })
+
+  test("in a run, a message of a view drawn for an instance that is gone is ignored", () => {
+    const ignored: Array<ShownAll> = []
+    const { app } = start(shown, { onIgnored: ({ message }) => void ignored.push(message) })
+    const maybe = forwardTo(app.dispatch, { _tag: "Maybe", instance: Opt.getOrThrow(app.model().maybe) })
+    app.dispatch(toggled)
+    app.dispatch(toggled)
+    maybe(bump)
+    expect(ignored).toEqual([{ _tag: "Maybe", instance: 2, message: bump }])
+    expect(app.model().maybe).toEqual(Opt.some(4))
+  })
+
+  test("the instance of a child at an id that is not there is a defect that names it and its id", () => {
+    const Peek = program<{ state: object }>()
+    const peek = Peek.withChildren({ Row: Peek.childById(loader, { ids: () => [1] }) }).make({
+      init: { state: {} },
+      onEvent: { Row: () => (state) => ({ state }) },
+      makeModel: (_, children) => children.Row.instance(9)
+    })
+    const error = thrown(() => peek.makeModel(peek.init.state))
+    expect(error).toBeInstanceOf(CompositionDefect)
+    expect(error).toMatchObject({ child: "Row", id: 9, message: "The instance of \"Row\", which is not in this state" })
   })
 
   test("a subscription's message carries its instance, and is rejected once that instance is gone", () => {
@@ -1782,6 +1894,8 @@ describe("what a parent reads of its children", () => {
         void children.Counter
         // @ts-expect-error: a child's model is for the view, and is read in `makeModel` alone.
         void children.Lamp()
+        // @ts-expect-error: so is the number of its instance.
+        void children.Lamp.instance
         return { state }
       },
       external: (_, children) => (state) => {
@@ -1808,6 +1922,7 @@ describe("what a parent reads of its children", () => {
       makeModel: (_, children) => {
         // @ts-expect-error: the counter declares no output.
         void children.Counter.output
+        expectTypeOf(children.Counter.instance).toEqualTypeOf<() => number>()
         return children.Lamp.output()
       }
     })

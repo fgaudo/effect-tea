@@ -704,6 +704,11 @@ export const mutations: ReadonlyArray<Mutation> = [
       ["src/compose.test.ts", "an answer for a child by id removed and listed again at its id is rejected"],
       [
         "src/compose.test.ts",
+        "a message of a view that names its instance is rejected once the child has started again"
+      ],
+      ["src/compose.test.ts", "in a run, a message of a view drawn for an instance that is gone is ignored"],
+      [
+        "src/compose.test.ts",
         "closed, then opened again: the answer of the form before is rejected, and the run goes on"
       ],
       ["src/compose.test.ts", "started again in one step, by its key: the answer of the form before is rejected"]
@@ -2414,10 +2419,11 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "forwardTo holds a child's dispatch strongly",
     file: "src/dispatch.ts",
-    from: "const entry: Entry = { key, ref: new WeakRef(wrapping) }",
-    to: "const entry: Entry = { key, ref: { deref: () => wrapping } as never }",
+    from: "const entry: Entry = { key, instance, ref: new WeakRef(wrapping) }",
+    to: "const entry: Entry = { key, instance, ref: { deref: () => wrapping } as never }",
     killedBy: [
       ["src/dispatch.test.ts", "keeps nothing for the ids nobody holds"],
+      ["src/dispatch.test.ts", "keeps nothing for the instances nobody holds"],
       ["src/dispatch.test.ts", "lets go of what a long list held once the list is no longer drawn"],
       ["src/dispatch.test.ts", "lets go of collected dispatches without comparing ids again"]
     ]
@@ -2434,16 +2440,71 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "forwardTo makes a child's dispatch anew each time",
     file: "src/dispatch.ts",
-    from: "  if (found !== undefined) return found as ChildDispatch<Message, Name>\n",
+    from: "  if (found !== undefined) return found as ChildDispatch<Message, To>\n",
     to: "",
     killedBy: [
       [
         "src/dispatch.test.ts",
         "gives a function someone holds every time it is asked for, through collections and new ids"
       ],
+      [
+        "src/dispatch.test.ts",
+        "gives one function for an instance every time it is asked for, and another for another instance or for none"
+      ],
       ["src/dispatch.test.ts", "keeps the entry of a new dispatch made for the id of a collected one"],
       ["src/dispatch.test.ts", "tells ids apart by value, as subscription keys are"],
       ["src/compose.test.ts", "one dispatch for the whole run, and the same dispatch for a child each time it is drawn"]
+    ]
+  },
+  {
+    name: "forwardTo gives the dispatch of one instance for another, or for none",
+    file: "src/dispatch.ts",
+    from: "find((entry) => entry.instance === instance && Equal.equals(key, entry.key))",
+    to: "find((entry) => Equal.equals(key, entry.key))",
+    killedBy: [
+      [
+        "src/dispatch.test.ts",
+        "gives one function for an instance every time it is asked for, and another for another instance or for none"
+      ]
+    ]
+  },
+  {
+    name: "forwardTo leaves out the instance that it was given",
+    guarantees: ["An answer reaches the instance that asked for it, or is rejected"],
+    file: "src/dispatch.ts",
+    from: "...(hasId ? { id: key } : {}), ...(instance === undefined ? {} : { instance }) }",
+    to: "...(hasId ? { id: key } : {}) }",
+    killedBy: [
+      [
+        "src/dispatch.test.ts",
+        "given an instance, wraps each message with its number, and with nothing else of what named it"
+      ],
+      [
+        "src/dispatch.test.ts",
+        "gives one function for an instance every time it is asked for, and another for another instance or for none"
+      ],
+      [
+        "src/dispatch.test.ts",
+        "a grandchild's dispatch is made from its parent's, each by its name or by its instance"
+      ],
+      [
+        "src/compose.test.ts",
+        "a message of a view that names its instance is rejected once the child has started again"
+      ],
+      ["src/compose.test.ts", "in a run, a message of a view drawn for an instance that is gone is ignored"]
+    ]
+  },
+  {
+    name: "forwardTo wraps a message in all that names its instance",
+    file: "src/dispatch.ts",
+    from:
+      "  const wrap = { _tag: name, ...(hasId ? { id: key } : {}), ...(instance === undefined ? {} : { instance }) }",
+    to: "  const wrap = named ?? { _tag: name, ...(hasId ? { id: key } : {}) }",
+    killedBy: [
+      [
+        "src/dispatch.test.ts",
+        "given an instance, wraps each message with its number, and with nothing else of what named it"
+      ]
     ]
   },
   {

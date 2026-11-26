@@ -601,7 +601,14 @@ const makeList = (fates: Fates, events: Array<Event>) => {
       swap: { _tag: "Swap" } as Own,
       add: ids.filter((id) => !state.rows.some((entry) => entry.id === id)).map((id): Own => ({ _tag: "Add", id })),
       clear: state.rows.length > 0 ? Opt.some<Own>({ _tag: "Clear" }) : Opt.none<Own>(),
-      rows: state.rows.map(({ id }) => ({ id, remove: { _tag: "Remove", id } as Own, row: children.Rows(id) }))
+      // Each row with what the parent's own state says of it, `born`, and the number of its instance, for its view.
+      rows: state.rows.map(({ born, id }) => ({
+        id,
+        born,
+        instance: children.Rows.instance(id),
+        remove: { _tag: "Remove", id } as Own,
+        row: children.Rows(id)
+      }))
     })
   })
 }
@@ -613,16 +620,20 @@ type Message = Parameters<List["update"]>[0]
 /**
  * What the user does, on whatever model the renderer read last, when the scheduler lets them: `pick` chooses among the
  * controls drawn, so that every act does something; `twice` is a double tap, a key and its undo on the element of the
- * field; `pause` is how many turns of the scheduler the user waits before.
+ * field; `pause` is how many turns of the scheduler the user waits before; `stale` is a model read before, whose view
+ * the act is on; `named` is whether the dispatch of a row names the instance that its model holds, as a view given the
+ * number makes it.
  */
-type Act = Readonly<{ pick: number; twice: boolean; pause: number; stale: Opt.Option<number> }>
+type Act = Readonly<{ pick: number; twice: boolean; pause: number; stale: Opt.Option<number>; named: boolean }>
 
 const act: fc.Arbitrary<Act> = fc.record({
   pick: fc.nat(),
   twice: fc.boolean(),
   pause: fc.integer({ min: 1, max: 4 }),
-  // What is typed into the field of a model read before, as the element of that model would send it, now and then.
-  stale: fc.oneof({ arbitrary: fc.constant(Opt.none()), weight: 5 }, { arbitrary: fc.nat().map(Opt.some), weight: 1 })
+  // An act on a model read before, now and then: what is typed into its field, as the element of that model would send
+  // it, or a tap on one of its rows.
+  stale: fc.oneof({ arbitrary: fc.constant(Opt.none()), weight: 5 }, { arbitrary: fc.nat().map(Opt.some), weight: 1 }),
+  named: fc.boolean()
 })
 
 /** What the user makes of a text: a letter more, or one less. */
@@ -643,22 +654,41 @@ const staleTyping = (model: Model, pick: number): Control => (dispatch) => {
   return sent(dispatch(message), message)
 }
 
+/**
+ * What a row of the model shows, sent through the row's own dispatch: made from its name and its id, or, `named`, from
+ * the instance that the model holds.
+ */
+const taps = ({ id, instance, row }: Model["rows"][number], named: boolean): ReadonlyArray<Control> =>
+  [...Arr.getSomes([row.work, row.mute, row.listen]), row.poke].map((message): Control => (dispatch) =>
+    sent(
+      (named ? forwardTo(dispatch, { _tag: "Rows", id, instance }) : forwardTo(dispatch, "Rows", id))(message),
+      message
+    )
+  )
+
 /** Every control the model shows, the element of the field first: a user can only use what is drawn. */
-const controls = (model: Model, typing: Control): ReadonlyArray<Control> => [
+const controls = (model: Model, typing: Control, named: boolean): ReadonlyArray<Control> => [
   typing,
   (dispatch) => sent(dispatch(model.swap), model.swap),
   ...model.add.map((add): Control => (dispatch) => sent(dispatch(add), add)),
   ...Opt.toArray(model.clear).map((clear): Control => (dispatch) => sent(dispatch(clear), clear)),
-  ...model.rows.flatMap(({ id, remove, row }) => [
-    (dispatch: Dispatch<Message>) => sent(dispatch(remove), remove),
-    ...[...Arr.getSomes([row.work, row.mute, row.listen]), row.poke].map((message): Control => (dispatch) =>
-      sent(forwardTo(dispatch, "Rows", id)(message), message)
-    )
+  ...model.rows.flatMap((row) => [
+    (dispatch: Dispatch<Message>) => sent(dispatch(row.remove), row.remove),
+    ...taps(row, named)
   ])
 ]
 
-const controlFor = (model: Model, { pick }: Act, typing: Control): Opt.Option<Control> => {
-  const drawn = controls(model, typing)
+/**
+ * What a view older than the state sends: a tap on one of its rows, through a dispatch that names the instance drawn,
+ * where the act names instances and the model has a row, and otherwise a text typed into its field.
+ */
+const staleControl = (model: Model, { named, pick }: Act): Control => {
+  const drawn = named ? model.rows.flatMap((row) => taps(row, true)) : []
+  return Arr.get(drawn, pick % Math.max(drawn.length, 1)).pipe(Opt.getOrElse(() => staleTyping(model, pick)))
+}
+
+const controlFor = (model: Model, { named, pick }: Act, typing: Control): Opt.Option<Control> => {
+  const drawn = controls(model, typing, named)
   return Arr.get(drawn, pick % Math.max(drawn.length, 1))
 }
 
@@ -780,7 +810,7 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
     }
     const older = Opt.flatMap(act.stale, (index) => Arr.get(shown, index % Math.max(shown.length, 1)))
     const control = Opt.isSome(older)
-      ? Opt.some(staleTyping(older.value, act.pick))
+      ? Opt.some(staleControl(older.value, act))
       : controlFor(latest, act, typing(act.pick))
     if (Opt.isNone(control)) continue
     for (const _ of act.twice ? [1, 2] : [1]) {
@@ -800,6 +830,20 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
 type Outcome = Effect.Success<ReturnType<typeof runScenario>>
 
 const isTyped = (message: Message): message is Typed => message._tag === "Typed"
+
+/** A message of a row's view whose dispatch named the instance that its model held: no answer, and no tick. */
+type Tap = Extract<Message, Readonly<{ _tag: "Rows" }>> & Readonly<{ instance: number }>
+const tapped: ReadonlySet<RowMessage["_tag"]> = new Set(["WorkClicked", "MuteClicked", "ListenClicked", "Poked"])
+const isTap = (message: Message): message is Tap =>
+  message._tag === "Rows" && message.instance !== undefined && tapped.has(message.message._tag)
+
+/** The row that each instance was drawn for, by its `born`, as the models that were read held them. */
+const drawnFor = (events: ReadonlyArray<Event>): ReadonlyMap<number, number> =>
+  new Map(
+    events.flatMap((event) =>
+      event._tag === "Read" ? event.model.rows.map(({ born, instance }) => [instance, born] as const) : []
+    )
+  )
 
 const applied = (events: ReadonlyArray<Event>) =>
   events.flatMap((event) => event._tag === "Applied" ? [event.applied] : [])
@@ -986,6 +1030,13 @@ describe("interleavings of the user, commands and subscriptions", () => {
             reached.add("an answer for a row added again at its id")
           }
         }
+        const tapped = Opt.getOrUndefined(heardOf(event))?.message
+        if (event._tag === "Ignored" && tapped !== undefined && isTap(tapped)) {
+          const there = rowAt(event.ignored.state, tapped.id)
+          if (there !== undefined && there.born !== drawnFor(events).get(tapped.instance)) {
+            reached.add("a tap for a row added again at its id")
+          }
+        }
         if (event._tag === "Spanned") reached.add("a span of the program")
         if (event._tag === "Reentering") reached.add("a message a listener sends")
         if (event._tag === "Typed") reached.add("a text typed into the element")
@@ -1075,6 +1126,7 @@ describe("interleavings of the user, commands and subscriptions", () => {
       "the very same state",
       "an answer after its release",
       "an answer for a row added again at its id",
+      "a tap for a row added again at its id",
       "a new state once the renderer stopped",
       "a message applied before the run began",
       "a state whose model was never read",
@@ -1322,6 +1374,23 @@ describe("interleavings of the user, commands and subscriptions", () => {
         const { attempt, born } = message.message
         const there = rowAt(before, message.id)
         return there?.born === born ? [] : [`the answer of command ${born}.${attempt} reached row ${there?.born}`]
+      })
+      expect(astray).toEqual([])
+    }, { numRuns: 1000 })
+  }, 120_000)
+
+  // A view may be older than the state: the user acts on the model that the renderer read last. A tap whose dispatch
+  // names the instance that this model held reaches the row it was drawn for, by what the parent's own state said of
+  // it then, or is rejected, though a row added again at its id would accept it.
+  test("a tap that names its instance reaches the row it was drawn for, or is rejected", () => {
+    property(({ events }) => {
+      const drawn = drawnFor(events)
+      const astray = applied(events).flatMap(({ before, message }) => {
+        if (!isTap(message)) return []
+        const there = rowAt(before, message.id)
+        return there?.born === drawn.get(message.instance)
+          ? []
+          : [`a tap drawn for row ${drawn.get(message.instance)} reached row ${there?.born}`]
       })
       expect(astray).toEqual([])
     }, { numRuns: 1000 })

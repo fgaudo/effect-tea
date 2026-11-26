@@ -70,8 +70,9 @@ the engine and in the testing tools.
   nothing of children.
   - Each start has a number, counted in the state (`starts`), which the child's lifted commands, answers and keys
     carry. A message whose number is not that of the child there is rejected, so a child closed and opened again, or
-    started again in one step, never gets the answer of the one before. A message of a view carries no number, and
-    names the place alone.
+    started again in one step, never gets the answer of the one before. A message of a view carries the number that
+    its dispatch was given (`forwardTo`), which `makeModel` reads from the instance (`children.X.instance`), and is
+    rejected by that same check; one that carries none names the place alone.
   - Children by id whose `ids` gives the very same object for the own states before and after are not reconciled:
     `ids` is pure. An id listed twice is a `CompositionDefect`.
 - **What a screen shows of a controlled element is the bridges', and the library keeps no rule of an element.** The
@@ -231,8 +232,9 @@ the engine and in the testing tools.
   asked once, for that shortcut and for the starts, so that no check stands in front of another. A key that stays is
   kept as the listing that started it gave it.
 - **A child's dispatch is the same while anyone holds it** (`forwardTo` in `dispatch.ts`): kept weakly by its parent's
-  dispatch, its name and its id (by `Equal`), and removed by a `FinalizationRegistry` once collected. Never hold them
-  strongly: ids that are never reused would pile up for as long as the run lasts.
+  dispatch, its name, its id (by `Equal`) and the instance it names, and removed by a `FinalizationRegistry` once
+  collected. Never hold them strongly: ids that are never reused, and the instances of a child that starts again,
+  would pile up for as long as the run lasts.
 - **A run that goes on keeps nothing of the steps it has done**, but what waits: the state and the model read last are
   replaced (`current` in `engine.ts`, `last` in `run.ts`); a message leaves `pending`, and a job `waiting` and then the
   queue; a command's or a subscription's fiber leaves its `FiberSet` or `FiberMap` as it ends, and Effect keeps nothing

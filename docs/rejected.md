@@ -97,6 +97,14 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   `onIgnored` is given the state and the message, so an application may compare them. _Reopen if_ rejections in
   production are shown to hide bugs the property tests cannot reach, and a frame can reach the run without a change of
   `Dispatch`.
+- **A bridge that tells the run which state it drew**, so that the run names the instances of that state in each
+  message of a view, and a tap on a child started again since is rejected with no change to a program. Reasoned, 26
+  November 2026, in step 92 ([`instance-in-view.md`](records/instance-in-view.md)): it holds exactly where a dispatch
+  that names its instance holds, a handler of a draw older than the state, and not where a renderer has given the
+  elements of the old child the handlers of the new one. It costs a rule of every bridge that nothing checks, a
+  function of every program that names the instances of a message, and a run that knows of frames. A view gives its
+  dispatch the number instead, which `makeModel` reads. _Reopen if_ a renderer can tell the bridge which draw the
+  screen showed when an event was made.
 - **`run` split into a synchronous half and the fibers.** Parked on 20 November 2026, then spiked and taken the same day
   ([`store-and-effects.md`](records/store-and-effects.md)): `start` gives `{ app, run }`.
 - **Telling a program that was started and never run, as it runs**: a `dispatch` that throws, a warning or a log.
@@ -316,6 +324,24 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   November 2026 ([`boundary.md`](records/boundary.md), "A question"): the compiler already refuses a wrong name, id or
   message in a literal; the one check it adds is a stray `id` on a literal that is not fresh. _Reopen if_ a tool must
   lift a child's message with no type to lean on, or the stray `id` is found in an application's tests.
+- **Every message of a child's view bound to its instance**, so that `forwardTo` always takes the number, a message
+  has one form, and the rule of ids that are never reused goes. Reasoned, 26 November 2026, in step 92
+  ([`instance-in-view.md`](records/instance-in-view.md)), by the values: it is the form of a command's answer (value
+  4), and one way to send (value 3). But every parent would hold a number for each child in its model, and every test
+  would name instances in the messages that it writes and in its `candidates`, where a message that names none says
+  what such a test means: the child that is there. And it would not close the case that only a key of the renderer
+  closes, a tap that runs a handler of the latest draw. The number is given where the view may be older than the
+  state. _Reopen if_ a message that names no instance reaches a child started again in an application whose renderer
+  draws each state before the next event, or the tests come to name an instance without its number.
+- **The number of an instance as a parameter of `forwardTo`**, after the id, `forwardTo(dispatch, 'Row', id,
+  instance)`, or in an object of options; **an address that `makeModel` reads whole**, `children.X.address()`; and
+  **the number read in `update`, `external`, `onEvent` and `output`**. Reasoned, in the same step. `forwardTo` is given
+  no program, so at run time it cannot tell an instance from an id: `forwardTo(dispatch, 'Clock', 3)` from
+  `forwardTo(dispatch, 'Row', 3)`. An object in place of the name, `{ _tag, id, instance }`, says which it is, and is
+  the child's message without its `message`, which a test's reader writes too. An address would be a new word for the
+  number, the name and the id together, where a view needs the number alone as a key. A step that read the number
+  would make two states that differ in their numbers alone behave apart. _Reopen if_ a view is found to pair a
+  child's model with another child's name, which an address would refuse, or a step must tell one start from another.
 - **Following a string in a child's wrapping, in the default description of a message.** Reasoned, 15 November 2026:
   `describeByTag` meets a program's own values, and would name its text, where only tags are named. _Reopen if_ a
   wrapping the describer can tell from a program's own value comes for another reason.

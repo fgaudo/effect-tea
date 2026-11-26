@@ -220,7 +220,8 @@ type KeptOf<C> = {
 /**
  * A child's message, as its parent receives it: `{ _tag: <child>, message }`, and its `id` for children by id. The
  * answer of a child's command, and a message of its subscriptions, carry the `instance` that asked for it too: an
- * answer for an instance that is no longer there is rejected. A message of the child's view names no instance.
+ * answer for an instance that is no longer there is rejected. A message of the child's view names its instance where
+ * `forwardTo` is given it, and is rejected likewise: one that names none reaches the instance that is there.
  */
 type ChildMessages<C> = {
   [K in keyof C & string]: Readonly<{ _tag: K; message: MessageOf<ProgramOf<C[K]>>; instance?: number }> & At<C[K]>
@@ -265,9 +266,11 @@ type ChildSubscriptionServices<C> = { [K in keyof C]: SubscriptionServicesOf<Pro
  * - A child by id gives its model, `children.Row(id)`. Asking for an id that the parent's state does not list is a
  *   defect, a `CompositionDefect`.
  * - A child that declares an `output` gives it beside its model, read in the same way: `children.Row.output(id)`.
+ * - Each child gives the number of its instance, read in the same way: `children.Row.instance(id)`. A view may give
+ *   it to `forwardTo`, so that its messages name the instance, and to its renderer, as the key of what it draws.
  *
  * A child's model is the same object while the child keeps the very same state. A child started again is another
- * instance, with a model of its own.
+ * instance, with a model and a number of its own.
  *
  * @example
  * ```ts
@@ -281,8 +284,14 @@ type Models<C> = {
     & (C[K] extends ChildByIdOf<infer Id, infer P> ? (id: Id) => ModelOf<P>
       : IsAlways<C[K]> extends true ? () => ModelOf<ProgramOf<C[K]>>
       : () => Opt.Option<ModelOf<ProgramOf<C[K]>>>)
+    & Readonly<{ instance: ReadInstance<C[K]> }>
     & ([OutputOf<ProgramOf<C[K]>>] extends [never] ? unknown : Readonly<{ output: ReadOutput<C[K]> }>)
 }
+
+/** How a parent reads the number of a child's instance: as its model, a value or an `Option`, by id. */
+type ReadInstance<C> = C extends ChildByIdOf<infer Id, any> ? (id: Id) => number
+  : IsAlways<C> extends true ? () => number
+  : () => Opt.Option<number>
 
 /** How a parent reads a child's output: as its model, a value or an `Option`, by id for children by id. */
 type ReadOutput<C> = C extends ChildByIdOf<infer Id, infer P> ? (id: Id) => OutputOf<P>
@@ -881,14 +890,14 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
     models.set(entry, model)
     return model
   }
-  const there = (place: Place, entry: Opt.Option<Entry>, what: "model" | "output"): Entry =>
+  const there = (place: Place, entry: Opt.Option<Entry>, what: "model" | "output" | "instance"): Entry =>
     Opt.getOrThrowWith(entry, () => defectAt(place, `The ${what} of "${place.name}", which is not in this state`))
-  // A child's model or output, read from the children of `slots`: a value for a child that is always there, and for a
-  // listed id, an `Option` for a child alone that may not be there.
+  // A child's model or output, or the number of its instance, read from the children of `slots`: a value for a child
+  // that is always there, and for a listed id, an `Option` for a child alone that may not be there.
   const readAt = (
     slots: Slots,
     name: string,
-    what: "model" | "output",
+    what: "model" | "output" | "instance",
     read: (place: Place, entry: Entry) => unknown
   ) =>
     childOf(name)._tag === "ChildById"
@@ -899,6 +908,7 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
       : () => Opt.map(entryAt(slots, { name, id: undefined }), (entry) => read({ name, id: undefined }, entry))
   const outputOf = (place: Place, entry: Entry) =>
     (childOf(place.name).program as unknown as Readonly<{ output: (state: unknown) => unknown }>).output(entry.state)
+  const instanceOf = (_: Place, entry: Entry) => entry.instance
   const readable = Arr.filter(
     names,
     (name) => typeof (childOf(name).program as Readonly<{ output?: unknown }>).output === "function"
@@ -910,12 +920,11 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
   const modelsFor = (state: unknown): unknown => {
     if (!composed) return {}
     const slots = (state as Kept<unknown, Slots>).children
-    return mapOwn(programs, (_, name) => {
-      const model = readAt(slots, name, "model", modelOf)
-      return Arr.contains(readable, name)
-        ? Object.assign(model, { output: readAt(slots, name, "output", outputOf) })
-        : model
-    })
+    return mapOwn(programs, (_, name) =>
+      Object.assign(readAt(slots, name, "model", modelOf), {
+        instance: readAt(slots, name, "instance", instanceOf),
+        ...(Arr.contains(readable, name) ? { output: readAt(slots, name, "output", outputOf) } : {})
+      }))
   }
   const ownOf = (state: unknown) => composed ? (state as Kept<unknown, unknown>).own : state
   const ownExternal = config.external
@@ -1089,7 +1098,7 @@ type Inferred = Readonly<{ "the services are inferred, never named": never }>
  * external messages and outputs: a parent is given no child's state. The parent's messages, commands and
  * subscriptions are its own, plus each child's, wrapped:
  *
- * - a message as `{ _tag: <child>, message }`;
+ * - a message as `{ _tag: <child>, message }`, with the `instance` it is for where it names one;
  * - a command as `{ _tag: <child>, instance, command }`, run by the child's `runCommand`, whose answer names the
  *   `instance` too;
  * - a key as `{ _tag: <child>, instance, key }`, whose subscription the child's `listen` makes.

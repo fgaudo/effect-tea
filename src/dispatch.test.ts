@@ -4,8 +4,8 @@ import * as Hash from "effect/Hash"
 import { collectGarbage } from "../test/gc.test_helper.ts"
 import { type Dispatch, entriesOf, forwardTo } from "./dispatch.ts"
 
-type Row = Readonly<{ _tag: "Row"; id: number | readonly [string, number]; message: "Inc" }>
-type Clock = Readonly<{ _tag: "Clock"; message: "Tick" }>
+type Row = Readonly<{ _tag: "Row"; id: number | readonly [string, number]; instance?: number; message: "Inc" }>
+type Clock = Readonly<{ _tag: "Clock"; instance?: number; message: "Tick" }>
 // A message of the parent's own: its `message` field is data, not a child's message.
 type Toast = Readonly<{ _tag: "Toast"; message: string; level: number }>
 type Message = Row | Clock | Toast
@@ -62,6 +62,53 @@ describe("forwardTo", () => {
     forwardTo(dispatch, "Row", 7)("Inc")
     expect(sent).toEqual([{ _tag: "Clock", message: "Tick" }, { _tag: "Row", id: 7, message: "Inc" }])
   })
+
+  test("given an instance, wraps each message with its number, and with nothing else of what named it", () => {
+    const { sent, dispatch } = recording()
+    forwardTo(dispatch, { _tag: "Clock", instance: 2 })("Tick")
+    forwardTo(dispatch, { _tag: "Row", id: 7, instance: 3 })("Inc")
+    // An instance held in a model, with the model beside it.
+    const held = { _tag: "Row", id: ["milk", 1], instance: 4, model: "a row" } as const
+    forwardTo(dispatch, held)("Inc")
+    expect(sent).toEqual([
+      { _tag: "Clock", instance: 2, message: "Tick" },
+      { _tag: "Row", id: 7, instance: 3, message: "Inc" },
+      { _tag: "Row", id: ["milk", 1], instance: 4, message: "Inc" }
+    ])
+  })
+
+  test("gives one function for an instance every time it is asked for, and another for another instance or for none", () => {
+    const { sent, dispatch } = recording()
+    const second = forwardTo(dispatch, { _tag: "Row", id: 1, instance: 2 })
+    const clock = forwardTo(dispatch, { _tag: "Clock", instance: 5 })
+    expect(forwardTo(dispatch, { _tag: "Row", id: 1, instance: 2 })).toBe(second)
+    expect(forwardTo(dispatch, { _tag: "Clock", instance: 5 })).toBe(clock)
+    const third = forwardTo(dispatch, { _tag: "Row", id: 1, instance: 3 })
+    const there = forwardTo(dispatch, "Row", 1)
+    expect(new Set([second, third, there, forwardTo(dispatch, { _tag: "Row", id: 2, instance: 2 })]).size).toBe(4)
+    expect(forwardTo(dispatch, "Clock")).not.toBe(clock)
+    // Each still sends for its own instance, once the others are made.
+    second("Inc")
+    third("Inc")
+    there("Inc")
+    expect(sent).toEqual([
+      { _tag: "Row", id: 1, instance: 2, message: "Inc" },
+      { _tag: "Row", id: 1, instance: 3, message: "Inc" },
+      { _tag: "Row", id: 1, message: "Inc" }
+    ])
+  })
+
+  test("keeps nothing for the instances nobody holds", async () => {
+    const { dispatch } = recording()
+    const drawInstances = (from: number) => {
+      for (const instance of range(from, 1_000)) forwardTo(dispatch, { _tag: "Row", id: 1, instance })
+    }
+    for (let frame = 0; frame < 20; frame++) {
+      drawInstances(frame * 1_000)
+      await collect()
+    }
+    expect(await entriesLeft(dispatch, 10)).toBeLessThanOrEqual(10)
+  }, 30_000)
 
   test("gives a function someone holds every time it is asked for, through collections and new ids", async () => {
     const { dispatch } = recording()
@@ -170,6 +217,83 @@ describe("forwardTo", () => {
     const unknown: Readonly<{ "is not a child": "Clok" }> = forwardTo(dispatch, "Clok")
     const any: Readonly<{ "is not the literal name of a child": string }> = forwardTo(dispatch, name)
     expect([unknown, any]).toHaveLength(2)
+  })
+
+  test("takes an instance by the literal name of its child, with the child's id exactly where it is one by id", () => {
+    const { dispatch } = recording()
+    const name: string = "Clock"
+    expectTypeOf(forwardTo(dispatch, { _tag: "Clock", instance: 1 })).toEqualTypeOf<Dispatch<"Tick">>()
+    expectTypeOf(forwardTo(dispatch, { _tag: "Row", id: 7, instance: 1 })).toEqualTypeOf<Dispatch<"Inc">>()
+    // @ts-expect-error: any string could name any child.
+    expect(() => forwardTo(dispatch, { _tag: name, instance: 1 })("Tick")).toBeDefined()
+    // @ts-expect-error: a message of the parent's own.
+    expect(() => forwardTo(dispatch, { _tag: "Toast", instance: 1 })("hello")).toBeDefined()
+    // @ts-expect-error: a child by id needs its id.
+    expect(() => forwardTo(dispatch, { _tag: "Row", instance: 1 })("Inc")).toBeDefined()
+    // @ts-expect-error: an id of the child's own type.
+    expect(() => forwardTo(dispatch, { _tag: "Row", id: "7", instance: 1 })("Inc")).toBeDefined()
+    // @ts-expect-error: a child alone has no id.
+    expect(() => forwardTo(dispatch, { _tag: "Clock", id: 7, instance: 1 })("Tick")).toBeDefined()
+    // @ts-expect-error: an instance has a number: a name alone is given as a string.
+    expect(() => forwardTo(dispatch, { _tag: "Clock" })).toBeDefined()
+    // @ts-expect-error: the id of an instance is named with it, and not after it.
+    expect(() => forwardTo(dispatch, { _tag: "Row", id: 7, instance: 1 }, 7)).toBeDefined()
+    // An id written in the call, as the name form takes it: a tuple, though the id's type is not readonly.
+    type Loose = Readonly<{ _tag: "Pair"; id: [string, number]; instance?: number; message: "Inc" }>
+    const loose: Dispatch<Loose> = () => {}
+    expectTypeOf(forwardTo(loose, "Pair", ["milk", 1])).toEqualTypeOf<Dispatch<"Inc">>()
+    expectTypeOf(forwardTo(loose, { _tag: "Pair", id: ["milk", 1], instance: 1 })).toEqualTypeOf<Dispatch<"Inc">>()
+    // @ts-expect-error: an id of another shape.
+    expect(() => forwardTo(loose, { _tag: "Pair", id: [1, "milk"], instance: 1 })("Inc")).toBeDefined()
+    const noId: Readonly<{ "is a child by id, and its instance is named with its id": "Row" }> = forwardTo(dispatch, {
+      _tag: "Row",
+      instance: 1
+    })
+    const anId: Readonly<{ "is a child alone, and its instance is named with no id": "Clock" }> = forwardTo(
+      dispatch,
+      { _tag: "Clock", id: 7, instance: 1 }
+    )
+    expect([noId, anId]).toHaveLength(2)
+  })
+
+  test("takes an instance only for a message that names one, which update then checks", () => {
+    type Note = Readonly<{ _tag: "Note"; message: string }>
+    const dispatch: Dispatch<Message | Note> = () => {}
+    expectTypeOf(forwardTo(dispatch, "Note")).toEqualTypeOf<Dispatch<string>>()
+    // @ts-expect-error: a message with no `instance` would carry one that nothing reads.
+    expect(() => forwardTo(dispatch, { _tag: "Note", instance: 1 })("hello")).toBeDefined()
+    const none: Readonly<{ "is a message that names no instance": "Note" }> = forwardTo(dispatch, {
+      _tag: "Note",
+      instance: 1
+    })
+    expect(none).toBeDefined()
+  })
+
+  test("takes one child's name, never a union of them, whose messages would be mixed up", () => {
+    type Other = Readonly<{ _tag: "Watch"; instance?: number; message: "Tock" }>
+    const dispatch: Dispatch<Message | Other> = () => {}
+    const either = "Clock" as "Clock" | "Watch"
+    // @ts-expect-error: a `Tock` could be sent as the Clock's.
+    expect(() => forwardTo(dispatch, either)("Tock")).toBeDefined()
+    // @ts-expect-error: nor by an instance.
+    expect(() => forwardTo(dispatch, { _tag: either, instance: 1 })("Tock")).toBeDefined()
+    const union: Readonly<{ "is not the literal name of a child": "Clock" | "Watch" }> = forwardTo(dispatch, either)
+    expect(union).toBeDefined()
+  })
+
+  test("a grandchild's dispatch is made from its parent's, each by its name or by its instance", () => {
+    type Home = Readonly<{ _tag: "Home"; instance?: number; message: Message }>
+    const sent: Array<Home> = []
+    const dispatch: Dispatch<Home> = (message) => void sent.push(message)
+    const row = forwardTo(forwardTo(dispatch, { _tag: "Home", instance: 1 }), { _tag: "Row", id: 7, instance: 3 })
+    expectTypeOf(row).toEqualTypeOf<Dispatch<"Inc">>()
+    expectTypeOf(forwardTo(forwardTo(dispatch, "Home"), { _tag: "Clock", instance: 2 })).toEqualTypeOf<
+      Dispatch<"Tick">
+    >()
+    row("Inc")
+    expect(sent).toEqual([
+      { _tag: "Home", instance: 1, message: { _tag: "Row", id: 7, instance: 3, message: "Inc" } }
+    ])
   })
 
   test("gives a dispatch for a message of the parent's own that has exactly the shape of a child's", () => {

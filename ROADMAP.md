@@ -54,10 +54,15 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 92 to 98 come from the report of an application written again on 0.9.0, weighed on 26 November 2026
+Steps 93 to 98 come from the report of an application written again on 0.9.0, weighed on 26 November 2026
 ([`application-report-0.9.md`](docs/records/application-report-0.9.md)), and run in the order of their numbers. Each
 decides its point by "Deciding": a step that decides against its point writes its entry of
 [`rejected.md`](docs/rejected.md), and is done. Their breaking changes go out together, in the release after 0.9.0.
+
+Step 92 decided the report's third point ([`instance-in-view.md`](docs/records/instance-in-view.md)): `makeModel`
+reads the number of a child's instance, and `forwardTo` takes it, so that a message of a view names its instance where
+the view gives one. A message that names none is still a message, which reaches the child that is there, so no test
+written before it changes.
 
 The release of 0.9.0 waited, as the owner asked on 25 November 2026, for a bridge to
 React Native, which step 83 made, for whether a view of React can have a `messagesSentBy`, and for a reading of the
@@ -86,43 +91,6 @@ after 0.9.0, reads the changes since that commit, and one of everything is due b
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 92. A message of a view that names its instance
-
-**Model and effort.** Fable 5.2, `high`: it questions a rule of the guide, and what a child's message is.
-
-**Depends on** no other step.
-
-**Why.** A message of a child's view names no instance, and reaches the instance that is there ("Composition", "What
-the library derives"). So a tap on a view drawn for a child since started again reaches the new child, with no
-rejection, and the guide's answer is ids that are never reused ("Ids that come back"), which a child alone does not
-have. With the package's bridges in a browser only a script does it. On a renderer that draws late, as React Native,
-a user's tap does ([`application-report-0.9.md`](docs/records/application-report-0.9.md), point 3): that is the new
-fact.
-
-**How.** A spike first, on a branch. What is there already: the `update` that `make` composes rejects a child's
-message whose `instance` is not that of the child there, `ChildMessages` in `src/compose.ts` has `instance?: number`,
-and `Routed` in `src/dispatch.ts` lets it through. What is missing is how a view comes to know the number. Leads, none
-decided:
-
-- the instance read in `makeModel` beside the child's model, as its `output` is, and given to `forwardTo`;
-- every message of a child's view bound to its instance, so that the rule of the guide goes, and not a second way to
-  send;
-- nothing of the library's, and the guide saying what a program does on such a renderer.
-
-Weigh what the number does to a model (two equal states built apart have equal models, by "Testing", and `stateOf`
-numbers as a start), to `forwardTo` giving the same function in every draw, to the readers of `dispatchViolations` and
-to `messagesSentBy`, for a child alone and for children by id alike; and what such a rejected message is in the table
-of "Testing tools". A program without children has the same hazard between two of its own states, and answers it with
-a message that holds what it is about: say whether a child's instance is that, or another thing. Read first
-`rejected.md` ("Telling `onIgnored` whether a rejected message came from the frame of the current state", "Handlers
-of `update` by the case of the state"), [`kept-children.md`](docs/records/kept-children.md) and
-[`synchronous-dispatch.md`](docs/records/synchronous-dispatch.md).
-
-**Done when** a record of a page says what was decided. If a form is taken: a test of `src/compose.test.ts` holds it,
-its check has a mutation, "Ids that come back" and the sentence of "What the library derives" are written again, the
-changelog has its entry, and the checks of `change-engine` and `change-api` pass. If none is: an entry of
-`rejected.md`, with what would reopen it.
 
 ### 93. A parent's state, and what its steps tell, in the testing tools
 
@@ -350,6 +318,12 @@ owner left them here on 25 November 2026, while the steps of "Next, in order" ar
   bridges' tests at React 19.3.0, which step 83 made the start of the peer range and the lockfile's version. An IME is
   driven in Chromium alone, through its protocol: Playwright drives none in Firefox or WebKit, so a composition there
   is not run.
+- **The advice of "Composition" for a screen that shows an older draw, on a device.** Step 92 reasoned it, and ran
+  none of it on a device ([`instance-in-view.md`](docs/records/instance-in-view.md), 5): a dispatch that names its
+  instance, and the number as the key of the child's view. `examples/react-native` draws no parent. A parent there,
+  whose child starts again, would show the advice in an example
+  ([`add-example`](.agents/skills/add-example/SKILL.md)), and `bun run test:react-native` would run what jest reaches
+  of it. What a tap does on a device is for an application's report.
 - **A benchmark that runs in the CI.** Many children, many messages per second, to keep what a message costs the event
   that sends it, and a model made only when it is read, from regressing. `bun run bench`
   (`tools/bench/subscriptions.ts`) measures a parent's subscriptions only, and `tools/bench/writes.ts`, run by hand,
