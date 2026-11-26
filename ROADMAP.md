@@ -172,9 +172,3 @@ owner left them here on 25 November 2026, while the steps of "Next, in order" ar
 - **An example of saving each state before its commands start**, which the guide names ("Running", "Work that must
   wait goes to the effects of the program") without showing: `onApplied` offers the state to a queue, a fiber of
   whoever runs the program saves it, and a wrapped `runCommand` waits until the state its step heard is saved.
-- **The search laid out by guarantee.** The 21 properties of `src/interleaving.test.ts` sit in one `describe`. Each
-  would go under a `describe` named by the bold title of the item of "What you can rely on" it checks, with one for
-  what the guide says the search "also checks", and `bun run comments` would check the names both ways, with
-  `sectionsOf` kept to that list. It ties an item to what the guide says checks it, which the `guarantees` of the
-  mutations cannot, since the search kills no mutation. Not tried: a spike first, for whether every property falls
-  under one item. It changes the layout of the tests of the engine (`change-engine`).

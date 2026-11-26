@@ -14,9 +14,10 @@
 // It checks the titles the mutations (`tools/mutations/mutations.ts`) give of the items of "What you can rely on", in
 // "Guarantees": it fails on a title the list does not have, and on an item that no mutation names. That is a tripwire
 // for an item added, and no more: a title is written by hand, and says that a check of the item has a mutation, not
-// that each sentence of the item has one. With `--guarantees`, it prints each item with the mutations that name it and
-// the tests that kill them, beside the search (`src/interleaving.test.ts`), which checks each item and is the killer of
-// no mutation (`change-engine`).
+// that each sentence of the item has one. The search (`src/interleaving.test.ts`) kills no mutation (`change-engine`):
+// it names the item that a property checks by the `describe` the property sits in, and it fails on a `describe` named
+// by no item. An item may have no property there. With `--guarantees`, it prints each item with the properties of the
+// search that check it, and the mutations that name it with the tests that kill them.
 //
 // It holds a page of the guide under its ceiling of words (`ceilings`), so that the guide grows only by a choice.
 //
@@ -57,6 +58,27 @@ const reliedOn = (lines: ReadonlyArray<string>) => {
 }
 
 const naming = (item: string) => mutations.filter(({ guarantees = [] }) => guarantees.includes(item))
+
+const search = "src/interleaving.test.ts"
+
+// The properties of the search, by the title of the `describe` at the top of the file that each sits in.
+const propertiesOf = (text: string) => {
+  const groups = new Map<string, Array<string>>()
+  let group: Array<string> | undefined
+  for (const [, kind, literal = "\"\""] of text.matchAll(/^(describe|  test)\(\s*("(?:[^"\\\n]|\\.)*")/gm)) {
+    const title: string = JSON.parse(literal)
+    if (kind === "describe") {
+      group = groups.get(title) ?? []
+      groups.set(title, group)
+    } else group?.push(title)
+  }
+  return groups
+}
+
+const problemsOfSearch = (items: ReadonlyArray<string>, groups: ReadonlyMap<string, ReadonlyArray<string>>) =>
+  Array.from(groups.keys()).filter((title) => !items.includes(title)).map((title) =>
+    `${search}: the describe "${title}" names no item of "What you can rely on": name it by the item its tests check.`
+  )
 
 // The most words a page of the guide may hold, as `wc -w` counts them: the pages written again by the test of
 // `AGENTS.md` ("A sentence stays in the guide only where a user who has read it would write their program
@@ -106,12 +128,17 @@ const problemsOfMutations = (items: ReadonlyArray<string>) => [
   )
 ]
 
-// Each item with the mutations that name it and the tests that kill them.
-const index = (items: ReadonlyArray<string>) =>
+// Each item with the properties of the search that check it, and the mutations that name it with the tests that kill
+// them.
+const index = (items: ReadonlyArray<string>, groups: ReadonlyMap<string, ReadonlyArray<string>>) =>
   items.map((item) =>
     [
       `${item}.`,
-      `  The search checks it, killing no mutation. ${naming(item).length} checks with a mutation name it:`,
+      `  The search checks it in ${
+        ["no property.", "1 property:"][groups.get(item)?.length ?? 0] ?? `${groups.get(item)?.length} properties:`
+      }`,
+      ...(groups.get(item) ?? []).map((name) => `  - ${name}`),
+      `  ${naming(item).length} checks with a mutation name it:`,
       ...naming(item).flatMap(({ file, killedBy, name }) => [
         `  - ${name} (${file})`,
         ...killedBy.map(([file, test]) => `      ${file}: ${test}`)
@@ -292,9 +319,10 @@ const command = Command.make(
     }
     problems.push(...problemsOfIndex("skills/effect-tea/SKILL.md", yield* read("skills/effect-tea/SKILL.md"), files))
     const items = reliedOn(pages.get("Guarantees") ?? [])
-    problems.push(...problemsOfMutations(items), ...problemsOfCeilings(pages))
+    const groups = propertiesOf(yield* read(search))
+    problems.push(...problemsOfMutations(items), ...problemsOfSearch(items, groups), ...problemsOfCeilings(pages))
     if (problems.length > 0) return yield* new Failed({ message: problems.join("\n") })
-    if (guarantees) yield* Console.log(index(items))
+    if (guarantees) yield* Console.log(index(items, groups))
   })
 )
 

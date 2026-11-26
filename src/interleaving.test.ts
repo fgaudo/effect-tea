@@ -49,6 +49,9 @@ import { reject } from "./update.ts"
 // does. To die is to die of a defect, or, for a command or a subscription, to interrupt oneself, which the run takes
 // for one. The run runs in a span of whoever runs it, with debug logs enabled, and the program logs and opens spans of
 // its own.
+// Each property sits in a `describe` named by the bold title of the item of "What you can rely on", in the guide's
+// "Guarantees", that it checks, without its final period, and `bun run comments` fails on a `describe` named otherwise.
+// The test of what the scenarios reach checks no item, and sits apart.
 
 type Id = 1 | 2
 const ids: ReadonlyArray<Id> = [1, 2]
@@ -987,178 +990,165 @@ const firstDeath = (events: ReadonlyArray<Event>) => {
   return index === -1 ? events.length : index
 }
 
-describe("interleavings of the user, commands and subscriptions", () => {
-  const depth = 3
+const depth = 3
 
-  const property = (
-    check: (outcome: Outcome) => void,
-    { schedules = 1, ...options }: Readonly<{ numRuns?: number; seed?: number; schedules?: number }> = {}
-  ) => {
-    let scenarios = 0
-    fc.assert(
-      fc.property(fates, fc.array(act, { maxLength: 12 }), fc.nat(), (fates, acts, seed) => {
-        // A property runs in one synchronous job, and Bun leaves the garbage of its scenarios there until the job ends:
-        // its heap reached 350 MB in 1500 scenarios, 11 MB once collected. So it is collected as the property goes, or
-        // the peak of the process depends on when Bun chooses to collect, and the memory guard ends some runs.
-        if (++scenarios % 50 === 0) collectGarbage()
-        prioritizedSchedules(runScenario(fates, acts), { runs: schedules, depth, first: seed }, (exit) => {
-          if (Exit.isFailure(exit)) throw new Error(`the scenario failed: ${Cause.pretty(exit.cause)}`)
-          check(exit.value)
-        })
-      }),
-      { numRuns: 60, ...options }
-    )
-  }
-
-  test("the scenarios reach every message, every way of dying, and what each property checks", () => {
-    const seed = Math.floor(Math.random() * 2 ** 31)
-    const reached = new Set<string>()
-    property(({ events, first, made: models }) => {
-      events.forEach((event, index) => {
-        if (Opt.isSome(answerOf(event)) && given(events.slice(0, index)).has(Opt.getOrThrow(answerOf(event)))) {
-          reached.add("an answer after its release")
-        }
-        const answered = Opt.getOrUndefined(heardOf(event))?.message
-        if (answered?._tag === "Rows" && answered.message._tag === "Done") {
-          const state = event._tag === "Applied"
-            ? event.applied.before
-            : event._tag === "Ignored"
-            ? event.ignored.state
-            : undefined
-          const there = state === undefined ? undefined : rowAt(state, answered.id)
-          if (there !== undefined && there.born !== answered.message.born) {
-            reached.add("an answer for a row added again at its id")
-          }
-        }
-        const tapped = Opt.getOrUndefined(heardOf(event))?.message
-        if (event._tag === "Ignored" && tapped !== undefined && isTap(tapped)) {
-          const there = rowAt(event.ignored.state, tapped.id)
-          if (there !== undefined && there.born !== drawnFor(events).get(tapped.instance)) {
-            reached.add("a tap for a row added again at its id")
-          }
-        }
-        if (event._tag === "Spanned") reached.add("a span of the program")
-        if (event._tag === "Reentering") reached.add("a message a listener sends")
-        if (event._tag === "Typed") reached.add("a text typed into the element")
-        if (event._tag === "Acquired" && !listeners(stateAfter(first, events, index)).includes(event.listener)) {
-          reached.add("a subscription started once its key had gone")
-        }
-        if (
-          event._tag === "Sent" && superseded(events, event.text, event.start, index)
-          && stateAfter(first, events, index).own.field.text === event.text
-        ) {
-          reached.add("a message of an earlier start of a key that came back")
-        }
-        if (event._tag !== "Applied") return
-        const { message } = event.applied
-        reached.add(message._tag === "Rows" ? message.message._tag : message._tag)
-        if (!isTyped(message) && event.applied.before.own.field.text !== event.applied.after.own.field.text) {
-          reached.add("a text replaced")
-        }
-        if (event.applied.before === event.applied.after) reached.add("the very same state")
-        if (stoppedAt(events, index, event.applied).waiting.size > 1) reached.add("two waiting releases")
-        const releasing = events.slice(0, index).flatMap((earlier) =>
-          earlier._tag === "Releasing" && !earlier.quick ? [earlier.listener] : []
-        )
-        if (releasing.some((key) => !released(events, index).has(key))) {
-          reached.add("a message applied while a release is under way")
-        }
+const property = (
+  check: (outcome: Outcome) => void,
+  { schedules = 1, ...options }: Readonly<{ numRuns?: number; seed?: number; schedules?: number }> = {}
+) => {
+  let scenarios = 0
+  fc.assert(
+    fc.property(fates, fc.array(act, { maxLength: 12 }), fc.nat(), (fates, acts, seed) => {
+      // A property runs in one synchronous job, and Bun leaves the garbage of its scenarios there until the job ends:
+      // its heap reached 350 MB in 1500 scenarios, 11 MB once collected. So it is collected as the property goes, or
+      // the peak of the process depends on when Bun chooses to collect, and the memory guard ends some runs.
+      if (++scenarios % 50 === 0) collectGarbage()
+      prioritizedSchedules(runScenario(fates, acts), { runs: schedules, depth, first: seed }, (exit) => {
+        if (Exit.isFailure(exit)) throw new Error(`the scenario failed: ${Cause.pretty(exit.cause)}`)
+        check(exit.value)
       })
-      for (const event of events) {
-        if (event._tag !== "Died") continue
-        reached.add(`${event.where} ${event.how}`)
-        if (event.defect === thrownByListener) reached.add("a defect a listener throws")
-        if (event.defect === thrownByDraw) reached.add("a defect given to die")
-      }
-      if (events.some(({ _tag }) => _tag === "Ignored")) reached.add("rejected")
-      const typed = new Set(events.flatMap((event) => event._tag === "Typed" ? [event.message] : []))
-      for (const event of events) {
-        if (event._tag !== "Ignored") continue
-        const { message } = event.ignored
-        if (isTyped(message) && !typed.has(message)) reached.add("a text typed into a field that is gone")
-      }
-      if (events.some(({ _tag }) => _tag === "SearchStopped")) reached.add("a search stopped")
-      const stopped = events.findIndex(({ _tag }) => _tag === "Stopped")
-      const newState = (event: Event) => event._tag === "Applied" && event.applied.before !== event.applied.after
-      if (stopped !== -1 && events.slice(stopped, firstDeath(events)).some(newState)) {
-        reached.add("a new state once the renderer stopped")
-      }
-      const running = events.findIndex(({ _tag }) => _tag === "Running")
-      if (events.slice(0, running === -1 ? events.length : running).some(({ _tag }) => _tag === "Applied")) {
-        reached.add("a message applied before the run began")
-      }
-      const states = 1 + applied(events).filter(({ before, after }) => before !== after).length
-      if (models < states) reached.add("a state whose model was never read")
-      if (releaseOvertaken(events)) reached.add("a release overtaken")
-      const reads = events.flatMap((event) => event._tag === "Read" ? [event.model] : [])
-      if (reads.some((model, index) => index > 0 && reads[index - 1] === model)) {
-        reached.add("a model read twice for one state")
-      }
-    }, { numRuns: 2000, seed })
-    const places: ReadonlyArray<Where> = ["command", "subscription"]
-    const missing = [
-      "Add",
-      "Clear",
-      "Done",
-      "Finished",
-      "Found",
-      "ListenClicked",
-      "MuteClicked",
-      "Poked",
-      "Remove",
-      "Swap",
-      "Tick",
-      "Typed",
-      "WorkClicked",
-      ...places.flatMap((where) =>
-        (["defect", "interrupts", "joins", "isInterrupted"] as const).map((how) => `${where} ${how}`)
-      ),
-      "a defect a listener throws",
-      "a defect given to die",
-      "onApplied defect",
-      "onIgnored defect",
-      "rejected",
-      "a text typed into a field that is gone",
-      "a text replaced",
-      "a text typed into the element",
-      "a search stopped",
-      "two waiting releases",
-      "the very same state",
-      "an answer after its release",
-      "an answer for a row added again at its id",
-      "a tap for a row added again at its id",
-      "a new state once the renderer stopped",
-      "a message applied before the run began",
-      "a state whose model was never read",
-      "a model read twice for one state",
-      "a span of the program",
-      "a release overtaken",
-      "a message a listener sends",
-      "a message applied while a release is under way",
-      "a subscription started once its key had gone",
-      "a message of an earlier start of a key that came back"
-    ].filter((tag) => !reached.has(tag))
-    if (missing.length > 0) throw new Error(`No scenario of seed ${seed} reached ${missing.join(", ")}`)
-  }, Infinity)
+    }),
+    { numRuns: 60, ...options }
+  )
+}
 
-  test("a rejected message leaves the state as it was, and an accepted one starts from the one before", () => {
-    property(({ events }) => {
-      let state: ListState | undefined
-      const broken: Array<string> = []
-      for (const event of events) {
-        if (event._tag === "Ignored") {
-          if (state !== undefined && event.ignored.state !== state) broken.push("ignored")
-          state = event.ignored.state
-        }
-        if (event._tag === "Applied") {
-          if (state !== undefined && event.applied.before !== state) broken.push("applied")
-          state = event.applied.after
+const sinceFirstDefect = (events: ReadonlyArray<Event>, tags: ReadonlyArray<Event["_tag"]>) => {
+  const first = events.findIndex((event) => event._tag === "Died" && !event.released)
+  return first === -1 ? [] : events.slice(first).filter(({ _tag }) => tags.includes(_tag)).map(({ _tag }) => _tag)
+}
+
+test("the scenarios reach every message, every way of dying, and what each property checks", () => {
+  const seed = Math.floor(Math.random() * 2 ** 31)
+  const reached = new Set<string>()
+  property(({ events, first, made: models }) => {
+    events.forEach((event, index) => {
+      if (Opt.isSome(answerOf(event)) && given(events.slice(0, index)).has(Opt.getOrThrow(answerOf(event)))) {
+        reached.add("an answer after its release")
+      }
+      const answered = Opt.getOrUndefined(heardOf(event))?.message
+      if (answered?._tag === "Rows" && answered.message._tag === "Done") {
+        const state = event._tag === "Applied"
+          ? event.applied.before
+          : event._tag === "Ignored"
+          ? event.ignored.state
+          : undefined
+        const there = state === undefined ? undefined : rowAt(state, answered.id)
+        if (there !== undefined && there.born !== answered.message.born) {
+          reached.add("an answer for a row added again at its id")
         }
       }
-      expect(broken).toEqual([])
+      const tapped = Opt.getOrUndefined(heardOf(event))?.message
+      if (event._tag === "Ignored" && tapped !== undefined && isTap(tapped)) {
+        const there = rowAt(event.ignored.state, tapped.id)
+        if (there !== undefined && there.born !== drawnFor(events).get(tapped.instance)) {
+          reached.add("a tap for a row added again at its id")
+        }
+      }
+      if (event._tag === "Spanned") reached.add("a span of the program")
+      if (event._tag === "Reentering") reached.add("a message a listener sends")
+      if (event._tag === "Typed") reached.add("a text typed into the element")
+      if (event._tag === "Acquired" && !listeners(stateAfter(first, events, index)).includes(event.listener)) {
+        reached.add("a subscription started once its key had gone")
+      }
+      if (
+        event._tag === "Sent" && superseded(events, event.text, event.start, index)
+        && stateAfter(first, events, index).own.field.text === event.text
+      ) {
+        reached.add("a message of an earlier start of a key that came back")
+      }
+      if (event._tag !== "Applied") return
+      const { message } = event.applied
+      reached.add(message._tag === "Rows" ? message.message._tag : message._tag)
+      if (!isTyped(message) && event.applied.before.own.field.text !== event.applied.after.own.field.text) {
+        reached.add("a text replaced")
+      }
+      if (event.applied.before === event.applied.after) reached.add("the very same state")
+      if (stoppedAt(events, index, event.applied).waiting.size > 1) reached.add("two waiting releases")
+      const releasing = events.slice(0, index).flatMap((earlier) =>
+        earlier._tag === "Releasing" && !earlier.quick ? [earlier.listener] : []
+      )
+      if (releasing.some((key) => !released(events, index).has(key))) {
+        reached.add("a message applied while a release is under way")
+      }
     })
-  }, Infinity)
+    for (const event of events) {
+      if (event._tag !== "Died") continue
+      reached.add(`${event.where} ${event.how}`)
+      if (event.defect === thrownByListener) reached.add("a defect a listener throws")
+      if (event.defect === thrownByDraw) reached.add("a defect given to die")
+    }
+    if (events.some(({ _tag }) => _tag === "Ignored")) reached.add("rejected")
+    const typed = new Set(events.flatMap((event) => event._tag === "Typed" ? [event.message] : []))
+    for (const event of events) {
+      if (event._tag !== "Ignored") continue
+      const { message } = event.ignored
+      if (isTyped(message) && !typed.has(message)) reached.add("a text typed into a field that is gone")
+    }
+    if (events.some(({ _tag }) => _tag === "SearchStopped")) reached.add("a search stopped")
+    const stopped = events.findIndex(({ _tag }) => _tag === "Stopped")
+    const newState = (event: Event) => event._tag === "Applied" && event.applied.before !== event.applied.after
+    if (stopped !== -1 && events.slice(stopped, firstDeath(events)).some(newState)) {
+      reached.add("a new state once the renderer stopped")
+    }
+    const running = events.findIndex(({ _tag }) => _tag === "Running")
+    if (events.slice(0, running === -1 ? events.length : running).some(({ _tag }) => _tag === "Applied")) {
+      reached.add("a message applied before the run began")
+    }
+    const states = 1 + applied(events).filter(({ before, after }) => before !== after).length
+    if (models < states) reached.add("a state whose model was never read")
+    if (releaseOvertaken(events)) reached.add("a release overtaken")
+    const reads = events.flatMap((event) => event._tag === "Read" ? [event.model] : [])
+    if (reads.some((model, index) => index > 0 && reads[index - 1] === model)) {
+      reached.add("a model read twice for one state")
+    }
+  }, { numRuns: 2000, seed })
+  const places: ReadonlyArray<Where> = ["command", "subscription"]
+  const missing = [
+    "Add",
+    "Clear",
+    "Done",
+    "Finished",
+    "Found",
+    "ListenClicked",
+    "MuteClicked",
+    "Poked",
+    "Remove",
+    "Swap",
+    "Tick",
+    "Typed",
+    "WorkClicked",
+    ...places.flatMap((where) =>
+      (["defect", "interrupts", "joins", "isInterrupted"] as const).map((how) => `${where} ${how}`)
+    ),
+    "a defect a listener throws",
+    "a defect given to die",
+    "onApplied defect",
+    "onIgnored defect",
+    "rejected",
+    "a text typed into a field that is gone",
+    "a text replaced",
+    "a text typed into the element",
+    "a search stopped",
+    "two waiting releases",
+    "the very same state",
+    "an answer after its release",
+    "an answer for a row added again at its id",
+    "a tap for a row added again at its id",
+    "a new state once the renderer stopped",
+    "a message applied before the run began",
+    "a state whose model was never read",
+    "a model read twice for one state",
+    "a span of the program",
+    "a release overtaken",
+    "a message a listener sends",
+    "a message applied while a release is under way",
+    "a subscription started once its key had gone",
+    "a message of an earlier start of a key that came back"
+  ].filter((tag) => !reached.has(tag))
+  if (missing.length > 0) throw new Error(`No scenario of seed ${seed} reached ${missing.join(", ")}`)
+}, Infinity)
 
+describe("One message at a time, in the order they were sent", () => {
   // `update` and the option that hears it are one thunk: no other message is heard between them.
   test("messages are applied one at a time: each update is heard before the next one is called", () => {
     property(({ events }) => {
@@ -1210,62 +1200,31 @@ describe("interleavings of the user, commands and subscriptions", () => {
     })
   }, Infinity)
 
-  test("a model read after a notice is of the latest state, and the very same state has the very same model", () => {
-    property(({ events, stateOf }) => {
-      const broken: Array<string> = []
-      let previous: Model | undefined
-      events.forEach((event, index) => {
-        // A message whose `onApplied` throws is heard, and its state never made: reads after a death are left out.
-        if (event._tag !== "Read" || firstDeath(events) < index) return
-        if (stateOf.get(event.model) !== sameStateAfter(events, stateOf, index)) {
-          broken.push(`a ${event.why} read at ${index}`)
-        }
-        if (previous !== undefined && stateOf.get(previous) === stateOf.get(event.model) && previous !== event.model) {
-          broken.push(`a new model of the same state at ${index}`)
-        }
-        previous = event.model
-      })
-      expect(broken).toEqual([])
-    })
-  }, Infinity)
-
-  test("a model is made only when read, once for each state read", () => {
-    property(({ events, made, last, stateOf }) => {
-      const read = new Set(events.flatMap((event) => event._tag === "Read" ? [stateOf.get(event.model)] : []))
-      if (last !== undefined) read.add(stateOf.get(last))
-      expect(made).toBe(read.size)
-    })
-  }, Infinity)
-
-  test("the defects of the cause are those that happened, self-interruptions too, each where, in order", () => {
-    property(({ exit, events }) => {
-      expect(defects(exit)).toEqual(deaths(events))
-    })
-  }, Infinity)
-
-  const sinceFirstDefect = (events: ReadonlyArray<Event>, tags: ReadonlyArray<Event["_tag"]>) => {
-    const first = events.findIndex((event) => event._tag === "Died" && !event.released)
-    return first === -1 ? [] : events.slice(first).filter(({ _tag }) => tags.includes(_tag)).map(({ _tag }) => _tag)
-  }
-
-  test("from the first defect on, the run applies no message", () => {
-    property(
-      ({ events }) => expect(sinceFirstDefect(events, ["Updated"])).toEqual([]),
-      { numRuns: 1500, schedules: 4 }
-    )
-  }, Infinity)
-
-  test("a tick or the end of a subscription reaches update only while the session that sent it listens", () => {
+  // `update`, the option that hears it and the listeners are one thunk: the notice of a new state comes before anything
+  // else is heard, and none comes of a rejected message, of the very same state, or once the listener is stopped.
+  test("a listener is told of each new state once, in the step that made it, and of nothing once it is stopped", () => {
     property(({ events }) => {
-      const late = applied(events).filter(({ message, before }) => {
-        if (message._tag !== "Rows" || (message.message._tag !== "Tick" && message.message._tag !== "Finished")) {
-          return false
+      const broken: Array<string> = []
+      let owed = false
+      let listening = true
+      events.slice(0, firstDeath(events)).forEach((event, index) => {
+        switch (event._tag) {
+          case "Stopped":
+            listening = false
+            return
+          case "Noticed":
+            if (!owed) broken.push(`a notice of nothing new at ${index}`)
+            owed = false
+            return
+          case "Updated":
+          case "Applied":
+          case "Ignored":
+            if (owed) broken.push(`a new state before ${index} that no notice followed`)
+            owed = listening && event._tag === "Applied" && event.applied.before !== event.applied.after
         }
-        const { born, session } = message.message
-        const row = rowAt(before, message.id)
-        return !(row?.listening === true && row.born === born && row.session === session)
       })
-      expect(late).toEqual([])
+      if (owed && firstDeath(events) === events.length) broken.push("a last new state that no notice followed")
+      expect(broken).toEqual([])
     })
   }, Infinity)
 
@@ -1280,6 +1239,82 @@ describe("interleavings of the user, commands and subscriptions", () => {
           : []
       )
       expect(rejected).toEqual([])
+    })
+  }, Infinity)
+
+  test("once everything has happened, no row waits for the answer of its command", () => {
+    property(({ events, first }) => {
+      if (deaths(events).length > 0) return
+      expect(rowsOf(finalState(first, events)).filter((row) => row.working)).toEqual([])
+    })
+  }, Infinity)
+})
+
+describe("Outdated clicks are harmless", () => {
+  test("a rejected message leaves the state as it was, and an accepted one starts from the one before", () => {
+    property(({ events }) => {
+      let state: ListState | undefined
+      const broken: Array<string> = []
+      for (const event of events) {
+        if (event._tag === "Ignored") {
+          if (state !== undefined && event.ignored.state !== state) broken.push("ignored")
+          state = event.ignored.state
+        }
+        if (event._tag === "Applied") {
+          if (state !== undefined && event.applied.before !== state) broken.push("applied")
+          state = event.applied.after
+        }
+      }
+      expect(broken).toEqual([])
+    })
+  }, Infinity)
+})
+
+describe("An answer reaches the instance that asked for it, or is rejected", () => {
+  // A row removed and added again at its id is another row, born of another addition: the answer of a command of the
+  // row before, which names its instance, is rejected, though the row there would accept it.
+  test("an answer reaches the row that asked for it, or is rejected", () => {
+    property(({ events }) => {
+      const astray = applied(events).flatMap(({ before, message }) => {
+        if (message._tag !== "Rows" || message.message._tag !== "Done") return []
+        const { attempt, born } = message.message
+        const there = rowAt(before, message.id)
+        return there?.born === born ? [] : [`the answer of command ${born}.${attempt} reached row ${there?.born}`]
+      })
+      expect(astray).toEqual([])
+    }, { numRuns: 1000 })
+  }, Infinity)
+
+  // A view may be older than the state: the user acts on the model that the renderer read last. A tap whose dispatch
+  // names the instance that this model held reaches the row it was drawn for, by what the parent's own state said of
+  // it then, or is rejected, though a row added again at its id would accept it.
+  test("a tap that names its instance reaches the row it was drawn for, or is rejected", () => {
+    property(({ events }) => {
+      const drawn = drawnFor(events)
+      const astray = applied(events).flatMap(({ before, message }) => {
+        if (!isTap(message)) return []
+        const there = rowAt(before, message.id)
+        return there?.born === drawn.get(message.instance)
+          ? []
+          : [`a tap drawn for row ${drawn.get(message.instance)} reached row ${there?.born}`]
+      })
+      expect(astray).toEqual([])
+    }, { numRuns: 1000 })
+  }, Infinity)
+})
+
+describe("Subscriptions follow their keys", () => {
+  test("a tick or the end of a subscription reaches update only while the session that sent it listens", () => {
+    property(({ events }) => {
+      const late = applied(events).filter(({ message, before }) => {
+        if (message._tag !== "Rows" || (message.message._tag !== "Tick" && message.message._tag !== "Finished")) {
+          return false
+        }
+        const { born, session } = message.message
+        const row = rowAt(before, message.id)
+        return !(row?.listening === true && row.born === born && row.session === session)
+      })
+      expect(late).toEqual([])
     })
   }, Infinity)
 
@@ -1313,24 +1348,34 @@ describe("interleavings of the user, commands and subscriptions", () => {
     }, { numRuns: 2000 })
   }, Infinity)
 
-  test("a subscription that ends is heard ending, and never starts again while its key stays", () => {
-    property(({ events, first, settled }) => {
+  test("a subscription never starts again while its key stays", () => {
+    property(({ events }) => {
       const starts = new Map<string, number>()
       for (const event of events) {
         if (event._tag === "Acquired") starts.set(event.listener, (starts.get(event.listener) ?? 0) + 1)
       }
       expect(Array.from(starts).filter(([, count]) => count > 1)).toEqual([])
+    })
+  }, Infinity)
+
+  test("once everything has happened, the subscriptions holding resources are those of listening rows", () => {
+    property(({ events, first, settled }) => {
       if (deaths(events).length > 0) return
-      const heard = new Set(
-        applied(events).flatMap(({ message }) =>
-          message._tag === "Rows" && message.message._tag === "Finished"
-            ? [listener(message.message.born, message.message.session)]
-            : []
-        )
+      const ended = new Set(events.slice(0, settled).flatMap((event) => event._tag === "Ended" ? [event.listener] : []))
+      expect(Array.from(holding(events, settled)).sort()).toEqual(
+        listeners(finalState(first, events)).filter((key) => !ended.has(key))
       )
-      const ended = events.slice(0, settled).flatMap((event) => event._tag === "Ended" ? [event.listener] : [])
-      const listening = listeners(finalState(first, events))
-      expect(ended.filter((key) => listening.includes(key) && !heard.has(key))).toEqual([])
+    })
+  }, Infinity)
+})
+
+describe("Nothing outlives what acquired it", () => {
+  test("a command has released what it acquired before its answer reaches update", () => {
+    property(({ events }) => {
+      const early = events.flatMap((event, index) =>
+        Opt.toArray(answerOf(event)).filter((command) => !given(events.slice(0, index)).has(command))
+      )
+      expect(early).toEqual([])
     })
   }, Infinity)
 
@@ -1365,84 +1410,6 @@ describe("interleavings of the user, commands and subscriptions", () => {
     })
   }, Infinity)
 
-  // A row removed and added again at its id is another row, born of another addition: the answer of a command of the
-  // row before, which names its instance, is rejected, though the row there would accept it.
-  test("an answer reaches the row that asked for it, or is rejected", () => {
-    property(({ events }) => {
-      const astray = applied(events).flatMap(({ before, message }) => {
-        if (message._tag !== "Rows" || message.message._tag !== "Done") return []
-        const { attempt, born } = message.message
-        const there = rowAt(before, message.id)
-        return there?.born === born ? [] : [`the answer of command ${born}.${attempt} reached row ${there?.born}`]
-      })
-      expect(astray).toEqual([])
-    }, { numRuns: 1000 })
-  }, Infinity)
-
-  // A view may be older than the state: the user acts on the model that the renderer read last. A tap whose dispatch
-  // names the instance that this model held reaches the row it was drawn for, by what the parent's own state said of
-  // it then, or is rejected, though a row added again at its id would accept it.
-  test("a tap that names its instance reaches the row it was drawn for, or is rejected", () => {
-    property(({ events }) => {
-      const drawn = drawnFor(events)
-      const astray = applied(events).flatMap(({ before, message }) => {
-        if (!isTap(message)) return []
-        const there = rowAt(before, message.id)
-        return there?.born === drawn.get(message.instance)
-          ? []
-          : [`a tap drawn for row ${drawn.get(message.instance)} reached row ${there?.born}`]
-      })
-      expect(astray).toEqual([])
-    }, { numRuns: 1000 })
-  }, Infinity)
-
-  test("a command has released what it acquired before its answer reaches update", () => {
-    property(({ events }) => {
-      const early = events.flatMap((event, index) =>
-        Opt.toArray(answerOf(event)).filter((command) => !given(events.slice(0, index)).has(command))
-      )
-      expect(early).toEqual([])
-    })
-  }, Infinity)
-
-  // `update`, the option that hears it and the listeners are one thunk: the notice of a new state comes before anything
-  // else is heard, and none comes of a rejected message, of the very same state, or once the listener is stopped.
-  test("a listener is told of each new state once, in the step that made it, and of nothing once it is stopped", () => {
-    property(({ events }) => {
-      const broken: Array<string> = []
-      let owed = false
-      let listening = true
-      events.slice(0, firstDeath(events)).forEach((event, index) => {
-        switch (event._tag) {
-          case "Stopped":
-            listening = false
-            return
-          case "Noticed":
-            if (!owed) broken.push(`a notice of nothing new at ${index}`)
-            owed = false
-            return
-          case "Updated":
-          case "Applied":
-          case "Ignored":
-            if (owed) broken.push(`a new state before ${index} that no notice followed`)
-            owed = listening && event._tag === "Applied" && event.applied.before !== event.applied.after
-        }
-      })
-      if (owed && firstDeath(events) === events.length) broken.push("a last new state that no notice followed")
-      expect(broken).toEqual([])
-    })
-  }, Infinity)
-
-  test("once everything has happened, the subscriptions holding resources are those of listening rows", () => {
-    property(({ events, first, settled }) => {
-      if (deaths(events).length > 0) return
-      const ended = new Set(events.slice(0, settled).flatMap((event) => event._tag === "Ended" ? [event.listener] : []))
-      expect(Array.from(holding(events, settled)).sort()).toEqual(
-        listeners(finalState(first, events)).filter((key) => !ended.has(key))
-      )
-    })
-  }, Infinity)
-
   test("once the run has ended, the subscriptions and the commands have released all", () => {
     property(({ events }) => {
       const acquired = events.flatMap((event) => event._tag === "Acquired" ? [event.listener] : [])
@@ -1453,21 +1420,81 @@ describe("interleavings of the user, commands and subscriptions", () => {
       expect(took.filter((holder) => !gave.has(holder))).toEqual([])
     })
   }, Infinity)
+})
 
-  test("once everything has happened, every operation has ended and a model read is of the last state", () => {
-    property(({ events, first, last, stateOf }) => {
-      if (deaths(events).length > 0) return
-      const final = finalState(first, events)
-      expect(rowsOf(final).filter((row) => row.working)).toEqual([])
-      expect(last === undefined ? undefined : stateOf.get(last)).toBe(sameStateAfter(events, stateOf))
-    })
-  }, Infinity)
-
+describe("Logs do not pile up in a span", () => {
   test("what the run logs stays out of the span of whoever runs it, the parent of the spans opened in it", () => {
     property(({ events, caller }) => {
       expect((caller as Tracer.NativeSpan | undefined)?.events).toEqual([])
       const parents = events.flatMap((event) => event._tag === "Spanned" ? [Opt.getOrUndefined(event.parent)] : [])
       expect(parents.filter((parent) => parent !== caller?.spanId)).toEqual([])
+    })
+  }, Infinity)
+})
+
+describe("Nothing ends in silence", () => {
+  test("the defects of the cause are those that happened, self-interruptions too, each where, in order", () => {
+    property(({ exit, events }) => {
+      expect(defects(exit)).toEqual(deaths(events))
+    })
+  }, Infinity)
+
+  test("from the first defect on, the run applies no message", () => {
+    property(
+      ({ events }) => expect(sinceFirstDefect(events, ["Updated"])).toEqual([]),
+      { numRuns: 1500, schedules: 4 }
+    )
+  }, Infinity)
+
+  test("a subscription that ends while its key stays is heard ending", () => {
+    property(({ events, first, settled }) => {
+      if (deaths(events).length > 0) return
+      const heard = new Set(
+        applied(events).flatMap(({ message }) =>
+          message._tag === "Rows" && message.message._tag === "Finished"
+            ? [listener(message.message.born, message.message.session)]
+            : []
+        )
+      )
+      const ended = events.slice(0, settled).flatMap((event) => event._tag === "Ended" ? [event.listener] : [])
+      const listening = listeners(finalState(first, events))
+      expect(ended.filter((key) => listening.includes(key) && !heard.has(key))).toEqual([])
+    })
+  }, Infinity)
+})
+
+describe("A model is made only when it is read", () => {
+  test("a model read after a notice is of the latest state, and the very same state has the very same model", () => {
+    property(({ events, stateOf }) => {
+      const broken: Array<string> = []
+      let previous: Model | undefined
+      events.forEach((event, index) => {
+        // A message whose `onApplied` throws is heard, and its state never made: reads after a death are left out.
+        if (event._tag !== "Read" || firstDeath(events) < index) return
+        if (stateOf.get(event.model) !== sameStateAfter(events, stateOf, index)) {
+          broken.push(`a ${event.why} read at ${index}`)
+        }
+        if (previous !== undefined && stateOf.get(previous) === stateOf.get(event.model) && previous !== event.model) {
+          broken.push(`a new model of the same state at ${index}`)
+        }
+        previous = event.model
+      })
+      expect(broken).toEqual([])
+    })
+  }, Infinity)
+
+  test("a model is made only when read, once for each state read", () => {
+    property(({ events, made, last, stateOf }) => {
+      const read = new Set(events.flatMap((event) => event._tag === "Read" ? [stateOf.get(event.model)] : []))
+      if (last !== undefined) read.add(stateOf.get(last))
+      expect(made).toBe(read.size)
+    })
+  }, Infinity)
+
+  test("once everything has happened, a model read is of the last state", () => {
+    property(({ events, last, stateOf }) => {
+      if (deaths(events).length > 0) return
+      expect(last === undefined ? undefined : stateOf.get(last)).toBe(sameStateAfter(events, stateOf))
     })
   }, Infinity)
 })

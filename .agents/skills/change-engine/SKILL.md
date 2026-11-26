@@ -34,6 +34,10 @@ function. A test that needs more of `bun:test` on Node adds it to `test/node/bun
 for a collection calls `test/gc.test_helper.ts`, never `Bun.gc`. See each new test fail without what it checks, and
 name the premises listed and the tests seen to fail in the report of the change.
 
+A property of the search sits in the `describe` named by the bold title, without its final period, of the item of
+"What you can rely on" that it checks, and `bun run comments` fails on a `describe` named by no item. A property that
+would check two items is two properties.
+
 ### Mutations
 
 Each check an invariant rests on has a mutation in `tools/mutations/mutations.ts` that takes it out, with the tests
