@@ -2393,6 +2393,19 @@ describe("rehearse, as the scenario ends while its fiber of effects waits for a 
   })
 })
 
+// How many interruptions the fiber has received, asked where it is uninterruptible.
+const received = Effect.map(
+  Effect.exit(Effect.interruptible(Effect.void)),
+  (exit) => Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isInterruptReason).length : 0
+)
+// The gate is the fiber's own: it waits until it has received `count` interruptions, or gives up after a while.
+const untilReceived = (count: number, tries = 10_000): Effect.Effect<void> =>
+  Effect.flatMap(
+    received,
+    (seen) =>
+      seen >= count || tries === 0 ? Effect.void : Effect.andThen(Effect.yieldNow, untilReceived(count, tries - 1))
+  )
+
 describe("rehearse, as a run is interrupted while its command runs", () => {
   type Count = Readonly<{ count: number }>
 
@@ -2422,24 +2435,44 @@ describe("rehearse, as a run is interrupted while its command runs", () => {
     ))
     expect(log).toEqual(["released", "returned"])
   })
+
+  // The interruption reaches the command's fiber while its scope closes, and lands once it has closed, before the
+  // answer is applied, as the run's end stops a command's fiber there.
+  test("a run interrupted while its command releases what it held, once it has answered, applies no answer", async () => {
+    const releasing = Deferred.makeUnsafe<void>()
+    const program: Program<
+      { state: Count; model: Count; message: "Done"; command: "Wait"; commandServices: Scope.Scope }
+    > = {
+      init: { state: { count: 0 }, commands: ["Wait"] },
+      update: () => (state) => ({ state: { count: state.count + 1 } }),
+      runCommand: () =>
+        Effect.as(
+          Effect.addFinalizer(() => Effect.andThen(Deferred.succeed(releasing, undefined), untilReceived(1))),
+          Opt.some("Done" as const)
+        ),
+      subscriptions: () => [],
+      makeModel: (state) => state
+    }
+    let count = -1
+    const exit = await Effect.runPromiseExit(rehearse(
+      program,
+      Effect.fnUntraced(function*(rehearsal) {
+        const running = yield* Effect.forkChild(rehearsal.run(() => true))
+        yield* Deferred.await(releasing)
+        yield* Fiber.interrupt(running)
+        count = (yield* rehearsal.state).count
+      })
+    ))
+    expect(count).toBe(0)
+    expect(Exit.isFailure(exit) && Cause.pretty(exit.cause)).toContain(
+      "Commands whose run was interrupted before they answered: Wait"
+    )
+  })
 })
 
 describe("rehearse, as a scenario that failed stops its fiber of effects in the release of a key that went away", () => {
   type Listening = Readonly<{ listening: boolean }>
   type Message = "Stop" | "Tick"
-
-  // How many interruptions the fiber has received, asked where it is uninterruptible.
-  const received = Effect.map(
-    Effect.exit(Effect.interruptible(Effect.void)),
-    (exit) => Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isInterruptReason).length : 0
-  )
-  // The gate is the fiber's own: it waits until it has received `count` interruptions, or gives up after a while.
-  const untilReceived = (count: number, tries = 10_000): Effect.Effect<void> =>
-    Effect.flatMap(
-      received,
-      (seen) =>
-        seen >= count || tries === 0 ? Effect.void : Effect.andThen(Effect.yieldNow, untilReceived(count, tries - 1))
-    )
 
   // Its subscription, stopped as `Stop` takes its key away, waits for a second interruption, the close of the
   // rehearsal's scope, then joins a fiber the scenario interrupted: it interrupts itself, a defect, as the run says.

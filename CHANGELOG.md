@@ -52,6 +52,9 @@ version, and everything else, features included, the patch version.
 
 ### Fixed
 
+- A `run` of a rehearsal whose interruption reaches its command once the command has answered, as it releases what it
+  held, applies no answer, as the run applies none to a command it stops. It applied the answer, and counted the
+  command as cancelled too: the rehearsal fails either way.
 - `rehearse` and `simulate` apply no answer of a command that a fiber of the program interrupts as the command's scope
   closes, as the run applies none. They applied the answer before the interruption made them fail, so that `simulate`
   could fail with a defect of the answer's `update`.

@@ -2997,22 +2997,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "a stage applies the answer of a command the program interrupted as its scope closed",
-    file: "src/testing/stage.ts",
-    from: "                interruptedByTheProgram,\n",
-    to: "                Effect.void,\n",
-    killedBy: [
-      [
-        "src/testing/contract.test.ts",
-        "rehearse fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, though the scenario catches it, and applies no answer, as the run applies none"
-      ],
-      [
-        "src/testing/contract.test.ts",
-        "simulate fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, and applies no answer"
-      ]
-    ]
-  },
-  {
     name: "a stage stops the command of an interrupted run with no mark of its own",
     file: "src/testing/stage.ts",
     from: "              Effect.flatMap(Deferred.await(taking.parked.fiber), stopping)\n",
@@ -3365,9 +3349,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a command run runs without the services of the call",
     file: "src/testing/stage.ts",
-    from:
-      "            Effect.provideContext(context),\n            Effect.andThen(Deferred.succeed(answer, Effect.void)),",
-    to: "            Effect.andThen(Deferred.succeed(answer, Effect.void)),",
+    from: "          Effect.provideContext(context),\n          Effect.andThen(Deferred.succeed(answer, Effect.void)),",
+    to: "          Effect.andThen(Deferred.succeed(answer, Effect.void)),",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",

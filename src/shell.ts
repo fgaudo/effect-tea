@@ -74,20 +74,6 @@ export const rootedIn =
       )
     )
 
-/**
- * Lets the interruptions the current fiber received land, where it is uninterruptible, and fails with them where one
- * carries no mark of the run's (`Core.byTheRun`): one the program made, which the fiber's root takes for a defect. The
- * run's are left behind. A testing tool that holds a fiber of the program uninterruptible where the run's is
- * interruptible asks it there, so that the program's interruption lands before what follows, as in the run.
- */
-export const interruptedByTheProgram: Effect.Effect<void> = Effect.flatMap(
-  Effect.exit(Effect.interruptible(Effect.void)),
-  (received) =>
-    Exit.isFailure(received) && Core.byTheRun(received.cause).reasons.length < received.cause.reasons.length
-      ? Effect.failCause(received.cause)
-      : Effect.void
-)
-
 // What `cause` makes the fiber die of in `where`, once the fiber is asked, where it is uninterruptible, which
 // interruptions it received, and `kept` says which of those are no defect.
 const dying = <E>(

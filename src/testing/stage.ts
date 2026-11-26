@@ -16,7 +16,7 @@ import * as Scope from "effect/Scope"
 import type { RunCommand } from "../command.ts"
 import { type Arrived, endedWith, fromCommand, type Generation, type Source } from "../core.ts"
 import type * as Engine from "../engine.ts"
-import { commandFiber, type Deaths, interruptedByTheProgram, stopping } from "../shell.ts"
+import { commandFiber, type Deaths, stopping } from "../shell.ts"
 import * as Ledger from "./ledger.ts"
 
 // What a `run` gives the fiber of the command it took: the effect `runCommand` returned, called in the thunk that took
@@ -262,14 +262,13 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
   }
   // What the fiber of a command runs, called by the job of its step, where the engine forks the fiber, and so once what
   // the step stops has released what it held: the command is pending from here on. Its fiber says what it is in its
-  // first step, for a `run` interrupted to stop it, and waits until a `run` gives it the effect of the command. Once the
-  // effect answers, nothing of the stage's interrupts the fiber before its answer is applied, in its thunk, and the
-  // command is no longer under way from that thunk on. An interruption without the run's mark lands before the answer,
-  // as the run's fiber takes it once `scopedIn` has returned (`interruptedByTheProgram`): the root makes it a defect,
-  // and no answer is applied. Refused, as the stage has ended, the answer is applied by nobody, and the command was
-  // under way when it ended: its fiber ends with nothing to do, since one that interrupts itself is a defect. However
-  // the fiber ends, the command is no longer under way. It leaves what its `run` does last: the wait for the job of its
-  // answer.
+  // first step, for a `run` interrupted to stop it, waits until a `run` gives it the effect of the command, and runs it
+  // as the engine's fiber does (`commandFiber`), interruptible throughout: an interruption that lands before the thunk
+  // of the answer leaves it unapplied, and the root makes one without the run's mark a defect. The thunk applies the
+  // answer and leaves what its `run` does last, the wait for the job of the answer, and the command is no longer under
+  // way from that thunk on. Refused, as the stage has ended, the answer is applied by nobody, and the command was under
+  // way when it ended: its fiber ends with nothing to do, since one that interrupts itself is a defect. However the
+  // fiber ends, the command is no longer under way.
   const answering = (command: Command): Effect.Effect<void> => {
     const parked: Parked<Message, CommandServices> = { fiber: Deferred.makeUnsafe(), given: Deferred.makeUnsafe() }
     stage.ledger = Ledger.owe(stage.ledger, [{ command, handle: parked }])
@@ -283,25 +282,20 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
         // What the `run` does last is the wait for the job of the answer, once it is applied, and nothing otherwise:
         // with no answer, or one the end refused. The completion that follows the fiber's body leaves an earlier one as
         // it is.
-        return Effect.uninterruptibleMask((restore) =>
-          commandFiber(
-            register,
-            restore(effect),
-            (message: Message) =>
-              Effect.andThen(
-                interruptedByTheProgram,
-                submit(() => {
-                  settle()
-                  const then = outcomeOf(apply(fromCommand, message, "list"))
-                  return Effect.asVoid(Deferred.succeed(answer, then))
-                }, Effect.void)
-              )
-          ).pipe(
-            Effect.provideContext(context),
-            Effect.andThen(Deferred.succeed(answer, Effect.void)),
-            Effect.ensuring(Effect.sync(settle)),
-            Effect.asVoid
-          )
+        return commandFiber(
+          register,
+          effect,
+          (message: Message) =>
+            submit(() => {
+              settle()
+              Deferred.doneUnsafe(answer, Exit.succeed(outcomeOf(apply(fromCommand, message, "list"))))
+              return Effect.void
+            }, Effect.void)
+        ).pipe(
+          Effect.provideContext(context),
+          Effect.andThen(Deferred.succeed(answer, Effect.void)),
+          Effect.ensuring(Effect.sync(settle)),
+          Effect.asVoid
         )
       })
     })

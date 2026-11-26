@@ -290,11 +290,10 @@ the engine and in the testing tools.
   `stopped` first.
 
   A region nothing may interrupt holds no code of the program, so no gate reaches it, and it has no mutation. It is one
-  of three forms: a transition of the ledger made in the thunk that checks the end (`submit` in `testing/stage.ts`),
-  which asks the engine for a job that only tells (`afterJobs`), held by the test of the transition; a fiber and how it
-  stops, above, held by Effect's documentation; and what follows an effect of the program outside `restore` (a
-  command's answer, applied in its thunk). The checks beside them have mutations with deterministic killers, and the
-  tests of `rehearse.test.ts` under the scheduler of the tests are alarms of the search, killing none.
+  of two forms: a transition of the ledger made in the thunk that checks the end (`submit` in `testing/stage.ts`), which
+  asks the engine for a job that only tells (`afterJobs`), held by the test of the transition; and a fiber and how it
+  stops, above, held by Effect's documentation. The checks beside them have mutations with deterministic killers, and
+  the tests of `rehearse.test.ts` under the scheduler of the tests are alarms of the search, killing none.
 - **What the engine gives a testing tool, the run takes by its defaults** ([`one-engine.md`](records/one-engine.md),
   "What the engine gets").
   - The config of `Engine.build` has five. `settled` is called last as the outermost `apply` returns. `listening` and
@@ -333,13 +332,12 @@ the engine and in the testing tools.
     nothing. What a value throws as it is named is a failure of the test, no defect: the tool's error comes first, with
     what was thrown as its `cause`.
   - A command's fiber (`answering`) is pending once its step's stops are released, and waits for a `run` to give it the
-    effect `runCommand` returned in the `run`'s thunk, run in `commandFiber` with the services of that call. Nothing of
-    the stage's interrupts it from the effect's answer until the answer is applied; an interruption without the run's
-    mark lands before the answer, as the run's fiber takes it once `scopedIn` has returned (`interruptedByTheProgram`
-    in `shell.ts`). A start's
-    fiber (`listening`) waits for the first `hearNext`. Its messages are applied by the thunk that finds a call waiting
-    for them, never as they come ([`rejected.md`](rejected.md), "`rehearse`, owning what the test starts, in other
-    forms").
+    effect `runCommand` returned in the `run`'s thunk, run in `commandFiber` with the services of that call. It is
+    interruptible as the engine's is, by the engine's end, by an interrupted `run` and by the program alike: an
+    interruption that lands before the thunk of its answer leaves the answer unapplied, and the root makes one without
+    the run's mark a defect. A start's fiber (`listening`) waits for the first `hearNext`. Its messages are applied by
+    the thunk that finds a call waiting for them, never as they come ([`rejected.md`](rejected.md), "`rehearse`, owning
+    what the test starts, in other forms").
   - What a start, a command and a call are to the test is the ledger's (`ledger.ts`): a start is starting until its job
     begins its fiber, though its key goes away first, and the calls that waited on a start whose key went are told once
     the engine has released it (`released`).
