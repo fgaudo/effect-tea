@@ -35,10 +35,9 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
   library at each minor of Effect, and the daily run against Effect's `main` (`effect-latest.yml`) would tell of a
   break first. What would show it: a user who cannot install the library beside the Effect that another package of
   theirs asks for.
-- **The inference matrix crossed in pairs**, the item of "Any time", which says what it would lose; and **no new type
-  for how a consumer's types print** (`change-api`, "A type for how a consumer's types print is admitted on four
-  conditions"): those that are there stay, and no change is made to lower the count of the smoke test. What would show
-  the second: a user who publishes a program as a package, and reads its declarations.
+- **No new type for how a consumer's types print** (`change-api`, "A type for how a consumer's types print is admitted
+  on four conditions"): those that are there stay, and no change is made to lower the count of the smoke test. What
+  would show it: a user who publishes a program as a package, and reads its declarations.
 - **The second agent of a step only where the step changes the engine or the types** ("How the steps run"): a step of
   names, of documents or of a tool would be read by the agent that wrote it, against its "Done when". What would show
   it: the reports of the second agent on such steps, counted by what they found.
@@ -186,16 +185,3 @@ owner left them here on 25 November 2026, while the steps of "Next, in order" ar
   `sectionsOf` kept to that list. It ties an item to what the guide says checks it, which the `guarantees` of the
   mutations cannot, since the search kills no mutation. Not tried: a spike first, for whether every property falls
   under one item. It changes the layout of the tests of the engine (`change-engine`).
-- **The inference matrix crossed in pairs.** Its twelve configurations took 45 minutes on 22 November 2026, and its
-  three default ones 16 minutes on 23 November, for 369,342 parts: the full product of its axes pays for most of it,
-  and the order of the pieces and the annotations alone multiply every case by four. Since the forms not typed are
-  judged by the rule of `AGENTS.md` ("What belongs here"), their axes may be crossed in pairs, as the axes of point 6
-  of step 16 are crossed with the names (`crossings` in `tools/inference/generate.ts`), leaving time for more axes.
-  Opus 5.5, `high`: what the matrix stops crossing is what it no longer checks. What it found so far needed two axes:
-  of the 2,150 wrong parts of 23 November 2026, 1,652 were one lead, a program with an `external` given to `start` or
-  `drive` ([`program-forms.md`](docs/records/program-forms.md)). Crossed in pairs it keeps every lead of one axis or of
-  two, and loses one that needs three. The likeliest is a program of `make` that fails to compile in one writing alone,
-  as reversed, not annotated and with a type left to inference, which a user sees as they write. The worst, and the
-  least likely, is a service lost where a parent's types are made of its children's, which compiles and dies as it
-  runs: the services and a child's shape do not meet in the matrix today either. So what `make` infers (the services,
-  a model not named, the children) stays crossed in full with the order and the annotations.

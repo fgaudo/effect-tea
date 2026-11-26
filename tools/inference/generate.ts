@@ -6,10 +6,10 @@
 // state (`{ ...program, init }`), and as an object not typed `Program<…>`, in a constant, in the call, or spread from a
 // typed one. A program of `make` crosses what it names, its subscriptions, its output, whether its own pieces need
 // services, and its children: none, a child alone or by id, a child beside one of other types, and a child that lacks
-// one of its pieces; the axes that came last are crossed with the names in pairs
-// (`crossings`). Each valid case asserts, with `Exactly`, the state, model, messages, commands, events, external
-// messages, flags, services, keys and output read back from the program, and is given to every function that takes a
-// program:
+// one of its pieces. How it is written is crossed in full with what `make` infers, and the other axes meet those and
+// each other in pairs (`crossings`). Each valid case asserts, with `Exactly`, the state, model, messages, commands,
+// events, external messages, flags, services, keys and output read back from the program, and is given to every
+// function that takes a program:
 // `Program<…>` of the expected types, `start`, `drive`, `rehearse`, `simulate`, `child` and `childById`, each in a part
 // of its own, which must take it and give back the same types, or refuse it where the table of the differences meant
 // says (`checks`, `refusesEvents`, `formsRefused`). A broken program of `make` must fail to compile where it is made;
@@ -62,8 +62,7 @@ const readJson = Effect.fnUntraced(function*(file: string) {
 })
 
 type Name = "model" | "message" | "command" | "event" | "external" | "flags" | "output"
-// `message` is named exactly when the program has an `update`: it follows from the form of `update`. `output` is an
-// axis of its own, crossed as the other axes of point 6 of step 16 are (`crossings`).
+// `message` is named exactly when the program has an `update`: it follows from the form of `update`.
 const names: ReadonlyArray<Name> = ["model", "command", "event", "external", "flags"]
 // What the program listens to: nothing, a key whose subscription answers an own message, or one that answers none (it
 // only runs until its key goes). Spike of step 30: a program that names no key has no `subscriptions`, so the empty
@@ -886,8 +885,8 @@ const restarted = (name: string, types: Types): ReadonlyArray<Part> =>
   ).map((part) => ({ ...part, label: `restart.${part.label}` }))
 
 // The axes that change only how `make` is written, the order of its pieces, their annotations, and the form of
-// `update`, leave the type it returns the same, as the readers assert in every case: so a program of `make` is given to
-// every function once for each type, and to `Program<…>` and `child` in every case.
+// `update`, leave the type it returns the same, as the readers assert in every case: so the cases of one writing are
+// given to every function, and every case to `Program<…>` and `child`.
 const representative = (c: Case) =>
   c.order === "canonical" && !c.annotate && (c.update === "absent" || c.update === "contextual")
 
@@ -1027,97 +1026,154 @@ const layoutsOf = (comp: Comp): ReadonlyArray<Layout> => {
   }
 }
 
-// The axes found missing by point 6 of step 16: a program of `make` that names an `output` of its own, so that a
-// parent that is a child in turn declares one; own commands and subscriptions that need no service; and a child that
-// lacks a piece. Each is crossed with every axis above but the names, which it meets in pairs, none, each alone and
-// all, and the other axes of point 6, which it does not meet: the full product would double the matrix for each. A
-// child's shape meets the names none and all alone, and the canonical order alone: it changes what the parent
-// declares of its child, not how the parent's own pieces are written, and its seven shapes crossed as the others are
-// weighed as much as all the matrix before them.
-type Extra = Readonly<{ output: boolean; services: boolean; kid: KidShape }>
-const plainExtra: Extra = { output: false, services: true, kid: "full" }
-const pairsOf = <A>(items: ReadonlyArray<A>): ReadonlyArray<ReadonlySet<A>> => [
-  new Set(),
-  ...items.map((item) => new Set([item])),
-  new Set(items)
-]
-type Order = Case["order"]
-const orders: ReadonlyArray<Order> = ["canonical", "reversed"]
-const comps: ReadonlyArray<Comp> = ["none", "child", "childById", "pair"]
-const crossings: ReadonlyArray<
-  Readonly<{
-    extra: Extra
-    comps: ReadonlyArray<Comp>
-    named: ReadonlyArray<ReadonlySet<Name>>
-    orders: ReadonlyArray<Order>
-  }>
-> = [
-  { extra: plainExtra, comps, named: subsets(names), orders },
-  { extra: { ...plainExtra, output: true }, comps, named: pairsOf(names), orders },
-  { extra: { ...plainExtra, services: false }, comps, named: pairsOf(names), orders },
-  // `pal` lacks no piece of its own types: its shape is not crossed.
-  ...kidShapes.map((kid) => ({
-    extra: { ...plainExtra, kid },
-    comps: comps.filter((comp) => isKid(comp) && comp !== "pair"),
-    named: [new Set<Name>(), new Set(names)],
-    orders: ["canonical"] as const
-  }))
-]
+// The id of a case of `make`, from its axes.
+const idOf = (c: Omit<Case, "id">) =>
+  [
+    c.comp,
+    c.update,
+    [...c.named].join("+") || "state",
+    ...(c.subs === "none" ? [] : [c.subs]),
+    ...(c.services ? [] : ["free"]),
+    ...(c.kid === "full" ? [] : [`kidLacks-${c.kid}`]),
+    ...(c.kidFlags ? ["kidFlags"] : []),
+    ...(isKid(c.comp) ? [c.childOptions, `tell-${c.tell}`] : []),
+    c.order,
+    ...(c.annotate ? ["annotated"] : [])
+  ].join(".")
 
-const cases: Array<Case> = []
-const ids = new Set<string>()
-for (const { comps: among, extra, named: namesets, orders: ordered } of crossings) {
-  for (const comp of among) {
-    for (const update of ["absent", "annotated", "contextual", "outside"] as const) {
-      for (const subset of namesets) {
-        const named = new Set(subset)
-        if (update !== "absent") named.add("message")
-        if (extra.output) named.add("output")
-        for (const subs of ["none", "emits", "silent"] as const) {
-          // Without own commands or subscriptions, nothing of its own needs a service.
-          if (!extra.services && !named.has("command") && subs === "none") continue
-          for (const given of layoutsOf(comp)) {
-            // A child without `external` is told nothing.
-            const layout = kidTypesOf(extra.kid).external === "never" ? { ...given, tell: "none" as const } : given
-            for (const order of ordered) {
-              for (const annotate of [false, true]) {
-                const c: Case = {
-                  id: "",
-                  named,
-                  comp,
-                  update,
-                  subs,
-                  ...layout,
-                  order,
-                  annotate,
-                  services: extra.services,
-                  kid: extra.kid
-                }
-                // A subscription that answers with an own message needs one: without, it answers with none.
-                if (subs === "emits" && ownOf(c) === "never") continue
-                const id = [
-                  comp,
-                  update,
-                  [...named].join("+") || "state",
-                  ...(subs === "none" ? [] : [subs]),
-                  ...(extra.services ? [] : ["free"]),
-                  ...(extra.kid === "full" ? [] : [`kidLacks-${extra.kid}`]),
-                  ...(layout.kidFlags ? ["kidFlags"] : []),
-                  ...(isKid(comp) ? [layout.childOptions, `tell-${layout.tell}`] : []),
-                  order,
-                  ...(annotate ? ["annotated"] : [])
-                ].join(".")
-                // A layout whose tell is taken out repeats another.
-                if (ids.has(id)) continue
-                ids.add(id)
-                cases.push({ ...c, id })
-              }
-            }
-          }
+// Rows of values, an index for each factor, such that each value of a factor meets each value of every other factor in
+// one row at least, wherever a row that `ok` takes can hold them both. Greedy, and the same on each run: a row starts
+// from a pair not yet met, and takes for each other factor the value that meets the most pairs not yet met, among
+// those that leave the row one that `ok` can take whole. `ok` judges a row of which some factors are `undefined`.
+type Row = ReadonlyArray<number | undefined>
+const crossedInPairs = (sizes: ReadonlyArray<number>, ok: (row: Row) => boolean): ReadonlyArray<Row> => {
+  const values = (f: number) => Array.from({ length: sizes[f] ?? 0 }, (_, value) => value)
+  const given = (row: Row, f: number, value: number) => row.map((v, g) => g === f ? value : v)
+  const completes = (row: Row): boolean => {
+    const free = row.indexOf(undefined)
+    return ok(row) && (free < 0 || values(free).some((value) => completes(given(row, free, value))))
+  }
+  const key = (f: number, x: number, g: number, y: number) => f < g ? `${f}.${x}.${g}.${y}` : `${g}.${y}.${f}.${x}`
+  const empty: Row = sizes.map(() => undefined)
+  const open = new Map<string, Row>()
+  sizes.forEach((_, f) =>
+    sizes.forEach((_, g) => {
+      if (g <= f) return
+      for (const x of values(f)) {
+        for (const y of values(g)) {
+          const pair = given(given(empty, f, x), g, y)
+          if (completes(pair)) open.set(key(f, x, g, y), pair)
         }
       }
-    }
+    })
+  )
+  const rows: Array<Row> = []
+  // A pair met is taken out of `open`, and its iteration skips it.
+  for (const pair of open.values()) {
+    let row = pair
+    sizes.forEach((_, f) => {
+      if (row[f] !== undefined) return
+      const meets = (x: number) => row.filter((y, g) => y !== undefined && open.has(key(f, x, g, y))).length
+      const best = values(f).sort((x, y) => meets(y) - meets(x)).find((x) => completes(given(row, f, x)))
+      if (best !== undefined) row = given(row, f, best)
+    })
+    row.forEach((x, f) => row.forEach((y, g) => g > f && open.delete(key(f, x ?? -1, g, y ?? -1))))
+    rows.push(row)
   }
+  return rows
+}
+
+// How a program of `make` is written, crossed in full with what `make` infers of it, which a writing can lose: its
+// children, a model not named, and the services of its own pieces. So a lead of three axes among these is found, as a
+// program that fails to compile only reversed, not annotated and with its model left to inference. The form of
+// `update` belongs to the writing: with the order and the annotations it chooses the cases given to every function
+// (`representative`), which so meet each value of every other axis.
+type Order = Case["order"]
+type Kernel = Readonly<{
+  comp: Comp
+  model: boolean
+  services: boolean
+  update: UpdateForm
+  order: Order
+  annotate: boolean
+}>
+const comps: ReadonlyArray<Comp> = ["none", "child", "childById", "pair"]
+const updates: ReadonlyArray<UpdateForm> = ["absent", "annotated", "contextual", "outside"]
+const kernels: ReadonlyArray<Kernel> = comps.flatMap((comp) =>
+  [false, true].flatMap((model) =>
+    [true, false].flatMap((services) =>
+      updates.flatMap((update) =>
+        (["canonical", "reversed"] as const).flatMap((order) =>
+          [false, true].map((annotate) => ({ comp, model, services, update, order, annotate }))
+        )
+      )
+    )
+  )
+)
+// The layouts of every composition, each once: a composition takes only its own, and tells nothing to a child without
+// `external`.
+const layoutKey = (l: Layout) => `${l.kidFlags}.${l.childOptions}.${l.tell}`
+const untold = (l: Layout): Layout => ({ ...l, tell: "none" })
+const layouts: ReadonlyArray<Layout> = [
+  ...new Map(comps.flatMap(layoutsOf).flatMap((l) => [l, untold(l)]).map((l) => [layoutKey(l), l])).values()
+]
+const layoutsTold = (comp: Comp, told: boolean) => new Set(layoutsOf(comp).map((l) => layoutKey(told ? l : untold(l))))
+// The other axes, each crossed in pairs with the kernel and with each other: the layout of a parent, what its child
+// lacks, what the program names beside its model, its output, and its subscriptions. `pal` lacks no piece of its own
+// types, so a pair crosses no shape of its child.
+const kids: ReadonlyArray<KidShape> = ["full", ...kidShapes]
+const toggles: ReadonlyArray<boolean> = [false, true]
+const listened: ReadonlyArray<Subs> = ["none", "emits", "silent"]
+const toggled = ["command", "event", "external", "flags", "output"] as const
+const factors: ReadonlyArray<ReadonlyArray<unknown>> = [kernels, layouts, kids, listened, ...toggled.map(() => toggles)]
+// A row of indices, read as the values of its factors, each `undefined` where the row gives none.
+const drawn = (row: Row) => {
+  const at = <A>(f: number, of: ReadonlyArray<A>) => {
+    const index = row[f]
+    return index === undefined ? undefined : of[index]
+  }
+  return {
+    kernel: at(0, kernels),
+    layout: at(1, layouts),
+    kid: at(2, kids),
+    subs: at(3, listened),
+    toggles: toggled.map((_, index) => at(4 + index, toggles))
+  }
+}
+const crossings = crossedInPairs(factors.map((factor) => factor.length), (row) => {
+  const { kernel, kid, layout, subs, toggles: [command] } = drawn(row)
+  if (kernel === undefined) return true
+  if (kid !== undefined && kid !== "full" && kernel.comp !== "child" && kernel.comp !== "childById") return false
+  const told = kid === undefined ? [true, false] : [kidTypesOf(kid).external !== "never"]
+  if (layout !== undefined && !told.some((t) => layoutsTold(kernel.comp, t).has(layoutKey(layout)))) return false
+  // A subscription that answers with an own message needs one: without an `update`, it answers with none.
+  if (subs === "emits" && kernel.update === "absent") return false
+  // Without own commands or subscriptions, nothing of its own needs a service.
+  return kernel.services || command !== false || subs !== "none"
+})
+
+const cases: Array<Case> = []
+for (const row of crossings) {
+  const { kernel, kid, layout, subs, toggles: on } = drawn(row)
+  if (kernel === undefined || kid === undefined || layout === undefined || subs === undefined) continue
+  const named = new Set<Name>([
+    ...(kernel.model ? ["model" as const] : []),
+    ...toggled.filter((name, index) => on[index] === true && name !== "output")
+  ])
+  if (kernel.update !== "absent") named.add("message")
+  if (on[toggled.indexOf("output")] === true) named.add("output")
+  const c: Omit<Case, "id"> = {
+    named,
+    comp: kernel.comp,
+    update: kernel.update,
+    subs,
+    ...layout,
+    order: kernel.order,
+    annotate: kernel.annotate,
+    services: kernel.services,
+    kid
+  }
+  cases.push({ ...c, id: idOf(c) })
 }
 // The broken rules: secondary, a few of each, to see that the checks the library has still hold.
 const violations: ReadonlyArray<
@@ -1926,13 +1982,19 @@ const messageCases = comps.flatMap((comp) =>
   (["Own", "never"] as const).flatMap((own) => {
     if (comp === "none" && own === "never") return []
     const layout = layoutsOf(comp)[0]
-    const found = cases.find((c) =>
-      isValid(c) && representative(c) && c.comp === comp && ownOf(c) === own && c.subs === "none"
-      && c.services && c.kid === "full" && !c.named.has("output")
-      && c.named.size === (own === "Own" ? 2 : 1) && c.named.has("external") && layout !== undefined
-      && c.kidFlags === layout.kidFlags && c.childOptions === layout.childOptions && c.tell === layout.tell
-    )
-    return found === undefined ? [] : [found]
+    if (layout === undefined) return []
+    const c: Omit<Case, "id"> = {
+      named: new Set<Name>(own === "Own" ? ["external", "message"] : ["external"]),
+      comp,
+      update: own === "Own" ? "contextual" : "absent",
+      subs: "none",
+      ...layout,
+      order: "canonical",
+      annotate: false,
+      services: true,
+      kid: "full"
+    }
+    return [{ ...c, id: idOf(c) }]
   })
 )
 
