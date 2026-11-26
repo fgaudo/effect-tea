@@ -59,11 +59,8 @@ after 0.9.0, reads the changes since the commit that closed step 65 (`git log --
 What leaves this machine, or decides what the project is ("Deciding" in `AGENTS.md`): an agent prepares it, and the
 owner does it.
 
-- **The release of 0.9.0** waited for steps 82 to 90 of "Next, in order", as the owner asked on 25 November 2026,
-  and they are done: it waits for the owner alone. Step 65 closed the review of every change up to it, and each step
-  since is read by its own reviewer ("How the steps run"). An agent prepares its commit and its tag (`release`) when
-  the owner asks for it, and the owner pushes them and publishes the package. The checks of point 2 of "Releasing"
-  passed on the commit that closed step 65: commits come after it, so the agent runs them again.
+- **0.9.0** is committed and tagged `v0.9.0`, locally, on 26 November 2026, after the checks of point 2 of
+  "Releasing" passed on it: the owner pushes the commit and the tag, which deploys the site, and publishes the package.
 - **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
   decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API. Until then,
   releases stay at 0.x.
