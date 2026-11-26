@@ -66,13 +66,12 @@ fails on one that a module exports and the package does not, on an interface or 
 `unique symbol` key, which is a string (`~@fgaudo/effect-tea/<Type>/<part>`). What the API returns has a name that
 declarations use, as `ProgramMaker` for what `program` returns.
 
-**A type for how a consumer's types print is admitted on four conditions.** Some types exist only for how TypeScript
-prints a consumer's types (`ProgramMaker` and its functions, `CheckedChild`, `Present`), and rest on behaviour of the
-compiler that no documentation states. One is admitted only when all four hold: it is not exported, or it names what a
-consumer's declarations would otherwise spell out in full; the smoke test has a check that fails without it, with each
-supported TypeScript; the typecheck, the tests and the inference matrix pass unchanged without it; and a comment at
-the type says what would print without it. One whose check fails with a new TypeScript is removed, not repaired with a
-second trick. How a type prints never justifies a parameter, an overload or an export that a user must write.
+**No new type for how a consumer's types print.** Some types exist only for how TypeScript prints a consumer's types
+(`ProgramMaker` and its functions, `CheckedChild`, `Present`), and rest on behaviour of the compiler that no
+documentation states. Those stay, each with a check of the smoke test that fails without it and a comment at the type
+that says what would print without it; one whose check fails with a new TypeScript is removed, not repaired with a
+second trick. No other is added, and no change is made only to lower a count of the smoke test. How a type prints
+never justifies a parameter, an overload or an export that a user must write.
 
 ## Check it as a consumer
 
@@ -84,4 +83,5 @@ its project.
   [`tools/smoke/consumer.ts`](../../../tools/smoke/consumer.ts) that uses it, and a `// @ts-expect-error` for what its
   types newly reject. A form of export a change makes possible is exported there too.
 - The smoke test counts how often the consumer's declarations spell out its state, and fails on another count than the
-  one its comment explains: a type of the library that repeats a consumer's types multiplies it, and is given a name.
+  one its comment explains: a type of the library that repeats a consumer's types multiplies it, and is named as what
+  the API returns is (above), never by a type made only for how it prints.

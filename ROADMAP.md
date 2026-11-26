@@ -37,9 +37,6 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
   library at each minor of Effect, and the daily run against Effect's `main` (`effect-latest.yml`) would tell of a
   break first. What would show it: a user who cannot install the library beside the Effect that another package of
   theirs asks for.
-- **No new type for how a consumer's types print** (`change-api`, "A type for how a consumer's types print is admitted
-  on four conditions"): those that are there stay, and no change is made to lower the count of the smoke test. What
-  would show it: a user who publishes a program as a package, and reads its declarations.
 
 ## Next, in order
 
