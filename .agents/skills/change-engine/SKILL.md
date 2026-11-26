@@ -44,9 +44,10 @@ Each check an invariant rests on has a mutation in `tools/mutations/mutations.ts
 that must fail under it (`bun run mutations`, or `--jobs=<n>`). So has every site of `diesIn`, `scopedIn` and
 `recordThrown`, in the engine and in each tool. A new check adds its mutation; a test renamed or removed, or code
 rewritten, updates the list, which the script refuses otherwise. `--discover <name>` lists every test that fails under
-one, and the files that the memory guard ends under it ("ran away"): such a file's listener is fixed to stop once
-done. After a change that rewrites code without changing what it does (a format, a rename), the list is rewritten to
-match, and `--against=<rev>`, with the commit before, fails on a mutation that no longer changes the same code.
+one, and the files that the memory guard ends under it ("ran away"): such a file is fixed to fail instead, as a
+listener that stops once done. After a change that rewrites code without changing what it does (a format, a rename),
+the list is rewritten to match, and `--against=<rev>`, with the commit before, fails on a mutation that no longer
+changes the same code.
 
 A killer fails alone, not only beside the others of its file. A property of fast-check is a killer only when it fails
 under the mutation on each of a hundred runs, which the script does not check. A form the structure rules out (a

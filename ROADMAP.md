@@ -37,12 +37,6 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
   cannot see when they are called: that half of the premise (`docs/premises.md`), and "keeps its fibers by their
   start" (`docs/invariants.md`), may serve undefined behaviour alone. What would show it: no test failing with the
   fibers kept in a `FiberMap` by their keys, but those of an `Equal` that throws.
-- **A test of `bridges/react.test.ts` that runs away where every stop by the run is a defect.** Found in step 106, as
-  `--discover` came to run again: under "the run's stop of a fiber is taken for the program's" and "the run stops its
-  fibers with no mark of its own", the suite ends by the memory guard, and that file does alone. `change-engine` asks
-  that such a file's listener stop once done. Not run at the commit before the step, where the second mutation is the
-  same, and is expected to do the same. What would show it: `bun run mutations --discover "the run stops its fibers
-  with no mark of its own"`.
 
 ## Next, in order
 

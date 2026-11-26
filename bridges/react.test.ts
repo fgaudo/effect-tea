@@ -118,12 +118,25 @@ const acting = async (work: () => void | Promise<void>) => {
 // through.
 const roots: Array<Root> = []
 
+// What reached `reportError` that no test took: a test that awaits a report puts its own in its place. Bun's own fails
+// the test it is called in, and runs the tests after it inside the call, there inside the `act` and the commit that
+// reported, which never end: such a report fails its test once the test has ended instead.
+const unexpected: Array<unknown> = []
+const bunReportError = globalThis.reportError
+beforeAll(() => {
+  globalThis.reportError = (error) => void unexpected.push(error)
+})
+afterAll(() => {
+  globalThis.reportError = bunReportError
+})
+
 // The suite's `stop` ends the runs forked with `forked` and stops the bridges kept with `drawing`, the suite's and this
 // file's.
 afterEach(async () => {
   await acting(stop)
   for (const root of roots.splice(0)) await acting(() => root.unmount())
   settle()
+  expect(unexpected.splice(0)).toEqual([])
 })
 
 // What a handler scheduled, or a notice from outside React: React renders it in a microtask, which `flushSync` takes
