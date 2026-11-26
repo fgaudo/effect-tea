@@ -34,6 +34,12 @@ matrix is shown by its case (`bun run inference --filter <case>`).
   program can write one. A fix could begin by making a `Child` and a `ChildById` only by `child` and `childById`,
   through a member keyed by a symbol the package does not export, with a test of the types that refuses the object
   above. Opus 5.5, `high` (`change-api`).
+- **`test/effect-scheduler.test.ts` fails now and then.** Found in step 103, on 26 November 2026: "adjust waits for
+  what it wakes, and for what that sets going, whichever task is picked" and "a sleeper woken before it is at its latch
+  is not waited for" failed after 9 and 6 seconds in one run of `bun run test` of three, and the file failed once in
+  three runs alone. The step changed no file it imports, and three runs of it alone without the change passed: too
+  few to clear the change. A test that ends on a timeout rests on the clock, which "Tests" of `AGENTS.md` forbids
+  for an order. Opus 5.5, `high` (`change-engine`): its cause is not known.
 
 ## Next, in order
 
@@ -43,36 +49,13 @@ Both readings are due before the release after 0.9.0, whose breaking changes go 
 The last review of the premises is the commit that closed it (`git log --grep "the premises reviewed since step 65"`):
 the next one reads the changes since.
 
-Step 103 comes from a reading of the testing tools against the engine, of 26 November 2026, after that review. The
-step of a message is the engine's, and the tools differed from the run only at two seams of their own, closed by steps
-101 and 102: the mask of a command's fiber, and the waits of a call, which the stage now gives in two kinds alone. It
-stands before step 100, which then reads what steps 101 to 103 change of the doc comments, the sentence of `hearNext`
-on a defect among them. None rests on a new premise, so the next review of the premises reads them, and none is due
-for them before the release: a step that finds it needs a premise says so here.
-
-### 103. The contracts, each scenario given to every tool
-
-**Model and effort.** Opus 5.5, `medium` (`change-engine`): which tool can say a scenario takes judgment, and the edits
-repeat a pattern.
-
-**Depends on** no other step. The tests of `hear` and `hearNext` racing a death (`waitingPastBoom`, at the end of the
-file) are of `rehearse` alone; the scheduled alarm "never both" of `rehearse.test.ts` stays there, since `simulate`
-interrupts no `run`.
-
-**Why.** `src/testing/contract.test.ts` writes each scenario once for each tool, by hand, so a scenario written for the
-tool where a bug was found reaches another tool only if its author thinks of it. One group gives one program to a table
-of the three (`tools`, in "what the run dies of, and the tools fail on"). A probe of 26 November 2026, not kept, gave
-`simulate` the program of "a message whose tag throws as the defect of update is said", as a message of the test's and
-as a command's answer: it fails with both defects, as the run and `rehearse` do, and the file has no test of it.
-
-**How.** A group whose scenario the run, `rehearse` and `simulate` can each say gives it to them through such a table,
-with one expectation; a group that a tool cannot say (`simulate` runs no subscription, and has no model) says so in a
-line. No language of scenarios common to the tools: it would be a mechanism to keep, for what a table of three
-functions gives (`AGENTS.md`, value 7). A difference found is a `test.failing` and an open problem, as the invariant
-says. A test renamed is renamed in `tools/mutations/mutations.ts`.
-
-**Done when** each `describe` of the file names each of the run, `rehearse` and `simulate`, in a test or in the line
-that says why not, and `bun run test`, `bun run test:node` and `bun run mutations` pass.
+Steps 101 to 103 came from a reading of the testing tools against the engine, of 26 November 2026, after that review.
+The step of a message is the engine's, and the tools differed from the run only at two seams of their own, closed by
+steps 101 and 102: the mask of a command's fiber, and the waits of a call, which the stage now gives in two kinds alone.
+Step 103 gave each scenario of `src/testing/contract.test.ts` to each of the three, through `eachTool`, and found no
+difference. Step 100 reads what steps 101 to 103 changed of the doc comments, the sentence of `hearNext` on a defect
+among them. None rests on a new premise, so the next review of the premises reads them, and none is due for them before
+the release: a step that finds it needs a premise says so here.
 
 ### 100. Read the promises since step 90
 

@@ -364,7 +364,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       ["src/run.test.ts", "of a command, as its scope releases what it holds, is a defect in the command"],
       ["src/run.test.ts", "of a subscription, as its scope releases what it holds, is a defect in the subscription"],
-      ["src/testing/contract.test.ts", "the run dies with a defect of a command a fiber of the program interrupts"]
+      ["src/testing/contract.test.ts", "the run dies in a command, on a command a fiber of the program interrupts"]
     ]
   },
   {
@@ -396,16 +396,16 @@ export const mutations: ReadonlyArray<Mutation> = [
       ["src/run.test.ts", "after the command died, is a second defect of the command, after the first"],
       [
         "src/testing/contract.test.ts",
-        "simulate fails with a defect, as the run dies, on a command interrupting itself"
+        "simulate fails, as the run dies, in a command, on a command interrupting itself"
       ],
       [
         "src/testing/contract.test.ts",
-        "rehearse fails with a defect, as the run dies, on a command interrupting itself"
+        "rehearse fails, as the run dies, in a command, on a command interrupting itself"
       ],
-      ["src/testing/contract.test.ts", "the run dies with a defect of a command interrupting itself"],
+      ["src/testing/contract.test.ts", "the run dies in a command, on a command interrupting itself"],
       [
         "src/testing/contract.test.ts",
-        "rehearse fails with a defect, as the run dies, on a subscription interrupting itself"
+        "rehearse fails, as the run dies, in a subscription, on a subscription interrupting itself"
       ],
       [
         "src/testing/rehearse.test.ts",
@@ -442,23 +442,23 @@ export const mutations: ReadonlyArray<Mutation> = [
       ["src/run.test.ts", "a subscription that interrupts itself as the run stops it is a defect in the subscription"],
       [
         "src/testing/contract.test.ts",
-        "the run dies with a defect of a command interrupting itself as whoever runs it interrupts it"
+        "the run dies in a command, on a command interrupting itself as whoever runs it interrupts it"
       ],
       [
         "src/testing/contract.test.ts",
-        "rehearse fails with a defect of a command interrupting itself as whoever runs it interrupts it"
+        "rehearse fails, as the run dies, in a command, on a command interrupting itself as whoever runs it interrupts it"
       ],
       [
         "src/testing/contract.test.ts",
-        "simulate fails with a defect of a command interrupting itself as whoever runs it interrupts it"
+        "simulate fails, as the run dies, in a command, on a command interrupting itself as whoever runs it interrupts it"
       ],
       [
         "src/testing/contract.test.ts",
-        "the run dies with a defect of a subscription interrupting itself as the run stops it"
+        "the run dies in a subscription, on a subscription interrupting itself as it is stopped"
       ],
       [
         "src/testing/contract.test.ts",
-        "rehearse fails with a defect of a subscription interrupting itself as it stops it"
+        "rehearse fails, as the run dies, in a subscription, on a subscription interrupting itself as it is stopped"
       ]
     ]
   },
@@ -511,7 +511,7 @@ export const mutations: ReadonlyArray<Mutation> = [
       ],
       [
         "src/testing/contract.test.ts",
-        "rehearse fails, as the run dies, on a command that dies in a fiber nobody joins"
+        "rehearse fails, as the run dies, in a command, on a command that dies"
       ],
       [
         "src/testing/contract.test.ts",
@@ -2014,7 +2014,7 @@ export const mutations: ReadonlyArray<Mutation> = [
       ["src/run.test.ts", "a key whose Hash throws dies in subscriptions"],
       [
         "src/testing/contract.test.ts",
-        "rehearse fails, as the run dies, in subscriptions on those of the state it starts from"
+        "rehearse fails, as the run dies, in subscriptions, on the subscriptions of the state it starts from"
       ]
     ]
   },
@@ -2226,7 +2226,7 @@ export const mutations: ReadonlyArray<Mutation> = [
       ["src/run.test.ts", "a command that interrupts itself is a defect in the command"],
       [
         "src/testing/contract.test.ts",
-        "rehearse fails with a defect, as the run dies, on a command interrupting itself"
+        "rehearse fails, as the run dies, in a command, on a command interrupting itself"
       ]
     ]
   },
@@ -2247,7 +2247,7 @@ export const mutations: ReadonlyArray<Mutation> = [
       ],
       [
         "src/testing/contract.test.ts",
-        "rehearse fails with a defect, as the run dies, on a subscription interrupting itself"
+        "rehearse fails, as the run dies, in a subscription, on a subscription interrupting itself"
       ]
     ]
   },
@@ -2261,7 +2261,7 @@ export const mutations: ReadonlyArray<Mutation> = [
       ["src/testing/contract.test.ts", "the run dies in the subscription, with its key, of what listen throws"],
       [
         "src/testing/contract.test.ts",
-        "rehearse fails in the subscription, with its key, as the run dies, of what listen throws"
+        "rehearse fails, as the run dies, in the subscription, with its key, of what listen throws"
       ]
     ]
   },
@@ -2853,15 +2853,15 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/testing/contract.test.ts",
-        "rehearse fails with both, as the run dies, on a message the test sends, though the scenario catches it"
+        "rehearse fails, as the run dies, of both, the defect of update first, on a message the test sends"
       ],
       [
         "src/testing/contract.test.ts",
-        "rehearse fails with both, as the run dies, on a command's answer, though the scenario catches it"
+        "rehearse fails, as the run dies, of both, the defect of update first, on a command's answer"
       ],
       [
         "src/testing/contract.test.ts",
-        "rehearse fails with both, as the run dies, on a message hearNext hears, though the scenario catches it"
+        "rehearse fails, as the run dies, of both, the defect of update first, on a subscription's message"
       ]
     ]
   },
@@ -2885,7 +2885,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/testing/contract.test.ts",
-        "rehearse fails, as the run dies, in a command on a runCommand that throws before its effect"
+        "rehearse fails, as the run dies, in a command, on a runCommand that throws before it returns its effect"
       ]
     ]
   },
