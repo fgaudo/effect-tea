@@ -78,13 +78,14 @@ program, and the call that sent the message. A defect in one of them ends the ru
 
 ### When a defect happens
 
-A defect anywhere ends the run, which dies with a `ProgramDefect`. Its `cause` is the defect itself: an
+A defect anywhere in the program ends the run, which dies with a `ProgramDefect`. Its `cause` is the defect itself: an
 `InvariantDefect` for one thrown with `defect`. Its `where` says where it happened, which only the run knows
 (`DefectSite` lists each place), and `on` names the message of a defect in `update` by its tags, never its data. A
 command or a subscription dies when its effect ends with a defect, or when what its scope releases dies, once the
 scope has released all it holds.
 
-From the defect on, the run applies no message, and every defect is in the cause, each with where it happened.
+From the defect on, the run applies no message, and every defect of the program is in the cause, each with where it
+happened.
 
 **The run never recovers from a defect, and does not log it.** Reporting the defect, and choosing what the user sees
 next, are the job of the app around the run. The screen keeps what was drawn last: show a crash screen, or run the

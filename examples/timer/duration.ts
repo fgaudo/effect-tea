@@ -10,10 +10,13 @@ export type Message = "More" | "Less"
 // #endregion state
 
 // #region update
-export const update: Update<State, Message> = (message) => ({ minutes }) => {
-  if (message === "More") return { state: { minutes: minutes + 1 } }
-  if (minutes === 1) return reject
-  return { state: { minutes: minutes - 1 } }
+// The rule, asked by `update` and by `makeModel` alike, so that both give one answer.
+const canTakeAMinute = ({ minutes }: State): boolean => minutes > 1
+
+export const update: Update<State, Message> = (message) => (state) => {
+  if (message === "More") return { state: { minutes: state.minutes + 1 } }
+  if (!canTakeAMinute(state)) return reject
+  return { state: { minutes: state.minutes - 1 } }
 }
 // #endregion update
 
@@ -27,10 +30,10 @@ export type Model = Readonly<{
 export const duration = program<{ state: State; model: Model; message: Message }>().make({
   init: { state: { minutes: 25 } },
   update,
-  makeModel: ({ minutes }) => ({
-    minutes,
+  makeModel: (state) => ({
+    minutes: state.minutes,
     more: "More",
-    less: minutes > 1 ? Opt.some("Less") : Opt.none()
+    less: canTakeAMinute(state) ? Opt.some("Less") : Opt.none()
   })
 })
 // #endregion program

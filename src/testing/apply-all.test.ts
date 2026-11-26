@@ -1,6 +1,6 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, expectTypeOf, test } from "bun:test"
 import { defect, InvariantDefect } from "../defect.ts"
-import { reject, type Update } from "../update.ts"
+import { type Folded, reject, type Update } from "../update.ts"
 import { applyAll } from "./apply-all.ts"
 
 type State = Readonly<{ count: number; isOpen: boolean }>
@@ -28,6 +28,26 @@ describe("applyAll", () => {
     const { state, commands } = applyAll(update, ["Increment", "Opened", "Pinged", "Increment"], closed)
     expect(state).toEqual({ count: 2, isOpen: true })
     expect(commands).toEqual(["Ping"])
+  })
+
+  test("returns both lists, empty where no step listed any", () => {
+    expect(applyAll(update, ["Increment"], closed)).toEqual({
+      state: { count: 1, isOpen: false },
+      commands: [],
+      events: []
+    })
+    expect(applyAll(update, [], closed)).toEqual({ state: closed, commands: [], events: [] })
+  })
+
+  test("takes its state and its messages from update alone", () => {
+    expectTypeOf(applyAll(update, ["Increment"], closed)).toEqualTypeOf<Folded<State, "Ping", never>>()
+    const never = () => [
+      // @ts-expect-error: a message that is no message of `update`'s.
+      applyAll(update, ["Unknown"], closed),
+      // @ts-expect-error: a state that is not `update`'s.
+      applyAll(update, [], { count: 0 })
+    ]
+    expect(never).toBeDefined()
   })
 
   test("collects the commands of every step in order", () => {

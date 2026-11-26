@@ -15,6 +15,10 @@ type StopAllClicked = Readonly<{ _tag: "StopAllClicked" }>
 
 const { childById, withChildren } = program<{ state: Own; message: AddClicked | StopAllClicked }>()
 
+/** The stopwatches that run, read from their output: `update` and `makeModel` both ask this. */
+const runningOf = (ids: ReadonlyArray<number>, output: (id: number) => Stopwatch.Output): ReadonlyArray<number> =>
+  Arr.filter(ids, (id) => output(id).running)
+
 // A stopwatch is there while its id is listed: one removed is not, and its late messages are rejected.
 export const list = withChildren({ Stopwatch: childById(Stopwatch.stopwatch, { ids: (state) => state.ids }) }).make({
   init: { state: { nextId: 1, ids: [] } },
@@ -24,7 +28,7 @@ export const list = withChildren({ Stopwatch: childById(Stopwatch.stopwatch, { i
         return { state: { nextId: state.nextId + 1, ids: [...state.ids, state.nextId] } }
       // Only the stopwatches that run are told. Where none runs, there is nothing to stop.
       case "StopAllClicked": {
-        const running = Arr.filter(state.ids, (id) => children.Stopwatch.output(id).running)
+        const running = runningOf(state.ids, children.Stopwatch.output)
         return Arr.isReadonlyArrayEmpty(running)
           ? reject
           : { state, tell: Arr.map(running, (id) => ({ _tag: "Stopwatch", id, message: { _tag: "Halted" } })) }
@@ -36,9 +40,9 @@ export const list = withChildren({ Stopwatch: childById(Stopwatch.stopwatch, { i
   },
   makeModel: (state, children) => ({
     add: { _tag: "AddClicked" } as AddClicked,
-    stopAll: Arr.some(state.ids, (id) => children.Stopwatch.output(id).running)
-      ? Opt.some<StopAllClicked>({ _tag: "StopAllClicked" })
-      : Opt.none(),
+    stopAll: Arr.isReadonlyArrayEmpty(runningOf(state.ids, children.Stopwatch.output))
+      ? Opt.none()
+      : Opt.some<StopAllClicked>({ _tag: "StopAllClicked" }),
     stopwatches: Arr.map(state.ids, (id) => ({ id, model: children.Stopwatch(id) }))
   })
 })

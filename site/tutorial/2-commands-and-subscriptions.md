@@ -61,7 +61,7 @@ in an array, and `listen(key)` makes the subscription of a key. After every chan
 
 - a new key starts its subscription;
 - a kept key leaves it running;
-- a key that went away stops it, and drops what it sent that `update` has not seen (see
+- a key that went away stops it, and nothing it sends from then on reaches `update` (see
   [subscriptions](../guide/subscriptions.md)).
 
 The timer has the key `'ticks'` only while it runs. Pausing removes the key, so the clock stops. Resuming brings the

@@ -49,10 +49,10 @@ export type Simulated<State, Message, Command = never, Event = never> = {
  * - It starts from the step it is given, and calls no `init`.
  * - A defect of the program fails it with the `ProgramDefect` the run dies with.
  *
- * It takes the program, or the pieces of it a simulation calls: `update`, `subscriptions`, and `runCommand` when it has
- * commands, which alone give the types; the test's messages; and `from`, the step to start from, e.g. the program's
- * `init`. Give it the program's own `runCommand`, with its services provided, or one of the test's that answers each
- * command without any.
+ * It takes the program, or the pieces of it a simulation calls (`update`, `subscriptions`, and `runCommand` when it
+ * has commands), which give the types, with `init` where it is given, which gives the state's; the test's messages;
+ * and `from`, the step to start from, e.g. the program's `init`. Give it the program's own `runCommand`, with its
+ * services provided, or one of the test's that answers each command without any.
  *
  * @returns An effect that runs the commands of `from`, then applies each message in turn, and succeeds with the
  * {@link Simulated}.

@@ -28,7 +28,7 @@ import type { Execution, RunCommand } from "./command.ts"
 import { program } from "./compose.ts"
 import { CompositionDefect, defect, type DefectSite, InvariantDefect, ProgramDefect } from "./defect.ts"
 import { forwardTo } from "./dispatch.ts"
-import type { Applied, Ignored, RunOptions } from "./engine.ts"
+import type { Applied, Ignored, Origin, RunOptions } from "./engine.ts"
 import type { Program } from "./program.ts"
 import { type App, start, type Started } from "./run.ts"
 import type { Subscription } from "./subscription.ts"
@@ -640,6 +640,42 @@ describe("the run", () => {
     })
   })
 
+  // Its command answers, its key comes with the answer and goes with the next message, and whoever runs it interrupts
+  // it: what the program logs is its own, and it logs nothing.
+  test("writes no log of its own, as it goes on and as whoever runs it interrupts it", async () => {
+    const logged: Array<unknown> = []
+    const everything = Logger.make(({ message }) => {
+      logged.push(message)
+    })
+    const listening = Deferred.makeUnsafe<void>()
+    const released = Deferred.makeUnsafe<void>()
+    const { app, run } = start({
+      ...counter,
+      init: { state: { count: 0 }, commands: ["Ping"] },
+      subscriptions: ({ count }) => count === 1 ? ["k"] : [],
+      listen: () =>
+        Channel.unwrap(
+          Effect.acquireRelease(Deferred.succeed(listening, undefined), () => Deferred.succeed(released, undefined))
+            .pipe(Effect.as(Channel.never))
+        )
+    })
+    const fiber = Effect.runFork(run.pipe(
+      Effect.provideService(References.MinimumLogLevel, "Debug"),
+      Effect.provide(Logger.layer([everything]))
+    ))
+    const exit = await endedAfter(
+      fiber,
+      Deferred.await(listening).pipe(
+        Effect.andThen(Effect.sync(() => app.dispatch("Increment"))),
+        Effect.andThen(Deferred.await(released))
+      )
+    )
+    expect({ interrupted: Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause), logged }).toEqual({
+      interrupted: true,
+      logged: []
+    })
+  })
+
   test("a program with flags starts from the flags it is given, its commands included", async () => {
     const seeded: Program<{ state: Count; model: Model; message: Message; command: Command; flags: number }> = {
       ...counter,
@@ -700,17 +736,19 @@ describe("the run", () => {
   })
 
   test("a program a parent could hold starts too: its external and its output are checked, and never called", async () => {
+    const calls = { external: 0, output: 0 }
     const held = program<{ state: Count; model: number; message: Message; external: "Reset"; output: number }>().make({
       init: { state: { count: 0 } },
       update: () => ({ count }) => ({ state: { count: count + 1 } }),
-      external: () => () => ({ state: { count: 0 } }),
+      external: () => () => (calls.external++, { state: { count: 0 } }),
       makeModel: ({ count }) => count,
-      output: ({ count }) => count
+      output: ({ count }) => (calls.output++, count)
     })
     const { app, run } = start(held)
     app.dispatch("Increment")
     expect(app.model()).toBe(1)
     expect(wheres(await interrupted(Effect.runFork(run)))).toEqual([])
+    expect(calls).toEqual({ external: 0, output: 0 })
     expect(() =>
       // @ts-expect-error: an external message applies in every state.
       start({ ...held, external: (_: "Reset") => (state: Count) => state.count > 0 ? { state } : reject })
@@ -739,6 +777,36 @@ describe("the run", () => {
     // An expected failure is a message, not an error.
     expectTypeOf(Effect.succeedSome<Message>("Increment")).toExtend<Execution<Message>>()
     expectTypeOf(Effect.fail("offline")).not.toExtend<Execution<Message>>()
+  })
+
+  test("runCommand takes the command alone: it does not see the state", () => {
+    const seeing: Counter = {
+      ...counter,
+      // @ts-expect-error: a command carries everything it needs.
+      runCommand: (_: Command, state: Count) => Effect.succeedSome<Message>(state.count > 0 ? "Increment" : "Same")
+    }
+    expect(seeing).toBeDefined()
+  })
+
+  test("a program has a runCommand exactly when it has commands, and a listen exactly when it has keys", () => {
+    // @ts-expect-error: its `Ping` would go uninterpreted.
+    const uninterpreted: Counter = {
+      init: counter.init,
+      update: counter.update,
+      subscriptions: () => [],
+      makeModel: counter.makeModel
+    }
+    // @ts-expect-error: its keys would go without their subscription.
+    const deaf: Keyed = { ...counter, subscriptions: () => ["k"] }
+    const plain = {
+      init: { state: { count: 0 } },
+      update: () => ({ count }: Count) => ({ state: { count: count + 1 } }),
+      subscriptions: () => ["ticks" as const],
+      makeModel: ({ count }: Count) => count
+    }
+    // @ts-expect-error: written as a plain object, its keys would go without their subscription too.
+    expect(() => start(plain)).toBeDefined()
+    expect([uninterpreted, deaf]).toHaveLength(2)
   })
 
   test("what a command acquires is its own: no scope to provide, released after it stops", async () => {
@@ -971,15 +1039,26 @@ describe("defects", () => {
     const exit = await ended(fiber)
     const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
     return defect instanceof ProgramDefect && defect.cause instanceof Boom
-      ? { where: defect.where, logged }
+      ? { where: defect.where, message: defect.message, logged }
       : { defect, logged }
+  }
+
+  // What the `message` of a `ProgramDefect` says of each site, for a defect of `update` on `Increment`.
+  const said: Readonly<Record<Exclude<DefectSite, "init">, string>> = {
+    update: "A defect in update on Increment",
+    subscriptions: "A defect in subscriptions",
+    subscription: "A defect in a subscription",
+    command: "A defect in a command",
+    onApplied: "A defect in onApplied",
+    onIgnored: "A defect in onIgnored",
+    render: "A defect in makeModel or the renderer"
   }
 
   const pinging = { state: { count: 0 }, commands: ["Ping"] } as const satisfies Step<Count, Command>
 
   // Whoever runs the program reports its defects: wherever one happens, the run dies with it and with where it
-  // happened, and logs nothing about it.
-  test.each<[string, DefectSite, () => ReturnType<typeof failsWithBoom>]>([
+  // happened, which its message says too, and logs nothing about it.
+  test.each<[string, Exclude<DefectSite, "init">, () => ReturnType<typeof failsWithBoom>]>([
     [
       "update",
       "update",
@@ -1017,7 +1096,7 @@ describe("defects", () => {
     ["onApplied", "onApplied", () => failsWithBoom(counter, { onApplied: boom })],
     ["onIgnored", "onIgnored", () => failsWithBoom({ ...counter, update: () => () => reject }, { onIgnored: boom })]
   ])("a defect in %s ends the run, which dies with it and with where it happened", async (_, where, outcome) => {
-    expect(await outcome()).toEqual({ where, logged: [] })
+    expect(await outcome()).toEqual({ where, message: said[where], logged: [] })
   })
 
   // The fibers of a run ignore their interruptions: one that came from the program itself would otherwise leave
@@ -1044,6 +1123,16 @@ describe("defects", () => {
       "a command that joins an interrupted fiber",
       "command",
       () => start({ ...counter, init: pinging, runCommand: () => joinsAnInterruptedFiber }).run
+    ],
+    [
+      "a subscription that joins an interrupted fiber",
+      "subscription",
+      () =>
+        start({
+          ...counter,
+          subscriptions: () => ["k"],
+          listen: () => Channel.fromEffectDone(joinsAnInterruptedFiber)
+        }).run
     ],
     [
       "a subscription",
@@ -1315,6 +1404,34 @@ describe("defects", () => {
     ])("%s", async (_, where, died) => {
       expect(await died()).toBe(where)
     })
+
+    // A parent lists its child's keys under the child's name, and its `listen` makes the child's subscription.
+    test.each<[string, () => Subscription<"Go">]>([
+      ["whose listen throws", boom],
+      ["whose channel dies", () => Channel.die(new Boom())]
+    ])("a child's subscription %s is a defect in subscription, with the child's key", async (_, listen) => {
+      const listening = program<{ state: Leaf; message: "Go"; key: "k" }>().make({
+        init: { state: { on: false } },
+        update: () => () => ({ state: { on: true } }),
+        subscriptions: () => ["k"],
+        listen,
+        makeModel: () => null
+      })
+      const exit = await Effect.runPromiseExit(
+        start(
+          Desk.withChildren({ Leaf: Desk.child(listening) }).make({
+            init: initial,
+            update: next,
+            makeModel: () => null
+          })
+        ).run
+      )
+      const thrown = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+      expect(thrown instanceof ProgramDefect && thrown.cause instanceof Boom && [thrown.where, thrown.key]).toEqual([
+        "subscription",
+        { _tag: "Leaf", instance: expect.any(Number), key: "k" }
+      ])
+    })
   })
 
   test("a defect in a subscription carries its key", async () => {
@@ -1515,6 +1632,15 @@ describe("onApplied", () => {
     // @ts-expect-error: declared apart, it is typed `void`, which may hide an effect.
     expect(() => start(counter, { onApplied: untyped })).toBeDefined()
     expect(() => start(counter, { onApplied: typed, onIgnored: () => undefined })).toBeDefined()
+    // @ts-expect-error: a value onIgnored returned would be lost.
+    expect(() => start(counter, { onIgnored: () => 1 })).toBeDefined()
+    // @ts-expect-error: an effect onIgnored returned would never run.
+    expect(() => start(counter, { onIgnored: () => Effect.void })).toBeDefined()
+    const ignoredApart = ({ message }: Ignored<Count, Message>) => {
+      heard.push(message)
+    }
+    // @ts-expect-error: declared apart, onIgnored is typed `void` too.
+    expect(() => start(counter, { onIgnored: ignoredApart })).toBeDefined()
   })
 
   test("hears every accepted message in order, with the states around it, before the dispatch returns", async () => {
@@ -1552,6 +1678,28 @@ describe("onApplied", () => {
     expect(origins).toContainEqual({ _tag: "Dispatch" })
     expect(origins).toContainEqual({ _tag: "Command" })
     expect(origins).toContainEqual({ _tag: "Subscription", key: "k" })
+  })
+
+  test("a key that carries data reaches onApplied and onIgnored whole, as the very value listed", async () => {
+    const key = { room: "general" }
+    const keys: Array<unknown> = []
+    const both = Deferred.makeUnsafe<void>()
+    const hear = (origin: Origin): undefined => {
+      keys.push(origin._tag === "Subscription" ? origin.key : origin._tag)
+      if (keys.length === 2) Deferred.doneUnsafe(both, Exit.void)
+    }
+    const room: Keyed<Readonly<{ room: string }>> = {
+      ...counter,
+      subscriptions: () => [key],
+      listen: () =>
+        Channel.succeed<Message>("Increment").pipe(
+          Channel.concatWith(() => Channel.succeed<Message>("Forbidden")),
+          Channel.concatWith(() => Channel.never)
+        )
+    }
+    const { run } = start(room, { onApplied: ({ origin }) => hear(origin), onIgnored: ({ origin }) => hear(origin) })
+    expect(wheres(await endedAfter(Effect.runFork(run), Deferred.await(both)))).toEqual([])
+    expect(keys.map((heard) => heard === key)).toEqual([true, true])
   })
 
   test("a message that leaves the very same state is heard too, with after as before, and tells no listener", async () => {
@@ -1646,6 +1794,25 @@ describe("subscriptions", () => {
     // @ts-expect-error: its end is no message.
     const other: Subscription<Message> = Channel.end(0)
     expect([ending, sending, silent, other]).toHaveLength(4)
+  })
+
+  test("a subscription takes no input and cannot fail", () => {
+    // @ts-expect-error: an expected failure is a message, not an error.
+    const failing: Subscription<Message> = Channel.fail("offline")
+    const reading = Channel.never as Channel.Channel<Message, never, Message, string>
+    // @ts-expect-error: nothing gives it an input.
+    const input: Subscription<Message> = reading
+    expect([failing, input]).toHaveLength(2)
+  })
+
+  test("listen takes the key alone: it does not see the state", () => {
+    const seeing: Keyed = {
+      ...counter,
+      subscriptions: () => ["k"],
+      // @ts-expect-error: a key carries everything its subscription needs.
+      listen: (_: string, state: Count) => Channel.end<Message>(state.count > 0 ? "Increment" : "Same")
+    }
+    expect(seeing).toBeDefined()
   })
 
   // A stopwatch: `Tick` counts in any state, so that only the run can keep a late one out; `Stop` drops the key of
@@ -1837,6 +2004,24 @@ describe("the end of the run", () => {
     app.dispatch("Increment")
     const exit = await ended(fiber)
     expect([sites(exit), made, app.model() === before, app.model().count]).toEqual([["update"], 1, true, 0])
+  })
+
+  test("a model read for the first time once a run has died is still made, of the state before the defect", async () => {
+    let made = 0
+    const { app, run } = start({
+      ...counter,
+      update: (message) => message === "Increment" ? counter.update(message) : () => defect("update"),
+      makeModel: (state) => {
+        made++
+        return counter.makeModel(state)
+      }
+    })
+    const fiber = Effect.runFork(run)
+    app.dispatch("Increment")
+    app.dispatch("Forbidden")
+    const exit = await ended(fiber)
+    const unread = made
+    expect([sites(exit), unread, app.model().count, made]).toEqual([["update"], 0, 1, 1])
   })
 
   test("a makeModel that dies as a run that died elsewhere stops a command is the second defect, in render", async () => {

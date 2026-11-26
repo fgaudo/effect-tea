@@ -109,6 +109,17 @@ const volumeView: View<VolumeModel, VolumeMessage> = (model, dispatch) =>
 const noteView: View<ModelOf<typeof note>, MessageOf<typeof note>> = (model, dispatch) =>
   h("main", [h("input", field(model.note, (value) => dispatch({ ...model.typed, value })))])
 
+// Never called: what the compiler refuses of a message the view fills, held by the model with `as const`.
+test("the types refuse a view that leaves out a field of what an element gives, or fills one with another type", () => {
+  const unfilled: View<ModelOf<typeof note>, MessageOf<typeof note>> = (model, dispatch) =>
+    // @ts-expect-error the value of what is typed is left out
+    h("input", field(model.note, () => dispatch({ ...model.typed })))
+  const misfilled: View<ModelOf<typeof note>, MessageOf<typeof note>> = (model, dispatch) =>
+    // @ts-expect-error the value of what is typed is a string
+    h("input", field(model.note, (value) => dispatch({ ...model.typed, value: value.length })))
+  expect([unfilled, misfilled]).toHaveLength(2)
+})
+
 // The control listens to the source from the element's insertion: each result is put into the element on screen as a
 // key is, and sent by the element's own listener.
 const dictatedView = (source: Dictation): View<ModelOf<typeof note>, MessageOf<typeof note>> => (model, dispatch) =>
@@ -176,10 +187,17 @@ const controlsView: View<ModelOf<typeof controls>, MessageOf<typeof controls>> =
     })
   ])
 
+const radio = (value: string, chosen: string, send: (value: string) => void) =>
+  h("input", {
+    props: { type: "radio", name: "size", value, checked: value === chosen },
+    on: { change: (event: Event) => send((event.target as HTMLInputElement).value) }
+  })
+
 const gatedView: View<ModelOf<typeof gated>, MessageOf<typeof gated>> = (model, dispatch) =>
   h("main", [
-    h("textarea", field(model.notes, (value) => dispatch({ ...model.notesTyped, value }))),
-    checkbox(model.agreed, (value) => dispatch({ ...model.agreedChecked, value })),
+    controlsView(model, dispatch),
+    radio("small", model.size, (value) => dispatch({ ...model.sizeChosen, value })),
+    radio("large", model.size, (value) => dispatch({ ...model.sizeChosen, value })),
     ...(model.freeze === undefined ? [] : [h("button", { on: { click: () => dispatch("Frozen") } }, "Freeze")])
   ])
 
@@ -496,6 +514,25 @@ describe("what the first draw throws", () => {
     const fiber = forked(run)
     settle()
     expect(sites(fiber.pollUnsafe())).toEqual(["render"])
+  })
+
+  // The run records the defect where the first model was read, and `die` is given that very one.
+  test("by makeModel, ends the run with one defect, in render, and drawInto throws nothing", () => {
+    document.body.innerHTML = "<div id=\"app\"></div>"
+    const thrown = new Error("A first model that cannot be made")
+    const { app, run } = start({
+      ...counter,
+      makeModel: () => {
+        throw thrown
+      }
+    })
+    const draw = () => drawInto(element("#app"), { app, view: counterView })
+    expect(draw).not.toThrow()
+    const fiber = forked(run)
+    settle()
+    const exit = fiber.pollUnsafe()
+    expect(sites(exit)).toEqual(["render"])
+    expect(exit !== undefined && Exit.isFailure(exit) && Cause.squash(exit.cause)).toMatchObject({ cause: thrown })
   })
 
   // `model()` of a program whose `init` threw throws that very defect, and the first draw gives what it threw to `die`.

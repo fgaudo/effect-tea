@@ -1,6 +1,6 @@
 // A page that starts from the time it was opened at, its flags, picks a saying when it opens, and asks its parent
 // to leave with an event.
-import { type Execution, program, type Update } from "@fgaudo/effect-tea"
+import { defect, type Execution, program, type Update } from "@fgaudo/effect-tea"
 import * as Data from "effect/Data"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -26,7 +26,8 @@ export const Command = Data.taggedEnum<Command>()
 
 export type Event = Readonly<{ _tag: "LeaveRequested" }>
 
-const sayings = ["Make it work, make it right, make it fast.", "Simple is better than complex."] as const
+/** The sayings that About picks from. */
+export const sayings = ["Make it work, make it right, make it fast.", "Simple is better than complex."] as const
 
 const pickSaying: Execution<Message> = Effect.map(
   Random.choice(sayings),
@@ -35,8 +36,12 @@ const pickSaying: Execution<Message> = Effect.map(
 
 export const update: Update<State, Message, Command, Event> = (message) => (state) => {
   switch (message._tag) {
+    // About picks its saying once, as it opens, and only the answer leaves the state without one: an answer once the
+    // saying is there is a bug.
     case "SayingPicked":
-      return { state: { ...state, maybeSaying: Opt.some(message.saying) } }
+      return Opt.isNone(state.maybeSaying)
+        ? { state: { ...state, maybeSaying: Opt.some(message.saying) } }
+        : defect("A saying was picked twice")
     case "BackClicked":
       return { state, events: [{ _tag: "LeaveRequested" }] }
   }

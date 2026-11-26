@@ -69,7 +69,7 @@ import {
   forked,
   type gated,
   holdFrames,
-  type lid,
+  lid,
   lock,
   note,
   scheduler,
@@ -275,12 +275,22 @@ const controlsView: View<ModelOf<typeof controls>, MessageOf<typeof controls>> =
     })
   )
 
+const radio = (value: string, chosen: string, send: (value: string) => void) =>
+  createElement("input", {
+    type: "radio",
+    name: "size",
+    value,
+    checked: value === chosen,
+    onChange: (event: { target: { value: string } }) => send(event.target.value)
+  })
+
 const gatedView: View<ModelOf<typeof gated>, MessageOf<typeof gated>> = (model, dispatch) =>
   createElement(
     "main",
     null,
-    createElement("textarea", field(model.notes, (value) => dispatch({ ...model.notesTyped, value }))),
-    checkbox(model.agreed, (value) => dispatch({ ...model.agreedChecked, value })),
+    controlsView(model, dispatch),
+    radio("small", model.size, (value) => dispatch({ ...model.sizeChosen, value })),
+    radio("large", model.size, (value) => dispatch({ ...model.sizeChosen, value })),
     model.freeze === undefined ? null : drawButton("Freeze", () => dispatch("Frozen"))
   )
 
@@ -517,16 +527,32 @@ describe("Host", () => {
     expect(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)).toBe(true)
   })
 
-  test("a new key starts the program anew, from init", async () => {
-    const node = (key: string) => host({ key, program: counter, fork: heldFork, view: counterView })
-    const root = await hostInto(node("first"))
+  test("a new key starts the program anew, from the init of the props of that render", async () => {
+    const node = (key: string, program: typeof counter) => host({ key, program, fork: heldFork, view: counterView })
+    const later = { ...counter, init: { state: { count: 5 } } }
+    const root = await hostInto(node("first", counter))
     await started()
     button("+").click()
     drawn()
     expect(element("output").textContent).toBe("1")
-    await acting(() => root.render(node("second")))
+    await acting(() => root.render(node("first", later)))
+    expect(element("output").textContent).toBe("1")
+    await acting(() => root.render(node("second", later)))
     await started()
-    expect(element("output").textContent).toBe("0")
+    expect(element("output").textContent).toBe("5")
+    button("+").click()
+    drawn()
+    expect(element("output").textContent).toBe("6")
+  })
+
+  test("starts a program with flags from the flags of its first render, and draws its first model from them", async () => {
+    const node = (flags: "Opened" | "Closed") =>
+      host({ program: lid, options: { flags }, fork: heldFork, view: lidView })
+    const root = await hostInto(node("Opened"))
+    expect(element<HTMLInputElement>("input").value).toBe("draft")
+    await started()
+    await acting(() => root.render(node("Closed")))
+    expect([element<HTMLInputElement>("input").value, button("Close").textContent]).toEqual(["draft", "Close"])
   })
 
   // React's `<Activity>` destroys the effects of what it hides, and creates them again as it shows it (react.dev,
@@ -619,6 +645,15 @@ describe("Host", () => {
     // @ts-expect-error a view of another program's model
     const misdrawn = () => host({ program: counter, view: formView })
     expect([unforked, misdrawn]).toHaveLength(2)
+  })
+
+  // Never called: what the compiler refuses.
+  test("the types ask for options with flags exactly when the program has flags", () => {
+    // @ts-expect-error a program with flags is started with them
+    const unflagged = () => host({ program: lid, view: lidView })
+    // @ts-expect-error a program with no flags is given none
+    const flagged = () => host({ program: counter, options: { flags: 1 }, view: counterView })
+    expect([unflagged, flagged]).toHaveLength(2)
   })
 
   test("the program's services come from the runtime the application gives", async () => {
@@ -742,6 +777,28 @@ describe("Host", () => {
       expect(error).toMatchObject({ where: "update" })
     })
 
+    // The fiber `fork` returns may fail where the run itself cannot: what it fails with is thrown as a defect is.
+    test("a run that fails throws what it failed with as Host renders, for the nearest error boundary", async () => {
+      const caught = witness<unknown>()
+      const failed = new Error("A fork that fails")
+      const root = createRoot(page(), { onCaughtError: (error) => caught.settled(error) })
+      roots.push(root)
+      await acting(() =>
+        root.render(createElement(
+          Boundary,
+          null,
+          host({
+            program: counter,
+            fork: (effect) => Effect.runFork(Effect.raceFirst(effect, Effect.fail(failed)), { scheduler }),
+            view: counterView
+          })
+        ))
+      )
+      await started()
+      expect(await caught.promise).toBe(failed)
+      expect(element("#app").textContent).toBe("Crashed")
+    })
+
     // The application handles the defect in the fiber it forks: `Host` sees a run that ended well.
     test("what the application handles around the run is not thrown again", async () => {
       const handled = witness<void>()
@@ -769,6 +826,56 @@ describe("Host", () => {
       await acting(async () => {})
       expect(caught).toEqual([])
       expect(button("Break")).toBeDefined()
+    })
+
+    // The release of a subscription dies as `Host` unmounts and interrupts the fiber `fork` returns. An interrupted
+    // fiber cannot recover from what it ends with, so the application runs the program in a fiber of its own,
+    // interrupts it as its fiber is, and handles how it ended.
+    test("what the application handles around the run is not reported once Host has unmounted", async () => {
+      const reported: Array<unknown> = []
+      const reportError = globalThis.reportError
+      globalThis.reportError = (error) => void reported.push(error)
+      try {
+        const handled: Array<boolean> = []
+        let fiber: Fiber.Fiber<void, unknown> | undefined
+        const released = new Error("A release that cannot complete")
+        const root = await hostInto(host({
+          program: {
+            ...counter,
+            subscriptions: () => ["held" as const],
+            listen: () =>
+              Channel.unwrap(
+                Effect.acquireRelease(Effect.void, () => Effect.die(released)).pipe(Effect.as(Channel.never))
+              )
+          },
+          fork: (effect) => {
+            const running = heldFork(effect)
+            const ended = Effect.andThen(Fiber.interrupt(running), Fiber.await(running))
+            fiber = heldFork(
+              Fiber.await(running).pipe(
+                Effect.onInterrupt(() =>
+                  Effect.flatMap(
+                    ended,
+                    (exit) => Effect.sync(() => void handled.push(Exit.isFailure(exit) && Cause.hasDies(exit.cause)))
+                  )
+                ),
+                Effect.asVoid
+              )
+            )
+            return fiber
+          },
+          view: counterView
+        }))
+        await started()
+        await unmount(root)
+        if (fiber !== undefined) await Effect.runPromise(Fiber.await(fiber))
+        // A window of absence: nothing a correct run does tells that `Host` reported nothing, so the test waits a turn
+        // once the run has ended.
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        expect([handled, reported]).toEqual([[true], []])
+      } finally {
+        globalThis.reportError = reportError
+      }
     })
 
     // React calls the view as it renders: what it throws is React's error, not a defect of the program.
@@ -945,10 +1052,86 @@ describe("Host", () => {
       }
     })
 
+    // The fallbacks of React's own report, past the `error` event: what no listener cancels goes to the console, and
+    // where there is no `ErrorEvent`, as on React Native, to `uncaughtException` where the process emits one, and to
+    // the console where it does not.
+    describe("where there is no reportError", () => {
+      const released = new Error("A release that cannot complete")
+      const unmountedDying = async () => {
+        const root = await hostInto(host({
+          program: counter,
+          fork: (effect) => heldFork(effect.pipe(Effect.ensuring(Effect.die(released)))),
+          view: counterView
+        }))
+        await started()
+        await unmount(root)
+      }
+      // Takes away `reportError` and the globals named, runs `work`, records what reaches the console and the process
+      // until the first of them does, then gives them back. A test stubs `process.emit` alone, and makes a process
+      // where there is none, as in a browser.
+      const without = async (names: ReadonlyArray<"ErrorEvent" | "emit">, work: () => Promise<void>) => {
+        const errorEvent = globalThis.ErrorEvent
+        const reportError = globalThis.reportError
+        const error = console.error
+        const logged: Array<unknown> = []
+        const emitted: Array<unknown> = []
+        const reached = witness<void>()
+        Reflect.deleteProperty(globalThis, "reportError")
+        if (names.includes("ErrorEvent")) Reflect.deleteProperty(globalThis, "ErrorEvent")
+        const made = typeof globalThis.process === "undefined"
+        if (made) Object.assign(globalThis, { process: {} })
+        Object.assign(globalThis.process, {
+          emit: names.includes("emit") ? undefined : (...args: Array<unknown>) => {
+            emitted.push(args)
+            reached.settled()
+          }
+        })
+        console.error = (...args: Array<unknown>) => {
+          logged.push(args)
+          reached.settled()
+        }
+        try {
+          await work()
+          await reached.promise
+          return { logged, emitted }
+        } finally {
+          console.error = error
+          if (made) Reflect.deleteProperty(globalThis, "process")
+          else Reflect.deleteProperty(globalThis.process, "emit")
+          globalThis.ErrorEvent = errorEvent
+          globalThis.reportError = reportError
+        }
+      }
+
+      test("gives what it dies of once Host has unmounted to the console, where no listener cancels the error event", async () => {
+        const heard: Array<unknown> = []
+        const listener = (event: ErrorEvent) => void heard.push(event.error)
+        window.addEventListener("error", listener)
+        try {
+          const { logged, emitted } = await without([], unmountedDying)
+          // Vitest's browser mode logs a copy of an error event that a listener hears: only the error itself counts.
+          const itself = logged.filter((args) => Array.isArray(args) && args[0] === released)
+          expect([heard, itself, emitted]).toEqual([[released], [[released]], []])
+        } finally {
+          window.removeEventListener("error", listener)
+        }
+      })
+
+      test("gives what it dies of once Host has unmounted to uncaughtException, where there is no ErrorEvent", async () => {
+        const { logged, emitted } = await without(["ErrorEvent"], unmountedDying)
+        expect([logged, emitted]).toEqual([[], [["uncaughtException", released]]])
+      })
+
+      test("gives what it dies of once Host has unmounted to the console, where there is no ErrorEvent and no process to emit it", async () => {
+        const { logged, emitted } = await without(["ErrorEvent", "emit"], unmountedDying)
+        expect([logged, emitted]).toEqual([[[released]], []])
+      })
+    })
+
     // Found by the review of the premises before 0.8.0: the run dies while `Host` is mounted, and its parent removes
     // `Host` in the same batch, as a button that dispatches and then closes the view would. `Host` kept the defect in a
     // state it never rendered again, and its cleanup, which comes after, found the run already ended.
-    test("that dies as its parent removes Host, in one batch, reaches the boundary or reportError", async () => {
+    test("that dies as its parent removes Host, in one batch, is given to reportError, and is not thrown", async () => {
       const caught: Array<unknown> = []
       const reported: Array<unknown> = []
       const reportError = globalThis.reportError
@@ -981,8 +1164,9 @@ describe("Host", () => {
         // the run has ended, then lets React do what that turn asked of it.
         await new Promise((resolve) => setTimeout(resolve, 0))
         await acting(async () => {})
-        expect([...caught, ...reported]).toHaveLength(1)
-        expect([...caught, ...reported][0]).toMatchObject({ where: "update" })
+        // No render of `Host` threw it before its effect ended: it is given to `reportError`, and not thrown.
+        expect([caught, reported.length]).toEqual([[], 1])
+        expect(reported[0]).toMatchObject({ where: "update" })
       } finally {
         globalThis.reportError = reportError
       }
@@ -1029,9 +1213,48 @@ describe("Host", () => {
         await acting(async () => {})
         await acting(() => show?.("visible"))
         await started()
-        expect([...caught, ...reported]).toHaveLength(1)
-        expect([...caught, ...reported][0]).toMatchObject({ where: "update" })
+        // No render of `Host` threw it before its effect ended: it is given to `reportError`, and not thrown.
+        expect([caught, reported.length]).toEqual([[], 1])
+        expect(reported[0]).toMatchObject({ where: "update" })
         expect(forks).toBe(2)
+      } finally {
+        globalThis.reportError = reportError
+      }
+    })
+
+    // The run ends after `<Activity>` has hidden `Host`, which no render can throw any more: the release of the first
+    // run dies as the hide interrupts it.
+    test("that dies as Activity hides Host, of a release, is given to reportError once, and shown again forks a new run", async () => {
+      const caught: Array<unknown> = []
+      const reported: Array<unknown> = []
+      const reportError = globalThis.reportError
+      globalThis.reportError = (error) => void reported.push(error)
+      try {
+        const released = new Error("A release that cannot complete")
+        const fibers: Array<Fiber.Fiber<void, unknown>> = []
+        const forking: Fork<never> = (effect) => {
+          const fiber = heldFork(fibers.length === 0 ? effect.pipe(Effect.ensuring(Effect.die(released))) : effect)
+          fibers.push(fiber)
+          return fiber
+        }
+        const node = (mode: "visible" | "hidden") =>
+          createElement(Boundary, null, createElement(Activity, { mode, children: breakIn(forking) }))
+        const root = createRoot(page(), { onCaughtError: (error) => void caught.push(error) })
+        roots.push(root)
+        await acting(() => root.render(node("visible")))
+        await started()
+        await acting(() => root.render(node("hidden")))
+        settle()
+        const exit = await Effect.runPromise(Fiber.await(fibers[0]!))
+        expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
+        // A window of absence: nothing a correct run does tells that the defect was not reported twice, so the test
+        // waits a turn once the run has ended, then lets React do what that turn asked of it.
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        await acting(async () => {})
+        await acting(() => root.render(node("visible")))
+        await started()
+        expect([caught, reported, fibers.length]).toEqual([[], [released], 2])
+        expect(button("Break")).toBeDefined()
       } finally {
         globalThis.reportError = reportError
       }
@@ -1063,7 +1286,9 @@ describe("Host", () => {
   })
 
   // A program started is run once, and a command interrupted is never started again: so `Host` keeps the commands of
-  // `init` from starting twice by starting no run in the effect that StrictMode cleans up at once.
+  // `init` from starting twice by starting no run in the effect that StrictMode cleans up at once. How often they start
+  // is unspecified (`Host`'s doc comment): the test holds the invariant "`Host` starts one run under StrictMode"
+  // (`docs/invariants.md`), which a run started by the effect cleaned up at once, and never interrupted, would break.
   test("in StrictMode, the commands of init start once", async () => {
     const loads = program<{ state: Readonly<{ loaded: number }>; message: "Loaded"; command: "Load" }>()
     const commands: Array<string> = []
@@ -1101,6 +1326,26 @@ describe("Host", () => {
     drawn()
     expect(commands).toEqual(["started by 1"])
     expect(element("output").textContent).toBe("1")
+  })
+
+  test("with no fork, runs the commands of init with Effect.runFork, and draws their answer", async () => {
+    const answered = witness<void>()
+    const loads = program<{ state: Readonly<{ loaded: boolean }>; message: "Loaded"; command: "Load" }>().make({
+      init: { state: { loaded: false }, commands: ["Load"] },
+      update: () => () => ({ state: { loaded: true } }),
+      runCommand: () => Effect.succeedSome("Loaded" as const),
+      makeModel: (held) => held
+    })
+    await hostInto(host({
+      program: loads,
+      view: (model) => {
+        if (model.loaded) answered.settled()
+        return createElement("output", null, model.loaded ? "Loaded" : "Loading")
+      }
+    }))
+    await answered.promise
+    await acting(async () => {})
+    expect(element("output").textContent).toBe("Loaded")
   })
 
   test("forked with Effect.runFork, draws its first model with no warning of React", async () => {
@@ -1231,6 +1476,17 @@ describe("hydrated by hydrateRoot", () => {
     expect(input.value).toBe("Ada")
   })
 
+  test("Host started with flags keeps the elements the server drew from the same flags", async () => {
+    const { input, recovered } = await hydrate(() =>
+      host({ program: lid, options: { flags: "Opened" }, fork: heldFork, view: lidView })
+    )
+    expect(element("input")).toBe(input)
+    expect([recovered.map(String), input.value, state()]).toEqual([[], "draft", ["draft"]])
+    await started()
+    await acting(() => type(input, "draft!"))
+    expect([element("input"), state()]).toEqual([input, ["draft!"]])
+  })
+
   test("Draw keeps the elements the server drew of the state current as React hydrates it", async () => {
     commands.length = 0
     const { app, run } = start(loading)
@@ -1289,8 +1545,10 @@ describe("a makeModel that throws under Draw", () => {
 })
 
 describe("what the bridge to React leaves out", () => {
-  // React keeps the value it gave a controlled input, through the element's own `value`: a script's write goes there
-  // too, so the input event finds no change, and React calls no `onChange`.
+  // An alarm of what the guide leaves unspecified ("Writing a bridge", "What is left out", a value that a script
+  // writes): React keeps the value it gave a controlled input, through the element's own `value`, a script's write goes
+  // there too, so the input event finds no change, and React calls no `onChange`. It rests on React alone, and is the
+  // killer of no mutation.
   test("a text a script writes into an input, and announces with an input event, is lost, where one typed is stored", () => {
     const { app, run } = start(note)
     drawRun({ app, run }, noteView)

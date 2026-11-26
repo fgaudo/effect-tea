@@ -8,8 +8,8 @@ export const view: View<Model, Message> = (model, dispatch) => {
   return (
     <main>
       {
-        /* A controlled element, as with snabbdom: read-only while saving, so that it keeps the focus, with no handler,
-          since the model holds nothing to type there. */
+        /* A controlled element, as with snabbdom: read-only while saving, not disabled, as the advice of "What an
+          element gives" says, with no handler, since the model holds nothing to type there. */
       }
       {editor._tag === "Saving"
         ? <input value={model.name} readOnly placeholder="A name" />

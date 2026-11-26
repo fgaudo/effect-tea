@@ -61,7 +61,8 @@ It decides nothing on its own: whether "−" can be clicked is already in the mo
 ## Running it
 
 `const { app, run } = start(duration)` starts the program. `app` is its handle: the model of the current state, a
-notice of each new state, and the `dispatch` to send its messages with. `run` runs the program's effects.
+notice of each new state, the `dispatch` to send its messages with, and `die`, which a renderer gives what it threw.
+`run` runs the program's effects.
 `drawInto(root, { app, view: durationView })` draws the handle: it empties the element `root`, and draws the model into
 it. A click calls `dispatch`, and when it returns, `update` has seen the click.
 
@@ -71,9 +72,9 @@ browser, `run` is forked with `Effect.runFork`, with a `tapCause` that reports a
 
 ## What you have
 
-One rule, "never below one minute", written once in `update`. The model follows it, and the view only draws. In the
-[finished application](https://fgaudo.github.io/effect-tea/examples/timer/), the "−" and "+" of a new timer follow the
-same rule, which the timer of step 2 writes in its own `update`: at one minute "−" is disabled, since the model has no
-`less`.
+One rule, "never below one minute", written once in `canTakeAMinute`, which `update` and `makeModel` both call. The
+view only draws. In the [finished application](https://fgaudo.github.io/effect-tea/examples/timer/), the "−" and "+"
+of a new timer follow the same rule, which the timer of step 2 writes in its own `canTakeAMinute`: at one minute "−"
+is disabled, since the model has no `less`.
 
 Next, [the timer itself](./2-commands-and-subscriptions.md).

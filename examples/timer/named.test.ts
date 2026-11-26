@@ -2,6 +2,7 @@ import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
 import { applyAll, dispatchViolations, rehearse, stateOf } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
 import * as Effect from "effect/Effect"
+import * as Equal from "effect/Equal"
 import * as Opt from "effect/Option"
 import * as fc from "fast-check"
 import { namedMessages } from "./named.test_reader.ts"
@@ -73,13 +74,36 @@ describe("named", () => {
   })
   // #endregion violations
 
-  // Beyond what the library asks: that the view draws what its model holds, and the field with the name the model
-  // holds. `messagesSentBy`, beside the snabbdom bridge, is its way to see it without a DOM: what is typed holds the
-  // text its element is drawn with.
+  // For any state, the ticks of its timer while the timer runs: the test reads the child, and leaves the number of its
+  // instance to the library.
+  test("listens to the ticks of its timer exactly while the timer runs", () => {
+    fc.assert(fc.property(state, (before) => {
+      const running = Opt.getOrThrow(before.children.Timer).state.phase._tag === "Running"
+      expect(named.subscriptions(before).map(({ _tag, key }) => ({ _tag, key })))
+        .toEqual(running ? [{ _tag: "Timer", key: "ticks" }] : [])
+    }))
+  })
+
+  // The view, checked with the tools of its renderer: `messagesSentBy`, of the snabbdom bridge, finds what the view
+  // sends without a DOM, the field's with the name the model holds, as its element is drawn with it, which the test
+  // compares with what the reader returns.
   test("the view sends what its model holds", () => {
     fc.assert(fc.property(state, (before) => {
       const model = named.makeModel(before)
       expect(messagesSentBy<Model, Message>(namedView, model)).toEqual(namedMessages(model, model.name))
+    }))
+  })
+
+  // Two equal states built apart, by the same seed drawn twice, give two equal models, which a function in a model
+  // would break, being made anew by each `makeModel`. Each is built by `stateOf`, so that no child's model is kept
+  // from the other.
+  test("the model is data: equal states, built apart, have equal models", () => {
+    fc.assert(fc.property(fc.integer(), (seed) => {
+      const [one] = fc.sample(state, { seed, numRuns: 1 })
+      const [other] = fc.sample(state, { seed, numRuns: 1 })
+      if (one === undefined || other === undefined) throw new Error("nothing sampled")
+      expect(one).not.toBe(other)
+      expect(Equal.equals(named.makeModel(one), named.makeModel(other))).toBe(true)
     }))
   })
 

@@ -185,7 +185,8 @@ focus, a key that the state rejects taken back, and each controlled element.
 A bridge of your own can start from them. To run them on it:
 
 - copy the file, with the examples whose programs it draws;
-- have a test file register a DOM, as [`bridges/snabbdom.test.ts`](../../bridges/snabbdom.test.ts) does;
+- have a test file register a DOM, and hold its screen refreshes with `holdFrames`, which the tests run as they
+  paint, as [`bridges/snabbdom.test.ts`](../../bridges/snabbdom.test.ts) does;
 - give `bridgeTests` a `Bridge`: your `drawInto`, the views of their scenarios drawn with your renderer, and
   `drawn`, which a test awaits after each act of the user, so that your bridge has drawn what the act made.
 

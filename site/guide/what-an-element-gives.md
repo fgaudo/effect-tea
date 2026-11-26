@@ -113,6 +113,9 @@ that is not there. See [`stocktake`](../../examples/stocktake/stocktake.ts).
   }>
   ```
 
+  A text field that the state locks is drawn `readOnly`, not `disabled`, so that it keeps the focus: a browser takes
+  the focus from an element disabled as the screen refreshes, as the view of [`form`](../../examples/form) shows.
+
 - **Store the text as it is typed, and say what it means where the program reads it.** The element already shows the
   text as it is typed. A function of the program says what the text means, to `update` and to `makeModel`:
   `stocktake` reads each count with `countOf`, as a whole number, nothing typed, or anything else. It does not hold

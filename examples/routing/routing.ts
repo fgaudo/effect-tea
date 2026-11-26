@@ -83,17 +83,20 @@ export type Command = Data.TaggedEnum<{ PushAddress: { href: string } }>
 
 export const Command = Data.taggedEnum<Command>()
 
+/** The page shown is this route: `update` and `makeModel` both ask this. */
+const shows = (state: State, route: Route): boolean => Equal.equals(route, state.route)
+
 export const update: Update<State, Message, Command> = (message) => (state) => {
   switch (message._tag) {
     // A link to the page shown adds no address to the history: the model holds none, and one drawn before is rejected.
     case "LinkFollowed":
-      return Equal.equals(message.target, state.route)
+      return shows(state, message.target)
         ? reject
         : { state: { route: message.target }, commands: [Command.PushAddress({ href: hrefOf(message.target) })] }
     // The browser is already at the address: the program follows it, and pushes nothing.
     case "AddressPopped": {
       const route = routeOf(message.query)
-      return Equal.equals(route, state.route) ? reject : { state: { route } }
+      return shows(state, route) ? reject : { state: { route } }
     }
   }
 }
@@ -135,7 +138,7 @@ const titleOf = (route: Route): string => {
 }
 
 const entryOf = (state: State, target: Target): Entry =>
-  Equal.equals(target, state.route)
+  shows(state, target)
     ? { _tag: "Here", title: titleOf(target) }
     : { _tag: "Link", title: titleOf(target), href: hrefOf(target), follow: Message.LinkFollowed({ target }) }
 

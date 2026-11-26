@@ -38,12 +38,15 @@ type OwnMessage = Data.TaggedEnum<{
 
 const OwnMessage = Data.taggedEnum<OwnMessage>()
 
-type Command = Data.TaggedEnum<{ Reserve: { id: number }; Pay: object }>
+export type Command = Data.TaggedEnum<{ Reserve: { id: number }; Pay: object }>
 
-const Command = Data.taggedEnum<Command>()
+export const Command = Data.taggedEnum<Command>()
 
 /** The fact that the rows must know: the cart is locked from the payment on. */
 export const isLocked = (state: Own): boolean => state.payment._tag !== "Idle"
+
+/** The cart can be paid for while it is not locked and lists a row: `update` and `makeModel` both ask this. */
+const canPay = (state: Own): boolean => !isLocked(state) && Arr.isReadonlyArrayNonEmpty(state.ids)
 
 const { childById, withChildren } = program<{ state: Own; message: OwnMessage; command: Command }>()
 
@@ -73,9 +76,7 @@ export const cart = withChildren({
           }
           : defect("A reservation completed that nothing asked for")
       case "PayClicked":
-        return isLocked(state) || Arr.isReadonlyArrayEmpty(state.ids)
-          ? reject
-          : { state: { ...state, payment: Payment.Paying() }, commands: [Command.Pay()] }
+        return canPay(state) ? { state: { ...state, payment: Payment.Paying() }, commands: [Command.Pay()] } : reject
       case "PaySucceeded":
         return state.payment._tag === "Paying"
           ? { state: { ...state, payment: Payment.Paid() } }
@@ -98,9 +99,7 @@ export const cart = withChildren({
   makeModel: (state, children) => ({
     payment: state.payment._tag,
     add: isLocked(state) ? Opt.none() : Opt.some<OwnMessage>(OwnMessage.AddClicked()),
-    pay: isLocked(state) || Arr.isReadonlyArrayEmpty(state.ids)
-      ? Opt.none()
-      : Opt.some<OwnMessage>(OwnMessage.PayClicked()),
+    pay: canPay(state) ? Opt.some<OwnMessage>(OwnMessage.PayClicked()) : Opt.none(),
     rows: Arr.map(state.ids, (id) => ({ id, model: children.Row(id) }))
   })
 })

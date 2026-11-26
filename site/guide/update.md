@@ -9,13 +9,14 @@ title: Update
 `update` decides what each message does to your program. This page shows what `update` returns, and the rules it
 keeps.
 
-`update` takes a message, then the state, and returns the next step: `{ state, commands?, events? }`.
+`update` takes a message, then the state, and returns the next step: `{ state, commands?, events?, tell? }`.
 
-| Field      | What it holds                   | Needed   |
-| ---------- | ------------------------------- | -------- |
-| `state`    | the next state                  | always   |
-| `commands` | the commands that should happen | optional |
-| `events`   | the events for a parent         | optional |
+| Field      | What it holds                                 | Needed   |
+| ---------- | --------------------------------------------- | -------- |
+| `state`    | the next state                                | always   |
+| `commands` | the commands that should happen               | optional |
+| `events`   | the events for a parent                       | optional |
+| `tell`     | a parent's external messages for its children | optional |
 
 When the message makes no sense in that state, `update` returns `reject` instead (see
 [rejections and defects](./rejections-and-defects.md)). Commands say what should happen, and `runCommand` says how

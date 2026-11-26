@@ -5,11 +5,14 @@ export type State = Readonly<{ count: number }>
 
 export type Message = "Increment" | "Decrement"
 
-export const update: Update<State, Message> = (message) => ({ count }) =>
+// Whether there is something to take away, asked by `update` and by `makeModel` alike, so that both give one answer.
+const canDecrement = ({ count }: State): boolean => count > 0
+
+export const update: Update<State, Message> = (message) => (state) =>
   message === "Increment"
-    ? { state: { count: count + 1 } }
-    : count > 0
-    ? { state: { count: count - 1 } }
+    ? { state: { count: state.count + 1 } }
+    : canDecrement(state)
+    ? { state: { count: state.count - 1 } }
     : reject
 
 export type Model =
@@ -19,8 +22,8 @@ export type Model =
 export const counter = program<{ state: State; model: Model; message: Message }>().make({
   init: { state: { count: 0 } },
   update,
-  makeModel: ({ count }) =>
-    count > 0
-      ? { _tag: "Counting", count, increment: "Increment", decrement: "Decrement" }
-      : { _tag: "AtZero", count, increment: "Increment" }
+  makeModel: (state) =>
+    canDecrement(state)
+      ? { _tag: "Counting", count: state.count, increment: "Increment", decrement: "Decrement" }
+      : { _tag: "AtZero", count: state.count, increment: "Increment" }
 })

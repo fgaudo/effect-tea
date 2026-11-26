@@ -217,6 +217,8 @@ type DeclaredTypes = Readonly<{
     flags?: unknown;
     output?: unknown;
     key?: unknown;
+    commandServices?: Inferred;
+    subscriptionServices?: Inferred;
 }>;
 
 // @public
@@ -324,6 +326,11 @@ export type Ignored<State, Message> = {
     readonly origin: Origin;
     readonly state: State;
 };
+
+// @public (undocumented)
+type Inferred = Readonly<{
+    "the services are inferred, never named": never;
+}>;
 
 // @public
 export type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, Command> : (flags: Flags) => Step<State, Command>;

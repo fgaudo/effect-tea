@@ -36,24 +36,27 @@ runs, and the run drops what a stopped subscription sent (see
 ## Rules
 
 **`defect` makes a bug loud.** [`form`](../../examples/form/form.ts) throws `defect` on a save that completes while
-nothing is saving. A rejection of that save would hide the bug. `defect` is for the synchronous functions: `init`,
-`update`, `onEvent`, `makeModel`, `subscriptions`. Inside an Effect, `Effect.die` stays.
+nothing is saving. A rejection of that save would hide the bug. `defect` is for the synchronous functions of a
+program: `init`, `update`, `external`, `onEvent`, `makeModel`, `output`, `subscriptions`, and those of a child's
+declaration, as `there` or `ids`. Inside an Effect, `Effect.die` stays.
 
 **What the view draws never rules a message out.** A tap may come from a model drawn before, from two fingers before
 the next draw, or from a control still on screen while it animates away. So a message of the view may arrive in any
 state, from whatever model it was sent. It is rejected where it does not apply, and applied where it applies. If a
 message must not apply to a later state, the message says what it was for, so that `update` rejects it there.
 
-**Nothing is cancelled when the state moves on**: not a command under way, not what a subscription sent before its key
-went away, not a model already drawn. So a message may arrive for a state that has left it behind.
+**Nothing is cancelled when the state moves on**: not a command under way, not a model already drawn. So a message
+may arrive for a state that has left it behind.
 
-- The answer of a command reaches `update`, which rejects it where it no longer applies: only the program knows what
-  the answer was for, so its message says it, as the id of a row does.
+- The answer of a command reaches the `update` of the instance that asked for it, which rejects it where it no longer
+  applies: only the program knows what the answer was for, so its message says it, as the id of a row does. The
+  library rejects itself an answer for an instance of a child that is gone (see
+  [what the library derives](./composition.md#what-the-library-derives)).
 - What a subscription sent once its key is gone never reaches `update`: the run drops it (see
   [guarantees](./guarantees.md#what-you-can-rely-on)).
 
-None of these late messages is a defect. They are the price of commands that cannot be cancelled, of keys that come and
-go, and of a screen older than the state.
+None of these late messages is a defect. They are the price of commands that cannot be cancelled, and of a screen
+older than the state.
 
 ### What "cannot arrive" rests on
 

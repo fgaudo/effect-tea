@@ -864,16 +864,36 @@ describe("commands and scopes", () => {
     })
   }
 
-  test("when the run ends, what still runs is interrupted before its resources are released", async () => {
-    const holding = ({ note, resource }: Track): Subscription<Signal, Scope.Scope> =>
-      Channel.fromEffectDrain(
-        resource("subscription").pipe(
-          Effect.andThen(Effect.never),
-          Effect.onInterrupt(() => note("subscription interrupted"))
-        )
-      ).pipe(
-        Channel.concatWith(() => Channel.never)
+  // Holds what it acquires in an effect that never ends, and notes its interruption.
+  const holding = ({ note, resource }: Track): Subscription<Signal, Scope.Scope> =>
+    Channel.fromEffectDrain(
+      resource("subscription").pipe(
+        Effect.andThen(Effect.never),
+        Effect.onInterrupt(() => note("subscription interrupted"))
       )
+    ).pipe(
+      Channel.concatWith(() => Channel.never)
+    )
+
+  test("a subscription whose key goes away is interrupted, then releases what it holds", async () => {
+    const lines = await run(Effect.fnUntraced(function*(deaths: Deaths) {
+      const { log, send } = yield* tracked(deaths, holding)
+      send("Listen")
+      yield* log.reached("acquire subscription")
+      send("Stop")
+      yield* log.reached("release subscription")
+      return [...log.lines]
+    }))
+    expect(lines).toEqual([
+      "applied Listen",
+      "acquire subscription",
+      "applied Stop",
+      "subscription interrupted",
+      "release subscription"
+    ])
+  })
+
+  test("when the run ends, what still runs is interrupted before its resources are released", async () => {
     const lines = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const log = yield* Effect.scoped(Effect.gen(function*() {
         const { log, send, held } = yield* tracked(deaths, holding)

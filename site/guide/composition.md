@@ -78,6 +78,8 @@ A parent declares each child by name, in `withChildren`, with functions of the p
   `childById(row, { ids, tell: (state) => ({ _tag: 'LockChanged', locked: isLocked(state) }) })`. The child is told
   it as it starts, and after each step of the parent it was last told what the state gives (see
   [a child that must wait for its parent](./events-and-external-messages.md#a-child-that-must-wait-for-its-parent)).
+  A state given back as `{ ...program, init: { state } }` keeps what each child was last told, until the value
+  changes.
 
 ### How a parent and its children start
 
@@ -169,27 +171,31 @@ This section explains, and adds no rule.
 You may want a function that takes any program and makes a parent of it, such as a dialog around any content. Try the
 dialog first as a child beside the content: the parent of both is then a program like any other.
 
-Where the function is what you want, write it as an overload. `child`, `childById` and `withChildren` do not compile
-for a type parameter, such as `P` in `<P extends AnyProgram>(p: P) => …`. What a child needs from its parent, an
+Where the function is what you want, write it as an overload: the doc comments of `child`, `childById` and
+`withChildren` say what does not compile for a type parameter. What a child needs from its parent, an
 `onEvent`, flags or a `runCommand`, depends on the child's types, and the compiler cannot decide it there. So the
 function's signature names the types, and its body makes the parent from a program whose types are all `unknown`. The
 compiler checks the body. It does not check that the signature says what the body makes.
 
 ```ts
-type Toggle = Readonly<{ _tag: "Opened" }> | Readonly<{ _tag: "Closed" }>
+type Visibility = Readonly<{ _tag: "Opened" }> | Readonly<{ _tag: "Closed" }>
 type Dialog<S> = Kept<Readonly<{ open: boolean }>, { readonly Content: Opt.Option<Instance<S>> }>
-type DialogModel<M> = Readonly<{ open: boolean; content: M }>
-type InDialog<Msg> = Toggle | Readonly<{ _tag: "Content"; message: Msg; instance?: number }>
+type DialogModel<M> = Readonly<{ open: boolean; button: Visibility; content: M }>
+type InDialog<Msg> = Visibility | Readonly<{ _tag: "Content"; message: Msg; instance?: number }>
 
 export function inDialog<S, M, Msg>(
   content: Program<{ state: S; model: M; message: Msg }>
 ): Program<{ state: Dialog<S>; model: DialogModel<M>; message: InDialog<Msg> }>
 export function inDialog(content: Program<{ state: unknown; model: unknown; message: unknown }>) {
-  const dialog = program<{ state: Readonly<{ open: boolean }>; message: Toggle }>()
+  const dialog = program<{ state: Readonly<{ open: boolean }>; message: Visibility }>()
   return dialog.withChildren({ Content: dialog.child(content) }).make({
     init: { state: { open: false } },
     update: (message) => () => ({ state: { open: message._tag === "Opened" } }),
-    makeModel: (state, children) => ({ open: state.open, content: children.Content() })
+    makeModel: (state, children) => ({
+      open: state.open,
+      button: state.open ? { _tag: "Closed" as const } : { _tag: "Opened" as const },
+      content: children.Content()
+    })
   })
 }
 ```

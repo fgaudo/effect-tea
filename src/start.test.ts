@@ -132,6 +132,35 @@ describe("a program started", () => {
     await interrupted(fiber)
   })
 
+  // What is promised of a subscription that a message brings, as of its commands: it starts after the step, its state
+  // current. When, against the return of the call that sent the message, is the alarm above.
+  test("starts a subscription that a message brings after the step, once its state is current", async () => {
+    type Listening = Readonly<{ listening: boolean }>
+    const log: Array<string> = []
+    const started = Deferred.makeUnsafe<void>()
+    let read = (): Listening => ({ listening: false })
+    const listening: Program<{ state: Listening; model: Listening; message: "Listen"; key: "k" }> = {
+      init: { state: { listening: false } },
+      update: () => () => ({ state: { listening: true } }),
+      subscriptions: (state) => state.listening ? ["k" as const] : [],
+      listen: () =>
+        Channel.unwrap(Effect.sync(() => {
+          log.push(`started, listening: ${read().listening}`)
+          Deferred.doneUnsafe(started, Exit.void)
+          return Channel.never
+        })),
+      makeModel: (state) => state
+    }
+    const { app, run } = start(listening, { onApplied: () => void log.push("applied") })
+    read = app.model
+    app.subscribe(() => log.push("told"))
+    const fiber = Effect.runFork(run)
+    app.dispatch("Listen")
+    await Effect.runPromise(Effect.raceFirst(Effect.asVoid(Fiber.await(fiber)), Deferred.await(started)))
+    expect(log).toEqual(["applied", "told", "started, listening: true"])
+    await interrupted(fiber)
+  })
+
   test("dies of a command's defect, in command, and applies nothing after", async () => {
     type Boom = Program<{ state: Readonly<{ n: number }>; model: number; message: "Up"; command: "Boom" }>
     const boom: Boom = {
@@ -229,6 +258,7 @@ describe("a program whose start throws", () => {
     }
     expect(thrown).toBeInstanceOf(ProgramDefect)
     expect((thrown as ProgramDefect).where).toBe("init")
+    expect((thrown as ProgramDefect).message).toBe("A defect in init")
     let told = 0
     app.subscribe(() => void told++)
     app.dispatch("Up")
@@ -260,21 +290,42 @@ describe("a program whose start throws", () => {
     makeModel: () => null
   }
 
+  const seeded = program<{ state: Leaf; flags: boolean }>().make({
+    init: (on) => on ? defect("no child starts") : { state: { on } },
+    makeModel: () => null
+  })
+
+  const Unflagged = program<{ state: Readonly<{ on: boolean }> }>()
+
   // A parent without flags is started as `make` makes it: the children that its first state lists are started then,
-  // so what a function of their options throws, `make` throws as it is (the doc comment of `init`, in `compose.ts`).
-  test("in a child's options, in a parent with no flags: make throws the defect as it is", () => {
-    const Parent = program<{ state: Readonly<{ on: boolean }> }>()
+  // so what a function of their options, or their own `init`, throws, `make` throws as it is (the doc comment of
+  // `init`, in `compose.ts`).
+  test.each<[string, () => unknown]>([
+    [
+      "options",
+      () =>
+        Unflagged.withChildren({ Leaf: Unflagged.child(leaf, { there: () => defect("no child starts") }) }).make({
+          init: { state: { on: true } },
+          makeModel: () => null
+        })
+    ],
+    [
+      "own init, from its flags",
+      () =>
+        Unflagged.withChildren({ Leaf: Unflagged.child(seeded, { flags: () => Opt.some(true) }) }).make({
+          init: { state: { on: true } },
+          makeModel: () => null
+        })
+    ]
+  ])("in a child's %s, in a parent with no flags: make throws the defect as it is", (_, made) => {
     let thrown: unknown
     try {
-      Parent.withChildren({ Leaf: Parent.child(leaf, { there: () => defect("no parent starts") }) }).make({
-        init: { state: { on: true } },
-        makeModel: () => null
-      })
+      made()
     } catch (caught) {
       thrown = caught
     }
     expect(thrown).toBeInstanceOf(InvariantDefect)
-    expect(thrown instanceof InvariantDefect ? thrown.reason : thrown).toBe("no parent starts")
+    expect(thrown instanceof InvariantDefect ? thrown.reason : thrown).toBe("no child starts")
   })
 
   test("in the init of a parent with a child and flags: the handle is made, model() throws the defect, and run dies of it", async () => {

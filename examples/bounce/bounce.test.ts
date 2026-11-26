@@ -7,6 +7,7 @@ import * as Cause from "effect/Cause"
 import * as Channel from "effect/Channel"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
+import * as Equal from "effect/Equal"
 import * as Exit from "effect/Exit"
 import * as Opt from "effect/Option"
 import * as Stream from "effect/Stream"
@@ -37,24 +38,32 @@ const advanced = (alpha: number): Message => ({ _tag: "Advanced", alpha })
 
 const alpha = fc.double({ min: 0, max: 1, noNaN: true })
 
-const inFlight: fc.Arbitrary<State> = fc.record({
+// Any valid state: the ball at rest, or what the drop reaches through the steps of the screen, their parts and the
+// throws, applied by `update` as the run applies them. In flight, the height and the height at the step before are
+// tied by the steps, so a state is reached rather than drawn. A step or a part at rest cannot arrive, and is skipped.
+const state: fc.Arbitrary<State> = fc.record({
   dt: fc.constantFrom(1000 / 30, 1000 / 60),
-  height: fc.double({ min: 0, max: 100, noNaN: true }),
-  ball: fc.record({
-    velocity: fc.double({ min: -500, max: 500, noNaN: true }),
-    previous: fc.double({ min: 0, max: 100, noNaN: true }),
-    alpha
-  }).map(Ball.Flying)
-})
-
-const state: fc.Arbitrary<State> = fc.oneof(
-  fc.record({
-    dt: fc.constantFrom(1000 / 30, 1000 / 60),
-    height: fc.constant(0),
-    ball: fc.constant(Ball.Resting())
-  }),
-  inFlight
+  messages: fc.array(
+    fc.oneof(
+      { arbitrary: fc.constant(stepped), weight: 8 },
+      { arbitrary: alpha.map(advanced), weight: 2 },
+      { arbitrary: fc.constant(thrown), weight: 1 }
+    ),
+    { maxLength: 400 }
+  ),
+  resting: fc.boolean()
+}).map(({ dt, messages, resting }) =>
+  resting ? { dt, height: 0, ball: Ball.Resting() } : messages.reduce(
+    (now, message) => message._tag === "ThrowClicked" || flying(now) ? applyAll(update, [message], now).state : now,
+    bounce.init({ dt }).state
+  )
 )
+
+const inFlight = state.filter(flying)
+
+// The velocity that takes a ball from `height` up to the top, under the gravity of the program, 400 heights a second
+// squared.
+const toTheTop = (height: number) => Math.sqrt(2 * 400 * Math.max(100 - height, 0))
 
 // The same state, with the ball drawn at another part of the next step.
 const at = (state: State, alpha: number): State =>
@@ -102,7 +111,7 @@ describe("bounce", () => {
 
     test("a throw sends a resting ball up to the top, from the start of its first step", () => {
       const thrownUp = applyAll(update, [thrown], { dt, height: 0, ball: Ball.Resting() }).state
-      expect(thrownUp.ball).toMatchObject({ _tag: "Flying", previous: 0, alpha: 0 })
+      expect(thrownUp).toEqual({ dt, height: 0, ball: Ball.Flying({ velocity: toTheTop(0), previous: 0, alpha: 0 }) })
       // A step moves by the velocity it ends with, so the ball turns a little below the top.
       const highest = Math.max(...flight(thrownUp).map(({ height }) => height))
       expect(highest).toBeGreaterThan(95)
@@ -112,9 +121,10 @@ describe("bounce", () => {
     test("a throw in flight changes the velocity alone", () => {
       const before = applyAll(update, [stepped, stepped, advanced(0.5)], start).state
       const { state } = applyAll(update, [thrown], before)
-      expect(state.height).toBe(before.height)
-      expect(state.ball).toMatchObject({ _tag: "Flying", previous: flight(start)[1]?.height, alpha: 0.5 })
-      expect(state.ball).not.toMatchObject({ velocity: before.ball._tag === "Flying" ? before.ball.velocity : 0 })
+      expect(state).toEqual({
+        ...before,
+        ball: Ball.Flying({ velocity: toTheTop(before.height), previous: flight(start)[1]?.height ?? 0, alpha: 0.5 })
+      })
     })
 
     // The part of the next step says where the ball is drawn, and nothing else: a step is the same at any part.
@@ -163,7 +173,8 @@ describe("bounce", () => {
   })
 
   // The model, for any state: the throw is accepted, it acts once when sent twice, and nothing `update` accepts is
-  // missing, but the steps and their parts, which no control sends.
+  // missing, but the steps and their parts, which no control sends. A throw does nothing where the ball goes up to the
+  // top already, as it starts and until the step after a throw: the button stays, rather than flicker for a frame.
   test("the model holds what update accepts, all of it, and each acts once when sent twice", () => {
     // A tag at a time, so that a new message does not compile here until the test says what a user could ask with
     // it: the steps and their parts are the subscription's.
@@ -175,8 +186,13 @@ describe("bounce", () => {
       } satisfies { [Tag in Message["_tag"]]: ReadonlyArray<Extract<Message, { _tag: Tag }>> }
     ).flat()
     fc.assert(fc.property(state, (before) => {
-      expect(dispatchViolations(update, { state: before, held: messagesOf(bounce.makeModel(before)), candidates }))
-        .toEqual([])
+      expect(dispatchViolations(update, {
+        state: before,
+        held: messagesOf(bounce.makeModel(before)),
+        candidates,
+        inert: (message, at) =>
+          message._tag === "ThrowClicked" && at.ball._tag === "Flying" && at.ball.velocity === toTheTop(at.height)
+      })).toEqual([])
     }))
   })
 
@@ -188,11 +204,24 @@ describe("bounce", () => {
     expect(bounce.makeModel({ dt, height: 0, ball: Ball.Resting() }).height).toBe(0)
   })
 
-  // Beyond what the library asks: that the view draws what its model holds.
+  // The view, checked with the tools of its renderer: `messagesSentBy`, of the snabbdom bridge, finds what the view
+  // sends without a DOM, which the test compares with what the reader returns.
   test("the view sends what its model holds", () => {
     fc.assert(fc.property(state, (before) => {
       const model = bounce.makeModel(before)
       expect(messagesSentBy(view, model)).toEqual(messagesOf(model))
+    }))
+  })
+
+  // Two equal states built apart, by the same seed drawn twice, give two equal models, which a function in a model
+  // would break, being made anew by each `makeModel`.
+  test("the model is data: equal states, built apart, have equal models", () => {
+    fc.assert(fc.property(fc.integer(), (seed) => {
+      const [one] = fc.sample(state, { seed, numRuns: 1 })
+      const [other] = fc.sample(state, { seed, numRuns: 1 })
+      if (one === undefined || other === undefined) throw new Error("nothing sampled")
+      expect(one).not.toBe(other)
+      expect(Equal.equals(bounce.makeModel(one), bounce.makeModel(other))).toBe(true)
     }))
   })
 

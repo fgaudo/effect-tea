@@ -13,7 +13,7 @@ import * as Opt from "effect/Option"
 import * as fc from "fast-check"
 import { collectGarbage } from "../test/gc.test_helper.ts"
 import type { Execution } from "./command.ts"
-import { type Child, type ChildById, type Instance, program } from "./compose.ts"
+import { type Child, type ChildById, type Instance, type Kept, program } from "./compose.ts"
 import { CompositionDefect, compositionDefect, defect } from "./defect.ts"
 import { type Dispatch, forwardTo } from "./dispatch.ts"
 import type { Ignored } from "./engine.ts"
@@ -24,6 +24,7 @@ import {
   type EventOf,
   type ExternalOf,
   type FlagsOf,
+  type KeyOf,
   type MessageOf,
   type ModelOf,
   type OutputOf,
@@ -349,6 +350,20 @@ describe("compose", () => {
     expect(heard.state.own.heard).toBe(1)
   })
 
+  test("a handler that answers { state } to the event of a child's step keeps the child's new state, and adds nothing", () => {
+    const Quiet = program<{ state: Readonly<{ heard: number }> }>()
+    const quiet = Quiet.withChildren({ Left: Quiet.child(counter) }).make({
+      init: { state: { heard: 0 } },
+      onEvent: { Left: () => (state) => ({ state }) },
+      makeModel: () => null
+    })
+    const saving = stateOf(quiet, { heard: 0 }, { Left: { ...counter.init.state, count: 2, saving: true } })
+    const result = accepted(quiet.update({ _tag: "Left", message: CounterMessage.Saved() })(saving))
+    expect(stateAt(result.state.children.Left)).toEqual({ ...counter.init.state, count: 2, saving: false })
+    expect(result.state.own).toBe(saving.own)
+    expect([result.commands, result.events]).toEqual([[], []])
+  })
+
   test("a message its child rejects is rejected by the parent", () => {
     expect(app.update({ _tag: "Left", message: CounterMessage.Decrement() })(app.init.state)).toBe(reject)
   })
@@ -469,6 +484,22 @@ describe("compose", () => {
     const restarted = Opt.getOrThrow(toggling.makeModel(again).right)
     expect(restarted).not.toBe(right)
     expect(restarted.count).toBe(right.count)
+  })
+
+  // The ticker starts in the very same state object, its `init`, at each start.
+  test("a child started again on the very same state makes its own keys, under its new instance", () => {
+    type Shown = Readonly<{ shown: boolean }>
+    const Shown = program<{ state: Shown; message: "Toggled" }>()
+    const toggling = Shown.withChildren({ Ticker: Shown.child(ticker, { there: (state) => state.shown }) }).make({
+      init: { state: { shown: true } },
+      update: () => (state) => ({ state: { shown: !state.shown } }),
+      makeModel: () => null
+    })
+    const first = toggling.subscriptions(toggling.init.state)
+    const again = applyAll(toggling.update, ["Toggled", "Toggled"], toggling.init.state).state
+    expect(stateAt(again.children.Ticker)).toBe(stateAt(toggling.init.state.children.Ticker))
+    expect(first).toEqual([{ _tag: "Ticker", instance: 1, key: "ticks" }])
+    expect(toggling.subscriptions(again)).toEqual([{ _tag: "Ticker", instance: 2, key: "ticks" }])
   })
 })
 
@@ -955,6 +986,16 @@ describe("the children that the library keeps", () => {
     expect(single.update({ _tag: "One", message: { _tag: "Bumped" } })(closed)).toBe(reject)
   })
 
+  test("a dropped child's subscriptions stop: the state after lists none of its keys, by id and alone", () => {
+    const listed = after(added(1), added(2)).state
+    expect(rowList.subscriptions(listed)).toHaveLength(2)
+    const { state } = applyAll(rowList.update, [{ _tag: "Removed", id: 1 }], listed)
+    expect(rowList.subscriptions(state)).toEqual([{ _tag: "Row", id: 2, instance: 2, key: "bumps" }])
+    const opened = singleAfter("Opened").state
+    expect(single.subscriptions(opened)).toEqual([{ _tag: "One", instance: 1, key: "bumps" }])
+    expect(single.subscriptions(accepted(single.update({ _tag: "Closed" })(opened)).state)).toEqual([])
+  })
+
   test("other flags start a child by id again, from them, in one step, under other keys", () => {
     const before = after(added(1, "a"), { _tag: "Row", id: 1, message: { _tag: "Bumped" } }).state
     const { state, commands } = applyAll(rowList.update, [{ _tag: "Relabeled", id: 1, label: "b" }], before)
@@ -991,6 +1032,33 @@ describe("the children that the library keeps", () => {
     expect(state.own.turn).toBe(1)
     expect(state.starts).toBe(2)
     expect(state.children).toBe(seeds.init.state.children)
+  })
+
+  test("other flags start a child alone again, from them, and flags equal by Equal, a struct made anew, keep it", () => {
+    type Seeded = Readonly<{ seed: number; bumps: number }>
+    const seeded = program<{ state: Seeded; message: "Bumped"; flags: Readonly<{ seed: number }> }>().make({
+      init: (flags) => ({ state: { seed: flags.seed, bumps: 0 } }),
+      update: () => (state) => ({ state: { ...state, bumps: state.bumps + 1 } }),
+      makeModel: (state) => state.seed
+    })
+    type Seeds = Readonly<{ seed: number; turn: number }>
+    const Seeds = program<{ state: Seeds; message: "Turned" | "Reseeded" }>()
+    const seeds = Seeds.withChildren({
+      Seeded: Seeds.child(seeded, { flags: (state) => Opt.some({ seed: state.seed }) })
+    }).make({
+      init: { state: { seed: 1, turn: 0 } },
+      update: (message) => (state) =>
+        message === "Turned"
+          ? { state: { ...state, turn: state.turn + 1 } }
+          : { state: { ...state, seed: state.seed + 1 } },
+      makeModel: () => null
+    })
+    const bumped = applyAll(seeds.update, [{ _tag: "Seeded", message: "Bumped" }], seeds.init.state).state
+    const turned = applyAll(seeds.update, ["Turned"], bumped).state
+    expect(turned.own.turn).toBe(1)
+    expect(turned.children).toBe(bumped.children)
+    const reseeded = applyAll(seeds.update, ["Reseeded"], bumped).state
+    expect(reseeded.children.Seeded).toEqual(Opt.some({ instance: 2, key: { seed: 2 }, state: { seed: 2, bumps: 0 } }))
   })
 
   test("another key starts a child alone again, and a key equal by Equal, a struct made anew, keeps it", () => {
@@ -1033,8 +1101,10 @@ describe("the children that the library keeps", () => {
     expect(makeTwice).toThrow(twice)
   })
 
-  // A state written by hand that holds none of the children its own state lists shows what is reconciled: a
-  // reconciliation would start the row again.
+  // It holds a part of the invariant "The children are those the parent's own state lists…" of docs/invariants.md:
+  // children by id whose ids give the very same object are not reconciled, a cost bounded by `ids` being pure. The
+  // state written by hand, which holds none of the children its own state lists and whose fate `Kept` leaves
+  // unspecified, is only the probe that shows what is reconciled: a reconciliation would start the row again.
   test("children by id whose ids give the very same object are left as they are, and others are reconciled", () => {
     type Short = Readonly<{ ids: ReadonlyArray<number>; notes: number }>
     const Short = program<{ state: Short; message: "Noted" | "Relisted" }>()
@@ -1149,12 +1219,16 @@ describe("what a declaration tells its children", () => {
     | Readonly<{ _tag: "SetAndPoke"; condition: string; id: number }>
     | Readonly<{ _tag: "Touched" }>
   const Telling = program<{ state: Own; message: Message }>()
-  const parent = (first: Own, onBounce: (state: Own) => Own = (state) => state) =>
+  const parent = (
+    first: Own,
+    onBounce: (state: Own) => Own = (state) => state,
+    say: (condition: string) => string = (condition) => condition
+  ) =>
     Telling.withChildren({
       Kid: Telling.childById(hearing, {
         ids: (state) => state.ids,
         // A new object at each call: what was told is compared by value.
-        tell: (state) => ({ _tag: "Cond", value: state.condition })
+        tell: (state) => ({ _tag: "Cond", value: say(state.condition) })
       })
     }).make({
       init: { state: first },
@@ -1207,6 +1281,28 @@ describe("what a declaration tells its children", () => {
     expect(touched.children).toBe(changed.children)
   })
 
+  test("children by id are told in the order their ids are listed, and two names in the order of withChildren", () => {
+    const app = parent({ ...start, ids: [2, 1] })
+    expect(accepted(app.update({ _tag: "Set", condition: "x" })(app.init.state)).commands).toEqual([
+      { _tag: "Kid", id: 2, instance: 1, command: "Answered" },
+      { _tag: "Kid", id: 1, instance: 2, command: "Answered" }
+    ])
+    const Named = program<{ state: Readonly<{ condition: string }>; message: "Set" }>()
+    const named = Named.withChildren({
+      Second: Named.child(hearing, { tell: (state) => ({ _tag: "Cond", value: state.condition }) }),
+      First: Named.child(hearing, { tell: (state) => ({ _tag: "Cond", value: state.condition }) })
+    }).make({
+      init: { state: { condition: "a" } },
+      update: () => () => ({ state: { condition: "x" } }),
+      onEvent: { Second: () => (state) => ({ state }), First: () => (state) => ({ state }) },
+      makeModel: () => null
+    })
+    expect(accepted(named.update("Set")(named.init.state)).commands).toEqual([
+      { _tag: "Second", instance: 1, command: "Answered" },
+      { _tag: "First", instance: 2, command: "Answered" }
+    ])
+  })
+
   test("what the declaration tells is told before what the step lists in tell", () => {
     const app = parent(start)
     const { state } = accepted(app.update({ _tag: "SetAndPoke", condition: "c", id: 2 })(app.init.state))
@@ -1219,6 +1315,30 @@ describe("what a declaration tells its children", () => {
     const { state } = accepted(app.update({ _tag: "SetAndPoke", condition: "b", id: 2 })(app.init.state))
     expect(state.own.ids).toEqual([1])
     expect(heard(state)).toEqual([["a", "b"]])
+  })
+
+  test("what a step lists in tell is bound first: a child that an answer to the declaration started again is told nothing", () => {
+    type Keyed = Readonly<{ condition: string; generation: number }>
+    const Keyed = program<{ state: Keyed; message: Readonly<{ _tag: "SetAndPoke"; condition: string }> }>()
+    // The first child, told "b", bounces, and the parent starts the second, which the step tells, again.
+    const app = Keyed.withChildren({
+      Kid: Keyed.child(hearing, { tell: (state) => ({ _tag: "Cond", value: state.condition }) }),
+      Other: Keyed.child(hearing, { key: (state) => state.generation })
+    }).make({
+      init: { state: { condition: "a", generation: 0 } },
+      update: ({ condition }) => (state) => ({
+        state: { ...state, condition },
+        tell: [{ _tag: "Other", message: { _tag: "Poke" } }]
+      }),
+      onEvent: {
+        Kid: () => (state) => ({ state: { ...state, generation: state.generation + 1 } }),
+        Other: () => (state) => ({ state })
+      },
+      makeModel: (_, children) => [children.Kid().heard, children.Other().heard]
+    })
+    const { state } = accepted(app.update({ _tag: "SetAndPoke", condition: "b" })(app.init.state))
+    expect(Opt.map(state.children.Other, (kept) => kept.instance)).toEqual(Opt.some(3))
+    expect(app.makeModel(state)).toEqual([["a", "b"], []])
   })
 
   test("a child whose answer makes the parent change the value again: each child ends with the last one", () => {
@@ -1348,9 +1468,36 @@ describe("what a declaration tells its children", () => {
     expect(heard(accepted(app.update({ _tag: "Touched" })(state)).state)).toEqual([["c"], ["given"]])
   })
 
+  // As a state kept across a reload in development, under a `tell` that has changed since.
+  test("a state given back as init to a program of another tell keeps what each child was told, until the value changes", () => {
+    const quiet = parent(start)
+    const saved = accepted(quiet.update({ _tag: "Set", condition: "c" })(quiet.init.state)).state
+    const loud = parent(start, undefined, (condition) => condition.toUpperCase())
+    const reloaded = { ...loud, init: { state: saved } }
+    const touched = accepted(reloaded.update({ _tag: "Touched" })(reloaded.init.state)).state
+    expect(heard(touched)).toEqual([["a", "c"], ["a", "c"]])
+    const changed = accepted(reloaded.update({ _tag: "Set", condition: "d" })(touched)).state
+    expect(heard(changed)).toEqual([["a", "c", "D"], ["a", "c", "D"]])
+  })
+
   test("stateOf refuses a handler that gives another own state, and one that raises an event of the parent's own", () => {
     const app = parent(start)
     expect(() => stateOf(app, { condition: "b", ids: [1], bounces: 0 })).toThrow(
+      "stateOf: a handler of onEvent gives another own state, in answer to what a child is told"
+    )
+    // An equal copy is another state too.
+    const Copying = program<{ state: Own }>()
+    const copying = Copying.withChildren({
+      Kid: Copying.childById(hearing, {
+        ids: (state) => state.ids,
+        tell: (state) => ({ _tag: "Cond", value: state.condition })
+      })
+    }).make({
+      init: { state: start },
+      onEvent: { Kid: () => (state) => ({ state: { ...state } }) },
+      makeModel: () => null
+    })
+    expect(() => stateOf(copying, { condition: "b", ids: [1], bounces: 0 })).toThrow(
       "stateOf: a handler of onEvent gives another own state, in answer to what a child is told"
     )
     const Raising = program<{ state: Own; event: "Up" }>()
@@ -1509,7 +1656,8 @@ describe("what a parent reads of its children", () => {
     })
   // A room that writes down what it reads of its lamps, and counts those that are on.
   type Room = Readonly<{ seen: ReadonlyArray<unknown>; lamps: ReadonlyArray<number>; desk: boolean }>
-  const Room = program<{ state: Room; message: "Looked" | "FlipCeiling"; external: "Looked"; output: number }>()
+  type Look = "Looked" | "FlipCeiling"
+  const Room = program<{ state: Room; message: Look; external: Look; output: number }>()
   const room = Room.withChildren({
     Ceiling: Room.child(lamp),
     Desk: Room.child(lamp, { there: (state) => state.desk }),
@@ -1526,7 +1674,10 @@ describe("what a parent reads of its children", () => {
         ? { state: { ...state, seen } }
         : { state: { ...state, seen }, tell: [{ _tag: "Ceiling", message: flip }] }
     },
-    external: (_, children) => (state) => ({ state: { ...state, seen: [children.Ceiling.output()] } }),
+    external: (message, children) => (state) =>
+      message === "Looked"
+        ? { state: { ...state, seen: [children.Ceiling.output()] } }
+        : { state: { ...state, seen: [children.Ceiling.output()] }, tell: [{ _tag: "Ceiling", message: flip }] },
     onEvent: {
       Ceiling: (_, children) => (state) => ({ state: { ...state, seen: [children.Ceiling.output()] } }),
       Desk: () => (state) => ({ state }),
@@ -1551,6 +1702,9 @@ describe("what a parent reads of its children", () => {
     expect(state.own.seen).toEqual([true, Opt.some(false), false, true])
     expect(stateAt(state.children.Ceiling)).toEqual({ on: false })
     expect(accepted(room.external("Looked")(lit)).state.own.seen).toEqual([true])
+    const flipped = accepted(room.external("FlipCeiling")(lit)).state
+    expect(flipped.own.seen).toEqual([true])
+    expect(stateAt(flipped.children.Ceiling)).toEqual({ on: false })
   })
 
   test("a handler of onEvent reads the outputs as the child's step left them", () => {
@@ -1616,18 +1770,41 @@ describe("what a parent reads of its children", () => {
   })
 
   test("a parent reads only the outputs its children declare, and no model, outside makeModel", () => {
-    const Reading = program<{ state: object; message: "Go" }>()
+    // Each function is given the own state alone, which has no `children`.
+    type Own = Readonly<{ looks: number }>
+    const Reading = program<{ state: Own; message: "Go"; external: "Went"; output: number }>()
     const reading = Reading.withChildren({ Lamp: Reading.child(lamp), Counter: Reading.child(counter) }).make({
-      init: { state: {} },
+      init: { state: { looks: 0 } },
       update: (_, children) => (state) => {
         expectTypeOf(children.Lamp.output).toEqualTypeOf<() => boolean>()
+        expectTypeOf(state).toEqualTypeOf<Own>()
         // @ts-expect-error: the counter declares no output.
         void children.Counter
         // @ts-expect-error: a child's model is for the view, and is read in `makeModel` alone.
         void children.Lamp()
         return { state }
       },
-      onEvent: { Lamp: () => (state) => ({ state }), Counter: () => (state) => ({ state }) },
+      external: (_, children) => (state) => {
+        expectTypeOf(state).toEqualTypeOf<Own>()
+        // @ts-expect-error: nor in `external`.
+        void children.Lamp()
+        return { state }
+      },
+      onEvent: {
+        Lamp: (_, children) => (state) => {
+          expectTypeOf(state).toEqualTypeOf<Own>()
+          // @ts-expect-error: nor in `onEvent`.
+          void children.Lamp()
+          return { state }
+        },
+        Counter: () => (state) => ({ state })
+      },
+      output: (state, children) => {
+        expectTypeOf(state).toEqualTypeOf<Own>()
+        // @ts-expect-error: nor in `output`.
+        void children.Lamp()
+        return state.looks
+      },
       makeModel: (_, children) => {
         // @ts-expect-error: the counter declares no output.
         void children.Counter.output
@@ -1660,6 +1837,14 @@ describe("what a parent reads of its children", () => {
       init: { state: { on: false } },
       // @ts-expect-error: a program without children has no outputs to read.
       update: (_, children) => (state) => ({ state: children === undefined ? state : state }),
+      makeModel: () => null
+    })
+    program<{ state: Lamp; external: Flip; output: boolean }>().make({
+      init: { state: { on: false } },
+      // @ts-expect-error: nor in its `external`.
+      external: (_, children) => (state) => ({ state: children === undefined ? state : state }),
+      // @ts-expect-error: nor in its `output`.
+      output: (state, children) => children === undefined && state.on,
       makeModel: () => null
     })
     expect(unread.makeModel(unread.init.state)).toBeNull()
@@ -2257,6 +2442,17 @@ describe("flags", () => {
     // `listening` takes the id that `ids` gives, inferred from it.
     expectTypeOf(childById(ticker, { ids: (state) => (state.ticks > 0 ? [1] : []), listening: (_, id) => id > 0 }))
       .toEqualTypeOf<ChildById<Ticks, number, typeof ticker>>()
+  })
+
+  test("a child with flags takes no key beside them, and the tell of children by id takes no id", () => {
+    const { child, childById } = program<{ state: Ticks }>()
+    // @ts-expect-error: other flags start it again: equal flags under another key would not.
+    expect(child(seeded, { flags: () => Opt.some(1), key: (state) => state.ticks })).toBeDefined()
+    const ids = (): ReadonlyArray<number> => [1]
+    // @ts-expect-error: one value for all the children of the declaration.
+    expect(childById(counter, { ids, tell: (_: Ticks, id: number) => (id > 0 ? cleared : cleared) })).toBeDefined()
+    expect([child(seeded, { flags: () => Opt.some(1) }), childById(counter, { ids, tell: () => cleared })])
+      .toHaveLength(2)
   })
 
   test("the functions of a child's options take the parent's state, without annotations", () => {
@@ -2915,6 +3111,39 @@ describe("what the types reject", () => {
     withChildren({ Telling: child(telling) }).make({ init: { state: noTicks }, makeModel: () => null })
   })
 
+  test("an onEvent has a handler for each child that has events, and does not compile without one", () => {
+    const { child, withChildren } = program<{ state: Ticks }>()
+    withChildren({ Left: child(counter), Right: child(counter) }).make({
+      init: { state: noTicks },
+      // @ts-expect-error: the events of `Right` would go unhandled.
+      onEvent: { Left: () => (state) => ({ state }) },
+      makeModel: () => null
+    })
+  })
+
+  test("a first step lists no tell and raises no events, with or without children", () => {
+    const resettable: Program<{ state: Ticks; model: number; message: Tick; external: Reset }> = {
+      init: { state: noTicks },
+      update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
+      external: () => () => ({ state: noTicks }),
+      subscriptions: () => [],
+      makeModel: ({ ticks }) => ticks
+    }
+    const { child, make, withChildren } = program<{ state: Ticks; event: "Up" }>()
+    withChildren({ Counter: child(resettable) }).make({
+      // @ts-expect-error: a child is given what it starts from by its flags, and told what its declaration gives.
+      init: { state: noTicks, tell: [{ _tag: "Counter", message: { _tag: "Reset" } }] },
+      makeModel: () => null
+    })
+    withChildren({ Counter: child(resettable) }).make({
+      // @ts-expect-error: a program starts in no step of a parent, which would take its events.
+      init: { state: noTicks, events: ["Up"] },
+      makeModel: () => null
+    })
+    // @ts-expect-error: without children too.
+    make({ init: { state: noTicks, events: ["Up"] }, makeModel: () => null })
+  })
+
   test("a program's commands and events are those its steps list, and none where none lists them", () => {
     const sometimes = {
       init: { state: noTicks },
@@ -3007,9 +3236,17 @@ describe("what the types reject", () => {
   })
 
   test("commands of its own need a runCommand", () => {
-    const { child, withChildren } = program<{ state: Ticks; command: Readonly<{ _tag: "Beep" }> }>()
+    const { child, make, withChildren } = program<{ state: Ticks; command: Readonly<{ _tag: "Beep" }> }>()
     // @ts-expect-error: `Beep` would go uninterpreted.
     withChildren({ Plain: child(plain) }).make({ init: { state: noTicks }, makeModel: () => null })
+    // @ts-expect-error: without children too.
+    make({ init: { state: noTicks, commands: [{ _tag: "Beep" }] }, makeModel: () => null })
+    program<{ state: Ticks }>().make({
+      init: { state: noTicks },
+      // @ts-expect-error: a program that names no commands has none to run.
+      runCommand: () => Effect.succeedNone,
+      makeModel: () => null
+    })
   })
 
   test("the commands of a parent need what its runCommand and those of its children need, and its subscriptions what its own and those of its children need, wherever they are returned", () => {
@@ -3161,6 +3398,13 @@ describe("what the types reject", () => {
       .toEqual([true, true, true, true, true, true, true])
   })
 
+  test("the services are never named in program, where they would be ignored: they are inferred", () => {
+    // @ts-expect-error: those of the commands are inferred from `runCommand` and the children.
+    program<{ state: Ticks; message: Tick; command: "Save"; commandServices: "Named" }>()
+    // @ts-expect-error: those of the subscriptions from `listen` and the children.
+    program<{ state: Ticks; message: Tick; key: "ticks"; subscriptionServices: "Named" }>()
+  })
+
   test("one branch of a runCommand, or one subscription of a map, that answers with no message of the parent's", () => {
     class Clock extends Context.Service<Clock, { readonly now: Effect.Effect<number> }>()("Clock") {}
     type Tock = Readonly<{ _tag: "Tock" }>
@@ -3243,6 +3487,79 @@ describe("what the types reject", () => {
     ])
   })
 
+  test("make gives a Program of the types it has, and each is read back exactly", () => {
+    const counting = program<{ state: Ticks; message: Tick; command: "Save"; key: "ticks" }>().make({
+      init: { state: noTicks },
+      update: () => (state) => ({ state, commands: ["Save"] }),
+      runCommand: () => Effect.succeedNone,
+      subscriptions: () => ["ticks" as const],
+      listen: () => ticks,
+      makeModel: ({ ticks }) => ticks
+    })
+    expectTypeOf(counting).toEqualTypeOf<
+      Program<{ state: Ticks; model: number; message: Tick; command: "Save"; key: "ticks" }>
+    >()
+    const flagged = program<{ state: Ticks; flags: number }>().make({
+      init: (ticks) => ({ state: { ticks } }),
+      makeModel: () => null
+    })
+    expectTypeOf(flagged).toEqualTypeOf<Program<{ state: Ticks; model: null; message: never; flags: number }>>()
+    const { child, childById, withChildren } = program<{ state: ListState; key: "own" }>()
+    const parent = withChildren({
+      Clock: child(ticker),
+      Tickers: childById(ticker, { ids: (state) => state.ids })
+    }).make({
+      init: { state: { ids: [] } },
+      subscriptions: () => ["own" as const],
+      listen: () => Channel.never,
+      makeModel: () => null
+    })
+    type ParentState = Kept<
+      ListState,
+      { readonly Clock: Opt.Option<Instance<Ticks>>; readonly Tickers: HashMap.HashMap<number, Instance<Ticks>> }
+    >
+    type ParentMessage =
+      | Readonly<{ _tag: "Clock"; message: Tick; instance?: number }>
+      | (Readonly<{ _tag: "Tickers"; message: Tick; instance?: number }> & Readonly<{ id: number }>)
+    type ParentKey =
+      | "own"
+      | Readonly<{ _tag: "Clock"; instance: number; key: "ticks" }>
+      | (Readonly<{ _tag: "Tickers"; instance: number; key: "ticks" }> & Readonly<{ id: number }>)
+    expectTypeOf(parent).toEqualTypeOf<
+      Program<{ state: ParentState; model: null; message: ParentMessage; key: ParentKey }>
+    >()
+    expectTypeOf<StateOf<typeof counting>>().toEqualTypeOf<Ticks>()
+    expectTypeOf<StateOf<typeof flagged>>().toEqualTypeOf<Ticks>()
+    expectTypeOf<StateOf<typeof parent>>().toEqualTypeOf<ParentState>()
+    expectTypeOf<MessageOf<typeof parent>>().toEqualTypeOf<ParentMessage>()
+    expectTypeOf<KeyOf<typeof counting>>().toEqualTypeOf<"ticks">()
+    expectTypeOf<KeyOf<typeof flagged>>().toBeNever()
+    expectTypeOf<KeyOf<typeof plain>>().toBeNever()
+    expectTypeOf<KeyOf<typeof parent>>().toEqualTypeOf<ParentKey>()
+    // Commands that only its first step lists are its commands too.
+    const booting = {
+      init: { state: noTicks, commands: ["Boot" as const] },
+      update: (_: Tick) => (state: Ticks) => ({ state }),
+      runCommand: () => Effect.succeedNone,
+      subscriptions: () => [],
+      makeModel: () => null
+    }
+    expectTypeOf<CommandOf<typeof booting>>().toEqualTypeOf<"Boot">()
+  })
+
+  test("reject returned through a generic function, from an update written apart, is refused unless it is typed", () => {
+    const { make } = program<{ state: Ticks; message: Tick }>()
+    const fewer = (state: Ticks) => Opt.liftPredicate(state.ticks, (ticks) => ticks > 0)
+    const apart = (_: Tick) => (state: Ticks) =>
+      Opt.match(fewer(state), { onNone: () => reject, onSome: (ticks) => ({ state: { ticks: ticks - 1 } }) })
+    const typed: Update<Ticks, Tick> = () => (state) =>
+      Opt.match(fewer(state), { onNone: () => reject, onSome: (ticks) => ({ state: { ticks: ticks - 1 } }) })
+    // @ts-expect-error: its `reject` is widened to `symbol`, which is no step.
+    make({ init: { state: noTicks }, update: apart, makeModel: () => null })
+    const counting = make({ init: { state: noTicks }, update: typed, makeModel: () => null })
+    expect(counting.update({ _tag: "Tick" })(noTicks)).toBe(reject)
+  })
+
   test("an update is there exactly when the program names messages of its own", () => {
     type Exactly<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
     program<{ state: Ticks }>().make({
@@ -3319,6 +3636,13 @@ describe("what the types reject", () => {
       subscriptions: () => ["ticks"],
       makeModel: () => null
     })
+    program<{ state: Ticks; message: Tick }>().make({
+      init: { state: noTicks },
+      update,
+      // @ts-expect-error: nor makes a subscription.
+      listen: (): Subscription<Tick> => Channel.end({ _tag: "Tick" }),
+      makeModel: () => null
+    })
     // @ts-expect-error: it names keys, and nothing lists them.
     program<{ state: Ticks; message: Tick; key: "ticks" }>().make({
       init: { state: noTicks },
@@ -3336,16 +3660,19 @@ describe("what the types reject", () => {
   })
 
   test("a child whose program is a type parameter does not compile, in child, childById or withChildren", () => {
+    const { child, childById, withChildren } = program<{ state: Ticks }>()
     const wrapping = <P extends AnyProgram>(inner: P) => {
-      const { child, childById, withChildren } = program<{ state: Ticks }>()
       // @ts-expect-error: the compiler cannot decide that the program is one.
       const Inner = child(inner)
       // @ts-expect-error: nor for children by id.
       const Rows = childById(inner, { ids: (): ReadonlyArray<number> => [] })
-      // @ts-expect-error: nor what the child needs.
-      return withChildren({ Inner, Rows }).make({ init: { state: noTicks }, makeModel: () => null })
+      return [Inner, Rows]
     }
-    expect(wrapping).toBeDefined()
+    // Children declared apart, whose types compile: only `make` refuses them.
+    const parentOf = <P extends AnyProgram>(Inner: Child<Ticks, P, "always">, Rows: ChildById<Ticks, number, P>) =>
+      // @ts-expect-error: nor what the children need, such as an `onEvent` for their events.
+      withChildren({ Inner, Rows }).make({ init: { state: noTicks }, makeModel: () => null })
+    expect([wrapping, parentOf]).toHaveLength(2)
   })
 })
 

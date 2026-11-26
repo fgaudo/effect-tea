@@ -1,6 +1,6 @@
 // A line of the cart. It prices itself with a command of its own, so it is a child, and its parent locks it while a
 // payment runs: the lock is a fact of the parent, which the row is told and keeps in its state.
-import { type Execution, program, reject, type Transition } from "@fgaudo/effect-tea"
+import { defect, type Execution, program, reject, type Transition } from "@fgaudo/effect-tea"
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
@@ -43,11 +43,14 @@ export const update = (message: Message) => (state: State): Transition<State, Co
       }
     case "RemoveClicked":
       return state.locked ? reject : { state, events: [{ _tag: "RemoveRequested" }] }
-    // The answer of its command is taken while locked too. One for another quantity came too late.
+    // The answer of its command is taken while locked too. One for a smaller quantity came too late. Each quantity is
+    // fetched once, as the row reaches it, and only that answer leaves `Fetching`: an answer for the quantity once it
+    // is fetched, or for a quantity not reached yet, is a bug.
     case "PriceFetched":
-      return message.quantity === state.quantity
+      if (message.quantity < state.quantity) return reject
+      return message.quantity === state.quantity && state.price._tag === "Fetching"
         ? { state: { ...state, price: Price.Fetched({ amount: message.amount }) } }
-        : reject
+        : defect("A price came that no fetch under way asked for")
   }
 }
 

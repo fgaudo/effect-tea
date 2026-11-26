@@ -9,7 +9,7 @@ title: Anatomy of a program
 This page shows the pieces of a program and how they connect. The other pages of the guide describe each piece in
 detail, so start here.
 
-A program is a plain object, made with `program`. It has up to eight pieces:
+A program is a plain object, made with `program`. It has up to eight pieces, and a parent's `make` takes `onEvent` too:
 
 - `init` says where the program starts: its first state, and the commands to start with.
 - `update` says how each message changes the state.
@@ -70,8 +70,8 @@ Its `update` is on the page [update](./update.md). Here is the program itself:
 
   A type that the program does not name is a type that the program does not have: a program that names no `message`
   has no `update`, and one that names no `key` has no `subscriptions` and no `listen` in `make`. A model that is named
-  is checked, and one that is not named is inferred from `makeModel`. The services are never named: they are inferred
-  from `runCommand` and `listen`.
+  is checked, and one that is not named is inferred from `makeModel`. The services are never named: `program` refuses
+  `commandServices` and `subscriptionServices`, and infers them from `runCommand` and `listen`.
 - **Its type lists the types it is made of**: `Program<{ state; model; message }>`, with the others that it has. `make`
   returns this type, and a function that takes a program names it. `StateOf<typeof program>`, `MessageOf` and the
   others read a type back.

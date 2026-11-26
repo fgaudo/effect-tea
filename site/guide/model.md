@@ -15,8 +15,8 @@ view's controls send. The model is data, and it compares by value with `Equal`.
 ## An example
 
 In this example, `Message` is a `Data.TaggedEnum`. What is typed into the name is a message that the model holds
-without its text, `Typing` (see [what an element gives](./what-an-element-gives.md)). `isBlank` is a helper of the
-program.
+without its text, `Typing` (see [what an element gives](./what-an-element-gives.md)). `canSave` is a function of the
+program, which `update` calls too.
 
 ```ts
 type Typing = Readonly<{ _tag: "NameTyped" }>
@@ -31,9 +31,9 @@ const makeModel = ({ draft }: State): { name: string; editor: Editor } => ({
   name: draft.name,
   editor: draft._tag === "Saving"
     ? { _tag: "Saving" }
-    : isBlank(draft.name)
-    ? { _tag: "Blank", typed: { _tag: "NameTyped" } }
-    : { _tag: "Named", typed: { _tag: "NameTyped" }, save: Message.SaveClicked() }
+    : canSave(draft)
+    ? { _tag: "Named", typed: { _tag: "NameTyped" }, save: Message.SaveClicked() }
+    : { _tag: "Blank", typed: { _tag: "NameTyped" } }
 })
 ```
 
@@ -58,8 +58,9 @@ control sends the message that the program fixed for it.
 
 **A model is data.** A model holds no function. A model compares by value with `Equal`, and the models of two equal
 states are equal. Data need not be serializable: a plain object, an array, an `Option`, a `Data` class or a `HashMap`
-is data. The testing tools compare models and their messages with `Equal`, which a function made anew by each call of
-`makeModel` would break.
+is data. A test compares the models of two states with `Equal` (see [testing](./testing.md#the-model-of-any-state)),
+and `dispatchViolations` compares the messages they hold, which a function made anew by each call of `makeModel` would
+break.
 
 ## Advice
 

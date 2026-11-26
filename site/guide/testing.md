@@ -32,7 +32,6 @@ The tests of a program follow its shape, in four steps:
 1. **Generate its states** with a property-testing library (fast-check in the examples). Use one arbitrary. It
    produces only valid states, and every case of each state machine is among them.
 2. **Check, for any of them:**
-   - that `update` answers every message with a step or `reject`, the same each time;
    - that the model holds what `update` accepts, and no control that does nothing (`dispatchViolations`);
    - that the model is data;
    - what the program listens to (`program.subscriptions`).
@@ -51,7 +50,8 @@ gives the subscription of a key. `program.output(state)` is what a parent would 
 
 **That the model is data** is checked on two equal states built apart, drawn from the same seed, as
 [`form`](../../examples/form/form.test.ts) does. One state object used twice passes whatever its model holds, because a
-parent keeps each child's model while the child keeps its state:
+parent keeps each child's model while the child keeps its state (see
+[what the library derives](./composition.md#what-the-library-derives)):
 
 ```ts
 const [one] = fc.sample(states, { seed, numRuns: 1 })

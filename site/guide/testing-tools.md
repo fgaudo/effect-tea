@@ -124,8 +124,8 @@ service.
 
 **Under Effect's `TestClock`, move the clock while `hearNext` waits.** A subscription that sleeps waits for the test to
 move the clock, and time moved before it starts to sleep does not count: the test would wait until it times out. So
-race the call against a clock that keeps moving, as [`list`](../../examples/list/list.test.ts) does. A subscription
-that does not sleep needs none of it.
+race the call against a clock that keeps moving, as [`list`](../../examples/list/list.test.ts) races a run under
+`TestClock`. A subscription that does not sleep needs none of it.
 
 ```ts
 const message = yield * rehearsal.hearNext("ticks").pipe(

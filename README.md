@@ -139,10 +139,13 @@ type State = Readonly<{ count: number }>
 
 type Message = "Increment" | "Decrement"
 
-const update: Update<State, Message> = (message) => ({ count }) => {
-  if (message === "Increment") return { state: { count: count + 1 } }
-  if (count === 0) return reject // nothing to decrement
-  return { state: { count: count - 1 } }
+// The rule, asked by `update` and by `makeModel` alike.
+const canDecrement = ({ count }: State) => count > 0
+
+const update: Update<State, Message> = (message) => (state) => {
+  if (message === "Increment") return { state: { count: state.count + 1 } }
+  if (!canDecrement(state)) return reject // nothing to decrement
+  return { state: { count: state.count - 1 } }
 }
 
 // At zero there is no `decrement`: the model's shape says so.
@@ -158,15 +161,15 @@ type Model =
 const counter = program<{ state: State; model: Model; message: Message }>().make({
   init: { state: { count: 0 } },
   update,
-  makeModel: ({ count }) =>
-    count > 0
+  makeModel: (state) =>
+    canDecrement(state)
       ? {
         _tag: "Counting",
-        count,
+        count: state.count,
         increment: "Increment",
         decrement: "Decrement"
       }
-      : { _tag: "AtZero", count, increment: "Increment" }
+      : { _tag: "AtZero", count: state.count, increment: "Increment" }
 })
 
 const { app, run } = start(counter)

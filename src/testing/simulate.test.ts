@@ -98,15 +98,29 @@ describe("simulate", () => {
         Effect.sync(() => log.push(`acquire ${name}`)),
         () => Effect.sync(() => log.push(`release ${name}`))
       )
-    const chained: Update<object, Step, "A" | "B"> = (message) => (state) =>
-      message === "Start" ? { state, commands: ["A"] } : message === "First" ? { state, commands: ["B"] } : { state }
+    const chained: Update<object, Step, "A" | "B"> = (message) => (state) => {
+      log.push(`apply ${message}`)
+      return message === "Start"
+        ? { state, commands: ["A"] }
+        : message === "First"
+        ? { state, commands: ["B"] }
+        : { state }
+    }
     const runCommand: RunCommand<"A" | "B", Step, Scope.Scope> = (command) =>
       resource(command).pipe(Effect.as(Opt.some<Step>(command === "A" ? "First" : "Second")))
     const simulation = await Effect.runPromise(
       simulate({ update: chained, runCommand, subscriptions: () => [] }, ["Start"], { state: {} })
     )
     expect(simulation.applied).toEqual(["Start", "First", "Second"])
-    expect(log).toEqual(["acquire A", "release A", "acquire B", "release B"])
+    expect(log).toEqual([
+      "apply Start",
+      "acquire A",
+      "release A",
+      "apply First",
+      "acquire B",
+      "release B",
+      "apply Second"
+    ])
   })
 
   test("asks only for the services of the commands, not for those of the subscriptions it never runs", () => {
@@ -158,6 +172,33 @@ describe("simulate", () => {
       simulate(toggling, ["Toggle", "Tick", "Toggle", "Tick", "Toggle", "Toggle"], { state: { on: true, n: 0 } })
     )
     expect(state).toEqual({ on: true, n: 6 })
+  })
+
+  test("calls no init, no listen and no output: it starts from the step it is given, and runs no subscription", async () => {
+    const called: Array<string> = []
+    type Counted = Readonly<{ count: number }>
+    const counting = {
+      init: (_: never): Readonly<{ state: Counted }> => {
+        called.push("init")
+        throw new Error("init")
+      },
+      update: (message: "Increment" | "Pinged") => ({ count }: Counted) => ({
+        state: { count: count + (message === "Increment" ? 1 : 100) }
+      }),
+      subscriptions: () => ["ping" as const],
+      listen: () => {
+        called.push("listen")
+        return Channel.succeed<"Pinged">("Pinged").pipe(Channel.concatWith(() => Channel.never))
+      },
+      makeModel: (state: Counted) => state,
+      output: ({ count }: Counted) => {
+        called.push("output")
+        return count
+      }
+    }
+    const simulation = await Effect.runPromise(simulate(counting, ["Increment"], { state: { count: 5 } }))
+    expect(simulation.state).toEqual({ count: 6 })
+    expect(called).toEqual([])
   })
 
   test("takes a program without commands or events, written as a plain object", async () => {

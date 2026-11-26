@@ -2,6 +2,9 @@ import { reject } from "@fgaudo/effect-tea"
 import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
 import { applyAll, dispatchViolations, stateOf } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
+import * as Equal from "effect/Equal"
+import * as HashMap from "effect/HashMap"
+import * as Opt from "effect/Option"
 import * as fc from "fast-check"
 import { type Message, type Model, namedTimers, type State } from "./named-timers.ts"
 import { namedMessages } from "./named.test_reader.ts"
@@ -59,6 +62,13 @@ const state: fc.Arbitrary<State> = fc
     })
   )
 
+/** The named timers that the library keeps, in the order the list holds their ids in: each name, and its timer. */
+const kept = (state: State) =>
+  state.own.ids.map((id) => {
+    const named = Opt.getOrThrow(HashMap.get(state.children.Timer, id)).state
+    return { name: named.own.name, timer: Opt.getOrThrow(named.children.Timer).state }
+  })
+
 // What a user could ask of a named timer, a tag at a time: what is typed, with the text given, and its timer's clicks.
 const namedCandidates = (text: string): ReadonlyArray<Named.Message> =>
   Object.values(
@@ -96,13 +106,24 @@ describe("named timers", () => {
   test("each timer keeps its own name", () => {
     const added = applyAll(namedTimers.update, [{ _tag: "AddClicked" }], namedTimers.init.state).state
     const drawn = namedTimers.makeModel(added)
-    const { state } = applyAll(namedTimers.update, [typing(drawn, 1, "Tea"), typing(drawn, 2, "Pasta")], added)
-    expect(namedTimers.makeModel(state).timers.map((entry) => entry.model.name)).toEqual(["Tea", "Pasta"])
+    const { state, commands } = applyAll(namedTimers.update, [
+      typing(drawn, 1, "Tea"),
+      typing(drawn, 2, "Pasta")
+    ], added)
+    expect(state.own).toEqual({ nextId: 3, ids: [1, 2] })
+    expect(kept(state)).toEqual([
+      { name: "Tea", timer: Timer.timer.init.state },
+      { name: "Pasta", timer: Timer.timer.init.state }
+    ])
+    expect(commands).toEqual([])
   })
 
-  test("a name typed into a removed timer is rejected", () => {
+  test("a removed timer is gone, and a name typed into it is rejected", () => {
     const drawn = namedTimers.makeModel(namedTimers.init.state)
-    const { state } = applyAll(namedTimers.update, [{ _tag: "RemoveClicked", id: 1 }], namedTimers.init.state)
+    const { state, commands } = applyAll(namedTimers.update, [{ _tag: "RemoveClicked", id: 1 }], namedTimers.init.state)
+    expect(state.own).toEqual({ nextId: 2, ids: [] })
+    expect(kept(state)).toEqual([])
+    expect(commands).toEqual([])
     expect(namedTimers.update(typing(drawn, 1, "Tea"))(state)).toBe(reject)
   })
 
@@ -121,12 +142,42 @@ describe("named timers", () => {
     }))
   })
 
-  // Beyond what the library asks: that the view draws what its model holds, each timer through its own dispatch, its
-  // name's field first, with the name it holds, as `messagesSentBy` finds it without a DOM.
+  // For any state, the timers that run tick, each under its own key, and no other: the test reads the child, its id
+  // and its timer, by id, and leaves the numbers of their instances, and the order of the keys, to the library.
+  test("listens to the ticks of the running timers, and of no other", () => {
+    fc.assert(fc.property(state, (before) => {
+      const running = before.own.ids.filter((id, i) => kept(before)[i]?.timer.phase._tag === "Running")
+      const heard = namedTimers.subscriptions(before).map(({ _tag, id, key }) => ({
+        _tag,
+        id,
+        key: { _tag: key._tag, key: key.key }
+      }))
+      expect([...heard].sort((a, b) => a.id - b.id)).toEqual(
+        [...running].sort((a, b) => a - b).map((id) => ({ _tag: "Timer", id, key: { _tag: "Timer", key: "ticks" } }))
+      )
+    }))
+  })
+
+  // The view, checked with the tools of its renderer: `messagesSentBy`, of the snabbdom bridge, finds what the view
+  // sends without a DOM, each timer through its own dispatch, its name's field first, with the name it holds, which
+  // the test compares with what the reader returns.
   test("the view sends what its model holds", () => {
     fc.assert(fc.property(state, (before) => {
       const model = namedTimers.makeModel(before)
       expect(messagesSentBy<Model, Message>(namedTimersView, model)).toEqual(messagesOf(model, (name) => name))
+    }))
+  })
+
+  // Two equal states built apart, by the same seed drawn twice, give two equal models, which a function in a model
+  // would break, being made anew by each `makeModel`. Each is built by `stateOf`, so that no child's model is kept
+  // from the other.
+  test("the model is data: equal states, built apart, have equal models", () => {
+    fc.assert(fc.property(fc.integer(), (seed) => {
+      const [one] = fc.sample(state, { seed, numRuns: 1 })
+      const [other] = fc.sample(state, { seed, numRuns: 1 })
+      if (one === undefined || other === undefined) throw new Error("nothing sampled")
+      expect(one).not.toBe(other)
+      expect(Equal.equals(namedTimers.makeModel(one), namedTimers.makeModel(other))).toBe(true)
     }))
   })
 })

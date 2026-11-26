@@ -37,6 +37,8 @@ export const Ball = Data.taggedEnum<Ball>()
 /** The height is from 0, the floor, to 100, the top, and the velocity is in heights a second, upwards. */
 export type State = Readonly<{ dt: number; height: number; ball: Ball }>
 
+// A step carries no time. `Advanced` carries a part of one, which only the drawing reads: `update` decides nothing by
+// it, so the steps stay equal.
 export type Message = Data.TaggedEnum<{
   ThrowClicked: object
   Stepped: object

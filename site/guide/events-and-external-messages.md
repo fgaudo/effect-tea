@@ -35,7 +35,8 @@ onEvent: { Page: () => (state) => ({ state: leavePage(state) }) },
 
 ## Rules
 
-A parent and its children talk only through events, external messages and outputs.
+A parent and its children talk only through events, external messages and outputs, and the parent's `makeModel` is
+given its children's models.
 
 ### Events
 
@@ -114,7 +115,7 @@ To tell many children, list one item for each in one `tell`, as a message to eve
 
   ```ts
   case "StopAllClicked": {
-    const running = Arr.filter(state.ids, (id) => children.Stopwatch.output(id).running)
+    const running = runningOf(state.ids, children.Stopwatch.output)
     return Arr.isReadonlyArrayEmpty(running)
       ? reject
       : { state, tell: Arr.map(running, (id) => ({ _tag: "Stopwatch", id, message: { _tag: "Halted" } })) }

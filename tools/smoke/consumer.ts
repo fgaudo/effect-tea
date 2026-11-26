@@ -554,4 +554,7 @@ const main = Effect.gen(function*() {
 })
 
 await Effect.runPromise(main)
+// The services are inferred, never named in `program`.
+// @ts-expect-error
+program<{ state: number; message: "Go"; command: "Save"; commandServices: "Named" }>()
 console.log("smoke: the consumer ran")

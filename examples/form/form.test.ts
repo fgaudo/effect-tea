@@ -12,19 +12,27 @@ import { view } from "./view-snabbdom.ts"
 
 const empty = form.init.state
 
-// Made anew on each draw, so that two states drawn alike share no object.
-const state = (): fc.Arbitrary<State> => {
-  const name = fc.oneof(fc.string(), fc.constant("   "))
-  return fc.record({
+// What may be typed: any text, blank ones among them.
+const text = fc.oneof(fc.string(), fc.constant("   "))
+
+// A name that a save takes, as typed, and as it is saved: trimmed.
+const savable = fc.tuple(fc.constantFrom("", " "), fc.string(), fc.constantFrom("", " ")).map(([before, name, after]) =>
+  `${before}${name.trim() === "" ? "Ada" : name}${after}`
+)
+const trimmed = savable.map((name) => name.trim())
+
+// Any valid state, made anew on each draw, so that two states drawn alike share no object. Only a name that is not
+// blank is saved, and a save, failed or done, names it trimmed.
+const state = (): fc.Arbitrary<State> =>
+  fc.record({
     draft: fc.oneof(
-      fc.record({ name, failed: fc.option(fc.string(), { nil: undefined }) }).map(({ name, failed }) =>
+      fc.record({ name: text, failed: fc.option(trimmed, { nil: undefined }) }).map(({ name, failed }) =>
         Draft.Editing({ name, failed: Opt.fromUndefinedOr(failed) })
       ),
-      fc.record({ name }).map((saving) => Draft.Saving(saving))
+      fc.record({ name: savable }).map((saving) => Draft.Saving(saving))
     ),
-    saved: fc.array(fc.string({ minLength: 1 }), { maxLength: 3 })
+    saved: fc.array(trimmed, { maxLength: 3 })
   })
-}
 
 /** An editing draft with this name, and no failure. */
 const editing = (name: string): State => ({ ...empty, draft: Draft.Editing({ name, failed: Opt.none() }) })
@@ -107,27 +115,28 @@ describe("form", () => {
   })
 
   // The model, for any state: every message it holds is accepted, a double click saves once, and nothing `update`
-  // accepts is missing. What is typed is filled with a text other than the one the model shows: the same text would
-  // change nothing.
+  // accepts is missing. What is typed is filled with a text drawn, other than the one the model shows: the same text
+  // would change nothing.
   test("the model holds what update accepts, all of it, and each acts once when sent twice", () => {
-    fc.assert(fc.property(state(), (before) => {
+    fc.assert(fc.property(state(), text, (before, typed) => {
       const model = form.makeModel(before)
-      const text = `${model.name}1`
+      fc.pre(typed !== model.name)
       expect(dispatchViolations(update, {
         state: before,
-        held: messagesOf(model, text),
-        candidates: candidatesOf(text)
+        held: messagesOf(model, typed),
+        candidates: candidatesOf(typed)
       })).toEqual([])
     }))
   })
 
-  // Beyond what the library asks: that the view draws what its model holds, each control once, and the field with the
-  // name the model holds. `messagesSentBy`, beside the snabbdom bridge, is its way to see it without a DOM: what is
-  // typed holds the text its element is drawn with.
+  // The view draws what its model holds, each control once: `messagesSentBy` finds what it sends without a DOM, and the
+  // test compares it with the reader. The field is drawn with the name the model holds, and sends the text it holds.
   test("the view sends what its model holds", () => {
-    fc.assert(fc.property(state(), (before) => {
+    fc.assert(fc.property(state(), text, (before, typed) => {
       const model = form.makeModel(before)
       expect(messagesSentBy<Model, Message>(view, model)).toEqual(messagesOf(model, model.name))
+      expect(messagesSentBy<Model, Message>(view, model, () => ({ element: { value: typed } })))
+        .toEqual(messagesOf(model, typed))
     }))
   })
 

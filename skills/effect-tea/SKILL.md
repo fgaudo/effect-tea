@@ -99,9 +99,11 @@ No type refuses a break of these, and most often the run goes on. So check each 
   copied as it is: it combines none, compares none and converts none. It copies the numbers of a browser object, as a
   `DOMRect`. A message that an element fills is a plain tagged one, never a class. The guide, "Model", "Messages live
   in the model". The guide, "What an element gives", "Rules".
-- **What the program draws comes from its model.** The one exception is what the platform keeps by itself: a hover,
-  the focus, an animation it runs. A part of the page outside the bridge's `root`, as its title, is drawn from the
-  model by code over the handle, beside the bridge. The guide, "View", "What the program draws comes from its model".
+- **What the program draws comes from its model.** The exceptions: what the platform keeps by itself, as a hover, the
+  focus, an animation it runs; what the user typed into a text field, for the length of its own event; and, with the
+  bridge to React, the state of the application's own components. A part of the page outside the bridge's `root`, as
+  its title, is drawn from the model by code over the handle, beside the bridge. The guide, "View", "What the program
+  draws comes from its model".
 - **Whoever starts a program runs it.** `start` gives `{ app, run }`, and nothing checks that `run` runs. A program
   never run still applies its messages, and does nothing else: no effect starts, and no defect is reported. Only
   `model()` throws a defect of `makeModel` or `init`, and from a defect on no message is applied. Leave it unrun only on
@@ -111,17 +113,17 @@ No type refuses a break of these, and most often the run goes on. So check each 
   answer still applies. The guide, "Commands", "Commands cannot be cancelled".
 - **Nothing is bounded, and nothing times out.** The effects may lag behind the state without a bound, and when they
   start is unspecified: a step's commands may start after later messages, and a subscription may start, and be
-  stopped, for a key already gone. A listener of
-  the `App` that answers each new state with a message that makes another never lets the call return. A release that
-  never ends holds up the program. No defect says so. The guide, "Guarantees", "Nothing is bounded, and nothing times
-  out".
+  stopped, for a key already gone. A listener of the `App` that answers each new state with a message that makes
+  another never lets the call return. A release that never ends holds up the program. No defect says so. The guide,
+  "Guarantees", "Nothing is bounded, and nothing times out".
 - **The program runs on the stack of whoever sends the message.** A slow `update`, option or listener holds up the
   handler, command or subscription that sent the message. An element that reports at each of its events, as a scroll,
   runs a step at each: send its value once, as the events end, unless the program follows each value. The guide,
   "Guarantees", "The program runs on the stack of whoever sends the message".
 - **A subscription that sends faster than the screen refreshes holds the run back.** The bridges draw once for each
-  task that brings a new state. Let such a subscription send its messages by batches (`Stream.groupedWithin`). The
-  guide, "Guarantees", "A subscription that sends faster than the screen refreshes holds the run back".
+  task, or listener that the browser calls, that brings a new state. Let such a subscription send its messages by
+  batches (`Stream.groupedWithin`). The guide, "Guarantees", "A subscription that sends faster than the screen
+  refreshes holds the run back".
 - **Flags, and what `key` gives, are compared with `Equal`.** Other flags, or another value of `key`, start a child
   again. A function made anew in `flags` or `key` is another value each time, and the child loses its state at each
   step: give plain values. An `Equal` and a `Hash` written by hand keep Effect's rules, or what the library does with
@@ -135,8 +137,7 @@ No type refuses a break of these, and most often the run goes on. So check each 
 - **A function of the program never interrupts the fiber it runs in.** It runs where the library calls it: in the call
   of `start` or `make`, where a message is sent, or where the model is read. That may be any fiber, or none. One that
   interrupts the fiber of a command or a subscription is a defect of it; another fiber's interruption no defect
-  reports. The guide,
-  "Guarantees", "A function of the program never interrupts the fiber it runs in".
+  reports. The guide, "Guarantees", "A function of the program never interrupts the fiber it runs in".
 
 ## What a program builds on
 
@@ -145,9 +146,9 @@ The library promises these, and a program that forgets them goes wrong.
 - **A message is applied in the call that sends it.** When `dispatch` returns, `update` has seen the message, and the
   model is the new one. Messages are applied one at a time, in the order they were sent. The guide, "View", "Sending
   applies the message". The guide, "Guarantees", "One message at a time, in the order they were sent".
-- **The state is ahead of its effects.** A step's commands, and the subscriptions it starts, start after the step. So
-  a test that checks what a command does waits for a model that shows its answer. The guide, "Testing tools", "The
-  state is ahead of its effects".
+- **The state is ahead of its effects.** A step's commands, and the subscriptions it starts, start in the run, after
+  the step: whether before `dispatch` returns or after it is unspecified. So a test that checks what a command does
+  waits for a model that shows its answer. The guide, "Testing tools", "The state is ahead of its effects".
 - **A message may arrive in any state.** A tap may come from a model drawn before. A command's answer arrives even if
   the state has moved on, and answers come in the order the commands end. `update` rejects what no longer applies, and
   a message that must not apply to a later state says what it was for, as the id of a row. The guide, "Rejections and
@@ -169,14 +170,13 @@ The library promises these, and a program that forgets them goes wrong.
 - **With React, the run lives as long as `Host`'s effect.** An unmount, or `<Activity>` hiding it, ends the run, and the
   next effect starts the program again from `init`, as does an edit that Fast Refresh draws by remounting `Host`, or a
   new `key`, which starts it with the props of that render. To wait for the run to end, keep the fiber `fork` returns
-  (`Host`'s doc comment). For a
-  state that outlives a component, start the program yourself and draw it with `Draw`. A new state is drawn at once, in
-  a transition too: a slow part of the view reads `useDeferredValue`. `hydrateRoot` keeps what `Host` drew on a server,
-  where the client makes the same first model.
-  A run that dies is thrown to the nearest error boundary. The application's components may keep state of their own,
-  which the testing tools do not see. The guide, "Writing a bridge", "With the bridge to React, the run lives as long as
-  the effect that starts it", and the rules after it. The guide, "View", "Each bridge says what it draws beside the
-  model".
+  (`Host`'s doc comment). For a state that outlives a component, start the program yourself and draw it with `Draw`.
+  A new state is drawn at once, in a transition too: a slow part of the view reads `useDeferredValue`. `hydrateRoot`
+  keeps what `Host` drew on a server, where the client makes the same first model. A run that dies is thrown to the
+  nearest error boundary, or, once `Host` can no longer throw it, as it unmounts, given to `reportError` where there
+  is one. The application's components may keep state of their own. The guide, "Writing a bridge", "With the bridge
+  to React, the run lives as long as the effect that starts it", and the rules after it. The guide, "View", "Each
+  bridge says what it draws beside the model".
 - **snabbdom never removes a prop.** A view of the bridge to snabbdom gives a prop it changes in every state,
   `disabled: false` too. The guide, "Writing a bridge", "snabbdom never removes a prop".
 
@@ -198,7 +198,7 @@ The run does not check these. A test does, with the tool named.
 - **A defect is checked apart**: `expect(() => update(message)(state)).toThrow(InvariantDefect)`. The guide,
   "Testing", "How a program is tested".
 - **That the model is data** is checked on two equal states built apart, never on one state used twice. The guide,
-  "Testing", "That the model is data".
+  "Testing", "The model of any state".
 - **A rejected message fails the test where the test decides when it arrives.** In `applyAll`, `simulate` and
   `rehearse`, a rejected message that the test sends, or that the view sends through the test, fails the test. What
   arrives by itself is ignored, and listed in `ignored`. In `drive`, time is real, and every rejection is ignored.
@@ -241,8 +241,8 @@ Each sign goes against the rule or the advice named after it.
   of a child, do not copy it".
 - The `.state` of a step taken by hand: it drops that step's commands, its events and what it tells. Combine steps with
   `andThen`. The guide, "Events and external messages", "Combining steps".
-- An `output` that gives a child's text for its parent to parse, or a lock of the parent copied into each child. The
-  guide, "Structuring a program", "A value that the user writes belongs to the program whose rules use it".
+- An `output` that gives a child's text for its parent to parse. The guide, "Structuring a program", "A value that the
+  user writes belongs to the program whose rules use it".
 - An attempt to cancel a command. The guide, "Commands", "Commands cannot be cancelled".
 - A `start` whose `run` is never run, outside a server. The guide, "Running", "A program is started, then run".
 - A `main` that runs the program and does not report its failure. The guide, "Running", "When a defect happens".

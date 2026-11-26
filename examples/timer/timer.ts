@@ -52,13 +52,16 @@ export const runCommand = (command: Command): Execution<Message, Bell> => {
 // #endregion command
 
 // #region update
+// Asked by `update` and by `makeModel` alike, so that both give one answer.
+const canTakeAMinute = ({ minutes, phase }: State): boolean => phase._tag === "Setting" && minutes > 1
+
 export const update: Update<State, Message, Command> = (message) => (state) => {
   const { minutes, phase } = state
   switch (message._tag) {
     case "MoreClicked":
       return phase._tag === "Setting" ? { state: { ...state, minutes: minutes + 1 } } : reject
     case "LessClicked":
-      return phase._tag === "Setting" && minutes > 1 ? { state: { ...state, minutes: minutes - 1 } } : reject
+      return canTakeAMinute(state) ? { state: { ...state, minutes: minutes - 1 } } : reject
     case "StartClicked":
       return phase._tag === "Setting"
         ? { state: { ...state, phase: Phase.Running({ secondsLeft: minutes * 60 }) } }
@@ -100,7 +103,8 @@ export type Model = Data.TaggedEnum<{
   Finished: { reset: Message }
 }>
 
-const makeModel = ({ minutes, phase }: State): Model => {
+const makeModel = (state: State): Model => {
+  const { minutes, phase } = state
   const reset = Message.ResetClicked()
   switch (phase._tag) {
     case "Setting":
@@ -108,7 +112,7 @@ const makeModel = ({ minutes, phase }: State): Model => {
         _tag: "Setting",
         minutes,
         more: Message.MoreClicked(),
-        less: minutes > 1 ? Opt.some(Message.LessClicked()) : Opt.none(),
+        less: canTakeAMinute(state) ? Opt.some(Message.LessClicked()) : Opt.none(),
         start: Message.StartClicked()
       }
     case "Running":

@@ -166,8 +166,13 @@ const atLocked = atCounts.tag("Locked")
 const read = <A>(at: Optic.Optional<State, A>) => (state: State): Opt.Option<A> =>
   Result.getSuccess(at.getResult(state))
 
+// The conditions that `update` and `makeModel` both ask, each written once.
+
 /** The scanner is listened to while the aisle is counted and the scanner plugged. */
 const listens = (state: State): boolean => Opt.exists(read(atScanner)(state), ({ _tag }) => _tag === "Listening")
+
+/** The scanner can be listened to again while the aisle is counted and the scanner unplugged. */
+const unplugged = (state: State): boolean => Opt.exists(read(atScanner)(state), ({ _tag }) => _tag === "Disconnected")
 
 /** Each item's whole number, or `None` when any is empty or invalid. */
 const countsOf = (lines: ReadonlyArray<Line>): Opt.Option<ReadonlyArray<Counted>> =>
@@ -175,6 +180,12 @@ const countsOf = (lines: ReadonlyArray<Line>): Opt.Option<ReadonlyArray<Counted>
     const count = countOf(text)
     return count._tag === "Valid" ? Opt.some({ id, counted: count.count }) : Opt.none()
   }))
+
+/** The counts can be submitted while they are open and each is a whole number: the lines, and what is submitted. */
+const submittable = (
+  state: State
+): Opt.Option<Readonly<{ lines: ReadonlyArray<Line>; counts: ReadonlyArray<Counted> }>> =>
+  Opt.flatMap(read(atOpen)(state), ({ lines }) => Opt.map(countsOf(lines), (counts) => ({ lines, counts })))
 
 const withSheet = (state: State, sheet: Sheet): State => ({ ...state, load: Load.Loaded({ sheet }) })
 
@@ -241,20 +252,16 @@ export const stocktake = make({
           ? { state: atScanner.replace(Listening.Disconnected(), state) }
           : defect("The scanner ended while it was not listened to")
       case "ReconnectClicked":
-        return Opt.exists(read(atScanner)(state), ({ _tag }) => _tag === "Disconnected")
+        return unplugged(state)
           ? { state: atScanner.replace(Listening.Listening(), state) }
           : reject
       case "SubmitClicked":
-        return Opt.match(read(atOpen)(state), {
+        return Opt.match(submittable(state), {
           onNone: () => reject,
-          onSome: ({ lines }) =>
-            Opt.match(countsOf(lines), {
-              onNone: () => reject,
-              onSome: (counts) => ({
-                state: atCounts.replace(Counts.Locked({ lines }), state),
-                commands: [Command.Submit({ aisle: state.aisle, counts })]
-              })
-            })
+          onSome: ({ counts, lines }) => ({
+            state: atCounts.replace(Counts.Locked({ lines }), state),
+            commands: [Command.Submit({ aisle: state.aisle, counts })]
+          })
         })
       case "SubmitSucceeded":
         return Opt.match(read(atLocked)(state), {
@@ -283,7 +290,7 @@ export const stocktake = make({
         const sheet = state.load.sheet
         const lines = sheet._tag === "Closed" ? sheet.lines : sheet.counts.lines
         // A count is drawn editable exactly where `update` stores what is typed into it: while the counts are open.
-        const open = sheet._tag === "Counting" && sheet.counts._tag === "Open"
+        const open = Opt.isSome(read(atOpen)(state))
         const items = Arr.map(lines, ({ id, name, expected, text }): ItemLine => ({
           id,
           model: {
@@ -305,15 +312,15 @@ export const stocktake = make({
         }
         return {
           _tag: "Counting",
-          unknown: sheet.unknown,
-          scanner: sheet.scanner._tag === "Listening"
-            ? { _tag: "Listening" }
-            : { _tag: "Disconnected", reconnect: Own.ReconnectClicked() },
+          unknown: Arr.isReadonlyArrayNonEmpty(sheet.unknown) ? Opt.some(sheet.unknown) : Opt.none(),
+          scanner: unplugged(state)
+            ? { _tag: "Disconnected", reconnect: Own.ReconnectClicked() }
+            : { _tag: "Listening" },
           items,
           total,
           submit: sheet.counts._tag === "Locked"
             ? { _tag: "Submitting" }
-            : Opt.isSome(countsOf(lines))
+            : Opt.isSome(submittable(state))
             ? { _tag: "Ready", submit: Own.SubmitClicked() }
             : { _tag: "Blocked" },
           error: sheet.counts._tag === "Open" ? sheet.counts.error : Opt.none()
@@ -340,7 +347,8 @@ export type Model =
   | Readonly<{ _tag: "LoadFailed"; error: string; retry: Own }>
   | Readonly<{
     _tag: "Counting"
-    unknown: ReadonlyArray<string>
+    /** The codes read that are no item's, newest first, when there are any. */
+    unknown: Opt.Option<Arr.NonEmptyReadonlyArray<string>>
     scanner: Readonly<{ _tag: "Listening" }> | Readonly<{ _tag: "Disconnected"; reconnect: Own }>
     items: ReadonlyArray<ItemLine>
     total: number

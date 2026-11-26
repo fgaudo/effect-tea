@@ -10,10 +10,10 @@ import { Pointer, volume } from "./volume.ts"
 const root = document.getElementById("app")
 if (root === null) throw new Error("index.html has no #app element")
 
-// Whether the pointer is held: a drag whose subscription starts once the pointer is already released ends at once. A
-// pointer the browser cancels (a gesture it takes over, a lost touch) is released too. Heard in the capture phase,
-// before the track's own listener sends `DragStarted`: the drag reads it when it starts, whenever the run applies that
-// message.
+// Whether the pointer is held. Heard in the capture phase, before the track's own listener sends `DragStarted`, which
+// is applied in the call that sends it. The drag's subscription starts after, when the run starts it, and reads this
+// then: a pointer already released ends the drag at once. A pointer the browser cancels (a gesture it takes over, a
+// lost touch) is released too.
 let held = false
 document.addEventListener("pointerdown", () => {
   held = true

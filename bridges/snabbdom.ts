@@ -90,7 +90,7 @@ const giveBack = (controlled: Map<Element, Controlled>): void => {
  *   again.
  * - After each draw, an element drawn with a `value` or a `checked` in `props` is given it back where the element
  *   differs from it: what the user typed and the program rejected is taken back. The element is not replaced, and
- *   keeps its focus, its caret and its selection.
+ *   keeps its focus. Where it keeps its value, it keeps its caret and its selection too.
  * - snabbdom never removes a prop. So a view gives a prop it changes in every state: `disabled: false` too.
  * - It draws a node's `class`, `props`, `attrs`, `dataset`, `style` and `on`, with snabbdom's modules of each. Unlike
  *   a prop, a class, an attribute or a data entry that a later vnode leaves out is removed.

@@ -3,6 +3,7 @@ import { InvariantDefect, reject } from "@fgaudo/effect-tea"
 import { applyAll, dispatchViolations, rehearse } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
 import * as Effect from "effect/Effect"
+import * as Equal from "effect/Equal"
 import * as Opt from "effect/Option"
 import * as fc from "fast-check"
 import { timerMessages } from "./timer.test_reader.ts"
@@ -46,17 +47,34 @@ describe("timer", () => {
   // #region update
   describe("update", () => {
     test("sets the minutes, never below one", () => {
-      expect(applyAll(update, [{ _tag: "LessClicked" }], { ...setting, minutes: 2 }).state.minutes).toBe(1)
+      expect(update({ _tag: "MoreClicked" })(setting)).toEqual({ state: { ...setting, minutes: 26 } })
+      expect(update({ _tag: "LessClicked" })({ ...setting, minutes: 2 })).toEqual({ state: { ...setting, minutes: 1 } })
       expect(update({ _tag: "LessClicked" })({ ...setting, minutes: 1 })).toBe(reject)
     })
 
     test("starts from the minutes set, and rings once at zero", () => {
-      const { state, commands } = applyAll(update, [
+      const { state, commands, events } = applyAll(update, [
         { _tag: "StartClicked" },
         ...Array.from({ length: 60 }, (): Message => ({ _tag: "Ticked" }))
       ], { ...setting, minutes: 1 })
-      expect(state.phase).toEqual(Phase.Finished())
+      expect(state).toEqual({ minutes: 1, phase: Phase.Finished() })
       expect(commands).toEqual([Command.Ring()])
+      expect(events).toEqual([])
+    })
+
+    test("pauses and resumes with the seconds left", () => {
+      const running = { ...setting, phase: Phase.Running({ secondsLeft: 90 }) }
+      const paused = { ...setting, phase: Phase.Paused({ secondsLeft: 90 }) }
+      expect(update({ _tag: "PauseClicked" })(running)).toEqual({ state: paused })
+      expect(update({ _tag: "ResumeClicked" })(paused)).toEqual({ state: running })
+    })
+
+    test("a reset sets the minutes again as they were, from any phase but setting", () => {
+      fc.assert(fc.property(state, (before) => {
+        fc.pre(before.phase._tag !== "Setting")
+        expect(update({ _tag: "ResetClicked" })(before)).toEqual({ state: { ...before, phase: Phase.Setting() } })
+      }))
+      expect(update({ _tag: "ResetClicked" })(setting)).toBe(reject)
     })
 
     test("rejects a second start, and changing the minutes while running", () => {
@@ -96,6 +114,18 @@ describe("timer", () => {
     }))
   })
   // #endregion model
+
+  // Two equal states built apart, by the same seed drawn twice, give two equal models, which a function in a model
+  // would break, being made anew by each `makeModel`.
+  test("the model is data: equal states, built apart, have equal models", () => {
+    fc.assert(fc.property(fc.integer(), (seed) => {
+      const [one] = fc.sample(state, { seed, numRuns: 1 })
+      const [other] = fc.sample(state, { seed, numRuns: 1 })
+      if (one === undefined || other === undefined) throw new Error("nothing sampled")
+      expect(one).not.toBe(other)
+      expect(Equal.equals(timer.makeModel(one), timer.makeModel(other))).toBe(true)
+    }))
+  })
 
   // #region rehearse
   // The last second, step by step: the test says when the tick is heard and when the bell rings.

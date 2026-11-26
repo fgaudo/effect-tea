@@ -2,6 +2,7 @@ import { reject } from "@fgaudo/effect-tea"
 import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
 import { applyAll, dispatchViolations, stateOf } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
+import * as Equal from "effect/Equal"
 import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
 import * as fc from "fast-check"
@@ -79,13 +80,20 @@ const userMessages = (state: State): ReadonlyArray<Message> =>
 describe("timers", () => {
   // #region update
   test("each timer keeps its own state", () => {
-    const { state } = applyAll(timers.update, [added, to(2, { _tag: "StartClicked" })], timers.init.state)
-    expect(kept(state).map((timer) => timer.phase._tag)).toEqual(["Setting", "Running"])
+    const { state, commands } = applyAll(timers.update, [added, to(2, { _tag: "StartClicked" })], timers.init.state)
+    expect(state.own).toEqual({ nextId: 3, ids: [1, 2] })
+    expect(kept(state)).toEqual([
+      { minutes: 25, phase: Timer.Phase.Setting() },
+      { minutes: 25, phase: Timer.Phase.Running({ secondsLeft: 1500 }) }
+    ])
+    expect(commands).toEqual([])
   })
 
   test("a removed timer is gone, and a second click on \"Remove\" is rejected", () => {
-    const { state } = applyAll(timers.update, [added, removed(1)], timers.init.state)
-    expect(state.own.ids).toEqual([2])
+    const { state, commands } = applyAll(timers.update, [added, removed(1)], timers.init.state)
+    expect(state.own).toEqual({ nextId: 3, ids: [2] })
+    expect(kept(state)).toEqual([{ minutes: 25, phase: Timer.Phase.Setting() }])
+    expect(commands).toEqual([])
     expect(timers.update(removed(1))(state)).toBe(reject)
     expect(timers.update(to(1, { _tag: "StartClicked" }))(state)).toBe(reject)
   })
@@ -110,13 +118,37 @@ describe("timers", () => {
     }))
   })
 
-  // Beyond what the library asks: that the view draws what its model holds, each control once and each timer
-  // through its own dispatch, in every phase. `messagesSentBy`, beside the snabbdom bridge, is its way to see it
-  // without a DOM.
+  // For any state, the timers that run tick, each under its own key, and no other: the test reads the child and its
+  // id, by id, and leaves the number of its instance, and the order of the keys, to the library.
+  test("listens to the ticks of the running timers, and of no other", () => {
+    fc.assert(fc.property(state, (before) => {
+      const running = before.own.ids.filter((id, i) => kept(before)[i]?.phase._tag === "Running")
+      const heard = timers.subscriptions(before).map(({ _tag, id, key }) => ({ _tag, id, key }))
+      expect([...heard].sort((a, b) => a.id - b.id))
+        .toEqual([...running].sort((a, b) => a - b).map((id) => ({ _tag: "Timer", id, key: "ticks" })))
+    }))
+  })
+
+  // The view, checked with the tools of its renderer: `messagesSentBy`, of the snabbdom bridge, finds what the view
+  // sends without a DOM, each control once and each timer through its own dispatch, in every phase, which the test
+  // compares with what the reader returns.
   test("the view sends what its model holds", () => {
     fc.assert(fc.property(state, (before) => {
       const model = timers.makeModel(before)
       expect(messagesSentBy<Model, Message>(view, model)).toEqual(messagesOf(model))
+    }))
+  })
+
+  // Two equal states built apart, by the same seed drawn twice, give two equal models, which a function in a model
+  // would break, being made anew by each `makeModel`. Each is built by `stateOf`, so that no child's model is kept
+  // from the other.
+  test("the model is data: equal states, built apart, have equal models", () => {
+    fc.assert(fc.property(fc.integer(), (seed) => {
+      const [one] = fc.sample(state, { seed, numRuns: 1 })
+      const [other] = fc.sample(state, { seed, numRuns: 1 })
+      if (one === undefined || other === undefined) throw new Error("nothing sampled")
+      expect(one).not.toBe(other)
+      expect(Equal.equals(timers.makeModel(one), timers.makeModel(other))).toBe(true)
     }))
   })
 })

@@ -121,6 +121,12 @@ describe("messagesSentBy", () => {
     }))
   })
 
+  test("without a reader, a handler that reads another field than value and checked gets undefined", () => {
+    const scrolled: View<null, number | undefined> = (_, dispatch) =>
+      h("ul.list", { on: { scrollend: (event) => dispatch((event.target as HTMLElement).scrollTop) } })
+    expect(messagesSentBy(scrolled, null)).toEqual([undefined])
+  })
+
   test("asks what is reported for each listener, with its node and its event, and lays it over what the view drew", () => {
     const asked: Array<string> = []
     const field: View<null, string> = (_, dispatch) =>

@@ -1,9 +1,10 @@
-import { forwardTo, reject, start } from "@fgaudo/effect-tea"
+import { forwardTo, InvariantDefect, reject, start } from "@fgaudo/effect-tea"
 import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
 import { applyAll, dispatchViolations, stateOf } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
+import * as Equal from "effect/Equal"
 import * as Exit from "effect/Exit"
 import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
@@ -17,23 +18,28 @@ const added: Message = { _tag: "AddClicked" }
 const stoppedAll: Message = { _tag: "StopAllClicked" }
 const to = (id: number, message: Stopwatch.Message): Message => ({ _tag: "Stopwatch", id, message })
 
-const state: fc.Arbitrary<State> = fc
-  .uniqueArray(
-    fc.record({
-      id: fc.nat(20),
-      stopwatch: fc.record({
-        seconds: fc.nat(),
-        watch: fc.constantFrom(Stopwatch.Watch.Running(), Stopwatch.Watch.Stopped())
+// Any valid state, made anew on each draw. The ids ascend, as each is added after the last, below the next one.
+const states = (): fc.Arbitrary<State> =>
+  fc
+    .uniqueArray(
+      fc.record({
+        id: fc.nat(20),
+        stopwatch: fc.record({
+          seconds: fc.nat(),
+          watch: fc.boolean().map((running) => running ? Stopwatch.Watch.Running() : Stopwatch.Watch.Stopped())
+        })
+      }),
+      { selector: (entry) => entry.id, maxLength: 4 }
+    )
+    // The parent's own state lists the ids, and `stateOf` puts the stopwatch of each in the state given for it.
+    .map((drawn) => {
+      const entries = [...drawn].sort((one, other) => one.id - other.id)
+      return stateOf(list, { nextId: 21, ids: entries.map((entry) => entry.id) }, {
+        Stopwatch: entries.map((entry) => [entry.id, entry.stopwatch] as const)
       })
-    }),
-    { selector: (entry) => entry.id, maxLength: 4 }
-  )
-  // The parent's own state lists the ids, and `stateOf` puts the stopwatch of each in the state given for it.
-  .map((entries) =>
-    stateOf(list, { nextId: 21, ids: entries.map((entry) => entry.id) }, {
-      Stopwatch: entries.map((entry) => [entry.id, entry.stopwatch] as const)
     })
-  )
+
+const state = states()
 
 /** The stopwatches that the library keeps, in the order the list holds their ids in. */
 const stopwatches = (state: State) =>
@@ -125,6 +131,12 @@ describe("list", () => {
       expect(list.makeModel(running).stopAll).toEqual(Opt.some(stoppedAll))
     })
 
+    // Stopping a stopwatch stops its subscription, and the run drops what it sent: a tick while stopped is a bug.
+    test("dies on a tick of a stopwatch that is stopped", () => {
+      const { state } = applyAll(list.update, [added], list.init.state)
+      expect(() => list.update(to(1, { _tag: "Ticked" }))(state)).toThrow(InvariantDefect)
+    })
+
     test("only running stopwatches tick, each under its own key", () => {
       const { state } = applyAll(list.update, [added, added, to(2, { _tag: "Started" })], list.init.state)
       expect(list.subscriptions(state)).toEqual([{ _tag: "Stopwatch", id: 2, instance: 2, key: "ticks" }])
@@ -142,12 +154,33 @@ describe("list", () => {
     }))
   })
 
-  // Beyond what the library asks: that the view draws what its model holds, each control once and each stopwatch
-  // through its own dispatch. `messagesSentBy`, beside the snabbdom bridge, is its way to see it without a DOM.
+  // The view draws what its model holds, each control once and each stopwatch through its own dispatch:
+  // `messagesSentBy` finds what it sends without a DOM, and the test compares it with the reader.
   test("the view sends what its model holds", () => {
     fc.assert(fc.property(state, (before) => {
       const model = list.makeModel(before)
       expect(messagesSentBy<Model, Message>(view, model)).toEqual(messagesOf(model))
+    }))
+  })
+
+  // Two equal states built apart, by the same seed drawn twice, give two equal models, which a function in a model
+  // would break, being made anew by each `makeModel`.
+  test("the model is data: equal states, built apart, have equal models", () => {
+    fc.assert(fc.property(fc.integer(), (seed) => {
+      const [one] = fc.sample(states(), { seed, numRuns: 1 })
+      const [other] = fc.sample(states(), { seed, numRuns: 1 })
+      if (one === undefined || other === undefined) throw new Error("nothing sampled")
+      expect(one).not.toBe(other)
+      expect(Equal.equals(list.makeModel(one), list.makeModel(other))).toBe(true)
+    }))
+  })
+
+  test("the list listens to the ticks of each stopwatch that its model shows running, and of no other", () => {
+    fc.assert(fc.property(state, (before) => {
+      const running = list.makeModel(before).stopwatches.flatMap(({ id, model }) =>
+        model.watch._tag === "Running" ? [id] : []
+      )
+      expect(list.subscriptions(before).map((key) => [key.id, key.key])).toEqual(running.map((id) => [id, "ticks"]))
     }))
   })
 

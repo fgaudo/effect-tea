@@ -26,15 +26,14 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Step 90 comes before the release of 0.9.0, which the owner asked on 25 November 2026 to wait for a bridge to
+No step is open before the release of 0.9.0, which the owner asked on 25 November 2026 to wait for a bridge to
 React Native, which step 83 made, for whether a view of React can have a `messagesSentBy`, and for a reading of the
 names of the API. Step 84 decided the first, after a spike ([`react-view-tests.md`](docs/records/react-view-tests.md)):
 it has none, and step 85 showed the check with React's tools, in `bridges/react.test.ts` and
 `examples/react-native/views.test_jest.tsx`. Step 86 read the names ([`names.md`](docs/records/names.md)): five
-change, two of them with a break, and step 87 applied them. Step 90 is the agent's own proposal, which the
-owner may strike. The owner's fourth point has no step: the bridges stay in `bridges/`
-([`rejected.md`](docs/rejected.md), "The bridges"). Step 82 decided what the bridge to React is on React Native
-([`react-native.md`](docs/records/react-native.md)): `./react` as it is, with no entry and no peer of its own.
+change, two of them with a break, and step 87 applied them. The owner's fourth point has no step: the bridges stay in
+`bridges/` ([`rejected.md`](docs/rejected.md), "The bridges"). Step 82 decided what the bridge to React is on React
+Native ([`react-native.md`](docs/records/react-native.md)): `./react` as it is, with no entry and no peer of its own.
 `bun run test:react-native` checks it there, a job of the CI.
 
 Step 73 decided the form of the smaller guide ([`smaller-guide.md`](docs/records/smaller-guide.md)): `AGENTS.md`
@@ -47,48 +46,24 @@ smaller guide (step 78). The guide went from 34,025 words to 21,807, most of wha
 "**Breaking**: unspecified, and no longer promised". No link checker runs on the guide: a step that changes a heading
 reads each `](…#…)` into its page, before and after.
 
+The last reading of the promises ([`promise-reading`](.agents/skills/promise-reading/SKILL.md)) read everything,
+guide, doc comments and examples, in step 90 (`git log --grep "Close step 90"`): the next one, before the release
+after 0.9.0, reads the changes since that commit, and one of everything is due before 1.0.
+
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 90. The first reading of the promises by the skill
-
-**Model and effort.** Opus 5.5, `high`, with its readers as subagents: it is a review.
-
-**Depends on** no open step: steps 85 and 87 made the sentences and the names that 0.9.0 ships, which it reads.
-Proposed by the agent: until 25 November 2026 it was due before the release after 0.9.0, and 0.9.0 did not wait for
-it.
-
-**Why.** Two facts are new. 0.9.0 now waits for steps that break the API, and a promise that the reading withdraws is
-a breaking change too: it goes out with them, so that users upgrade once. And it is the first reading of a doc comment
-or of an example, before the library is made known.
-
-**How.** By [`promise-reading`](.agents/skills/promise-reading/SKILL.md): the promises against the tests, and the
-guide's rules against the examples. It reads everything: the one reading before it
-([`promises-and-tests.md`](docs/records/promises-and-tests.md), at `b6db847`) read the guide alone, which steps 56 and
-73 to 78 wrote again since, and nothing has read a doc comment or an example. It reads the guide as steps 70, 81, 83 and
-85 left it: "Writing a bridge" promises what the bridge to React does under hydration and transitions, and the doc
-comment of `Host` what it does under Fast Refresh, each held by a test that runs in the browsers
-(`bridges/react.test.ts`, `bridges/fast-refresh.test.ts`); what it says of React Native is held by
-`examples/react-native/views.test_jest.tsx`, which `bun run test:react-native` runs. Of the API's reports it reads the
-diff since `v0.8.0`. A trial of its two briefs, on "Commands" and on three examples, reported six gaps of "Commands",
-which the session did not check against the tests: the reader's table is not kept, and the reading finds them again. A
-comment of an example that names a section of a page may name one that steps 73 to 78 took away, as one of
-`examples/bounce/bounce.ts` did.
-
-**Done when** the reading has run by the skill, and each finding is fixed, or is an item of "Open problems" with its
-`test.failing`. The readings after it read the changes since the commit that ends it.
 
 ## For the owner
 
 What leaves this machine, or decides what the project is ("Deciding" in `AGENTS.md`): an agent prepares it, and the
 owner does it.
 
-- **The release of 0.9.0** waits for steps 82 to 90 of "Next, in order", as the owner asked on 25 November 2026. Step
-  65 closed the review of every change up to it, and each step since is read by its own reviewer ("How the steps
-  run"). An agent prepares its commit and its tag (`release`) when the owner asks for it, and the owner pushes them
-  and publishes the package. The checks of point 2 of "Releasing" passed on the commit that closed step 65: commits
-  come after it, so the agent runs them again.
+- **The release of 0.9.0** waited for steps 82 to 90 of "Next, in order", as the owner asked on 25 November 2026,
+  and they are done: it waits for the owner alone. Step 65 closed the review of every change up to it, and each step
+  since is read by its own reviewer ("How the steps run"). An agent prepares its commit and its tag (`release`) when
+  the owner asks for it, and the owner pushes them and publishes the package. The checks of point 2 of "Releasing"
+  passed on the commit that closed step 65: commits come after it, so the agent runs them again.
 - **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
   decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API. Until then,
   releases stay at 0.x.

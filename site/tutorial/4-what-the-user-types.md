@@ -50,8 +50,8 @@ The view draws the name as a native `<input>`, a controlled element: its `value`
 `input` listener sends the message that the model holds, filled with what the element holds.
 
 A message is applied in its own event. So when the listener returns, the name holds what was typed, and the bridge
-draws it before the next event. The element needs no `key` of the renderer: it stays the same element, with its focus
-and its caret, while the program changes what it shows (see
+draws it before the next event. The element needs no `key` of the renderer: it stays the same element, with its focus,
+while the program changes what it shows, and keeps its caret where it keeps what was typed (see
 [the element on screen](../guide/what-an-element-gives.md#the-element-on-screen)).
 
 {@includeCode ../../examples/timer/view.ts#named}

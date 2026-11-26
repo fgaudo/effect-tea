@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import * as Cause from "effect/Cause"
 import * as Context from "effect/Context"
+import * as Data from "effect/Data"
 import * as Exit from "effect/Exit"
 import * as HashMap from "effect/HashMap"
 import * as Opt from "effect/Option"
@@ -248,6 +249,16 @@ describe("the keys of a new state, against those before", () => {
     expect(gone).toEqual([])
     expect(fresh).toEqual([])
     expect(active.starts).toEqual(new Set([1]))
+  })
+
+  test("a key whose data changes stops its start, and its new value starts anew", () => {
+    type Key = Data.TaggedEnum<{ Steps: { readonly dt: number } }>
+    const Key = Data.taggedEnum<Key>()
+    const first = reconcile(noneActive, listing(Key.Steps({ dt: 1 }))).active
+    const { gone, fresh, active } = reconcile(first, listing(Key.Steps({ dt: 2 })))
+    expect(gone).toEqual([[Key.Steps({ dt: 1 }), 1]])
+    expect(fresh).toEqual([[Key.Steps({ dt: 2 }), 2]])
+    expect(active.starts).toEqual(new Set([2]))
   })
 
   test("the same keys, made anew, leave the active ones the very same", () => {

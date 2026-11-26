@@ -75,7 +75,7 @@ Some pages end with a section of more examples, or of a reason. It explains, as 
 The pieces of a program:
 
 - [Anatomy of a program](./anatomy-of-a-program.md): a program is a plain object with up to eight pieces, made with
-  `program`. The pieces connect in a loop.
+  `program`, and a parent's `make` takes `onEvent` too. The pieces connect in a loop.
 - [Update](./update.md): `update` takes a message, then the state, and returns the next step, or `reject`.
 - [Model](./model.md): `makeModel(state)` turns the state into what the view reads: what it shows, and the messages
   its controls send.
@@ -92,8 +92,8 @@ Its effects:
 
 A larger program:
 
-- [Composition](./composition.md): a parent declares its children, and says where each child lives in its state. The
-  library does the routing.
+- [Composition](./composition.md): a parent declares its children, and says, from its own state, when each child is
+  there. The library keeps the children, and does the routing.
 - [Events and external messages](./events-and-external-messages.md): a child raises an event to ask its parent for
   something. A parent sends a child an external message.
 - [What an element gives](./what-an-element-gives.md): values that an element holds or reports, such as the text of a

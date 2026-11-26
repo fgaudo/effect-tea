@@ -114,6 +114,33 @@ test("Host throws a run that dies to the nearest error boundary", async () => {
   errors.mockRestore()
 })
 
+// What no render can throw any more is reported as React reports an error itself. React Native has no `reportError` and
+// no `ErrorEvent`, and there the report reaches the console. Under jest the process is Node's, whose
+// `uncaughtException` the report would take first, and which no listener of jest's hears: the test takes its `emit`
+// away.
+test("Host reports to the console what its run dies of once it has unmounted, where nothing else hears it", async () => {
+  const released = new Error("A release that cannot complete")
+  const process = (globalThis as Record<string, unknown>)["process"] as { emit?: unknown }
+  const emit = process.emit
+  let logged = () => {}
+  const reported = new Promise<void>((resolve) => {
+    logged = resolve
+  })
+  const errors = jest.spyOn(console, "error").mockImplementation(() => logged())
+  Object.assign(process, { emit: undefined })
+  try {
+    const fork: Fork<never> = (run) => Effect.runFork(run.pipe(Effect.ensuring(Effect.die(released))))
+    const { unmount } = await render(<Host program={counter} view={counterView} fork={fork} />)
+    await act(async () => {})
+    await unmount()
+    await reported
+    expect(errors.mock.calls).toEqual([[released]])
+  } finally {
+    Object.assign(process, { emit })
+    errors.mockRestore()
+  }
+})
+
 // A view is a function: a test draws it with a dispatch that records, acts on each control, and compares what was
 // sent with what the model holds. It finds only the controls it acts on.
 const sentBy = async <Model, Message>(

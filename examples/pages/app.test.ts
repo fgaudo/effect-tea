@@ -1,11 +1,12 @@
 // The messages of the pages are built by the test: the parent's are `{ _tag: <page>, message }`.
-import { forwardTo, start } from "@fgaudo/effect-tea"
+import { forwardTo, InvariantDefect, reject, start } from "@fgaudo/effect-tea"
 import { messagesSentBy } from "@fgaudo/effect-tea/snabbdom/testing"
 import { applyAll, dispatchViolations, simulate, stateOf } from "@fgaudo/effect-tea/testing"
 import { describe, expect, test } from "bun:test"
 import * as DateTime from "effect/DateTime"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
+import * as Equal from "effect/Equal"
 import * as Exit from "effect/Exit"
 import * as Opt from "effect/Option"
 import * as fc from "fast-check"
@@ -26,19 +27,29 @@ const maybe = <A>(value: fc.Arbitrary<A>): fc.Arbitrary<Opt.Option<A>> =>
 
 const time = fc.nat().map((millis) => DateTime.makeUnsafe(millis))
 
-// A state of the app is made from the parent's own, which says whether About is there, and from the states its pages
-// are in: `stateOf` starts each page the own state lists, and puts it in the state given.
-const state: fc.Arbitrary<State> = fc
-  .record({
-    clock: fc.record({ maybeNow: maybe(time), format: fc.constantFrom<Clock.Format>("Iso", "Unix") }),
-    about: maybe(fc.record({ openedAt: maybe(time), maybeSaying: maybe(fc.string()) }))
-  })
-  .map(({ clock, about }) =>
-    Opt.match(about, {
-      onNone: () => stateOf(app, { about: Opt.none() }, { Clock: clock }),
-      onSome: (about) => stateOf(app, { about: Opt.some({ openedAt: about.openedAt }) }, { Clock: clock, About: about })
+// Any valid state, made anew on each draw. A state of the app is made from the parent's own, which says whether About
+// is there, and from the states its pages are in: `stateOf` starts each page the own state lists, and puts it in the
+// state given. About opens at the time the Clock shows, and the Clock does not tick under it: both hold that time.
+// About's saying, once picked, is one of its own.
+const states = (): fc.Arbitrary<State> =>
+  fc
+    .record({
+      maybeNow: maybe(time),
+      format: fc.constantFrom<Clock.Format>("Iso", "Unix"),
+      about: maybe(maybe(fc.constantFrom(...About.sayings)))
     })
-  )
+    .map(({ about, format, maybeNow }) =>
+      Opt.match(about, {
+        onNone: () => stateOf(app, { about: Opt.none() }, { Clock: { maybeNow, format } }),
+        onSome: (maybeSaying) =>
+          stateOf(app, { about: Opt.some({ openedAt: maybeNow }) }, {
+            Clock: { maybeNow, format },
+            About: { openedAt: maybeNow, maybeSaying }
+          })
+      })
+    )
+
+const state = states()
 
 // What the model holds: the message of the page on top, wrapped as the parent receives it, in the order the view
 // draws them, for the test of the view below.
@@ -110,6 +121,30 @@ describe("pages", () => {
       expect(listening(app.init.state)).toEqual(["Clock"])
       expect(listening(applyAll(app.update, [aboutClicked], app.init.state).state)).toEqual([])
     })
+
+    test("the Clock shows the format picked, and rejects the format it shows", () => {
+      const toUnix: Message = { _tag: "Clock", message: { _tag: "FormatPicked", format: "Unix" } }
+      const { state } = applyAll(app.update, [ticked(0), toUnix], app.init.state)
+      expect(Opt.map(state.children.Clock, (clock) => clock.state)).toEqual(
+        Opt.some({ maybeNow: Opt.some(DateTime.makeUnsafe(0)), format: "Unix" })
+      )
+      expect(app.update(toUnix)(state)).toBe(reject)
+    })
+
+    test("About takes the saying it picked", () => {
+      const opened = applyAll(app.update, [aboutClicked], app.init.state).state
+      const picked: Message = { _tag: "About", message: { _tag: "SayingPicked", saying: About.sayings[0] } }
+      const { state } = applyAll(app.update, [picked], opened)
+      expect(Opt.map(state.children.About, (about) => about.state.maybeSaying)).toEqual(
+        Opt.some(Opt.some(About.sayings[0]))
+      )
+    })
+
+    // About picks its saying once: a second answer cannot arrive.
+    test("dies on a saying picked once About has one", () => {
+      const shown = { openedAt: Opt.none(), maybeSaying: Opt.some(About.sayings[0]) }
+      expect(() => About.update({ _tag: "SayingPicked", saying: About.sayings[1] })(shown)).toThrow(InvariantDefect)
+    })
   })
 
   test("the model holds what update accepts, all of it, and each acts once when sent twice", () => {
@@ -126,12 +161,30 @@ describe("pages", () => {
     }))
   })
 
-  // Beyond what the library asks: that the view draws what its model holds, each control once and each page
-  // through its own dispatch. `messagesSentBy`, beside the snabbdom bridge, is its way to see it without a DOM.
+  // The view draws what its model holds, each control once and each page through its own dispatch:
+  // `messagesSentBy` finds what it sends without a DOM, and the test compares it with the reader.
   test("the view sends what its model holds", () => {
     fc.assert(fc.property(state, (before) => {
       const model = app.makeModel(before)
       expect(messagesSentBy<Model, Message>(view, model)).toEqual(messagesOf(model))
+    }))
+  })
+
+  // Two equal states built apart, by the same seed drawn twice, give two equal models, which a function in a model
+  // would break, being made anew by each `makeModel`.
+  test("the model is data: equal states, built apart, have equal models", () => {
+    fc.assert(fc.property(fc.integer(), (seed) => {
+      const [one] = fc.sample(states(), { seed, numRuns: 1 })
+      const [other] = fc.sample(states(), { seed, numRuns: 1 })
+      if (one === undefined || other === undefined) throw new Error("nothing sampled")
+      expect(one).not.toBe(other)
+      expect(Equal.equals(app.makeModel(one), app.makeModel(other))).toBe(true)
+    }))
+  })
+
+  test("the app listens to the Clock exactly where the model shows the Clock", () => {
+    fc.assert(fc.property(state, (before) => {
+      expect(listening(before)).toEqual(app.makeModel(before).page._tag === "Clock" ? ["Clock"] : [])
     }))
   })
 

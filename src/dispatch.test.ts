@@ -171,4 +171,14 @@ describe("forwardTo", () => {
     const any: Readonly<{ "is not the literal name of a child": string }> = forwardTo(dispatch, name)
     expect([unknown, any]).toHaveLength(2)
   })
+
+  test("gives a dispatch for a message of the parent's own that has exactly the shape of a child's", () => {
+    type Note = Readonly<{ _tag: "Note"; message: string }>
+    const sent: Array<Message | Note> = []
+    const dispatch: Dispatch<Message | Note> = (message) => void sent.push(message)
+    const note = forwardTo(dispatch, "Note")
+    expectTypeOf(note).toEqualTypeOf<Dispatch<string>>()
+    note("hello")
+    expect(sent).toEqual([{ _tag: "Note", message: "hello" }])
+  })
 })

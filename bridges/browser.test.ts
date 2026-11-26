@@ -211,6 +211,19 @@ const browserTests = <Node>(name: string, bridge: Bridge<Node>) =>
       expect(element("output").textContent).toBe("3")
     })
 
+    test("what a listener that the browser calls sends twice is drawn once, as it returns", async () => {
+      const { views } = mount(bridge.drawInto, bridge.counter(new Promise<void>(() => {})), start(counter))
+      settle()
+      await task()
+      const before = views()
+      await userEvent.click(button("Add"))
+      await task()
+      expect([views() - before, element("output").textContent]).toEqual([1, "2"])
+    })
+
+    // An alarm of the browser's: a limit the element keeps leaves out of what it holds the keys past it, so its handler
+    // sends what it holds ("Writing a bridge", "What a bridge does", a controlled element), and no value changed by the
+    // element itself is left to show ("What is left out"). It is the killer of no mutation.
     test("a limit that the element keeps by itself, maxlength, keeps what a user types, and the element reports what it holds", async () => {
       const { app } = mount(bridge.drawInto, bridge.note(3), start(note))
       settle()
@@ -221,6 +234,8 @@ const browserTests = <Node>(name: string, bridge: Bridge<Node>) =>
       expect([app.model().note, input.value]).toEqual(["abc", "abc"])
     })
 
+    // An alarm of what the guide leaves unspecified ("Writing a bridge", "What is left out", an event that the
+    // program's own code dispatches before a new state is drawn). It is the killer of no mutation.
     test("a click that the program's own code makes in the task of a new state, before its draw, runs the handler of the view drawn before", async () => {
       const ignored: Array<MessageOf<typeof lock>> = []
       const { app } = mount(
@@ -243,6 +258,8 @@ browserTests("snabbdom", snabbdom)
 
 browserTests("React", react)
 
+// An alarm of what the guide leaves unspecified ("Writing a bridge", "What is left out", an event that the program's
+// own code dispatches before a new state is drawn): what each bridge does then. It is the killer of no mutation.
 describe("an input event that the program's own code dispatches in the task of a new state, before its draw", () => {
   const typeThenClear = async <Node>(bridge: Bridge<Node>) => {
     const { app } = mount(bridge.drawInto, bridge.note(), start(note))

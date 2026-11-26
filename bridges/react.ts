@@ -42,10 +42,10 @@ export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) =
 
 /**
  * Draws the model of the current state of `app` with `view`: for a program the application starts itself. It renders
- * again for each new state, at once, in a transition too, and draws the model of the state current when it renders. A
- * part that the application suspends, or draws from `useDeferredValue`, is shown later, with the model of the state
- * current then. It draws on a server too, and `hydrateRoot` keeps the elements the server drew while the program has
- * the state the server drew.
+ * again at once when it is told of a new state, in a transition too, and draws the model of the state current when it
+ * renders, so that the new states of one task are drawn once. A part that the application suspends, or draws from
+ * `useDeferredValue`, is shown later, with the model of the state current then. It draws on a server too, and
+ * `hydrateRoot` keeps the elements the server drew while the program has the state the server drew.
  *
  * React may make the model of each new state as it is told of it, in the call that sent the message: a slow
  * `makeModel` then holds up that call. When React makes it is unspecified.

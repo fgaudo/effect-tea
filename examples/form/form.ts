@@ -58,6 +58,11 @@ export const runCommand = (command: Command): Execution<Own, Storage> => {
 
 const isBlank = (name: string) => name.trim() === ""
 
+type Editing = Data.TaggedEnum.Value<Draft, "Editing">
+
+/** The draft can be saved while it is edited and its name is not blank: `update` and `makeModel` both ask this. */
+const canSave = (draft: Draft): draft is Editing => draft._tag === "Editing" && !isBlank(draft.name)
+
 /** What is typed, held without its text: the view fills the text that the element holds. */
 type Typing = Readonly<{ _tag: "NameTyped" }>
 
@@ -82,12 +87,12 @@ export const form = make({
           ? { state: { ...state, draft: Draft.Editing({ name: message.value, failed: draft.failed }) } }
           : reject
       case "SaveClicked":
-        return draft._tag === "Saving" || isBlank(draft.name)
-          ? reject
-          : {
+        return canSave(draft)
+          ? {
             state: { ...state, draft: Draft.Saving({ name: draft.name }) },
             commands: [Command.Save({ name: draft.name.trim() })]
           }
+          : reject
       // A completion arrives only while saving: there is no other operation it could belong to. Anywhere else it
       // is a bug, and the run dies with it.
       case "SaveSucceeded":
@@ -108,9 +113,9 @@ export const form = make({
     name: draft.name,
     editor: draft._tag === "Saving"
       ? Editor.Saving()
-      : isBlank(draft.name)
-      ? Editor.Blank({ typed: { _tag: "NameTyped" } })
-      : Editor.Named({ typed: { _tag: "NameTyped" }, save: Own.SaveClicked() }),
+      : canSave(draft)
+      ? Editor.Named({ typed: { _tag: "NameTyped" }, save: Own.SaveClicked() })
+      : Editor.Blank({ typed: { _tag: "NameTyped" } }),
     failed: draft._tag === "Editing" ? draft.failed : Opt.none(),
     saved
   })

@@ -304,29 +304,24 @@ export const controls = controlsOf.make({
 })
 
 /**
- * The same program, whose `update` stores the textarea and the checkbox only while it is open. Its model holds what
- * they give in both states, as a model that shows what `update` rejects does.
+ * The same controls and a group of two radios, `"small"` and `"large"`, which `update` stores only while it is open.
+ * Its model holds what they give in both states, as a model that shows what `update` rejects does.
  */
-type Gated =
-  | Readonly<{ _tag: "Open"; notes: string; agreed: boolean }>
-  | Readonly<{
-    _tag: "Frozen"
-    notes: string
-    agreed: boolean
-  }>
-const gatedOf = program<{ state: Gated; message: "Frozen" | Typed<"NotesTyped"> | Typed<"AgreedChecked", boolean> }>()
+type Gated = Controls & Readonly<{ _tag: "Open" | "Frozen"; size: string }>
+const gatedOf = program<{ state: Gated; message: "Frozen" | Given | Typed<"SizeChosen"> }>()
 
 export const gated = gatedOf.make({
-  init: { state: { _tag: "Open", notes: "", agreed: false } },
-  update: (message) => (held) =>
-    held._tag === "Frozen"
-      ? reject
-      : { state: message === "Frozen" ? { ...held, _tag: "Frozen" } : stored(held, message) },
+  init: { state: { _tag: "Open", notes: "", choice: "tea", agreed: false, level: "50", size: "small" } },
+  update: (message) => (held) => {
+    if (held._tag === "Frozen") return reject
+    if (message === "Frozen") return { state: { ...held, _tag: "Frozen" } }
+    return { state: message._tag === "SizeChosen" ? { ...held, size: message.value } : stored(held, message) }
+  },
   makeModel: (held) => ({
     ...held,
+    ...given,
     freeze: held._tag === "Open" ? "Frozen" as const : undefined,
-    notesTyped: given.notesTyped,
-    agreedChecked: given.agreedChecked
+    sizeChosen: { _tag: "SizeChosen" } as const
   })
 })
 
@@ -390,7 +385,10 @@ export type Bridge<Node> = Readonly<{
     lock: View<Node, ModelOf<typeof lock>, MessageOf<typeof lock>>
     /** A `<textarea>`, a `<select>` of "tea", "coffee" and "water", a checkbox and an `<input type="range">`. */
     controls: View<Node, ModelOf<typeof controls>, MessageOf<typeof controls>>
-    /** A `<textarea>` and a checkbox, then a Freeze button while open. */
+    /**
+     * The controls of `controls`, two radios of the group `size`, `"small"` then `"large"`, each sending its `value`
+     * as it changes, then a Freeze button while open.
+     */
     gated: View<Node, ModelOf<typeof gated>, MessageOf<typeof gated>>
   }>
 }>
@@ -708,9 +706,10 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       stop()
     })
 
-    // A value the element changes by itself is left out: an `<input>` strips the line breaks of what it is given (HTML,
-    // the value sanitization algorithm of `type=text`). It shows the stripped value until the next key, which is
-    // stored.
+    // An alarm of what the guide leaves unspecified ("Writing a bridge", "What is left out", a value the element
+    // changes by itself): an `<input>` strips the line breaks of what it is given (HTML, the value sanitization
+    // algorithm of `type=text`). It shows the stripped value until the next key, which is stored. It is the killer of
+    // no mutation.
     test("a value with a line break, which the field strips, is shown stripped, and the next key is stored", async () => {
       const app = await mountNote()
       const typed = element<HTMLInputElement>("input")
@@ -877,6 +876,23 @@ export const bridgeTests = <Node>(bridge: Bridge<Node>) => {
       await act(() => typeArea(area, "kept!"))
       await act(() => setChecked(box, true))
       expect([area.value, box.checked]).toEqual(["kept", false])
+    })
+
+    // A radio checked unchecks the other of its group by itself (HTML, "the radio button group"): both are given the
+    // model's back.
+    test("once frozen, a choice in the select, a move of the range and a radio checked are rejected, and each shows the model again", async () => {
+      mount(bridge.drawInto, bridge.views.gated, start(gated))
+      settle()
+      await bridge.drawn()
+      const select = element<HTMLSelectElement>("select")
+      const range = element<HTMLInputElement>("input[type=range]")
+      const small = element<HTMLInputElement>("input[value=small]")
+      const large = element<HTMLInputElement>("input[value=large]")
+      await act(() => button("Freeze").click())
+      await act(() => choose(select, "coffee"))
+      await act(() => type(range, "70"))
+      await act(() => setChecked(large, true))
+      expect([select.value, range.value, small.checked, large.checked]).toEqual(["tea", "50", true, false])
     })
   })
 

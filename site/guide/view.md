@@ -27,9 +27,9 @@ the model holds: `on: { click: () => dispatch(model.more) }`.
 - **`dispatch` is a plain function.** A handler of any renderer calls `dispatch(message)`. Effect code calls it in an
   `Effect.sync`: `Effect.sync(() => dispatch(message))`.
 - **Sending applies the message.** When a handler returns, `update` has seen the handler's message, and the model is
-  the new one. What the message starts, its commands and its subscriptions, runs later, in the run. The program runs
-  on the stack of the handler, so a slow `update` holds it up (see
-  [what is left to you](./guarantees.md#what-is-left-to-you)).
+  the new one. What the message starts, its commands and its subscriptions, starts in the run, after the step: whether
+  before the handler returns or after it is unspecified. The program runs on the stack of the handler, so a slow
+  `update` holds it up (see [what is left to you](./guarantees.md#what-is-left-to-you)).
 - **What the program draws comes from its model.** Nothing else of the program is supported. What the screen shows of
   the program comes from the model, which the view draws, or from the platform: a hover, the focus or an animation
   that the platform keeps by itself. For the length of its own event, a text field shows what the user typed into it
@@ -39,7 +39,8 @@ the model holds: `on: { click: () => dispatch(model.more) }`.
     `app.subscribe` tells it of a new state (see [running](./running.md)).
 - **Each bridge says what it draws beside the model.** The guarantees are of the program, and what a bridge adds of
   the screen is its own promise (see [what a bridge does](./writing-a-bridge.md#what-a-bridge-does)). The bridge to
-  snabbdom draws the model and nothing else. With the bridge to React, the application's components may keep state of
-  their own, which React draws beside it, and which the program's testing tools do not see.
+  snabbdom draws the model, but snabbdom never removes a prop: one that a later view leaves out stays (see
+  [the package's bridges](./writing-a-bridge.md#the-packages-bridges)). With the bridge to React, the application's
+  components may keep state of their own, which React draws beside it.
 
 How a bridge is written is in [writing a bridge](./writing-a-bridge.md).

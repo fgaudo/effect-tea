@@ -11,6 +11,7 @@ import {
   Command,
   type Counted,
   Counts,
+  type ItemLine,
   Listening,
   Load,
   type Message,
@@ -125,7 +126,8 @@ describe("update", () => {
   test("unknown scans are listed newest first, at most five", () => {
     const codes = ["u1", "u2", "u3", "u4", "u5", "u6"]
     const { state } = applyAll(update, codes.map((code): Message => ({ _tag: "Scanned", code })), loaded)
-    expect(counting(stocktake.makeModel(state)).unknown).toEqual(["u6", "u5", "u4", "u3", "u2"])
+    expect(counting(stocktake.makeModel(state)).unknown).toEqual(Opt.some(["u6", "u5", "u4", "u3", "u2"]))
+    expect(counting(stocktake.makeModel(loaded)).unknown).toEqual(Opt.none())
   })
 
   test("the scanner is listened to while open, and its end shows Reconnect, which listens again", () => {
@@ -178,10 +180,14 @@ describe("update", () => {
       applyAll(update, [{ _tag: "SubmitClicked" }, { _tag: "SubmitSucceeded" }], typed(loaded, { i1: "1", i2: "1" }))
         .state
     expect(() => update({ _tag: "Scanned", code: "C-BOLT" })(closed)).toThrow(InvariantDefect)
+    expect(() => update({ _tag: "ScannerDisconnected" })(closed)).toThrow(InvariantDefect)
     expect(() => update({ _tag: "Loaded", items })(loaded)).toThrow(InvariantDefect)
+    expect(() => update({ _tag: "LoadFailed", error: "offline" })(loaded)).toThrow(InvariantDefect)
     expect(() => update({ _tag: "SubmitSucceeded" })(loaded)).toThrow(InvariantDefect)
+    expect(() => update({ _tag: "SubmitFailed", error: "refused" })(loaded)).toThrow(InvariantDefect)
     const ended = applyAll(update, [{ _tag: "ScannerDisconnected" }], loaded).state
     expect(() => update({ _tag: "Scanned", code: "C-BOLT" })(ended)).toThrow(InvariantDefect)
+    expect(() => update({ _tag: "ScannerDisconnected" })(ended)).toThrow(InvariantDefect)
   })
 
   test("rejects what is typed for an item that is not there", () => {
@@ -214,38 +220,39 @@ const states = (): fc.Arbitrary<State> => {
 }
 
 // The text that a test fills into what is typed, from the text that the count shows.
-type Texts = (text: string) => string
+type Fill = (shown: string) => string
 
-// A text other than the one the count shows: typing the text that a count holds changes nothing.
-const over: Texts = (text) => `${text}1`
+// What a model holds, a case at a time, in the order the view draws it: the scanner's control, what is typed into each
+// count that can be typed into, filled with a text, and the submit.
+const typedInto = (lines: ReadonlyArray<ItemLine>, fill: Fill): ReadonlyArray<Message> =>
+  lines.flatMap(({ model: { entry } }): ReadonlyArray<Message> =>
+    entry._tag === "Editable" ? [{ ...entry.typed, value: fill(entry.text) }] : []
+  )
 
-// What the model holds, a case at a time, in the order the view draws it: the scanner's control, what is typed into
-// each count that can be typed into, filled with a text, and the submit.
-const messagesOf = (model: Model, texts: Texts): ReadonlyArray<Message> => {
+const messagesOf = (model: Model, fill: Fill): ReadonlyArray<Message> => {
   switch (model._tag) {
     case "Loading":
       return []
     case "LoadFailed":
       return [model.retry]
     case "Counting":
-    case "Closed":
       return [
-        ...(model._tag === "Counting" && model.scanner._tag === "Disconnected" ? [model.scanner.reconnect] : []),
-        ...model.items.flatMap(({ model: { entry } }): ReadonlyArray<Message> =>
-          entry._tag === "Editable" ? [{ ...entry.typed, value: texts(entry.text) }] : []
-        ),
-        ...(model._tag === "Counting" && model.submit._tag === "Ready" ? [model.submit.submit] : [])
+        ...(model.scanner._tag === "Disconnected" ? [model.scanner.reconnect] : []),
+        ...typedInto(model.items, fill),
+        ...(model.submit._tag === "Ready" ? [model.submit.submit] : [])
       ]
+    case "Closed":
+      return typedInto(model.items, fill)
   }
 }
 
-// What a user could ask, a tag at a time. What is typed is a text other than the one each count shows, at every item
-// the model lists, so that a count that takes it where it is drawn read-only is missing.
-const candidatesOf = (model: Model): ReadonlyArray<Message> =>
+// What a user could ask, a tag at a time. What is typed is the text given, at every item the model lists, so that a
+// count that takes it where it is drawn read-only is missing.
+const candidatesOf = (model: Model, text: string): ReadonlyArray<Message> =>
   Object.values(
     {
       CountTyped: model._tag === "Counting" || model._tag === "Closed"
-        ? model.items.map(({ id, model: { entry } }) => ({ _tag: "CountTyped", id, value: over(entry.text) }) as const)
+        ? model.items.map(({ id }) => ({ _tag: "CountTyped", id, value: text }) as const)
         : [],
       RetryClicked: [{ _tag: "RetryClicked" }],
       // The answers of the server, to the commands.
@@ -261,25 +268,34 @@ const candidatesOf = (model: Model): ReadonlyArray<Message> =>
     } satisfies { [Tag in Message["_tag"]]: ReadonlyArray<Extract<Message, { _tag: Tag }>> }
   ).flat()
 
+/** The texts that the counts of a model show. */
+const shownTexts = (model: Model): ReadonlyArray<string> =>
+  model._tag === "Counting" || model._tag === "Closed" ? model.items.map(({ model }) => model.entry.text) : []
+
 describe("the model", () => {
+  // What is typed is filled with a text drawn, other than any that a count shows: typing the text that a count holds
+  // changes nothing.
   test("holds what update accepts, all of it, and each acts once when sent twice", () => {
-    fc.assert(fc.property(states(), (state) => {
+    fc.assert(fc.property(states(), text, (state, typed) => {
       const model = stocktake.makeModel(state)
+      fc.pre(!shownTexts(model).includes(typed))
       expect(dispatchViolations(update, {
         state,
-        held: messagesOf(model, over),
-        candidates: candidatesOf(model)
+        held: messagesOf(model, () => typed),
+        candidates: candidatesOf(model, typed)
       })).toEqual([])
     }))
   })
 
-  // Beyond what the library asks: that the view draws what its model holds, each control once, and each editable count
-  // with the text the model holds. `messagesSentBy`, beside the snabbdom bridge, is its way to see it without a DOM:
-  // what is typed holds the text its element is drawn with.
+  // The view draws what its model holds, each control once, and each editable count with the text the model holds:
+  // `messagesSentBy` finds what it sends without a DOM, and the test compares it with the reader. A field filled with
+  // the text drawn sends that text.
   test("the view sends what its model holds", () => {
-    fc.assert(fc.property(states(), (state) => {
+    fc.assert(fc.property(states(), text, (state, typed) => {
       const model = stocktake.makeModel(state)
-      expect(messagesSentBy<Model, Message>(view, model)).toEqual(messagesOf(model, (text) => text))
+      expect(messagesSentBy<Model, Message>(view, model)).toEqual(messagesOf(model, (shown) => shown))
+      expect(messagesSentBy<Model, Message>(view, model, () => ({ element: { value: typed } })))
+        .toEqual(messagesOf(model, () => typed))
     }))
   })
 
@@ -290,6 +306,14 @@ describe("the model", () => {
       if (one === undefined || other === undefined) throw new Error("nothing sampled")
       expect(one).not.toBe(other)
       expect(Equal.equals(stocktake.makeModel(one), stocktake.makeModel(other))).toBe(true)
+    }))
+  })
+
+  test("the scanner is listened to exactly where the model shows it connected", () => {
+    fc.assert(fc.property(states(), (state) => {
+      const model = stocktake.makeModel(state)
+      const connected = model._tag === "Counting" && model.scanner._tag === "Listening"
+      expect(stocktake.subscriptions(state)).toEqual(connected ? ["scanner"] : [])
     }))
   })
 })
@@ -357,7 +381,7 @@ describe("rehearse", () => {
           expect(heard.map((message) => message._tag)).toEqual(["Scanned", "Scanned", "Scanned", "ScannerDisconnected"])
           const unplugged = counting(yield* rehearsal.model)
           expect(textOf(unplugged, "i1")).toBe("2")
-          expect(unplugged.unknown).toEqual(["nope"])
+          expect(unplugged.unknown).toEqual(Opt.some(["nope"]))
           expect(unplugged.scanner._tag).toBe("Disconnected")
           yield* rehearsal.send((model) =>
             model._tag === "Counting" && model.scanner._tag === "Disconnected"

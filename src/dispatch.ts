@@ -10,7 +10,8 @@ import * as Hash from "effect/Hash"
  *
  * - It needs no services. A handler of any renderer calls it as it is. Effect code calls it in an `Effect.sync`.
  * - When a handler returns, `update` has seen its message, and the model is the new one. What the message starts, its
- *   commands and its subscriptions, runs later, in the run.
+ *   commands and its subscriptions, starts in the run, after the step: whether before the handler returns or after it
+ *   is unspecified.
  * - One sent while another is being applied, as a renderer's listener sends one, is applied right after it, before
  *   the outer call returns.
  * - The program runs on the stack of whoever sends the message: a slow `update` holds up the handler that sent it.

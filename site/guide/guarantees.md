@@ -74,10 +74,12 @@ each bridge's to promise (see [view](./view.md#rules)).
   - The run applies every message as it is sent, starts every command, and queues the effects of every state, however
     many wait. So the effects may lag behind the state without a bound, and when they start is unspecified: a step's
     commands may start after messages that came after it, and a subscription may start, and be stopped, for a key that
-    is already gone.
+    is already gone. This follows from one message at a time, and from subscriptions that follow their keys (see
+    [what you can rely on](#what-you-can-rely-on)).
   - A message that a listener of the `App` sends is applied right after the step that told it (see
     [what you can rely on](#what-you-can-rely-on)). So a listener that answers each new state with a message that
-    makes another never lets the call return, and no defect says so. Only code that subscribes to the `App` itself, as a bridge does, loops so within one call.
+    makes another never lets the call return, and no defect says so. Only code that calls `app.subscribe` itself, as a
+    bridge does, can loop so within one call.
   - The run waits for each release for as long as it takes, as it ends too (see
     [how the run ends](./running.md#how-the-run-ends)). One that never ends holds up the program, and the defects that
     the run would die with, and no defect says so.
@@ -98,11 +100,12 @@ each bridge's to promise (see [view](./view.md#rules)).
   library does not enforce it.
 - **The advice of [structuring a program](./structuring-a-program.md).** The library enforces none of it: the shape of
   the state, a view that draws and does not decide, a value that the user writes held by the program whose rules use
-  it. What it does enforce is that a parent is given no child's state.
+  it. What it does enforce is that a parent is given no child's state (see
+  [composition](./composition.md#the-parents-own-pieces)).
 - **Flags, and what `key` gives, made of values that `Equal` compares by value.** Other flags, or another value of
   `key`, start a child again. A function made anew in `flags` or `key` is other flags each time, since `Equal` compares
   a function by reference. Nothing says so: the child starts again, and loses its state (see
-  [composition](./composition.md#children-by-id)).
+  [composition](./composition.md#when-a-child-is-there)).
   - An `Equal` and a `Hash` that your program writes, for a key, what `key` gives, an id or flags, keep Effect's rules:
     values that `Equal` finds equal have the same `Hash`, and both give the same answer each time. Nothing checks
     them. Where one breaks them, what the library does with that value is undefined: which subscriptions and children
@@ -110,9 +113,10 @@ each bridge's to promise (see [view](./view.md#rules)).
 - **A state that starts a program elsewhere is one that the program made.** A child was last told what its parent's
   state gives in the states that the program makes from its first step on. A state saved under another `tell`, as one
   kept across a reload in development, and given back as `init: { state }`, keeps what each child was told then, until
-  the value changes (see [running](./running.md#rules)).
-- **What must stay private is in a service, not in a key.** A key is shown whole: in a defect of its subscription, and
-  in the `origin` that `onApplied` and `onIgnored` hear.
+  the value changes (see [composition](./composition.md#when-a-child-is-there)).
+- **What must stay private is in a service, not in a key.** A key carries what its subscription needs (see
+  [subscriptions](./subscriptions.md#rules)), and is shown whole: in a defect of its subscription, and in the `origin`
+  that `onApplied` and `onIgnored` hear (see [running](./running.md)).
 - **`update`, `external`, `makeModel`, `output` and `subscriptions` are pure, and no value is ever mutated.** So are
   an `init` that takes flags, the handlers of `onEvent`, and the functions that say which children are there, when
   they listen and what they are told: `there`, `key`, `flags`, `ids`, `listening` and `tell`. The library calls them
@@ -122,11 +126,11 @@ each bridge's to promise (see [view](./view.md#rules)).
 - **A function of the program never interrupts the fiber it runs in.** It runs where the library calls it: an `init`
   that takes flags, and the first `subscriptions`, in the call of `start`; the `init` of the children of a parent
   without flags in the call of `make`; `update`, `subscriptions` and the options where the message was sent;
-  `makeModel` where the model is read. That may be the fiber of whoever
-  starts the program, a command's, a subscription's, one that calls the dispatch, or no fiber at all. A function could
-  reach that fiber (`Fiber.getCurrent`). One that interrupts the fiber of a command or of a subscription is a defect of
-  that command or subscription, not of the function. The run cannot tell an interruption of another fiber from one by
-  whoever runs the program, so no defect says that one happened.
+  `makeModel` where the model is read. That may be the fiber of whoever starts the program, a command's, a
+  subscription's, one that calls the dispatch, or no fiber at all. A function could reach that fiber
+  (`Fiber.getCurrent`). One that interrupts the fiber of a command or of a subscription is a defect of that command or
+  subscription, not of the function (see [what you can rely on](#what-you-can-rely-on)). The run cannot tell an
+  interruption of another fiber from one by whoever runs the program, so no defect says that one happened.
 
 ## How the tests check them
 

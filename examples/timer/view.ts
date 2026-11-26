@@ -26,37 +26,38 @@ export const durationView: View<Duration.Model, Duration.Message> = (model, disp
 // #region timer
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
 
-// snabbdom reuses an element by position across the phases: the key keeps the "−", and the `disabled` it may hold,
-// from becoming another phase's button.
+// snabbdom's props module never removes a prop, and a button of one phase may be patched into another's: every
+// button sets `disabled`.
 export const timerView: View<Timer.Model, Timer.Message> = (model, dispatch) => {
+  const button = (selector: string, message: Timer.Message, label: string) =>
+    h(selector, { props: { disabled: false }, on: { click: () => dispatch(message) } }, label)
   switch (model._tag) {
     case "Setting":
       return h("div.timer", [
         Opt.match(model.less, {
-          onNone: () => h("button", { key: "less", props: { disabled: true } }, "−"),
-          onSome: (less) =>
-            h("button", { key: "less", props: { disabled: false }, on: { click: () => dispatch(less) } }, "−")
+          onNone: () => h("button", { props: { disabled: true } }, "−"),
+          onSome: (less) => button("button", less, "−")
         }),
         h("output", `${model.minutes} min`),
-        h("button", { on: { click: () => dispatch(model.more) } }, "+"),
-        h("button", { on: { click: () => dispatch(model.start) } }, "Start")
+        button("button", model.more, "+"),
+        button("button", model.start, "Start")
       ])
     case "Running":
       return h("div.timer", [
         h("output", clock(model.secondsLeft)),
-        h("button", { on: { click: () => dispatch(model.pause) } }, "Pause"),
-        h("button.secondary", { on: { click: () => dispatch(model.reset) } }, "Reset")
+        button("button", model.pause, "Pause"),
+        button("button.secondary", model.reset, "Reset")
       ])
     case "Paused":
       return h("div.timer", [
         h("output", clock(model.secondsLeft)),
-        h("button", { on: { click: () => dispatch(model.resume) } }, "Resume"),
-        h("button.secondary", { on: { click: () => dispatch(model.reset) } }, "Reset")
+        button("button", model.resume, "Resume"),
+        button("button.secondary", model.reset, "Reset")
       ])
     case "Finished":
       return h("div.timer", [
         h("output", "Done"),
-        h("button", { on: { click: () => dispatch(model.reset) } }, "Again")
+        button("button", model.reset, "Again")
       ])
   }
 }

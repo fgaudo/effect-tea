@@ -1065,7 +1065,14 @@ type DeclaredTypes = Readonly<{
   output?: unknown
   /** What it listens to, as data, if anything: the keys of its own subscriptions, which its `listen` takes. */
   key?: unknown
+  /** Never named: inferred from `runCommand` and the children. */
+  commandServices?: Inferred
+  /** Never named: inferred from `listen` and the children. */
+  subscriptionServices?: Inferred
 }>
+
+// Services named in `program` would be ignored, since `make` infers them: a type named there does not compile.
+type Inferred = Readonly<{ "the services are inferred, never named": never }>
 
 /**
  * The way to make a program: its types named once, then the functions that declare its children, and `make`, which
@@ -1218,7 +1225,8 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    *   the ids as `ids`, or `flags`, lists them. It takes no id.
    *
    * It takes `ids`, or `flags` for a program with flags, and does not compile without one, or with the other. The
-   * program is checked as `child` checks it, and `tell` too.
+   * program is checked as `child` checks it, and `tell` too. Nor does it compile for a type parameter, as `child`
+   * does not.
    *
    * @param program - The program of each child.
    * @param options - The ids of the children in a state, `listening`, which says whether the child at an id listens,
@@ -1239,6 +1247,8 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * They are declared before the rest, so that what a step tells them is typed by them. The children that one state
    * lists anew start in the order of their names here, as JavaScript gives the keys of an object, then in the order
    * in which `ids`, or `flags`, lists their ids. Each start takes the next number, from 1.
+   *
+   * The `make` it gives does not compile for a child whose program is a type parameter, as `child` does not.
    *
    * @param children - The children, by name: `{ Clock: child(…), Row: childById(…) }`.
    * @returns `make`, which makes the parent.

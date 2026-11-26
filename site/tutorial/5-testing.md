@@ -60,6 +60,7 @@ at a time ([`examples/timer/timer.test_reader.ts`][reader]):
 **Third, `dispatchViolations`,** which is given both. It checks that:
 
 - each message the model holds is accepted;
+- each one does something, unless it is held on purpose though it does nothing (`inert`);
 - each one acts once when sent twice, unless it is meant to repeat (`repeatable`), as "+" and "−" are;
 - each candidate that `update` accepts, and whose step would do something, is among those the model holds.
 
@@ -90,8 +91,10 @@ moment.
 - when it runs or hears what is not there;
 - on a defect of the program, as the run dies of it;
 - at the end, when a command is still pending or under way, or its `run` was interrupted before it answered, since
-  its answer would still arrive;
-- at the end, when a call of `hearNext`, which runs a subscription, still waits for its message.
+  its answer would still arrive.
+
+A call of `hearNext`, which runs a subscription, that still waits for its message at the end fails, and the rehearsal
+returns all the same: join a call forked from the scenario, or its failure is lost.
 
 ## A parent
 

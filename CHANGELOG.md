@@ -138,6 +138,15 @@ version, and everything else, features included, the patch version.
   toolchains, as Metro for Hermes, need a plugin for.
 - No value given to the library, or taken from it, is to be mutated: the rule of a state now holds of a message, a
   command, an event, flags, a key, a model and an output too ("Guarantees", "What is left to you").
+- **Breaking**: `program<{ … }>()` refuses `commandServices` and `subscriptionServices`, which it took and ignored:
+  `make` infers the services from `runCommand` and `listen`.
+  Upgrade: remove them from the types given to `program`.
+- **Breaking**: unspecified, and no longer promised: whether the commands and subscriptions that a message starts
+  start before the call that sent it returns, or after it ("View", `Dispatch`). They start in the run, after the step.
+  Upgrade: nothing to change in a program.
+- **Breaking**: no longer promised, since it was false: that `Draw` renders again for each new state. It renders at
+  once when it is told of a new state, and draws the new states of one task once, with the latest model, as it did.
+  Upgrade: nothing to change in a program.
 
 ### Fixed
 

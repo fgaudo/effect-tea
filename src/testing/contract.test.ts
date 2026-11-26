@@ -204,7 +204,7 @@ describe("the order of the answers of commands started together", () => {
       })
     ))
 
-  test("in the run, the answers of commands started together are heard in the order they started, before those of the commands they start", async () => {
+  test("in the run, commands that answer at once are heard as they end, before the commands their answers start", async () => {
     expect(await inTheRun()).toEqual(["A", "B", "C"])
   })
 

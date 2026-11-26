@@ -4,6 +4,7 @@ import { applyAll, dispatchViolations, drive, rehearse } from "@fgaudo/effect-te
 import { describe, expect, test } from "bun:test"
 import * as Arr from "effect/Array"
 import * as Effect from "effect/Effect"
+import * as Equal from "effect/Equal"
 import * as Opt from "effect/Option"
 import * as Stream from "effect/Stream"
 import * as fc from "fast-check"
@@ -11,6 +12,7 @@ import { view } from "./view.ts"
 import {
   Drag,
   Limit,
+  maxOf,
   type Message,
   type Model,
   Pointer,
@@ -36,16 +38,26 @@ const pressed: fc.Arbitrary<Pressed> = fc.record({
 
 const span: fc.Arbitrary<Span> = pressed.map(({ left, width }) => ({ left, width }))
 
+// Any valid state: the ringer within the bounds of its limit, and a drag of the media only while it is heard, since a
+// mute ends one and a press while muted starts none.
 const state: fc.Arbitrary<State> = fc.record({
-  media: fc.integer({ min: 0, max: 100 }),
   sound: fc.constantFrom(Sound.Audible(), Sound.Muted()),
-  ringer: fc.integer({ min: 0, max: 100 }),
-  limit: fc.constantFrom(Limit.Full(), Limit.Quiet()),
-  drag: fc.oneof(
-    fc.constant(Drag.Idle()),
-    fc.record({ slider: fc.constantFrom<Slider>("Media", "Ringer"), track: span }).map(Drag.Dragging)
-  )
-})
+  limit: fc.constantFrom(Limit.Full(), Limit.Quiet())
+}).chain(({ sound, limit }) =>
+  fc.record({
+    media: fc.integer({ min: 0, max: 100 }),
+    sound: fc.constant(sound),
+    ringer: fc.integer({ min: 0, max: maxOf(limit) }),
+    limit: fc.constant(limit),
+    drag: fc.oneof(
+      fc.constant(Drag.Idle()),
+      fc.record({
+        slider: sound._tag === "Muted" ? fc.constant<Slider>("Ringer") : fc.constantFrom<Slider>("Media", "Ringer"),
+        track: span
+      }).map(Drag.Dragging)
+    )
+  })
+)
 
 // A press at `clientX` on a track that lies from 0 to 100 across the page, where the pointer is as far along it.
 const press = (slider: Slider, clientX: number): Message => ({
@@ -76,46 +88,67 @@ const heardFrom = (_: Slider, clientX: number): ReadonlyArray<Message> => [
 describe("volume", () => {
   // `update` alone: the rules, without running anything.
   describe("update", () => {
-    test("a press sets the level where the pointer is along the track, and a drag follows it, within its bounds", () => {
+    test("a press sets the level where the pointer is along the track, within its bounds, and starts a drag", () => {
       const at = { _tag: "DragStarted", slider: "Media", clientX: 230, left: 200, width: 60 } as const
-      expect(applyAll(update, [at], start).state.media).toBe(50)
-      const { state } = applyAll(update, [at, { _tag: "Moved", clientX: 248.24 }, { _tag: "DragEnded" }], start)
-      expect(state).toMatchObject({ media: 80, drag: Drag.Idle() })
-      expect(applyAll(update, [at, { _tag: "Moved", clientX: 300 }], start).state.media).toBe(100)
-      const quiet = applyAll(update, [{ _tag: "QuietClicked" }, press("Ringer", 95)], start).state
-      expect(quiet.ringer).toBe(30)
+      expect(update(at)(start)).toEqual({
+        state: { ...start, media: 50, drag: Drag.Dragging({ slider: "Media", track: { left: 200, width: 60 } }) }
+      })
+      const quiet = { ...start, ringer: 30, limit: Limit.Quiet() }
+      expect(update(press("Ringer", 95))(quiet)).toEqual({
+        state: { ...quiet, drag: Drag.Dragging({ slider: "Ringer", track: { left: 0, width: 100 } }) }
+      })
+    })
+
+    test("a move sets the level where the pointer is along the track of the drag, within its bounds", () => {
+      const dragging = { ...start, drag: Drag.Dragging({ slider: "Media", track: { left: 200, width: 60 } }) }
+      expect(update({ _tag: "Moved", clientX: 248.24 })(dragging)).toEqual({ state: { ...dragging, media: 80 } })
+      expect(update({ _tag: "Moved", clientX: 300 })(dragging)).toEqual({ state: { ...dragging, media: 100 } })
+    })
+
+    test("a release ends the drag, and leaves the level where the drag left it", () => {
+      const dragging = { ...start, media: 80, drag: Drag.Dragging({ slider: "Media", track: { left: 0, width: 100 } }) }
+      expect(update({ _tag: "DragEnded" })(dragging)).toEqual({ state: { ...start, media: 80 } })
     })
 
     // A track that the browser has not laid out has no point along it: the drag starts, and leaves the level.
     test("a press on a track with no width starts a drag that moves nothing", () => {
       const flat = { _tag: "DragStarted", slider: "Ringer", clientX: 10, left: 0, width: 0 } as const
       const { state } = applyAll(update, [flat, { _tag: "Moved", clientX: 30 }], start)
-      expect(state).toMatchObject({ ringer: 80, drag: { _tag: "Dragging", slider: "Ringer" } })
+      expect(state).toEqual({ ...start, drag: Drag.Dragging({ slider: "Ringer", track: { left: 0, width: 0 } }) })
     })
 
     test("muting leaves the media's level as it is, and unmuting gives it back", () => {
-      const muted = applyAll(update, [press("Media", 80), { _tag: "DragEnded" }, { _tag: "MuteClicked" }], start).state
-      expect(muted).toMatchObject({ media: 80, sound: Sound.Muted() })
+      const muted = { ...start, sound: Sound.Muted() }
+      expect(update({ _tag: "MuteClicked" })(start)).toEqual({ state: muted })
       expect(volume.makeModel(muted).media).toEqual({ level: 0, max: 100, press: Opt.none() })
-      expect(volume.makeModel(applyAll(update, [{ _tag: "UnmuteClicked" }], muted).state).media.level).toBe(80)
+      expect(update({ _tag: "UnmuteClicked" })(muted)).toEqual({ state: start })
     })
 
-    // The track is drawn at 0 with no press: a drag of it would move a level nobody sees.
+    // The track is drawn at 0 with no press: a drag of it would move a level nobody sees. A drag of the ringer goes on.
     test("a mute ends a drag of the media, and a press drawn before it starts none", () => {
-      const muted = applyAll(update, [press("Media", 20), { _tag: "MuteClicked" }], start).state
-      expect(muted.drag).toEqual(Drag.Idle())
+      const track = { left: 0, width: 100 }
+      const muted = { ...start, sound: Sound.Muted() }
+      expect(update({ _tag: "MuteClicked" })({ ...start, drag: Drag.Dragging({ slider: "Media", track }) }))
+        .toEqual({ state: muted })
+      expect(update({ _tag: "MuteClicked" })({ ...start, drag: Drag.Dragging({ slider: "Ringer", track }) }))
+        .toEqual({ state: { ...muted, drag: Drag.Dragging({ slider: "Ringer", track }) } })
       expect(update(press("Media", 40))(muted)).toBe(reject)
     })
 
     test("quiet hours bring a louder ringer down to their maximum, and full volume leaves it there", () => {
-      const quiet = applyAll(update, [{ _tag: "QuietClicked" }], start).state
-      expect(quiet).toMatchObject({ ringer: 30, limit: Limit.Quiet() })
-      expect(applyAll(update, [{ _tag: "FullClicked" }], quiet).state.ringer).toBe(30)
+      const quiet = { ...start, ringer: 30, limit: Limit.Quiet() }
+      expect(update({ _tag: "QuietClicked" })(start)).toEqual({ state: quiet })
+      expect(update({ _tag: "FullClicked" })(quiet)).toEqual({ state: { ...start, ringer: 30 } })
     })
 
     // The moves are the program's own messages: each is put within the bounds the state holds when it arrives,
-    // whatever they were when the drag began. No recipe is needed for bounds that narrow under a drag.
+    // whatever they were when the drag began.
     test("a move of the ringer is put within the bounds of quiet hours that began during the drag", () => {
+      const quiet = {
+        ...start,
+        limit: Limit.Quiet(),
+        drag: Drag.Dragging({ slider: "Ringer", track: { left: 0, width: 100 } })
+      }
       const { state } = applyAll(update, [
         press("Ringer", 50),
         { _tag: "Moved", clientX: 90 },
@@ -123,12 +156,12 @@ describe("volume", () => {
         { _tag: "Moved", clientX: 95 },
         { _tag: "Moved", clientX: 10 }
       ], start)
-      expect(state.ringer).toBe(10)
+      expect(state).toEqual({ ...quiet, ringer: 10 })
       const quietened = applyAll(update, [press("Ringer", 50), { _tag: "QuietClicked" }, {
         _tag: "Moved",
         clientX: 95
       }], start)
-      expect(quietened.state.ringer).toBe(30)
+      expect(quietened.state).toEqual({ ...quiet, ringer: 30 })
     })
 
     test("a second press while a slider is dragged starts nothing", () => {
@@ -170,9 +203,9 @@ describe("volume", () => {
     }))
   })
 
-  // Beyond what the library asks: that the view draws what its model holds, each control once, and fills each press
-  // with what the event and the track report. `messagesSentBy`, beside the snabbdom bridge, is its way to see it
-  // without a DOM, given the same values as the reader.
+  // The view, checked with the tools of its renderer: `messagesSentBy`, of the snabbdom bridge, finds what the view
+  // sends without a DOM, each control once, each press filled with what the event and the track report, here the
+  // values given to the reader, with which the test compares it.
   test("the view sends what its model holds", () => {
     fc.assert(fc.property(state, pressed, (before, at) => {
       const model = volume.makeModel(before)
@@ -181,6 +214,18 @@ describe("volume", () => {
         event: { clientX: at.clientX }
       })
       expect(messagesSentBy<Model, Message>(view, model, reports)).toEqual(messagesOf(model, at))
+    }))
+  })
+
+  // Two equal states built apart, by the same seed drawn twice, give two equal models, which a function in a model
+  // would break, being made anew by each `makeModel`.
+  test("the model is data: equal states, built apart, have equal models", () => {
+    fc.assert(fc.property(fc.integer(), (seed) => {
+      const [one] = fc.sample(state, { seed, numRuns: 1 })
+      const [other] = fc.sample(state, { seed, numRuns: 1 })
+      if (one === undefined || other === undefined) throw new Error("nothing sampled")
+      expect(one).not.toBe(other)
+      expect(Equal.equals(volume.makeModel(one), volume.makeModel(other))).toBe(true)
     }))
   })
 

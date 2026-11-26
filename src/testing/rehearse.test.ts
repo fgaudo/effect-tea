@@ -237,6 +237,30 @@ describe("rehearse", () => {
     expect(await Effect.runPromise(rehearse(plain, (rehearsal) => rehearsal.state))).toEqual({ count: 0 })
   })
 
+  test("calls no output of the program, which has no parent", async () => {
+    type Count = Readonly<{ count: number }>
+    let outputs = 0
+    const counting: Program<{ state: Count; model: number; message: "Increment"; output: number }> = {
+      init: { state: { count: 0 } },
+      update: () => ({ count }) => ({ state: { count: count + 1 } }),
+      subscriptions: () => [],
+      makeModel: ({ count }) => count,
+      output: ({ count }) => {
+        outputs++
+        return count
+      }
+    }
+    const model = await Effect.runPromise(rehearse(
+      counting,
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.send(() => Opt.some("Increment"))
+        yield* rehearsal.state
+        return yield* rehearsal.model
+      })
+    ))
+    expect({ model, outputs }).toEqual({ model: 1, outputs: 0 })
+  })
+
   test("a scenario made with Effect.fnUntraced, of a program without commands, keeps its errors and services", () => {
     type Count = Readonly<{ count: number }>
     const counting: Program<{ state: Count; model: number; message: "Increment" }> = {
@@ -274,6 +298,50 @@ describe("rehearse", () => {
     )))
     expect(pending).toEqual([])
     expect(announced).toEqual(["announced"])
+  })
+
+  // `Go` starts `A`, `B` and `C`, each answering `Done`, which applies once.
+  type Done = Readonly<{ done: boolean }>
+  const three: Program<
+    { state: Done; model: Done; message: "Go" | "Done"; command: "A" | "B" | "C"; event: "Went" | "Finished" }
+  > = {
+    init: { state: { done: false } },
+    update: (message) => ({ done }) =>
+      message === "Go"
+        ? { state: { done }, commands: ["A", "B", "C"], events: ["Went"] }
+        : done
+        ? reject
+        : { state: { done: true }, events: ["Finished"] },
+    runCommand: () => Effect.succeedSome<"Go" | "Done">("Done"),
+    subscriptions: () => [],
+    makeModel: (state) => state
+  }
+
+  test("pending lists the commands oldest first, and run runs the oldest pending command its select matches", async () => {
+    const seen = await Effect.runPromise(rehearse(
+      three,
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.send(() => Opt.some("Go"))
+        const before = yield* rehearsal.pending
+        const ran = yield* rehearsal.run((command) => command !== "A")
+        const after = yield* rehearsal.pending
+        yield* rehearsal.runAll
+        return { before, ran, after }
+      })
+    ))
+    expect(seen).toEqual({ before: ["A", "B", "C"], ran: "B", after: ["A", "C"] })
+  })
+
+  test("runAll lists in ignored the answers update rejects, and events lists the events in order", async () => {
+    const seen = await Effect.runPromise(rehearse(
+      three,
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.send(() => Opt.some("Go"))
+        yield* rehearsal.runAll
+        return { ignored: yield* rehearsal.ignored, events: yield* rehearsal.events }
+      })
+    ))
+    expect(seen).toEqual({ ignored: ["Done", "Done"], events: ["Went", "Finished"] })
   })
 
   test("a command's answer that no longer applies is ignored, and listed", async () => {
@@ -384,6 +452,42 @@ describe("rehearse", () => {
     ))
     expect(state.own).toEqual({ name: "Ada", pings: 1 })
     expect(Opt.map(state.children.Field, (kept) => kept.state)).toEqual(Opt.some({ text: "Ada", pings: 1 }))
+  })
+
+  test("hear and hearNext take the key of a child by id, and model is makeModel of the state, a parent's", async () => {
+    type Ticks = Readonly<{ ticks: number }>
+    const Row = program<{ state: Ticks; message: "Ticked"; key: "ticks" }>()
+    const row = Row.make({
+      init: { state: { ticks: 0 } },
+      update: () => ({ ticks }) => ({ state: { ticks: ticks + 1 } }),
+      subscriptions: () => ["ticks" as const],
+      listen: () => Channel.succeed<"Ticked">("Ticked").pipe(Channel.concatWith(() => Channel.never)),
+      makeModel: ({ ticks }) => ticks
+    })
+    type Ids = Readonly<{ ids: ReadonlyArray<number> }>
+    const List = program<{ state: Ids; message: "Added" }>()
+    const list = List.withChildren({ Row: List.childById(row, { ids: (state) => state.ids }) }).make({
+      init: { state: { ids: [7] } },
+      update: () => ({ ids }) => ({ state: { ids: [...ids, 8] } }),
+      makeModel: (state, children) => state.ids.map((id) => ({ id, ticks: children.Row(id) }))
+    })
+    // Row 7 starts with the list, its first instance, and row 8 once `Added` lists it, the second: each message of a
+    // child's subscription names its instance.
+    const eight = { _tag: "Row", id: 8, instance: 2, key: "ticks" }
+    const ticked: MessageOf<typeof list> = { _tag: "Row", id: 8, instance: 2, message: "Ticked" }
+    const { heard, model, state } = await Effect.runPromise(rehearse(
+      list,
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* rehearsal.send(() => Opt.some<MessageOf<typeof list>>("Added"))
+        const heard = yield* rehearsal.hearNext({ _tag: "Row", id: 7, instance: 1, key: "ticks" })
+        yield* rehearsal.hear(eight, ticked)
+        yield* rehearsal.hear(eight, ticked)
+        return { heard, model: yield* rehearsal.model, state: yield* rehearsal.state }
+      })
+    ))
+    expect(heard).toEqual({ _tag: "Row", id: 7, instance: 1, message: "Ticked" })
+    expect(model).toEqual([{ id: 7, ticks: 1 }, { id: 8, ticks: 2 }])
+    expect(model).toEqual(list.makeModel(state))
   })
 
   describe("hearNext", () => {
@@ -699,6 +803,22 @@ describe("rehearse", () => {
       expect(pings).toBe(2)
     })
 
+    test("after its end value, hear hears the key again once the key goes away and comes back", async () => {
+      const ending: typeof editor = { ...editor, listen: () => Channel.end<Edit>({ _tag: "Pinged" }) }
+      const { failure, pings } = await Effect.runPromise(withStorage(rehearse(
+        ending,
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.hearNext("ping")
+          const failure = yield* failingWith(rehearsal.hear("ping", { _tag: "Pinged" }))
+          yield* comingBack(rehearsal)
+          yield* rehearsal.hear("ping", { _tag: "Pinged" })
+          return { failure, pings: (yield* rehearsal.state).pings }
+        })
+      )))
+      expect(failure).toContain("The subscription under ping has ended")
+      expect(pings).toBe(2)
+    })
+
     test("a start the test played with hear is not run, until the key goes away and comes back", async () => {
       const log: Array<string> = []
       const { failure, pings } = await Effect.runPromise(withStorage(rehearse(
@@ -952,6 +1072,26 @@ describe("rehearse, under fibers of the test's and of whoever runs it", () => {
       )
     }))
     expect(listening).toBe(false)
+  })
+
+  test("a send returns only once what its message stops has released what it held", async () => {
+    const returned = await Effect.runPromise(Effect.gen(function*() {
+      const releasing = yield* Deferred.make<void>()
+      const gate = yield* Deferred.make<void>()
+      return yield* rehearse(
+        gated(releasing, Deferred.await(gate)),
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.hearNext("k")
+          const dropping = yield* Effect.forkChild(rehearsal.send(() => Opt.some({ _tag: "Drop" })))
+          yield* Deferred.await(releasing)
+          const whileReleasing = dropping.pollUnsafe() !== undefined
+          yield* Deferred.succeed(gate, undefined)
+          yield* Fiber.join(dropping)
+          return [whileReleasing, dropping.pollUnsafe() !== undefined]
+        })
+      )
+    }))
+    expect(returned).toEqual([false, true])
   })
 
   // Pings twice, then waits forever.

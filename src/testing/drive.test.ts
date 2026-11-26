@@ -152,13 +152,14 @@ describe("drive", () => {
 
   test("a program a parent could hold is driven too: its external and its output are checked, and never called", async () => {
     type Count = Readonly<{ count: number }>
+    const calls = { external: 0, output: 0 }
     const held: Program<{ state: Count; model: number; message: "Inc"; external: "Reset"; output: number }> = {
       init: { state: { count: 0 } },
       update: () => ({ count }) => ({ state: { count: count + 1 } }),
-      external: () => () => ({ state: { count: 0 } }),
+      external: () => () => (calls.external++, { state: { count: 0 } }),
       subscriptions: () => [],
       makeModel: ({ count }) => count,
-      output: ({ count }) => count
+      output: ({ count }) => (calls.output++, count)
     }
     const counted = drive(
       held,
@@ -168,11 +169,23 @@ describe("drive", () => {
       })
     )
     expect(await Effect.runPromise(counted)).toBe(1)
+    expect(calls).toEqual({ external: 0, output: 0 })
     expect(() =>
       // @ts-expect-error: an external message applies in every state.
       drive({ ...held, external: (_: "Reset") => (state: Count) => state.count > 0 ? { state } : reject }, () =>
         Effect.void)
     ).toBeDefined()
+  })
+
+  test("only a program without events is driven: no parent would handle them", () => {
+    const telling: Program<{ state: Readonly<{ told: number }>; model: number; message: "Tell"; event: "Told" }> = {
+      init: { state: { told: 0 } },
+      update: () => ({ told }) => ({ state: { told: told + 1 }, events: ["Told"] }),
+      subscriptions: () => [],
+      makeModel: ({ told }) => told
+    }
+    // @ts-expect-error: its events would go unhandled.
+    expect(() => drive(telling, () => Effect.void)).toBeDefined()
   })
 
   test("send waits for a model that shows the message", async () => {

@@ -22,6 +22,8 @@ type StatesOf<Children> = {
  * - A state given for a child that the own state does not list is an error, and so is a handler of `onEvent` that
  *   gives another object as the own state, equal or not, in answer to what a child is told. One that raises an event
  *   of the parent's own is a `CompositionDefect`, as in `init`.
+ * - A state given under a name that is no child's is an error, and so is a program without children, whose state is
+ *   its own.
  * - For a parent of parents, the state of a child that is a parent is itself made with `stateOf`.
  *
  * @param program - The parent, made with `withChildren`.

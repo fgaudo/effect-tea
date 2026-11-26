@@ -107,6 +107,11 @@ const pointed = (state: State, slider: Slider, clientX: number, track: Span): St
 const dragged = (state: State): Opt.Option<Slider> =>
   state.drag._tag === "Dragging" ? Opt.some(state.drag.slider) : Opt.none()
 
+// Whether a press on `slider` starts a drag: while nothing is dragged, and the media only while heard. Asked by
+// `update` and by `makeModel` alike, so that both give one answer.
+const pressable = (state: State, slider: Slider): boolean =>
+  state.drag._tag === "Idle" && !(slider === "Media" && state.sound._tag === "Muted")
+
 export const update: Update<State, Message> = (message) => (state) => {
   switch (message._tag) {
     // A mute ends a drag of the media: the slider is drawn at 0, with no press.
@@ -129,7 +134,7 @@ export const update: Update<State, Message> = (message) => (state) => {
     // A press on a view drawn before the last one ended may come while a drag goes on, or on the media's track
     // drawn before a mute: it starts nothing. Wherever it is, a press that applies starts a drag.
     case "DragStarted": {
-      if (state.drag._tag === "Dragging" || (message.slider === "Media" && state.sound._tag === "Muted")) return reject
+      if (!pressable(state, message.slider)) return reject
       const track = { left: message.left, width: message.width }
       return {
         state: {
@@ -173,9 +178,7 @@ export type Model = Readonly<{
 }>
 
 const press = (state: State, slider: Slider): Track["press"] =>
-  state.drag._tag === "Idle" && !(slider === "Media" && state.sound._tag === "Muted")
-    ? Opt.some({ _tag: "DragStarted", slider } as const)
-    : Opt.none()
+  pressable(state, slider) ? Opt.some({ _tag: "DragStarted", slider } as const) : Opt.none()
 
 export const volume = program<{ state: State; model: Model; message: Message; key: Slider }>().make({
   init: { state: { media: 50, sound: Sound.Audible(), ringer: 80, limit: Limit.Full(), drag: Drag.Idle() } },

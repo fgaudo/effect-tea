@@ -1389,7 +1389,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "bridges/react.test.ts",
-        "that dies as its parent removes Host, in one batch, reaches the boundary or reportError"
+        "that dies as its parent removes Host, in one batch, is given to reportError, and is not thrown"
       ],
       [
         "bridges/react.test.ts",
@@ -4548,6 +4548,32 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/compose.test.ts",
         "a declared tell gives an external message of the child, a literal with no as const, and nothing to a child without",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "program takes the services of the commands named, and ignores them",
+    file: "src/compose.ts",
+    from: "  commandServices?: Inferred\n",
+    to: "",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "the services are never named in program, where they would be ignored: they are inferred",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "program takes the services of the subscriptions named, and ignores them",
+    file: "src/compose.ts",
+    from: "  subscriptionServices?: Inferred\n",
+    to: "",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "the services are never named in program, where they would be ignored: they are inferred",
         "typecheck"
       ]
     ]

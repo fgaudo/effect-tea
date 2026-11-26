@@ -107,11 +107,13 @@ type CompositionFields = Readonly<{
 /**
  * A parent that breaks what it declared of a child.
  *
- * A program meets it in three cases:
+ * A program meets it in four cases:
  *
  * - a step of a parent tells a child that is not there once the step is taken;
  * - children by id whose `ids` or `flags` list an id twice;
- * - the model or the output of a child by id is read at an id that the parent's state does not list.
+ * - the model or the output of a child by id is read at an id that the parent's state does not list;
+ * - a handler of `onEvent` that runs as the parent starts raises an event of the parent's own, which `stateOf` throws
+ *   too.
  *
  * `on` names the message by its tags. `id` is the child's id as it is, and may hold the program's data. Only
  * `program` makes one: a test reads it, and the types refuse a `new` of it, or a class that extends it. What a parent
@@ -164,8 +166,8 @@ export class InvariantDefect extends Data.TaggedError("InvariantDefect")<
  * The twin of `reject`, for a message that cannot arrive: throws an `InvariantDefect` with `reason`.
  *
  * The run dies, as with any other defect. `defect` is an expression, for a branch of a ternary or a `Match`. Use it in
- * the synchronous functions: `init`, `update`, `onEvent`, `makeModel`, `subscriptions`. Inside an Effect, use
- * `Effect.die`.
+ * the synchronous functions of a program: `init`, `update`, `external`, `onEvent`, `makeModel`, `output`,
+ * `subscriptions`, and those of a child's declaration, as `there` or `ids`. Inside an Effect, use `Effect.die`.
  *
  * @param reason - Which rule of the program was broken.
  * @returns Never: it throws.

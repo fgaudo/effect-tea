@@ -112,7 +112,9 @@ the rest.
   const listingView = (listing: Listing) => listing._tag === "Empty" ? "Nothing yet" : listing.items.join(", ")
   ```
 
-  It does not hold for how a value is written, or where it is laid out: those are the view's.
+  It does not hold for how a value is written, or where it is laid out: those are the view's. Nor for what the
+  platform does with its own event, which only the handler can decide, from the event alone: the links of
+  [`routing`](../../examples/routing/view.ts) call `preventDefault` on a plain click.
 - **Leave to the platform what it keeps by itself**: a hover, the focus, an animation that the platform runs. What the
   program decides by is state, and so is what the platform cannot keep. For the rest, either is right, and in the
   state a test sees it. What a renderer may keep beside the program is a rule of [view](./view.md#rules).
@@ -120,7 +122,8 @@ the rest.
   does, so it is state. A subscription sends one message for each step, only while something moves, and the message
   carries no time: each step moves the state on by the same length. So `update` stays deterministic, and a test
   replays a motion as a list of steps (see [`bounce`](../../examples/bounce/bounce.ts)). It does not hold for an
-  animation that decides nothing, which the platform keeps.
+  animation that decides nothing, which the platform keeps, nor for the part of a step that only the view reads, to
+  draw between two steps, as the `alpha` of `bounce`'s `Advanced`.
 
 ### Splitting a program
 
@@ -176,6 +179,6 @@ children (see [composition](./composition.md)).
   - Where only a child's own rules use the value, what is typed is a message of the child's own. The parent reads what
     the child concludes from it, through the child's `output`: of a count, the valid number and not the text; of a
     free note, the text itself.
-  - A row that is a child is an instance, which starts again when its id goes away and comes back (see
+  - A row that is a child is an instance, which starts again when its id goes away and comes back in a later step (see
     [children by id](./composition.md#children-by-id)). A row kept in the parent's state has none: the parent's
     `update` tells an old row from a new one by what its state keeps.

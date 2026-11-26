@@ -45,9 +45,10 @@ export const view: View<Model, Message> = (model, dispatch) => {
             "Scanner disconnected ",
             h("button.secondary", { on: { click: () => dispatch(scanner.reconnect) } }, "Reconnect")
           ]),
-        ...(model.unknown.length === 0 ? [] : [
-          h("p.unknown", `Unknown codes: ${model.unknown.join(", ")}`)
-        ]),
+        ...Opt.match(model.unknown, {
+          onNone: () => [],
+          onSome: (codes) => [h("p.unknown", `Unknown codes: ${codes.join(", ")}`)]
+        }),
         itemsView(model.items, dispatch),
         h("p", ["Total ", h("output.total", String(model.total))]),
         submit._tag === "Ready"
