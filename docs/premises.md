@@ -16,12 +16,16 @@ jobs, its fibers and its end. So each rests on what the engine rests on, and on 
 below by `answering`. `simulate` runs no subscription, so the premise of a subscription's channel (one channel run
 afresh) is none of its own.
 
-- **`HashMap` calls a key's `Equal` and `Hash` only within the call it is given the key in**, synchronously, never
-  later: so `reconcile` compares keys all inside `'subscriptions'`, in the thunk that makes a state, in the run and in
-  the tools. `FiberMap` compares its keys in a fiber's observer as well, which is why the run keeps its fibers by their
-  start. Both are read only in the source. The second test, "the watch of that test sees a FiberMap call a key's Equal
-  after the call, in a fiber's observer", is what the first fails with. Asked in Effect-TS/effect#10877, and withdrawn
-  there by the owner: Effect-TS/effect#10878, which answered it, documents the three other rules.
+- **`HashMap` calls a key's `Equal` and `Hash` only during a call of its functions, never after the call returns, and
+  lets what they throw leave that call**: so `reconcile` compares keys all inside `'subscriptions'`, in the thunk that
+  makes a state, in the run and in the tools, and a key whose `Equal` or `Hash` throws dies there, as `DefectSite`
+  promises. `FiberMap` compares its keys in a fiber's observer as well, which is why the run keeps its fibers by their
+  start. Both are read only in the source. Its tests are of a key watched across the calls of a map, and of keys whose
+  `Equal` and `Hash` throw; "the watch of that test sees a FiberMap call a key's Equal after the call, in a fiber's
+  observer" is what the watch fails with. Not asked of Effect: when they are called follows from the shape of the API,
+  since a function that returns no `Effect` does its work during the call (Effect-TS/effect#10877 asked it, and
+  Effect-TS/effect#10878 left it out, as the owner then agreed); that a throw leaves the call falls under a rule for
+  callbacks that throw, which Effect-TS/effect#10683 declined.
 - **A fiber that waits on a `Deferred` runs on the stack of whoever completes it, until it waits again**, a fiber or
   plain code. No guarantee rests on it, only killers of mutations: those of "the end of the run may begin inside a
   step" and "drive wakes its waits inside the step", which tell a wake inside the step only where it is resumed there,

@@ -81,27 +81,52 @@ const watched = () => {
   return { Key, within, late, calls: () => calls }
 }
 
-test("HashMap calls a key's Equal and Hash only within the call it is given the key in", async () => {
-  const { Key, within, late, calls } = watched()
-  let map = within(() => HashMap.make([new Key(1), "one"], [new Key(2), "two"], [new Key(3), "three"]))
-  map = within(() => HashMap.set(map, new Key(4), "four"))
-  map = within(() => HashMap.remove(map, new Key(2)))
-  within(() => HashMap.get(map, new Key(3)))
-  within(() => HashMap.has(map, new Key(5)))
-  map = within(() => HashMap.union(map, HashMap.make([new Key(6), "six"])))
-  map = within(() => HashMap.set(map, new Key(1), "once more"))
-  await new Promise((resolve) => setTimeout(resolve, 0))
-  collectGarbage()
-  await new Promise((resolve) => setTimeout(resolve, 0))
-  expect(calls()).toBeGreaterThan(0)
-  expect(late).toEqual([])
-  expect(HashMap.size(map)).toBe(4)
+describe("HashMap calls a key's Equal and Hash only during a call of its functions, never after the call returns, and lets what they throw leave that call", () => {
+  test("of keys whose Equal and Hash throw", () => {
+    const thrown = new Error("the key")
+    class Unequal implements Equal.Equal {
+      [Equal.symbol](): boolean {
+        throw thrown
+      }
+      [Hash.symbol](): number {
+        return 0
+      }
+    }
+    class Unhashable implements Equal.Equal {
+      [Equal.symbol](that: Equal.Equal): boolean {
+        return that === this
+      }
+      [Hash.symbol](): number {
+        throw thrown
+      }
+    }
+    const map = HashMap.make<ReadonlyArray<readonly [Equal.Equal, string]>>([new Unequal(), "one"])
+    expect(() => HashMap.get(map, new Unequal())).toThrow(thrown)
+    expect(() => HashMap.set(map, new Unhashable(), "two")).toThrow(thrown)
+  })
+
+  test("of a key watched across the calls of a map", async () => {
+    const { Key, within, late, calls } = watched()
+    let map = within(() => HashMap.make([new Key(1), "one"], [new Key(2), "two"], [new Key(3), "three"]))
+    map = within(() => HashMap.set(map, new Key(4), "four"))
+    map = within(() => HashMap.remove(map, new Key(2)))
+    within(() => HashMap.get(map, new Key(3)))
+    within(() => HashMap.has(map, new Key(5)))
+    map = within(() => HashMap.union(map, HashMap.make([new Key(6), "six"])))
+    map = within(() => HashMap.set(map, new Key(1), "once more"))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    collectGarbage()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(calls()).toBeGreaterThan(0)
+    expect(late).toEqual([])
+    expect(HashMap.size(map)).toBe(4)
+  })
 })
 
-// What the test before fails with: a `FiberMap` compares a key in the observer of a fiber, as it ends. `Equal` keeps
-// the result of each pair of objects it compared, so the observer calls a key's `Equal` only on a pair that no call
-// compared: here, the key of a fiber replaced under an equal one, which ends once that key has left the map, and a key
-// added after it left.
+// What the watch of a key across the calls of a map fails with: a `FiberMap` compares a key in the observer of a fiber,
+// as it ends. `Equal` keeps the result of each pair of objects it compared, so the observer calls a key's `Equal` only
+// on a pair that no call compared: here, the key of a fiber replaced under an equal one, which ends once that key has
+// left the map, and a key added after it left.
 test("the watch of that test sees a FiberMap call a key's Equal after the call, in a fiber's observer", async () => {
   const { Key, within, late } = watched()
   const scope = Scope.makeUnsafe()

@@ -36,10 +36,6 @@ Both readings are due before the release after 0.9.0, whose breaking changes go 
 **Depends on** no other step. It reads the changes of the engine and of the testing tools since the commit that closed
 step 65 (`git log --grep "Close step 65"`), by [`premise-review`](.agents/skills/premise-review/SKILL.md).
 
-**Also** whether the premise of `HashMap` (`docs/premises.md`) is one: the owner withdrew its rule from
-Effect-TS/effect#10877 as a request that did not make sense. It is weighed by what would fall with it, and goes, with
-its two tests, where nothing would.
-
 **Done when** each finding is fixed, or is an open problem of this file with its `test.failing`, and, in place of this
 step, one line here names the commit that closed it, for the next review.
 
@@ -100,9 +96,13 @@ asked.
 Effect-TS/effect#10683, and Effect-TS/effect#10719 by Effect-TS/effect#10731), and answered by Effect-TS/effect#10878,
 in Effect 4.1.6: its JSDoc now states three of the four rules asked, the scope a stream runs in, an external span that
 records nothing, and a logger called synchronously in the fiber that logs. The fourth, that the hash collections call
-`Equal` and `Hash` only during a call, the owner withdrew there, so the premise of `HashMap` stays (step 99 weighs
-it). What the first answer chose not to promise is not asked again: a rule for callbacks that throw, `run` on a closed
-container, when a loser is interrupted, how the failures of cleanups combine, and the turn of a deferred fork.
+`Equal` and `Hash` only during a call, it left out, and the owner agreed there that it should not have been asked: it
+follows from the shape of the API, since a function that returns no `Effect` does its work during the call. So what
+follows from Effect's model is not asked: only what an implementation Effect could choose would do otherwise, where a
+user of Effect would then write other code. The premise of `HashMap` stays, with its tests, since `DefectSite` promises
+where a key's `Equal` throws. What the first answer chose not to promise is not asked again: a rule for callbacks that
+throw, `run` on a closed container, when a loser is interrupted, how the failures of cleanups combine, and the turn of a
+deferred fork.
 
 Not asked: the two premises of how the failures of cleanups combine (`Effect.onExit`, `Scope.close`) and that of a
 `Deferred` resuming on the stack of whoever completes it, which fall under what the first answer declined; and those of
