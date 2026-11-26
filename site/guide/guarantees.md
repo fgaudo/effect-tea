@@ -32,8 +32,10 @@ each bridge's to promise (see [view](./view.md#rules)).
   own, and its commands and its subscriptions name it. Where that instance is no longer there, its answer is rejected,
   even when the child, or a child at the same id, is there again.
 - **A child was last told what its parent's state gives.** A child declared with `tell` is told its value as it
-  starts, and is told it after the steps of its parent, so that once a step is taken, each such child was last told
-  the value of its parent's state (see [composition](./composition.md#when-a-child-is-there)).
+  starts, and after a step of its parent only a value that is another, by `Equal`, than the one its declaration last
+  told it: a step that gives an equal value tells it nothing. What a step lists in `tell` is told apart. So
+  once a step is taken, each such child was last told by its declaration the value of its parent's state (see
+  [composition](./composition.md#when-a-child-is-there)).
 - **Subscriptions follow their keys.** A new state starts the subscription of each key it brings, and interrupts that
   of each key it takes away, by the rules of [subscriptions](./subscriptions.md#rules).
   - Both happen once that state is current, and before any start of a later state. A later message may be applied

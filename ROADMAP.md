@@ -54,7 +54,7 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 91 to 98 come from the report of an application written again on 0.9.0, weighed on 26 November 2026
+Steps 92 to 98 come from the report of an application written again on 0.9.0, weighed on 26 November 2026
 ([`application-report-0.9.md`](docs/records/application-report-0.9.md)), and run in the order of their numbers. Each
 decides its point by "Deciding": a step that decides against its point writes its entry of
 [`rejected.md`](docs/rejected.md), and is done. Their breaking changes go out together, in the release after 0.9.0.
@@ -86,37 +86,6 @@ after 0.9.0, reads the changes since that commit, and one of everything is due b
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 91. What the report asks of the guide and of the doc comments
-
-**Model and effort.** Opus 5.5, `medium`.
-
-**Depends on** no other step.
-
-**Why.** Five things that the code does and no page says, or says in one place only
-([`application-report-0.9.md`](docs/records/application-report-0.9.md), points 6, 7 and 9). Two agents read "was last
-told" as "told after each step", and one wrote a comparison that the library already makes.
-
-**How.** Each sentence is judged by the test of "What belongs here" in `AGENTS.md`, and goes to a doc comment first.
-
-- **A declared `tell` tells a child again only a value that is another, by `Equal`, than the one it was last told**
-  (`sync` in `src/compose.ts`). It becomes a promise, said once in "Guarantees" ("A child was last told what its
-  parent's state gives"), with "Composition", "Events and external messages", the skill and the doc comments of `tell`
-  read again against it. Its test is named, or written.
-- **`stateOf` numbers the instances as a start does**, from 1 in the order of the starts, whatever run would have
-  reached that state: its doc comment, and "Testing", "The number of an instance".
-- **A view that throws under `Draw`** is an error of the application, for its error boundaries, as the doc comment of
-  `Host` says of `Host`: the doc comment of `Draw` says it too.
-- **A root that the platform mounts again starts a `Host` again from `init`.** "Writing a bridge" says it of React, and
-  names no case of React Native, where Android makes an activity anew at a change of configuration that its manifest
-  does not list. As advice, with only what Android's and React Native's documentation say: that a change of the font's
-  size does so with the template's manifest was reported, and not run. Weigh whether
-  [`examples/react-native/App.tsx`](examples/react-native/App.tsx) draws one of its programs with `start` and `Draw`.
-- **An element that is not controlled** shows what it holds, not the model, so a key that the state rejects stays on
-  the screen: a line of "What is left out".
-
-**Done when** `bun run comments` passes with each page under its ceiling, the promise of `tell` has a test that the
-commit names and a changelog entry, and `bun run test:react-native` passes if the example changed.
 
 ### 92. A message of a view that names its instance
 

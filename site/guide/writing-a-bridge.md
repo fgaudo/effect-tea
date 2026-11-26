@@ -159,6 +159,8 @@ The package's bridges promise nothing of what follows:
   and `update` stores what the element sends then.
 - **With React Native, what a `TextInput` shows until its native view takes the value of its model.** A key that the
   state rejects may show until then.
+- **An element that is not controlled**, as a text field drawn with no value. It shows what it holds, not the model,
+  so a key that the state rejects stays on the screen.
 - **A form's reset**, by a reset button or `form.reset()`. A program may empty a field by leaving `''` in its state.
 - **With React, a value typed into what a server drew, before React hydrates it.** React gives the element the value
   of the first model, and sends no `onChange`.
@@ -173,6 +175,14 @@ The package's bridges promise nothing of what follows:
   and its drag a subscription. The sliders of [`examples/volume`](../../examples/volume) are drawn this way.
 
 Any other feature of a renderer is left to the bridge that needs it.
+
+## Advice
+
+**On Android, start a program that must outlive a change of configuration yourself.** Android makes an activity anew
+at a change of configuration that `android:configChanges`, in its manifest, does not list, as a change of the theme
+where `uiMode` is not listed. React Native then mounts its root again, and each `Host` starts again from `init`. List
+the change in the manifest, or start the program outside the component that React Native mounts, and draw it with
+`Draw`. Neither keeps a state where Android ends the process.
 
 ## Their tests
 

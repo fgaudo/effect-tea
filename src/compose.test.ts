@@ -1271,7 +1271,7 @@ describe("what a declaration tells its children", () => {
     expect(heard(state)).toEqual([["a"], ["a"], ["a"]])
   })
 
-  test("a step that changes the value tells every child, and one that keeps it tells none", () => {
+  test("a step that gives another value, by Equal, tells every child, and one that gives an equal value tells none", () => {
     const app = parent(start)
     const { state: changed } = accepted(app.update({ _tag: "Set", condition: "c" })(app.init.state))
     expect(heard(changed)).toEqual([["a", "c"], ["a", "c"]])
@@ -1881,7 +1881,7 @@ describe("stateOf", () => {
     expect(stateOf(started, started.init.state.own)).toEqual(started.init.state)
   })
 
-  test("it puts each child in the state given, and the others as they start", () => {
+  test("it puts each child in the state given, the others as they start, and numbers them from 1 as a start does", () => {
     const own: Rows = { rows: [{ id: 5, label: "e" }, { id: 6, label: "f" }], onLeft: "heard", quiet: false }
     const state = stateOf(rowList, own, { Row: [[6, { label: "f", count: 3 }]] })
     expect(rowList.makeModel(state)).toEqual([{ label: "e", count: 0 }, { label: "f", count: 3 }])

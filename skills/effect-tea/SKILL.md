@@ -162,8 +162,9 @@ The library promises these, and a program that forgets them goes wrong.
   no instance: where a click on an old row must not reach a new one, never reuse ids. The guide, "Composition", "Ids
   that come back".
 - **A child declared with `tell` was last told what its parent's state gives.** It is told the value as it starts,
-  and after each step of its parent it was last told what the state gives. The guide, "Guarantees", "A child was last
-  told what its parent's state gives".
+  and again only where the state gives another value, by `Equal`, than the one the declaration last told it: a step
+  that gives an equal value tells it nothing. The guide, "Guarantees", "A child was last told what its parent's state
+  gives".
 - **A defect ends the run, and the run does not log it.** The run dies with a `ProgramDefect`, whose `cause` is the
   defect and whose `where` says where. Reporting it, and what the user sees next, are the job of the app around the
   run. The guide, "Running", "The run never recovers from a defect, and does not log it".

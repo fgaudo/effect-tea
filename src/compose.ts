@@ -133,7 +133,7 @@ export type Child<State, P, There extends "always" | "sometimes"> = {
   readonly key: (state: State) => Opt.Option<unknown>
   /** Whether the child's subscriptions run in a state where it is there. Without it, they always run. */
   readonly listening?: (state: State) => boolean
-  /** What the child is told in a state: as it starts, and so that it was last told what its parent's state gives. */
+  /** What the child is told in a state: as it starts, and again only where it gives another value, by `Equal`. */
   readonly tell?: (state: State) => ExternalOf<P>
 }
 
@@ -162,8 +162,8 @@ export type ChildById<State, Id, P> = {
   /** Whether the child at an id listens, in a state where it is there. Without it, every child does. */
   readonly listening?: (state: State, id: Id) => boolean
   /**
-   * What each child is told in a state, one value for them all: as it starts, and so that it was last told what its
-   * parent's state gives.
+   * What each child is told in a state, one value for them all: as it starts, and again only where it gives another
+   * value, by `Equal`.
    */
   readonly tell?: (state: State) => ExternalOf<P>
 }
@@ -1190,9 +1190,9 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    *   has no `key` beside them, so it does not start again from equal flags.
    * - `listening` says in which states its subscriptions run. Without it, they run whenever the child is there.
    * - `tell` gives, from the parent's state, an external message that the child is told: as it starts, in the first
-   *   state too, and after each step of the parent's own, so that the child was last told what the parent's state
-   *   gives. It does not compile for a child without external messages, nor for a message that is not one of the
-   *   child's.
+   *   state too, and after a step of the parent's own only where it gives another value, by `Equal`, than the one it
+   *   last told the child, apart from what a step lists in `tell`. It does not compile for a child without external
+   *   messages, nor for a message that is not one of the child's.
    *
    * A program with flags is declared with `flags`, and one without flags is declared without them. A child written
    * as an object, and not typed `Program<…>`, is checked as a program is: one whose steps list commands has a
@@ -1299,8 +1299,9 @@ type Listening<State> = Readonly<{ listening?: (state: State) => boolean }>
 /** What a child is told from its parent's state. Without it, only what a step lists in `tell`. */
 type Telling<State, P> = Readonly<{
   /**
-   * What the child is told in a state, an external message of its own: as it starts, and so that it was last told
-   * what its parent's state gives. One value for all the children of the declaration.
+   * What the child is told in a state, an external message of its own: as it starts, and again only where it gives
+   * another value, by `Equal`, than the one it last told the child, apart from what a step lists in `tell`. One value
+   * for all the children of the declaration.
    */
   tell?: [ExternalOf<P>] extends [never] ? never : (state: State) => ExternalOf<P>
 }>

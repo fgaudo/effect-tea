@@ -136,8 +136,8 @@ its own may still be a child.
 
 If the parts are children, the operation is a fact that all the children see as one. The parent declares it with
 `tell`, which gives an external message of the child from the parent's state. Each child is told it as it starts,
-and after each step of the parent it was last told what the state gives. [`cart`](../../examples/cart/cart.ts) locks
-its rows from the payment on:
+and again only where the state gives another value (see [what you can rely on](./guarantees.md#what-you-can-rely-on)).
+[`cart`](../../examples/cart/cart.ts) locks its rows from the payment on:
 
 ```ts
 Row: childById(Row.row, {

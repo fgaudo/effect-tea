@@ -51,6 +51,7 @@ export type View<Model, Message> = (model: Model, dispatch: Dispatch<Message>) =
  * `makeModel` then holds up that call. When React makes it is unspecified.
  *
  * A `makeModel` that throws is thrown as `Draw` renders, for the nearest error boundary, and the run dies of it too.
+ * A view that throws is an error of the application, for its error boundaries.
  *
  * @example
  * ```tsx

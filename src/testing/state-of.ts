@@ -19,6 +19,8 @@ type StatesOf<Children> = {
  *
  * - Each child that the own state lists is started, and told what the `tell` of its declaration gives, as the parent's
  *   `init` starts it, and then put in the state given for it. A child that is given no state is as it starts.
+ * - Its instances are numbered as a start numbers them, from 1 in the order of the starts, whatever run would have
+ *   reached that state.
  * - A state given for a child that the own state does not list is an error, and so is a handler of `onEvent` that
  *   gives another object as the own state, equal or not, in answer to what a child is told. One that raises an event
  *   of the parent's own is a `CompositionDefect`, as in `init`.

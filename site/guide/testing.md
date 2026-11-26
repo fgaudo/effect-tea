@@ -72,7 +72,8 @@ A child's commands, as its parent's `update` returns them, name the instance tha
 and `{ _tag: <child>, id, instance, key }` for children by id. The instances are numbered in the order the library
 starts them, from 1 (see [the order of the starts](./composition.md#how-a-parent-and-its-children-start)). In
 [`pages`](../../examples/pages/app.test.ts), the Clock that `init` starts is 1, and the About that a step opens next is
-2. A test that needs only the child reads the key's `_tag`, as `pages` does.
+2. `stateOf` numbers them as a start does, from 1, even where a run would reach that state with other numbers. A
+test that needs only the child reads the key's `_tag`, as `pages` does.
 
 ### The reader
 

@@ -3,6 +3,13 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
+## 0.9.1 (unreleased)
+
+### Added
+
+- Promised: a declared `tell` tells a child again only another value than it last told, by `Equal` ("Guarantees");
+  `stateOf` numbers the instances as a start does ("Testing"); a view that throws under `Draw` is for the boundaries.
+
 ## 0.9.0 (2026-11-26)
 
 ### Added

@@ -855,7 +855,10 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "",
     killedBy: [
       ["src/compose.test.ts", "a child that starts later is told as it starts, and the others are told nothing"],
-      ["src/compose.test.ts", "a step that changes the value tells every child, and one that keeps it tells none"],
+      [
+        "src/compose.test.ts",
+        "a step that gives another value, by Equal, tells every child, and one that gives an equal value tells none"
+      ],
       [
         "src/compose.test.ts",
         "every child was last told what its parent's state gives, and never one value twice in a row"
@@ -1201,7 +1204,10 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "        putAt(gathered, place, { ...entry, state: childState })\n",
     to: "",
     killedBy: [
-      ["src/compose.test.ts", "it puts each child in the state given, and the others as they start"]
+      [
+        "src/compose.test.ts",
+        "it puts each child in the state given, the others as they start, and numbers them from 1 as a start does"
+      ]
     ]
   },
   {
