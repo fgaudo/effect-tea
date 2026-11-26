@@ -205,47 +205,74 @@ test("a fiber that waits on a Deferred runs on the stack of whoever completes it
 })
 
 describe("code that a fiber runs on the stack of the fiber that forks it sees the forked fiber as its own", () => {
+  type Seen = Readonly<{
+    fibers: ReadonlyArray<Fiber.Fiber<unknown, unknown> | undefined>
+    kept: ReadonlyArray<Fiber.Fiber<unknown, unknown>>
+    forked: Fiber.Fiber<void>
+    forker: Fiber.Fiber<unknown, unknown>
+  }>
+
   /**
    * Forks, with `fork`, an effect that says which fiber it sees in each of its first steps, on the stack of the fiber
-   * that forks it, and returns the ids it saw, beside the ids of the forked fiber and of the one that forked it.
+   * that forks it, and then waits: the fibers it saw, beside the forked fiber, the one that forked it, and those that
+   * `held` reads of the container while the forked one waits.
    */
   const seen = <C>(
     make: Effect.Effect<C, never, Scope.Scope>,
-    fork: (kept: C, self: Effect.Effect<void>) => Effect.Effect<Fiber.Fiber<void>>
-  ) =>
+    fork: (container: C, self: Effect.Effect<void>) => Effect.Effect<Fiber.Fiber<void>>,
+    held: (container: C) => Effect.Effect<ReadonlyArray<Fiber.Fiber<unknown, unknown>>> = () => Effect.succeed([])
+  ): Promise<Seen> =>
     Effect.runPromise(Effect.scoped(Effect.gen(function*() {
       const container = yield* make
       const forker = yield* Effect.fiber
-      const ids: Array<number | undefined> = []
+      const gate = yield* Deferred.make<void>()
+      const fibers: Array<Fiber.Fiber<unknown, unknown> | undefined> = []
       const looking = Effect.withFiber((fiber) => {
-        ids.push(fiber.id, Fiber.getCurrent()?.id)
+        fibers.push(fiber, Fiber.getCurrent())
         return Effect.void
       }).pipe(
         Effect.andThen(Effect.fiber),
-        Effect.map((fiber) => void ids.push(fiber.id))
+        Effect.map((fiber) => void fibers.push(fiber)),
+        Effect.andThen(Deferred.await(gate))
       )
-      const fiber = yield* fork(container, looking)
-      yield* Fiber.join(fiber)
-      return { ids, forked: fiber.id, forker: forker.id }
+      const forked = yield* fork(container, looking)
+      const kept = yield* held(container)
+      yield* Deferred.succeed(gate, undefined)
+      yield* Fiber.join(forked)
+      return { fibers, kept, forked, forker }
     })))
 
-  const ownOnly = (
-    { ids, forked, forker }: Readonly<{ ids: ReadonlyArray<number | undefined>; forked: number; forker: number }>
-  ) => {
-    expect(ids).toEqual([forked, forked, forked])
-    expect(ids).not.toContain(forker)
+  // By identity: the very `Fiber` that the fork returned, never one that only has its id.
+  const ownOnly = ({ fibers, kept, forked, forker }: Seen, keeps: number) => {
+    expect(fibers.map((fiber) => fiber === forked)).toEqual([true, true, true])
+    expect(fibers.some((fiber) => fiber === forker)).toBe(false)
+    expect(kept.map((fiber) => fiber === forked)).toEqual(Array.from({ length: keeps }, () => true))
   }
 
   test("Effect.forkChild with startImmediately", async () => {
-    ownOnly(await seen(Effect.void, (_, self) => Effect.forkChild(self, { startImmediately: true })))
+    ownOnly(await seen(Effect.void, (_, self) => Effect.forkChild(self, { startImmediately: true })), 0)
   })
 
   test("FiberSet.run", async () => {
-    ownOnly(await seen(FiberSet.make<void>(), (set, self) => FiberSet.run(set, self)))
+    ownOnly(
+      await seen(FiberSet.make<void>(), (set, self) => FiberSet.run(set, self), (set) => Effect.succeed([...set])),
+      1
+    )
   })
 
   test("FiberMap.run", async () => {
-    ownOnly(await seen(FiberMap.make<string, void>(), (map, self) => FiberMap.run(map, "k", self)))
+    ownOnly(
+      await seen(
+        FiberMap.make<string, void>(),
+        (map, self) => FiberMap.run(map, "k", self),
+        (map) =>
+          Effect.map(
+            FiberMap.get(map, "k"),
+            (fiber) => [...(fiber._tag === "Some" ? [fiber.value] : []), ...Array.from(map, ([, kept]) => kept)]
+          )
+      ),
+      2
+    )
   })
 })
 
@@ -283,24 +310,38 @@ describe("a fiber that fails as it is interrupted keeps its own reasons and gets
     }))
     expect(described(exit)).toEqual([["Interrupt", own], ["Interrupt", by]])
   })
+})
 
-  test("and Effect.interruptible, entered where it is uninterruptible, fails with exactly those it received", async () => {
-    const [by, entered] = await Effect.runPromise(Effect.gen(function*() {
+describe("Effect.interruptible, entered by an interrupted fiber where it is uninterruptible, fails each time with those it received", () => {
+  test("with one, and again with two once a second has come", async () => {
+    const [by, first, again, second] = await Effect.runPromise(Effect.gen(function*() {
       const gate = yield* Deferred.make<void>()
-      const entered = yield* Deferred.make<Exit.Exit<void>>()
+      const asked = yield* Deferred.make<void>()
+      const more = yield* Deferred.make<void>()
+      const answers = yield* Deferred.make<ReadonlyArray<Exit.Exit<void>>>()
+      const entering = Effect.exit(Effect.interruptible(Effect.void))
       const fiber = yield* started((running) =>
-        Effect.uninterruptible(running.pipe(
-          Effect.andThen(Deferred.await(gate)),
-          Effect.andThen(Effect.exit(Effect.interruptible(Effect.void))),
-          Effect.flatMap((exit) => Deferred.succeed(entered, exit))
-        ))
+        Effect.uninterruptible(Effect.gen(function*() {
+          yield* running
+          yield* Deferred.await(gate)
+          const first = yield* entering
+          const again = yield* entering
+          yield* Deferred.succeed(asked, undefined)
+          yield* Deferred.await(more)
+          yield* Deferred.succeed(answers, [first, again, yield* entering])
+        }))
       )
       const by = yield* Effect.fiberId
       fiber.interruptUnsafe(by)
       yield* Deferred.succeed(gate, undefined)
-      return [by, yield* Deferred.await(entered)] as const
+      yield* Deferred.await(asked)
+      fiber.interruptUnsafe(by + 1)
+      yield* Deferred.succeed(more, undefined)
+      return [by, ...(yield* Deferred.await(answers))] as const
     }))
-    expect(described(entered)).toEqual([["Interrupt", by]])
+    expect(first === undefined ? [] : described(first)).toEqual([["Interrupt", by]])
+    expect(again === undefined ? [] : described(again)).toEqual([["Interrupt", by]])
+    expect(second === undefined ? [] : described(second)).toEqual([["Interrupt", by], ["Interrupt", by + 1]])
   })
 })
 

@@ -19,12 +19,13 @@ import type { Subscription } from "./subscription.ts"
 // a step in a fiber of their own (`docs/records/shared-core.md`).
 
 /**
- * Interrupts `fiber` as the current fiber does, with a mark of its own (`Core.Stopped`), and waits for it to end, its
- * release included: how the run stops each fiber of the program, so that `diesIn` tells this interruption from one the
- * program makes with the same fiber id.
+ * Interrupts `fiber` as the current fiber does, with a mark of the run made for this stop, which names `fiber` and
+ * the fiber that stops it (`Core.Stopped`), and waits for it to end, its release included: how the run stops each
+ * fiber of the program, so that `diesIn` tells this interruption from one the program makes, with the same fiber id
+ * too, and from the stop of another fiber.
  */
 export const stopping = <A, E>(fiber: Fiber.Fiber<A, E>): Effect.Effect<void> =>
-  Effect.flatMap(Effect.fiberId, (id) => Fiber.interruptAs(fiber, id, Context.make(Core.Stopped, {})))
+  Effect.flatMap(Effect.fiberId, (id) => Fiber.interruptAs(fiber, id, Context.make(Core.Stopped, { fiber, by: id })))
 
 /** What a defect of a fiber of the run says besides where it happened: the key of a subscription's, or nothing. */
 export type Details = Readonly<{ key?: unknown }>
@@ -32,30 +33,28 @@ export type Details = Readonly<{ key?: unknown }>
 /**
  * Where a defect happened is known only where it is caught: the run dies with it, and with where, and leaves
  * reporting it to whoever runs the program. Every defect of the cause is wrapped (`wrapDefects`), and a
- * self-interruption, or a failure the types rule out, is a defect too (`otherwiseDefect`). An interruption by the
- * run, or by whoever runs it, is never taken for one: the fiber is asked, where it is uninterruptible, which
- * interruptions it received, and those are kept as they are. An effect that interrupts itself as the run interrupts
- * it ends with both in its cause (Effect adds what the fiber received to a failure that skips its handlers), and its
- * own is still a defect, as a defect would be. The defects are wrapped there too, so that those of an interrupted
- * effect are: what a subscription the run stopped dies with while it releases what it holds.
+ * self-interruption, or a failure the types rule out, is a defect too (`otherwiseDefect`). The fiber is one the run
+ * forks, which only the run stops: an interruption is the run's stop of it only with the mark that names it and the
+ * fiber that stopped it, and is kept as it is, and any other is the program's, by whatever fiber. An effect that
+ * interrupts itself as the run stops it ends with both in its cause (Effect adds what the fiber received to a failure
+ * that skips its handlers), and its own is still a defect, as a defect would be. The defects are wrapped there too, so
+ * that those of an interrupted effect are: what a subscription the run stopped dies with while it releases what it
+ * holds.
  */
-// The details are data, a key or nothing, so that saying where a defect happened throws nothing. `kept` says which of
-// the interruptions the fiber received are no defect: all of them where whoever runs the program may interrupt the
-// fiber, those of the run alone in a fiber the run forks (`Core.byTheRun`, as `scopedIn` keeps).
+// The details are data, a key or nothing, so that saying where a defect happened throws nothing.
 const diesIn = (
   where: DefectSite,
   details: Details = {},
-  wrapped: (defect: unknown) => boolean = () => false,
-  kept: (received: Cause.Cause<never>) => Cause.Cause<never> = (received) => received
+  wrapped: (defect: unknown) => boolean = () => false
 ) =>
 <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
   Effect.uninterruptibleMask((restore) =>
-    restore(self).pipe(Effect.catchCause((cause) => dying(cause, where, details, wrapped, kept)))
+    restore(self).pipe(Effect.catchCause((cause) => dying(cause, where, details, wrapped)))
   )
 
 /**
- * The root of a fiber the run forks: one that ends with interruptions only, none of them the run's (`Core.byTheRun`),
- * was interrupted by the program, by whatever fiber, and dies in `where`. Only the run stops such a fiber, with its
+ * The root of a fiber the run forks: one that ends with interruptions only, none of them the run's stop of it, was
+ * interrupted by the program, by whatever fiber, and dies in `where`. Only the run stops such a fiber, with its
  * mark, and before anything else could: a fiber forked with `FiberSet.run` or `FiberMap.run` is no child of the fiber
  * that forks it, and the sets close only after the end has stopped their fibers. So it holds where `scopedIn` cannot,
  * which takes the same interruption for a defect while the fiber's effect runs and as its scope releases: one made once
@@ -67,33 +66,29 @@ export const rootedIn =
   (where: DefectSite, details: Details = {}) => <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
     Effect.uninterruptibleMask((restore) =>
       restore(self).pipe(
-        Effect.catchCauseIf(
-          Cause.hasInterruptsOnly,
-          (cause) => dying(cause, where, details, () => false, Core.byTheRun)
-        )
+        Effect.catchCauseIf(Cause.hasInterruptsOnly, (cause) => dying(cause, where, details, () => false))
       )
     )
 
-// What `cause` makes the fiber die of in `where`, once the fiber is asked, where it is uninterruptible, which
-// interruptions it received, and `kept` says which of those are no defect.
+// What `cause` makes the fiber die of in `where`: the fiber is asked nothing of what it received, since the mark of a
+// stop names the fiber it stops, and the cause is read against the fiber that runs this.
 const dying = <E>(
   cause: Cause.Cause<E>,
   where: DefectSite,
   details: Details,
-  wrapped: (defect: unknown) => boolean,
-  kept: (received: Cause.Cause<never>) => Cause.Cause<never>
+  wrapped: (defect: unknown) => boolean
 ): Effect.Effect<never, E> =>
-  Effect.exit(Effect.interruptible(Effect.void)).pipe(Effect.flatMap((received) => {
-    const own = Core.otherwiseDefect(cause, kept(Exit.isFailure(received) ? received.cause : Cause.empty))
+  Effect.withFiber((fiber) => {
+    const own = Core.otherwiseDefect(cause, fiber)
     return Effect.failCause(Cause.hasDies(own) ? Core.wrapDefects(own, where, details, wrapped) : own)
-  }))
+  })
 
 /**
  * A scope of its own, for a fiber of the run, whose defects die in `where`: what `self` dies of is recorded as it
  * dies, before its scope releases what it holds, and what the release dies of as it ends. The fiber is one the run
- * forks, so an interruption without the run's mark is a defect too (`Core.byTheRun`), recorded before the release as
- * a self-interruption is: from it on, the run applies no message. A defect is in the order it
- * happened, though the release of what died first lets another fiber die before it ends. What `self` died of is told
+ * forks, so an interruption that is not the run's stop of it is a defect too (`diesIn`), by another fiber of the
+ * program as by itself, recorded before the release: from it on, the run applies no message. A defect is in the order
+ * it happened, though the release of what died first lets another fiber die before it ends. What `self` died of is told
  * from what the release dies of by what this fiber kept of it, never by the register: a release may die with a defect
  * another fiber recorded, handed to the program by whoever runs it, and that is a defect of its own.
  */
@@ -111,7 +106,7 @@ export const scopedIn = (
       Scope.make(),
       (scope) =>
         Effect.exit(
-          restore(self.pipe(diesIn(where, details, () => false, Core.byTheRun), deaths.recorded, Scope.provide(scope)))
+          restore(self.pipe(diesIn(where, details), deaths.recorded, Scope.provide(scope)))
         ).pipe(
           Effect.flatMap((exit) => {
             const own: Cause.Cause<E> = Exit.isFailure(exit) ? exit.cause : Cause.empty
@@ -119,8 +114,7 @@ export const scopedIn = (
               diesIn(
                 where,
                 details,
-                (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),
-                Core.byTheRun
+                (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect)
               ),
               deaths.recorded,
               Effect.exit,

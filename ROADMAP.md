@@ -37,6 +37,12 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
   cannot see when they are called: that half of the premise (`docs/premises.md`), and "keeps its fibers by their
   start" (`docs/invariants.md`), may serve undefined behaviour alone. What would show it: no test failing with the
   fibers kept in a `FiberMap` by their keys, but those of an `Equal` that throws.
+- **A test of `bridges/react.test.ts` that runs away where every stop by the run is a defect.** Found in step 106, as
+  `--discover` came to run again: under "the run's stop of a fiber is taken for the program's" and "the run stops its
+  fibers with no mark of its own", the suite ends by the memory guard, and that file does alone. `change-engine` asks
+  that such a file's listener stop once done. Not run at the commit before the step, where the second mutation is the
+  same, and is expected to do the same. What would show it: `bun run mutations --discover "the run stops its fibers
+  with no mark of its own"`.
 
 ## Next, in order
 
@@ -57,6 +63,13 @@ the release: a step that finds it needs a premise says so here.
 Step 105, of 26 November 2026, made a `Child` and a `ChildById` classes that only `child` and `childById` make, and
 changed the doc comments of `Child` and `ChildById`, which step 100 reads too.
 
+Step 106, of 26 November 2026, made the mark of a stop name the fiber it stops and the fiber that stops it, so that the
+engine asks Effect nothing of what a fiber received (`dying` in `src/shell.ts`): no promise rests on an open premise
+any more. It changed no doc
+comment and no page of the guide. It added to one premise by the model, that the `Fiber` a fork returns is the very one
+its effect sees as its own (`docs/premises.md`, "Code that a fiber runs on the stack"), and left what
+`Effect.interruptible` fails with as a premise of tests alone: the next review of the premises reads both.
+
 ### 100. Read the promises since step 90
 
 **Model and effort.** Opus 5.5, `high`: a review.
@@ -67,36 +80,6 @@ closed step 90 (`git log --grep "Close step 90"`), each against the whole of the
 
 **Done when** each gap is closed, or is a step of this file, and, in place of this step, one line here names the
 commit that closed it, for the next reading.
-
-### 106. Tell the run's stops without asking Effect what a fiber received
-
-**Model and effort.** Fable 5.2, `high`: a premise questioned, and a design whose constraints pull apart.
-
-**Depends on** no other step. It changes the engine ([`change-engine`](.agents/skills/change-engine/SKILL.md)).
-
-**Why.** One promise rests on a premise that Effect may change (`docs/premises.md`, "The rule"): "Only the run, and
-whoever runs it, interrupt them". `dying` in `shell.ts` asks a fiber which interruptions it received, by entering
-`Effect.interruptible` where it is uninterruptible, and takes for the program's each interruption of the cause that the
-fiber did not receive (`Core.otherwiseDefect`). The JSDoc says neither that an interruption already caught makes that
-region fail again, nor that it fails with the reasons of the requests alone. The caret of the peer range stands with
-this one exception known (`docs/rejected.md`, "A tilde as the peer range of Effect").
-
-**How.** Three ways, weighed in this order, and the first that holds is taken.
-
-1. A design that asks Effect nothing. The run makes each stop itself, with a mark made anew (`stopping`): a mark that
-   names the fiber it stops would tell that fiber's own stop from one it joined, with no question of what it received.
-   To weigh against it: the fiber that whoever runs the program interrupts, with no mark; `rehearse` and `simulate`,
-   which stop a command themselves (`runFirst` in `testing/stage.ts`); and what `docs/rejected.md` holds of this
-   guarantee, the spike of 19 November 2026 among it.
-2. A request to Effect for the general rule, which the owner opens: what an interrupted fiber fails with each time it
-   enters an interruptible region. It is not on the list that Effect-TS/effect#10683 declined, nor does it follow from
-   the shape of an API.
-3. A check of this premise alone as a run starts, so that a published version refuses an Effect on which it fell.
-
-**Done when** the premise is gone from `docs/premises.md` with its test, or Effect documents it, or its entry names
-the request that the owner opened and what guards a run meanwhile; "The rule" there, `upgrade-effect`, the record
-[`premises-and-range.md`](docs/records/premises-and-range.md) and the entry of the tilde in `docs/rejected.md` name no
-exception, or say why one stays; and the checks of `change-engine` pass where the engine changed.
 
 ## For the owner
 

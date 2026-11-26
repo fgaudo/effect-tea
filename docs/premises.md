@@ -43,17 +43,22 @@ afresh) is none of its own.
   `Deferred` completed by a fiber of its own. Open, and not asked: when a waiter resumes is a turn of the scheduler,
   and the JSDoc promises none, as it says of a fork ("without promising a scheduler turn").
 - **Code that a fiber runs on the stack of the fiber that forks it sees the forked fiber as its own**, through
-  `Effect.withFiber`, `Fiber.getCurrent` and `Effect.fiber` alike, from its first step on; and no stable API gives a
-  fiber the one that forked it. So the root of a fiber the run forks (`rootedIn`) knows that an unmarked interruption
-  is the program's, never one of the fiber of effects or of whoever runs the program; and `answering` in
-  `testing/stage.ts` reads the fiber of a command in its first step, which `FiberSet.run` runs on the stack of the
-  fiber of effects. Agreed by the owner on 19 November 2026. That `Fiber.getCurrent` gives the fiber that runs is
-  documented; that it is the forked one on its forker's stack is read in the source. Its tests, for
-  `Effect.forkChild` with `startImmediately`, `FiberSet.run` and `FiberMap.run`, fail where it sees the forker. By the
-  model, and not asked: the JSDoc says that `Effect.fiber` gives "the fiber currently executing the effect", and that a
-  fiber forked so "runs synchronously" before the fork returns, so the fiber that executes the forked effect is the
-  forked one, on whoever's stack. That no API gives the forker is no behaviour that can fall: one added would be a lead
-  for a simpler root.
+  `Effect.withFiber`, `Fiber.getCurrent` and `Effect.fiber` alike, from its first step on, and it is the very `Fiber`
+  that the fork returns and that a `FiberSet` or a `FiberMap` keeps; and no stable API gives a fiber the one that
+  forked it. So the mark of a stop, which names the fiber it stops (`stopping`), names the fiber that `dying` in
+  `shell.ts` reads as its own, on whichever stack it dies: "Only the run, and whoever runs it, interrupt them" rests on
+  it. So the root of a fiber the run forks (`rootedIn`) knows that an unmarked interruption is the program's, never one
+  of the fiber of effects or of whoever runs the program; and `answering` in `testing/stage.ts` reads the fiber of a
+  command in its first step, which `FiberSet.run` runs on the stack of the fiber of effects. Agreed by the owner on 19
+  November 2026. That `Fiber.getCurrent` gives the fiber that runs is documented; that it is the forked one on its
+  forker's stack, and the object the fork returned, is read in the source. Its tests, for `Effect.forkChild` with
+  `startImmediately`, `FiberSet.run` and `FiberMap.run`, fail where it sees the forker, or a `Fiber` that is not the
+  one the fork returned and the container gives, read and iterated. By the model, and not asked: the JSDoc says that
+  `Effect.fiber` gives "the fiber currently executing the effect", that a fork "returns its handle", and that a fiber
+  forked so "runs synchronously" before the fork returns, so the fiber that executes the forked effect is the forked
+  one, on whoever's stack, and Effect has one value for a fiber, its `Fiber`, which it compares by identity itself. A
+  fall could not go unseen: each stop by the run would be a defect, in every run that ends. That no API gives the
+  forker is no behaviour that can fall: one added would be a lead for a simpler root.
 - **What the cleanup of `Effect.onExit` fails with comes after the cause of the effect**: so each fiber of the engine,
   in the run and in the tools, records what it dies of in order, interrupted or not, merging no causes. That the
   cleanup runs however the effect ends, and that the causes are merged, is documented; their order is read only in the
@@ -71,22 +76,23 @@ afresh) is none of its own.
   Effect-TS/effect#10683 declined, and holds no promise: of several releases of one command or one subscription that
   die, the guide promises that the run dies, and leaves unspecified which of their defects are in the cause ("Running",
   "The defects in the cause").
-- **A fiber that fails as it is interrupted keeps its own reasons and gets those it received added, and
-  `Effect.interruptible`, entered by an interrupted fiber where it is uninterruptible, fails with exactly those it
-  received**: so `diesIn` tells a self-interruption from the run's interruption that meets it. That a pending
-  interruption takes effect as the fiber enters `Effect.interruptible` is documented; which reasons it fails with is
-  read in the source (`exitFailCause`, `causeAddInterrupts`). Its test enters `Effect.interruptible` where it is
-  uninterruptible. Not asked. Of its first half, that the fiber keeps a defect of its own is by the model: an
-  interruption that meets a failure takes nothing from it, as the JSDoc says of `Effect.awaitAllChildren` ("both the
-  original failure and the interruption are retained in the cause"). That it keeps an interruption of its own beside
-  those it received is open, and holds no promise: the guide leaves unspecified whether a fiber that interrupts itself
-  as the run stops it dies of a defect. **Its second half is open, and holds a promise: the one exception to the
-  rule.** `dying` in `shell.ts` asks a fiber what it received by entering `Effect.interruptible`, and "Only the run,
-  and whoever runs it, interrupt them" rests on the answer. The JSDoc says that a pending interruption takes effect as
-  the fiber enters it, and that a request's annotations are on its `Interrupt` reason: not that an interruption
-  already caught makes it fail again, nor that it fails with those reasons alone. With fewer reasons, each stop by the
-  run would be a defect, which fails most of the suite. With one more, of the fiber itself, a self-interruption would
-  end in silence. Step 106 of `ROADMAP.md` weighs a design without it.
+- **A fiber that fails as it is interrupted keeps its own reasons and gets those it received added**: so `diesIn`
+  tells a self-interruption from the run's stop that meets it, each by its own reason. Which reasons it fails with is
+  read in the source (`exitFailCause`, `causeAddInterrupts`). Its test interrupts a fiber that then interrupts itself,
+  where it is uninterruptible. Not asked. That the fiber keeps a defect of its own is by the model: an interruption
+  that meets a failure takes nothing from it, as the JSDoc says of `Effect.awaitAllChildren` ("both the original
+  failure and the interruption are retained in the cause"). That it keeps an interruption of its own beside those it
+  received is open, and holds no promise: the guide leaves unspecified whether a fiber that interrupts itself as the
+  run stops it dies of a defect.
+- **`Effect.interruptible`, entered by an interrupted fiber where it is uninterruptible, fails each time with those it
+  received.** No guarantee rests on it, and no code of the library: only gates of tests, by which a fiber of a test's
+  program waits, uninterruptible, until it has received an interruption, or two, or reads who stopped it
+  (`untilReceived` in `engine.test.ts` and `testing/rehearse.test.ts`, `receivedFrom` in `run.test.ts`). Should it
+  fall, those tests fail, and the library stays correct. Until step 106, of 26 November 2026, the engine asked each
+  fiber the same question, and a promise rested on the answer ([`rejected.md`](rejected.md), "Asking a fiber which
+  interruptions it received"). That a pending interruption takes effect as the fiber enters `Effect.interruptible` is
+  documented; that one already caught makes it fail again, and with which reasons, is read in the source. Its test
+  enters the region twice with one interruption, and again with two. Open, and not asked.
 - **Every fiber of a run asks the `Scheduler` it is given before each step, and every task it makes goes to that
   scheduler's dispatcher, or resumes inline where the scheduler of the tests makes it yield first**: so
   `test/scheduled.test_scheduler.ts` decides where each fiber yields and which runs next, and the search and the
@@ -162,22 +168,21 @@ reasoned. A new one is taken only where no design without it is as good (value 5
     that throw, `run` on a closed container, when a loser is interrupted, how the failures of cleanups combine). It
     holds no promise of the guide: only what the guide leaves unspecified or undefined, which the engine keeps as it
     is, or a test, a tool of development or a killer of a mutation. A promise that would rest on one is kept by another
-    design, or narrowed. A premise whose argument does not fit a sentence is open. One open premise holds a promise
-    still, and its entry says so: what `Effect.interruptible` fails with.
-- **The range of Effect is a caret from the lockfile's version**: but for that one premise, no promise rests on what
-  Effect may change within a major, and a patch may change what a minor may, so a narrower range kept nothing out. The
-  daily jobs run the tests at the newest Effect the range accepts, and at what Effect has merged and not released
-  (`upgrade-effect`, which says what follows a premise that falls).
+    design, or narrowed. A premise whose argument does not fit a sentence is open.
+- **The range of Effect is a caret from the lockfile's version**: no promise rests on what Effect may change within a
+  major, and a patch may change what a minor may, so a narrower range kept nothing out. The daily jobs run the tests at
+  the newest Effect the range accepts, and at what Effect has merged and not released (`upgrade-effect`, which says
+  what follows a premise that falls).
 - **A premise's test is its own**: it checks the dependency and nothing of the library, in `test/premises.test.ts`, in
   a file of its own in `test/` where it needs a harness, or, for a bridge's renderer, in the bridge's test file. So a
   test of a premise that fails names the premise that fell, and a premise dropped takes its test with it.
 - A guarantee says what it promises in the library's terms, never in those of a function of Effect (the order of the
   defects is no promise, since a user would rely on what `Cause.squash` returns). What keeps a guarantee may rest on a
-  premise by the model, as the defect of a release does. What an open premise holds, but for the one exception, is
-  kept by the engine and left by the guide. Unspecified: the order of the defects; a fiber that interrupts itself as
-  the run stops it, which is a defect; and several releases of one command or one subscription that die, each of whose
-  defects is in the cause, two equal by `Equal` too ("Running", "The defects in the cause"). Undefined: an `Equal` or a
-  `Hash` of the program that throws, which is a defect where it is compared ("Guarantees", "What is left to you").
+  premise by the model, as the defect of a release does. What an open premise holds is kept by the engine and left by
+  the guide. Unspecified: the order of the defects; a fiber that interrupts itself as the run stops it, which is a
+  defect; and several releases of one command or one subscription that die, each of whose defects is in the cause, two
+  equal by `Equal` too ("Running", "The defects in the cause"). Undefined: an `Equal` or a `Hash` of the program that
+  throws, which is a defect where it is compared ("Guarantees", "What is left to you").
   [`premises-and-range.md`](records/premises-and-range.md) sorted what fell with each premise of 23 November 2026.
 - What the dependencies of development do is no premise, but for the bridges' renderers: the bridges are entries of
   the package, each names in its opening comment the versions it was checked with, and a daily job

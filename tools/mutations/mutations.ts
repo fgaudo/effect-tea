@@ -270,8 +270,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a defect is recorded after the release of its scope",
     guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
-    from: "self.pipe(diesIn(where, details, () => false, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
-    to: "self.pipe(diesIn(where, details, () => false, Core.byTheRun), Scope.provide(scope))",
+    from: "self.pipe(diesIn(where, details), deaths.recorded, Scope.provide(scope))",
+    to: "self.pipe(diesIn(where, details), Scope.provide(scope))",
     killedBy: [
       [
         "src/run.test.ts",
@@ -304,8 +304,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a fiber of the run acquires into the scope of the run",
     guarantees: ["Nothing outlives what acquired it"],
     file: "src/shell.ts",
-    from: "self.pipe(diesIn(where, details, () => false, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
-    to: "self.pipe(diesIn(where, details, () => false, Core.byTheRun), deaths.recorded)",
+    from: "self.pipe(diesIn(where, details), deaths.recorded, Scope.provide(scope))",
+    to: "self.pipe(diesIn(where, details), deaths.recorded)",
     killedBy: [
       ["src/engine.test.ts", "a command's scope closes before its answer is applied"],
       [
@@ -356,29 +356,20 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a fiber the run forks takes an interruption without the run's mark for the run's",
     guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
-    from: "Cause.isInterruptReason(reason) && markOf(reason) !== undefined",
+    from: "Cause.isInterruptReason(reason) && mark !== undefined && mark.fiber === fiber && mark.by === reason.fiberId",
     to: "Cause.isInterruptReason(reason)",
     killedBy: [
+      ["src/core.test.ts", "a self-interruption is a defect, holding the interruption"],
       ["src/run.test.ts", "of a command, as its scope releases what it holds, is a defect in the command"],
       ["src/run.test.ts", "of a subscription, as its scope releases what it holds, is a defect in the subscription"],
       ["src/testing/contract.test.ts", "the run dies in a command, on a command a fiber of the program interrupts"]
     ]
   },
   {
-    name: "a fiber the run forks keeps an interruption without the run's mark until its root",
-    guarantees: ["Nothing ends in silence"],
-    file: "src/shell.ts",
-    from: "diesIn(where, details, () => false, Core.byTheRun)",
-    to: "diesIn(where, details)",
-    killedBy: [
-      ["src/engine.test.ts", "no update is called on a message sent as a subscription the program interrupted releases"]
-    ]
-  },
-  {
     name: "a self-interruption is no defect",
     guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
-    from: "const own = Core.otherwiseDefect(cause, kept(Exit.isFailure(received) ? received.cause : Cause.empty))",
+    from: "const own = Core.otherwiseDefect(cause, fiber)",
     to: "const own = cause as Cause.Cause<never>",
     killedBy: [
       [
@@ -412,31 +403,41 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "an interruption the fiber received is taken for its own",
+    name: "the run's stop of a fiber is taken for the program's",
     guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
-    from: "Exit.isFailure(received) ? received.cause : Cause.empty",
-    to: "Cause.empty",
+    from: "const own = Core.otherwiseDefect(cause, fiber)",
+    to: "const own = Core.otherwiseDefect(cause, {})",
     killedBy: [
       ["src/run.test.ts", "a run interrupted by whoever runs it is no defect"],
       ["src/run.test.ts", "a subscription stopped inside an uninterruptible region is no defect"]
     ]
   },
   {
-    name: "a self-interruption beside one the fiber received is no defect",
+    name: "a self-interruption beside the run's stop of the fiber is no defect",
     file: "src/core.ts",
-    from: "interrupters.some(({ fiberId, mark }) => fiberId === reason.fiberId && mark === markOf(reason))",
-    to: "interrupters.length > 0",
+    from: "!Cause.isDieReason(reason) && !stops(reason, fiber)",
+    to: "!Cause.isDieReason(reason)\n"
+      + "    && !(Cause.isInterruptReason(reason) && cause.reasons.some((stop) => stops(stop, fiber)))",
     killedBy: [
       [
         "src/core.test.ts",
-        "an interruption the fiber received is kept as it is, beside the defect its own interruption is"
+        "the run's stop of the fiber is kept as it is, beside the defect its own interruption is"
       ],
+      ["src/core.test.ts", "an interruption with the fiber id of the run's stop, and not its mark, is a defect"],
       [
         "src/run.test.ts",
         "a command that interrupts itself as whoever runs the run interrupts it is a defect in the command"
       ],
       ["src/run.test.ts", "a subscription that interrupts itself as the run stops it is a defect in the subscription"],
+      [
+        "src/run.test.ts",
+        "a command that joins a fiber it interrupted as the fiber that stops it, as the run ends, is a defect in the command"
+      ],
+      [
+        "src/run.test.ts",
+        "a subscription that joins a fiber it interrupted as the fiber that stops it, as the run ends, is a defect in the subscription"
+      ],
       [
         "src/testing/contract.test.ts",
         "the run dies in a command, on a command interrupting itself as whoever runs it interrupts it"
@@ -542,20 +543,30 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "an interruption with the fiber id of one the fiber received is no defect, whatever its mark",
+    name: "the run's stop of another fiber is taken for the fiber's own",
     guarantees: ["Nothing ends in silence"],
     file: "src/core.ts",
-    from: " && mark === markOf(reason)",
+    from: " && mark.fiber === fiber",
     to: "",
     killedBy: [
-      ["src/core.test.ts", "an interruption with the fiber id of one received, and not its mark, is a defect"],
+      ["src/core.test.ts", "the run's stop of another fiber is a defect, beside the fiber's own stop too"],
+      ["src/run.test.ts", "a command that joins a subscription the run stopped is a defect in the command"],
       [
         "src/run.test.ts",
-        "a command that joins a fiber it interrupted as the fiber that stops it, as the run ends, is a defect in the command"
-      ],
+        "a command that a subscription interrupts with the annotations of its own stop is a defect in the command"
+      ]
+    ]
+  },
+  {
+    name: "an interruption with the mark of the fiber's stop, as another fiber, is taken for the run's",
+    file: "src/core.ts",
+    from: " && mark.by === reason.fiberId",
+    to: "",
+    killedBy: [
+      ["src/core.test.ts", "an interruption with the mark of the fiber's stop, as another fiber, is a defect"],
       [
         "src/run.test.ts",
-        "a subscription that joins a fiber it interrupted as the fiber that stops it, as the run ends, is a defect in the subscription"
+        "a subscription that interrupts itself with the annotations of its stop, as another fiber, is a defect in the subscription"
       ]
     ]
   },
@@ -563,7 +574,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "the run stops its fibers with no mark of its own",
     guarantees: ["Nothing outlives what acquired it"],
     file: "src/shell.ts",
-    from: "Fiber.interruptAs(fiber, id, Context.make(Core.Stopped, {}))",
+    from: "Fiber.interruptAs(fiber, id, Context.make(Core.Stopped, { fiber, by: id }))",
     to: "Fiber.interruptAs(fiber, id)",
     killedBy: [
       ["src/run.test.ts", "a run interrupted by whoever runs it is no defect"],
@@ -1722,12 +1733,16 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "scopedIn leaves what its effect dies of without a site",
     guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
-    from: "self.pipe(diesIn(where, details, () => false, Core.byTheRun), deaths.recorded, Scope.provide(scope))",
+    from: "self.pipe(diesIn(where, details), deaths.recorded, Scope.provide(scope))",
     to: "self.pipe(deaths.recorded, Scope.provide(scope))",
     killedBy: [
       [
         "src/engine.test.ts",
         "what a command dies of as the end of the engine interrupts it is what the engine ends with"
+      ],
+      [
+        "src/engine.test.ts",
+        "no update is called on a message sent as a subscription the program interrupted releases"
       ],
       ["src/run.test.ts", "a defect in a subscription ends the run, which dies with it and with where it happened"],
       ["src/run.test.ts", "a defect in a command ends the run, which dies with it and with where it happened"]
@@ -1741,8 +1756,7 @@ export const mutations: ReadonlyArray<Mutation> = [
       + "              diesIn(\n"
       + "                where,\n"
       + "                details,\n"
-      + "                (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect),\n"
-      + "                Core.byTheRun\n"
+      + "                (defect) => own.reasons.some((reason) => Cause.isDieReason(reason) && reason.defect === defect)\n"
       + "              ),\n",
     to: "return Scope.close(scope, exit).pipe(\n",
     killedBy: [

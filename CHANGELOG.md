@@ -83,6 +83,9 @@ version, and everything else, features included, the patch version.
   dies, as its doc comment says. It waited until the release had ended.
 - A `run` of a rehearsal interrupted as its command answers applies the answer, or fails the rehearsal as a command
   whose run was interrupted, never both: the answer could come between the cancel of the command and its stop.
+- A command or a subscription that a fiber of the program interrupts with the annotations of an interruption by the
+  run, read from the cause of another command or subscription that the run stopped, is a defect, as any interruption
+  by the program is. It ended in silence, taken for a stop by the run.
 
 ## 0.9.0 (2026-11-26)
 

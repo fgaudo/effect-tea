@@ -160,18 +160,22 @@ the engine and in the testing tools.
     (`recordThrown`, over `Core.wrapDefects`). Every site, a `diesIn`, a `scopedIn` or a `recordThrown`, in the engine
     and in each tool, has a mutation that takes it out or gives it another site, and one that drops the key or the
     message it names: where is what a report groups defects by.
-  - The run stops each fiber of the program with a mark of its own, made anew for each stop (`stopping` in `shell.ts`,
-    `Stopped` in `core.ts`). `diesIn` takes an interruption for one the fiber received only with both the fiber id and
-    the mark of a received one: an id alone the program can make too (`FiberMap`, `FiberSet` and `FiberHandle`
-    interrupt as the fiber -1, and `Cause.interruptors` gives a fiber the id of its interrupter). Never stop a fiber of
-    the program otherwise. `rehearse` and `simulate` stop the command of an interrupted `run` themselves (`runFirst` in
+  - The run stops each fiber of the program with a mark of its own, made anew for each stop, which names the fiber it
+    stops and the fiber that stops it (`stopping` in `shell.ts`, `Stopped` in `core.ts`). `diesIn` takes an
+    interruption for the run's stop of its fiber only with a mark that names that fiber, and the id of the reason as
+    its stopper, read from the cause alone, with no question to Effect of what the fiber received (`dying`). An id
+    alone the program can make too (`FiberMap`, `FiberSet` and `FiberHandle` interrupt as the fiber -1, and
+    `Cause.interruptors` gives a fiber the id of its interrupter), and a mark that the program finds says whose stop
+    it was: on a reason that reaches another fiber, which joined that one or was interrupted with its annotations, or
+    on one that the stopped fiber makes as another fiber, it is the program's. Never stop a fiber of the program
+    otherwise. `rehearse` and `simulate` stop the command of an interrupted `run` themselves (`runFirst` in
     `testing/stage.ts`).
-  - Only the run interrupts a fiber the run forks. Such a fiber takes an interruption without the run's mark
-    (`Core.byTheRun`) for one the program made, in two places. Its scope (`scopedIn`) takes it while the effect runs and
-    as it releases, and records the death before the scope releases, so that from it on no message applies. Its root
-    (`rootedIn` in `shell.ts`), its last step, takes an end of interruptions only, one that reached the fiber once its
-    scope had closed; a cause with a defect is none, so the root leaves a death the scope recorded as it is. Nothing
-    interrupts such a fiber unmarked before the run stops it: the engine forks it with `FiberSet.run` or
+  - Only the run interrupts a fiber the run forks. Such a fiber takes an interruption that is not the run's stop of it
+    (`Core.otherwiseDefect`) for one the program made, in two places. Its scope (`scopedIn`) takes it while the effect
+    runs and as it releases, and records the death before the scope releases, so that from it on no message applies.
+    Its root (`rootedIn` in `shell.ts`), its last step, takes an end of interruptions only, one that reached the fiber
+    once its scope had closed; a cause with a defect is none, so the root leaves a death the scope recorded as it is.
+    Nothing interrupts such a fiber unmarked before the run stops it: the engine forks it with `FiberSet.run` or
     `FiberMap.run`, as no child of its forker, and the sets close only after the end has stopped their fibers. The
     fiber of whoever runs the program has no root, since only functions of the program run there, and the guide leaves
     that to the program; nor has the fiber of effects, where none runs.
@@ -191,9 +195,7 @@ the engine and in the testing tools.
   - The order of the defects is the engine's to keep, and no promise: the guide leaves it unspecified, with what else
     rests on a premise that Effect may change (`premises.md`, "The rule"): a self-interruption as the run stops the
     fiber, and which defects of several releases of one command or one subscription are in the cause. An `Equal` or a
-    `Hash` of the program that throws it leaves undefined. One promise rests on such a premise still, that only the
-    run interrupts a fiber the run forks: `dying` asks the fiber what it received, and `premises.md` says what of the
-    answer Effect does not document.
+    `Hash` of the program that throws it leaves undefined. No promise rests on such a premise.
   - The register is read once, as the run ends: its effects end once a defect is recorded (`died`), or as whoever runs
     it interrupts it, and the run then reads the register, and ends with the defects first, in that order, then what
     else it ended with (`endedWith` in `core.ts`, which the tools end with too). Where `init` threw there is no engine,

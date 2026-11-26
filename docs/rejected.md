@@ -23,8 +23,9 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   weighed again on 24 November, when the owner closed the step that was to spike it and kept the guarantee: it would
   keep ways to end in silence (a run that hangs, a `hearNext` that waits for ever, `simulate` succeeding) in a library
   that forbids them elsewhere. Of its six premises, four are documented since Effect 4.1.5, one is by the model, and
-  one is open, which step 106 of `ROADMAP.md` weighs ([`premises.md`](premises.md)). Weighed again in step 61, by the
-  values: a command that never answers ends in silence (value 1), which no simpler engine pays for (value 5).
+  the open one went on 26 November 2026, with the question it answered ("Asking a fiber which interruptions it
+  received", below). Weighed again in step 61, by the values: a command that never answers ends in silence (value 1),
+  which no simpler engine pays for (value 5).
   _Reopen if_ a fiber the run forks can be interrupted without the run's mark by anything but the program.
 - **`onApplied` and `onIgnored` as effects, each call in a fiber of its own.** Spiked, 19 November 2026 (`542cb6d` on
   `spike/strict-interruptions`, against `c69b78f` on `spike/synchronous-options`): correct under 1,424 interruptions,
@@ -43,8 +44,21 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
 - **A flag for each fiber, in place of the mark on the run's interruptions.** Spiked, 13 November 2026 (`8b714ff`):
   false `ProgramDefect`s in `init` under some interruptions, nothing added once the fiber is asked what it received,
   and a self-interruption in a stopped fiber's release always lost, for one premise saved (documented since 4.1.5). The
-  owner kept the mark; weighed again on 24 November 2026, read and not run. _Reopen if_ a design tells the run's stop
-  from a self-interruption with no question to the fiber, and keeps that self-interruption a defect.
+  owner kept the mark; weighed again on 24 November 2026, read and not run. Since 26 November 2026 the mark names
+  the fiber it stops and the fiber that stops it, which tells the run's stop from a self-interruption with no question
+  to the fiber, reason by reason, so a flag would add nothing still. _Reopen if_ Effect no longer carries a request's
+  annotations on its `Interrupt` reason, which it documents.
+- **Asking a fiber which interruptions it received**, by entering `Effect.interruptible` where it is uninterruptible,
+  to take for the program's each interruption of its cause that it did not receive. The engine's way until 26 November
+  2026, dropped in step 106: what that region fails with is not documented, so "Only the run, and whoever runs it,
+  interrupt them" rested on what Effect may change. It also took for the run's an interruption that a fiber of the
+  program made with the annotations of another fiber's stop, which the fiber did receive. Run, not only reasoned: a
+  mark that names the fiber it stops, and the fiber that stops it (`Stopped` in `core.ts`), needs no answer of
+  Effect's, and was taken, with a test of each case in `run.test.ts`; gates of tests still ask the question
+  ([`premises.md`](premises.md)). Reasoned, and not taken, since the first held: a request to Effect for the rule of
+  what an interrupted fiber fails with as it enters an interruptible region, and a check of that premise as each run
+  starts. _Reopen if_ a stop by the run must be told where no mark can reach, as in a fiber the run does not stop
+  itself.
 - **Promising the order of the defects.** Reasoned, 13 November 2026 (`858b819`): the owner would not bind a
   guarantee to what a function of Effect makes of a cause, even a stable one (`Cause.squash` takes the first defect).
   The run keeps the order; the guide promises that every defect is in the cause, with where. _Reopen if_ the promise
@@ -174,9 +188,9 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   ([`premises-and-range.md`](records/premises-and-range.md)) and undid on 26 November. Reasoned, on a new fact:
   Effect's answers (Effect-TS/effect#10683, Effect-TS/effect#10878) left premises that it will not document, so the
   tilde would have meant following each release of Effect for good, and it kept no broken Effect out, since a patch
-  may change what a minor may. The promises that rested on what Effect may change were narrowed instead, but one
-  ([`premises.md`](premises.md), "The rule"). _Reopen if_ step 106 of `ROADMAP.md` leaves that promise on an open
-  premise, or another comes to rest on one that no design avoids.
+  may change what a minor may. The promises that rested on what Effect may change were narrowed instead, and the last
+  one was given another design in step 106 ([`premises.md`](premises.md), "The rule"). _Reopen if_ a promise comes to
+  rest on an open premise that no design avoids.
 
 ## The API
 

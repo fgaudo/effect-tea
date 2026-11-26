@@ -9,9 +9,9 @@ description: How @fgaudo/effect-tea depends on Effect: the peer range is a caret
 
 `peerDependencies.effect` (`^4.1.6`) is a caret from the version of `devDependencies.effect` (`~4.1.6`), and the
 lockfile holds exactly that version: the oldest Effect the range accepts, which the CI runs. No older Effect is
-supported. Every later Effect 4 is: but for one premise, which `docs/premises.md` names ("The rule"), no promise of the
-guide rests on what Effect may change within a major, and a narrower range would hold back the Effect of an
-application, whose other packages of Effect ask for one version of it. A renderer's range is a caret from the version
+supported. Every later Effect 4 is: no promise of the guide rests on what Effect may change within a major
+(`docs/premises.md`, "The rule"), and a narrower range would hold back the Effect of an application, whose other
+packages of Effect ask for one version of it. A renderer's range is a caret from the version
 its bridge is developed with (`^19.3.0`, `^3.6.4`).
 
 The daily jobs are the alarms. `.github/workflows/effect-latest.yml` runs the typecheck and the tests at the newest
@@ -29,8 +29,7 @@ premise whose test failed (`docs/premises.md`, "The rule"):
 - **Open**, and holding no promise: none fell. The engine, or a tool of development, does otherwise where the guide
   leaves it unspecified. An upgrade (below) to that version fixes it: the premise's test says what Effect does now, or
   the premise goes, with what the guide and `docs/invariants.md` describe of it.
-- **By the model**, the open premise that holds a promise, or a test of the library that names no premise: a promise
-  may have fallen.
+- **By the model**, or a test of the library that names no premise: a promise may have fallen.
   1. Release a patch whose range leaves that version out (`>=4.1.6 <4.3.0`), with a `Changed` entry that names it.
   2. Tell the owner which versions of the library accept the broken Effect, for `npm deprecate`, which the owner runs,
      and draft the report of the bug for Effect, which the owner opens.

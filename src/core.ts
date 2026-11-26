@@ -11,25 +11,27 @@ import { reject, type Step, type Update } from "./update.ts"
 // shells, `engine.ts` and `src/testing/`, decide when they run and perform what they return.
 
 /**
- * The mark of an interruption the run makes (`Shell.stopping`), one for each, among the annotations of its reason. A
- * fiber id tells no interruption of the run's from one the program makes: `FiberMap`, `FiberSet` and `FiberHandle`
- * interrupt as the fiber -1, and a fiber of the program learns the id of the fiber that stops it from the interruption
- * it receives (`Cause.interruptors`), and can interrupt another fiber as that id, then join it. The program cannot
- * make the mark: the key is the library's, and so is each value, made anew for each stop.
+ * The mark of an interruption the run makes (`Shell.stopping`), made anew for each stop, among the annotations of its
+ * reason: the fiber it stops, and the id of the fiber that stops it, which is the id of its reason. A fiber id tells
+ * no interruption of the run's from one the program makes: `FiberMap`, `FiberSet` and `FiberHandle` interrupt as the
+ * fiber -1, and a fiber of the program learns the id of the fiber that stops it from the interruption it receives
+ * (`Cause.interruptors`), and can interrupt another fiber as that id, then join it. The program cannot make the mark,
+ * whose key is the library's. One that it finds, and puts on an interruption of its own, names the fiber the run
+ * stopped and the fiber that stopped it: it is the run's stop only in that fiber, on a reason of that id.
  */
-export class Stopped extends Context.Service<Stopped, object>()("@fgaudo/effect-tea/Stopped") {}
+export class Stopped
+  extends Context.Service<Stopped, Readonly<{ fiber: object; by: number }>>()("@fgaudo/effect-tea/Stopped")
+{}
 
-const markOf = (reason: Cause.Reason<unknown>): object | undefined =>
+const markOf = (reason: Cause.Reason<unknown>): Readonly<{ fiber: object; by: number }> | undefined =>
   Context.getOrUndefined(Cause.reasonAnnotations(reason), Stopped)
 
-/**
- * The interruptions of `received` that the run made, told by its mark: all that a fiber the run forks may receive.
- * Only the run stops such a fiber, so an interruption without the mark is one the program made, by whatever fiber.
- */
-export const byTheRun = (received: Cause.Cause<never>): Cause.Cause<never> =>
-  Cause.fromReasons(
-    received.reasons.filter((reason) => Cause.isInterruptReason(reason) && markOf(reason) !== undefined)
-  )
+// Whether `reason` is the run's stop of `fiber`: an interruption with the run's mark, of that fiber, by the fiber the
+// mark names.
+const stops = (reason: Cause.Reason<unknown>, fiber: object): boolean => {
+  const mark = markOf(reason)
+  return Cause.isInterruptReason(reason) && mark !== undefined && mark.fiber === fiber && mark.by === reason.fiberId
+}
 
 /**
  * The cause with what is not a defect turned into one, in the place of the first of them, so that the defects stay
@@ -39,21 +41,14 @@ export const byTheRun = (received: Cause.Cause<never>): Cause.Cause<never> =>
  * failure a cast let through), which would end the run with no defect to report. Beside the defects of the cause
  * too: a release that interrupts itself after its effect died is a second defect.
  *
- * `received` holds the interruptions the fiber received from outside, by the run or by whoever runs it: those of
- * the cause made by the same fiber, with the same mark of the run's (`Stopped`) or with none, are kept as they are,
- * beside the defect, and are no defect themselves. A cause with nothing else is returned as it is.
+ * `fiber` is the fiber whose cause it is. An interruption whose mark names that fiber, and the id of the reason as
+ * its stopper, is a stop of it by the run (`Stopped`), kept as it is, beside the defect, and no defect itself. Only
+ * the run stops a fiber of the program, so any other is the program's: one with no mark, one with the mark of another
+ * fiber's stop, which the fiber joined or was handed, and one that the program made with the mark of the fiber's own
+ * stop, as another fiber. A cause with nothing else is returned as it is.
  */
-export const otherwiseDefect = (
-  cause: Cause.Cause<unknown>,
-  received: Cause.Cause<never> = Cause.empty
-): Cause.Cause<never> => {
-  const interrupters = received.reasons.flatMap((reason) =>
-    Cause.isInterruptReason(reason) ? [{ fiberId: reason.fiberId, mark: markOf(reason) }] : []
-  )
-  const own = (reason: Cause.Reason<unknown>) =>
-    !Cause.isDieReason(reason)
-    && !(Cause.isInterruptReason(reason)
-      && interrupters.some(({ fiberId, mark }) => fiberId === reason.fiberId && mark === markOf(reason)))
+export const otherwiseDefect = (cause: Cause.Cause<unknown>, fiber: object): Cause.Cause<never> => {
+  const own = (reason: Cause.Reason<unknown>) => !Cause.isDieReason(reason) && !stops(reason, fiber)
   const others = Cause.fromReasons(cause.reasons.filter(own))
   if (others.reasons.length === 0 && cause.reasons.length > 0) return cause as Cause.Cause<never>
   const defect = Cause.die(

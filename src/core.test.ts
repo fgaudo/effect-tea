@@ -34,17 +34,26 @@ const defects = (cause: Cause.Cause<unknown>) =>
 const message = (defect: unknown) => defect instanceof Error ? defect.message : defect
 
 describe("what a fiber dies of", () => {
+  // What stands for the fiber whose cause it is, and for another: the mark of a stop names the fiber it stops, and
+  // the fiber that stops it.
+  const fiber = {}
+  const other = {}
+  const stop = (by: number, stopped: object) =>
+    Cause.annotate(Cause.interrupt(by), Context.make(Stopped, { fiber: stopped, by }))
+
   test("a self-interruption is a defect, holding the interruption", () => {
     const interruption = Cause.interrupt(1)
-    const [defect] = defects(otherwiseDefect(interruption))
+    const [defect] = defects(otherwiseDefect(interruption, fiber))
     expect(defect).toBeInstanceOf(Error)
     expect(message(defect)).toBe("It was interrupted by the program, which only the run may do")
     expect((defect as Error).cause).toEqual(interruption)
   })
 
   test("a failure, or an empty cause, is a defect the types rule out", () => {
-    expect(defects(otherwiseDefect(Cause.fail("oops"))).map(message)).toEqual(["It failed, which its type rules out"])
-    expect(defects(otherwiseDefect(Cause.empty)).map(message)).toEqual(["It failed, which its type rules out"])
+    expect(defects(otherwiseDefect(Cause.fail("oops"), fiber)).map(message)).toEqual([
+      "It failed, which its type rules out"
+    ])
+    expect(defects(otherwiseDefect(Cause.empty, fiber)).map(message)).toEqual(["It failed, which its type rules out"])
   })
 
   test("beside defects, it takes the place of the first of what is not one, so that the order stays", () => {
@@ -54,42 +63,63 @@ describe("what a fiber dies of", () => {
       ...Cause.die("second").reasons,
       ...Cause.fail("oops").reasons
     ])
-    expect(defects(otherwiseDefect(cause)).map(message)).toEqual([
+    expect(defects(otherwiseDefect(cause, fiber)).map(message)).toEqual([
       "first",
       "It failed, which its type rules out",
       "second"
     ])
   })
 
-  test("an interruption the fiber received is kept as it is, beside the defect its own interruption is", () => {
-    const cause = Cause.fromReasons([...Cause.interrupt(1).reasons, ...Cause.interrupt(2).reasons])
-    expect(defects(otherwiseDefect(cause, Cause.interrupt(2))).map(message)).toEqual([
+  test("the run's stop of the fiber is kept as it is, beside the defect its own interruption is", () => {
+    const cause = Cause.fromReasons([...Cause.interrupt(1).reasons, ...stop(2, fiber).reasons])
+    expect(defects(otherwiseDefect(cause, fiber)).map(message)).toEqual([
       "It was interrupted by the program, which only the run may do",
       "Interrupt"
     ])
   })
 
-  test("a cause of interruptions the fiber received, or of defects beside them, is no further defect", () => {
-    const received = Cause.interrupt(2)
-    expect(otherwiseDefect(received, received)).toBe(received)
-    const dying = Cause.fromReasons([...Cause.die("boom").reasons, ...Cause.interrupt(2).reasons])
-    expect(otherwiseDefect(dying, received)).toBe(dying)
+  test("a cause of the run's stops of the fiber, or of defects beside them, is no further defect", () => {
+    const stopped = Cause.fromReasons([...stop(2, fiber).reasons, ...stop(3, fiber).reasons])
+    expect(otherwiseDefect(stopped, fiber)).toBe(stopped)
+    const dying = Cause.fromReasons([...Cause.die("boom").reasons, ...stop(2, fiber).reasons])
+    expect(otherwiseDefect(dying, fiber)).toBe(dying)
+    const annotated = Cause.annotate(stop(2, fiber), Context.make(Request, "r-1"))
+    expect(otherwiseDefect(annotated, fiber)).toBe(annotated)
   })
 
   // `FiberMap`, `FiberSet` and `FiberHandle` interrupt as the fiber -1, as a stop of the run could: the mark tells them.
-  test("an interruption with the fiber id of one received, and not its mark, is a defect", () => {
-    const received = Cause.annotate(Cause.interrupt(-1), Context.make(Stopped, {}))
-    const cause = Cause.fromReasons([...Cause.interrupt(-1).reasons, ...received.reasons])
-    expect(defects(otherwiseDefect(cause, received)).map(message)).toEqual([
+  test("an interruption with the fiber id of the run's stop, and not its mark, is a defect", () => {
+    const cause = Cause.fromReasons([...Cause.interrupt(-1).reasons, ...stop(-1, fiber).reasons])
+    expect(defects(otherwiseDefect(cause, fiber)).map(message)).toEqual([
       "It was interrupted by the program, which only the run may do",
       "Interrupt"
     ])
-    const again = Cause.annotate(Cause.interrupt(-1), Context.make(Stopped, {}))
-    expect(defects(otherwiseDefect(again, received)).map(message)).toEqual([
+  })
+
+  // The fiber joined one that the run stopped, or was handed its cause: no stop of its own, though the run made it.
+  test("the run's stop of another fiber is a defect, beside the fiber's own stop too", () => {
+    expect(defects(otherwiseDefect(stop(2, other), fiber)).map(message)).toEqual([
       "It was interrupted by the program, which only the run may do"
     ])
-    const annotated = Cause.annotate(received, Context.make(Request, "r-1"))
-    expect(otherwiseDefect(annotated, received)).toBe(annotated)
+    const cause = Cause.fromReasons([...stop(2, other).reasons, ...stop(2, fiber).reasons])
+    expect(defects(otherwiseDefect(cause, fiber)).map(message)).toEqual([
+      "It was interrupted by the program, which only the run may do",
+      "Interrupt"
+    ])
+  })
+
+  // The program read the annotations of the fiber's stop, and made an interruption of its own with them.
+  test("an interruption with the mark of the fiber's stop, as another fiber, is a defect", () => {
+    const [made] = stop(2, fiber).reasons
+    const forged = Cause.annotate(Cause.interrupt(3), Cause.reasonAnnotations(made as Cause.Reason<never>))
+    expect(defects(otherwiseDefect(forged, fiber)).map(message)).toEqual([
+      "It was interrupted by the program, which only the run may do"
+    ])
+    const cause = Cause.fromReasons([...stop(2, fiber).reasons, ...forged.reasons])
+    expect(defects(otherwiseDefect(cause, fiber)).map(message)).toEqual([
+      "Interrupt",
+      "It was interrupted by the program, which only the run may do"
+    ])
   })
 
   test("each defect is wrapped where it happened, with its annotations, and the rest kept as it is", () => {
@@ -197,10 +227,10 @@ describe("what a fiber with a scope of its own ends with", () => {
   })
 
   test("an interruption of the release is left out when the effect has one by the same fiber, with its mark", () => {
-    const mark = Context.make(Stopped, {})
+    const mark = Context.make(Stopped, { fiber: {}, by: 1 })
     const own = Cause.fromReasons([...Cause.die("own").reasons, ...Cause.annotate(Cause.interrupt(1), mark).reasons])
     const release = Cause.fromReasons<never>([
-      ...Cause.annotate(Cause.interrupt(1), Context.make(Stopped, {})).reasons,
+      ...Cause.annotate(Cause.interrupt(1), Context.make(Stopped, { fiber: {}, by: 1 })).reasons,
       ...Cause.interrupt(1).reasons,
       ...Cause.interrupt(2).reasons,
       ...Cause.annotate(Cause.interrupt(1), mark).reasons

@@ -2655,9 +2655,9 @@ describe("the end of the run", () => {
       )
     }))
 
-  // An interruption by the run is told from one the program makes by whether the fiber was interrupted when the
-  // effect ended: an uninterruptible region delays it, and it is still the run's. The region lasts until the stop of
-  // its key has reached it.
+  // An interruption by the run is told from one the program makes by its mark, whenever it takes effect: an
+  // uninterruptible region delays it, and it is still the run's. The region lasts until the stop of its key has
+  // reached it.
   test("a subscription stopped inside an uninterruptible region is no defect", async () => {
     const busy = Effect.uninterruptible(untilInterrupted).pipe(Effect.andThen(Effect.never))
     const exit = await stopsThenEnds({
@@ -2686,8 +2686,8 @@ describe("the end of the run", () => {
 })
 
 // An effect that interrupts itself while the run is interrupting it ends with both interruptions in its cause, its
-// own first: Effect adds the ones the fiber received, which skip its handlers. The run tells them apart by asking the
-// fiber what it received, and its own is still a defect, as a defect in its place would be.
+// own first: Effect adds the ones the fiber received, which skip its handlers. The run tells them apart by the mark of
+// its stop, which names the fiber it stops, and the effect's own is still a defect, as a defect in its place would be.
 describe("a self-interruption as the run interrupts", () => {
   const interruptsItselfOnceInterrupted = Effect.fnUntraced(function*(started: Deferred.Deferred<void>) {
     yield* Deferred.succeed(started, undefined)
@@ -2915,6 +2915,111 @@ describe("a self-interruption as the run interrupts", () => {
           listen: () => Channel.fromEffectDone(joinsAsTheStopper(started))
         }).run
       )
+      expect(selfInterruptions(exit)).toEqual([
+        "subscription: It was interrupted by the program, which only the run may do"
+      ])
+    }
+  )
+
+  // The run's stop of a subscription has the run's mark, which names that subscription: a command that joins its fiber
+  // fails with the stop of another fiber, and is a defect, as it is with no mark. The second `Ping` is sent once the
+  // fiber of the first has ended, and answers only in a run that goes on.
+  test("a command that joins a subscription the run stopped is a defect in the command", async () => {
+    const started = Deferred.makeUnsafe<void>()
+    const subscription = Deferred.makeUnsafe<Fiber.Fiber<unknown, unknown>>()
+    const command = Deferred.makeUnsafe<Fiber.Fiber<unknown, unknown>>()
+    const program: Keyed = {
+      ...counter,
+      runCommand: () =>
+        Deferred.isDoneUnsafe(command)
+          ? Effect.succeedSome<Message>("Increment")
+          : Effect.withFiber((fiber) => Deferred.succeed(command, fiber)).pipe(
+            Effect.andThen(Deferred.await(subscription)),
+            Effect.flatMap(Fiber.join),
+            Effect.andThen(Effect.never),
+            Effect.orDie
+          ),
+      subscriptions: ({ count }) => count === 0 ? ["k"] : [],
+      listen: () =>
+        Channel.fromEffectDone(
+          Effect.withFiber((fiber) => Deferred.succeed(subscription, fiber)).pipe(
+            Effect.andThen(Deferred.succeed(started, undefined)),
+            Effect.andThen(Effect.never)
+          )
+        )
+    }
+    const exit = await Effect.runPromiseExit(Effect.suspend(() => {
+      const { app, run } = start(program)
+      return Effect.raceFirst(
+        run,
+        Effect.gen(function*() {
+          yield* Deferred.await(started)
+          app.dispatch("Increment")
+          app.dispatch("Ping")
+          yield* Fiber.await(yield* Deferred.await(command))
+          app.dispatch("Ping")
+          yield* reaching(app, ({ count }) => count === 2)
+        })
+      )
+    }))
+    expect(selfInterruptions(exit)).toEqual(["command: It was interrupted by the program, which only the run may do"])
+  })
+
+  // A subscription that the run stops reads the annotations of its stop, the run's mark among them, and interrupts a
+  // command with them, as the fiber that stopped it: the command received an interruption with the run's mark, which
+  // names the subscription, so it is the program's, and a defect. The release waits for the command to end.
+  test(
+    "a command that a subscription interrupts with the annotations of its own stop is a defect in the command",
+    async () => {
+      const started = Deferred.makeUnsafe<void>()
+      const command = Deferred.makeUnsafe<Fiber.Fiber<unknown, unknown>>()
+      const passesItsStopOn = Effect.onExit(
+        Effect.andThen(Deferred.succeed(started, undefined), Effect.never),
+        (exit) =>
+          Effect.flatMap(Deferred.await(command), (fiber) =>
+            Effect.forEach(
+              Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isInterruptReason) : [],
+              (reason) => Fiber.interruptAs(fiber, reason.fiberId, Cause.reasonAnnotations(reason)),
+              { discard: true }
+            ))
+      )
+      const exit = await stopsOnceStarted(started, {
+        ...counter,
+        init: { state: { count: 0 }, commands: ["Boom"] },
+        runCommand: (asked) =>
+          asked === "Ping"
+            ? Effect.succeedSome<Message>("Increment")
+            : Effect.withFiber((fiber) => Deferred.succeed(command, fiber)).pipe(Effect.andThen(Effect.never)),
+        subscriptions: ({ count }) => count === 0 ? ["k"] : [],
+        listen: () => Channel.fromEffectDone(passesItsStopOn)
+      })
+      expect(selfInterruptions(exit)).toEqual(["command: It was interrupted by the program, which only the run may do"])
+    }
+  )
+
+  // A subscription that the run stops reads the annotations of its stop, and then interrupts itself with them, as
+  // another fiber: the mark names the fiber that stopped it, so an interruption by any other is the program's.
+  test(
+    "a subscription that interrupts itself with the annotations of its stop, as another fiber, is a defect in the subscription",
+    async () => {
+      const started = Deferred.makeUnsafe<void>()
+      const interruptsItselfAsAnother = Effect.onExit(
+        Effect.andThen(Deferred.succeed(started, undefined), Effect.never),
+        (exit) =>
+          Effect.forEach(
+            Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isInterruptReason) : [],
+            (reason) =>
+              Effect.failCause(
+                Cause.annotate(Cause.interrupt((reason.fiberId ?? 0) + 1), Cause.reasonAnnotations(reason))
+              ),
+            { discard: true }
+          )
+      )
+      const exit = await stopsOnceStarted(started, {
+        ...counter,
+        subscriptions: ({ count }) => count === 0 ? ["k"] : [],
+        listen: () => Channel.fromEffectDone(interruptsItselfAsAnother)
+      })
       expect(selfInterruptions(exit)).toEqual([
         "subscription: It was interrupted by the program, which only the run may do"
       ])

@@ -319,13 +319,23 @@ const compare = Effect.fnUntraced(function*(revision: string, chosen: ReadonlyAr
   return different
 })
 
-// The files of the tests in `copy`, but for the search of the histories.
+// The files of tests that `bun run test` leaves out, read from its script in `copy`: the search of the histories, and
+// the tests of real browsers, which run under vitest alone.
+const outside = Effect.fnUntraced(function*(copy: string) {
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const { scripts } = JSON.parse(yield* fs.readFileString(path.join(copy, "package.json")))
+  return Array.from(String(scripts.test).matchAll(/--path-ignore-patterns=(\S+)/g), ([, file]) => file ?? "")
+})
+
+// The files of the tests in `copy` that `bun run test` runs.
 const testFiles = Effect.fnUntraced(function*(copy: string) {
   const fs = yield* FileSystem.FileSystem
+  const left = yield* outside(copy)
   const entries = yield* fs.readDirectory(copy, { recursive: true })
   return entries
     .map((entry) => entry.replaceAll("\\", "/"))
-    .filter((entry) => entry.endsWith(".test.ts") && entry !== "src/interleaving.test.ts")
+    .filter((entry) => entry.endsWith(".test.ts") && !left.includes(entry))
     .sort()
 })
 
@@ -334,7 +344,7 @@ const testFiles = Effect.fnUntraced(function*(copy: string) {
 // that runs away names no test, since the guard ends its process at once: then each file runs alone, and those that run
 // away are named.
 const suiteUnder = Effect.fnUntraced(function*(copy: string) {
-  const run = yield* runTests(copy, ["--path-ignore-patterns=src/interleaving.test.ts"])
+  const run = yield* runTests(copy, (yield* outside(copy)).map((file) => `--path-ignore-patterns=${file}`))
   if (run !== "ran away") return run
   const ranAway: Array<string> = []
   for (const file of yield* testFiles(copy)) if ((yield* runTests(copy, [file])) === "ran away") ranAway.push(file)

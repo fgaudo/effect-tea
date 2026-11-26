@@ -234,3 +234,7 @@ On 26 November 2026 the owner undid the range: it is a caret, `^4.1.6`. What was
   mutation changed. The one left is what `Effect.interruptible` fails with, which holds "Only the run, and whoever
   runs it, interrupt them": step 106 of [`ROADMAP.md`](../../ROADMAP.md) weighs a design without it. The tilde is in
   [`rejected.md`](../rejected.md).
+- **That one went the same day, in step 106.** The mark of a stop names the fiber it stops, so the engine reads a
+  stop from the cause alone and asks Effect nothing of what a fiber received: no promise rests on an open premise, and
+  [`premises.md`](../premises.md) names no exception. The question stays there as a premise of tests alone, whose gates
+  still ask it. "The sort" above is of the premises of 23 November, and still lists it as the engine's.
