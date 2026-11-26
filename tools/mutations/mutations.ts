@@ -1265,7 +1265,7 @@ export const mutations: ReadonlyArray<Mutation> = [
       ],
       [
         "src/testing/contract.test.ts",
-        "rehearse fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, though the scenario catches it"
+        "rehearse fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, though the scenario catches it, and applies no answer, as the run applies none"
       ]
     ]
   },
@@ -1278,7 +1278,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/testing/contract.test.ts",
-        "rehearse fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, though the scenario catches it"
+        "rehearse fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, though the scenario catches it, and applies no answer, as the run applies none"
       ]
     ]
   },
@@ -2985,6 +2985,34 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
+    name: "hear waits for the start of its key past another fiber's death",
+    file: "src/testing/rehearse.ts",
+    from: "stage.orDead(Deferred.await(starting.begun))",
+    to: "Deferred.await(starting.begun)",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "hear waiting for the start of its key fails as soon as another fiber of the test's dies, as hearNext does"
+      ]
+    ]
+  },
+  {
+    name: "a stage applies the answer of a command the program interrupted as its scope closed",
+    file: "src/testing/stage.ts",
+    from: "                interruptedByTheProgram,\n",
+    to: "                Effect.void,\n",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "rehearse fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, though the scenario catches it, and applies no answer, as the run applies none"
+      ],
+      [
+        "src/testing/contract.test.ts",
+        "simulate fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, and applies no answer"
+      ]
+    ]
+  },
+  {
     name: "a stage stops the command of an interrupted run with no mark of its own",
     file: "src/testing/stage.ts",
     from: "              Effect.flatMap(Deferred.await(taking.parked.fiber), stopping)\n",
@@ -3252,8 +3280,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "hear plays a start whose fiber has not begun",
     file: "src/testing/rehearse.ts",
-    from: "      if (starting !== undefined) return",
-    to: "      if (false) return",
+    from: "      if (starting !== undefined) {",
+    to: "      if (false) {",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
@@ -3268,8 +3296,9 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "hear plays, after the wait for its start's fiber, the start it found before",
     file: "src/testing/rehearse.ts",
-    from: "Effect.andThen(Deferred.await(starting.begun), hear(select, message))",
-    to: "Effect.andThen(Deferred.await(starting.begun), stage.submit(() => play(key, generation, message)))",
+    from: "Effect.andThen(stage.orDead(Deferred.await(starting.begun)), hear(select, message))",
+    to:
+      "Effect.andThen(stage.orDead(Deferred.await(starting.begun)), stage.submit(() => play(key, generation, message)))",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",

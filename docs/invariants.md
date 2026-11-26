@@ -42,8 +42,8 @@ the engine and in the testing tools.
   - A parent is not given its children's states: the library keeps them beside its own, in the composed program's state
     ([`kept-children.md`](records/kept-children.md)). So only a child's own `update` and `external` change its state,
     and a parent reads only its `output`, a pure function of its state, of the children of the moment (`outputsOf`): of
-    before the step in `update` and `external`, as the child's step left them in a handler of `onEvent`, of the state
-    given in `makeModel`, `output` and `subscriptions`.
+    before the step in `update` and `external`, as the child's step and the handlers of its earlier events left them in
+    a handler of `onEvent`, of the state given in `makeModel`, `output` and `subscriptions`.
   - What a parent tells is data of its step, `tell`, given to the children once the step's state is reconciled, in
     order, each to its end (`ownStep`). An item bound to an instance that an earlier item dropped or started again is
     told nothing.
@@ -325,13 +325,18 @@ the engine and in the testing tools.
   - `rehearse` runs through the handle the run makes (`partsOf` in `run.ts`), and decides only what the test decides:
     when a command runs, and when a subscription's message is heard. A call that applies a message gives it to the
     engine's `send` in a thunk of its own, reads what it came to (`stepped`), and waits for a job that only tells
-    (`after`), so each call is whole for the test. That wait is not raced with a death, since the fiber of effects dies
-    of nothing: what it and the end tell a call is data, which the call makes its error of in its own fiber, and a tool
-    names a value in its errors by one function (`failure` in `testing/failure.ts`), which throws nothing. What a value
-    throws as it is named is a failure of the test, no defect: the tool's error comes first, with what was thrown as its
-    `cause`.
+    (`after`), so each call is whole for the test. That wait is not raced with a death: the message is applied, and the
+    job of a step applied before the first defect goes on whole, its commands owed, for as long as a release holds it.
+    `hear` waits for the start of its key as for a subscription, and races that wait with a death (`orDead`). The
+    fiber of effects dies of nothing: what it and the end tell a call is data, which the call makes its error of in its
+    own fiber, and a tool names a value in its errors by one function (`failure` in `testing/failure.ts`), which throws
+    nothing. What a value throws as it is named is a failure of the test, no defect: the tool's error comes first, with
+    what was thrown as its `cause`.
   - A command's fiber (`answering`) is pending once its step's stops are released, and waits for a `run` to give it the
-    effect `runCommand` returned in the `run`'s thunk, run in `commandFiber` with the services of that call. A start's
+    effect `runCommand` returned in the `run`'s thunk, run in `commandFiber` with the services of that call. Nothing of
+    the stage's interrupts it from the effect's answer until the answer is applied; an interruption without the run's
+    mark lands before the answer, as the run's fiber takes it once `scopedIn` has returned (`interruptedByTheProgram`
+    in `shell.ts`). A start's
     fiber (`listening`) waits for the first `hearNext`. Its messages are applied by the thunk that finds a call waiting
     for them, never as they come ([`rejected.md`](rejected.md), "`rehearse`, owning what the test starts, in other
     forms").

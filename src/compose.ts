@@ -326,7 +326,8 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
      *
      * It is required exactly when a child has events. A handler takes the event, and returns the parent's step as a
      * function of its own state. For children by id, it takes the id first. It takes the children's outputs last, as
-     * the child's step left them. A handler is pure, as `update` is: it runs in the parent's `update`.
+     * the child's step and the handlers of its earlier events left them. A handler is pure, as `update` is: it runs in
+     * the parent's `update`.
      *
      * Its step has no `reject`, which would take back the child's step: a handler that does not apply answers
      * `{ state }`, and adds nothing to the child's step. Where that step kept the child's state too, the parent's
@@ -343,7 +344,8 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
      *
      * It is required exactly when a child has events. A handler takes the event, and returns the parent's step as a
      * function of its own state. For children by id, it takes the id first. It takes the children's outputs last, as
-     * the child's step left them. A handler is pure, as `update` is: it runs in the parent's `update`.
+     * the child's step and the handlers of its earlier events left them. A handler is pure, as `update` is: it runs in
+     * the parent's `update`.
      *
      * Its step has no `reject`, which would take back the child's step: a handler that does not apply answers
      * `{ state }`, and adds nothing to the child's step. Where that step kept the child's state too, the parent's

@@ -15,7 +15,9 @@ version, and everything else, features included, the patch version.
   `update`, `external`, `onEvent`, `output` and `subscriptions` take, and the `Tell` of its `Step`, for a function
   written apart from `make`, as `examples/list/halting.ts` is.
 - Promised: a declared `tell` tells a child again only another value than it last told, by `Equal` ("Guarantees");
-  `stateOf` numbers the instances as a start does ("Testing"); a view that throws under `Draw` is for the boundaries.
+  `stateOf` numbers the instances as a start does ("Testing"); a view that throws under `Draw` is for the boundaries;
+  `DefectSite` names the site of a declared `tell` and of an output read in `subscriptions`, and says that what a
+  parent's declarations run as it starts from flags is in `'init'`.
 
 ### Changed
 
@@ -47,6 +49,14 @@ version, and everything else, features included, the patch version.
   that the program made, or that `stateOf` made for it ("Guarantees").
   Upgrade: a state kept across a reload after a declaration changed is not given back; start from `init`.
 - The peer dependency on `effect` is `~4.1.6`, where it was `~4.1.5`.
+
+### Fixed
+
+- `rehearse` and `simulate` apply no answer of a command that a fiber of the program interrupts as the command's scope
+  closes, as the run applies none. They applied the answer before the interruption made them fail, so that `simulate`
+  could fail with a defect of the answer's `update`.
+- `hear` that waits for the start of its key fails as soon as another fiber dies, as `hearNext` does once it waits for
+  a message. It waited until the release that held the start had ended.
 
 ## 0.9.0 (2026-11-26)
 

@@ -26,6 +26,12 @@ afresh) is none of its own.
   since a function that returns no `Effect` does its work during the call (Effect-TS/effect#10877 asked it, and
   Effect-TS/effect#10878 left it out, as the owner then agreed); that a throw leaves the call falls under a rule for
   callbacks that throw, which Effect-TS/effect#10683 declined.
+- **`Equal.equals` and `Hash.hash` let what a value's `Equal` and `Hash` throw leave the call**, though the JSDoc of
+  `equals` says that it never throws: so what a parent compares by them, what `key` gives, flags, an id and the value
+  of a declared `tell` (`compose.ts`, `forwardTo` in `dispatch.ts`), dies where the parent compares it, and is never
+  taken for another value, which would start a child again at every step of its parent, in silence. Read only in the
+  source. Its test is of values whose `Equal` and `Hash` throw. Not asked of Effect, as for `HashMap`: a rule for
+  callbacks that throw, which Effect-TS/effect#10683 declined.
 - **A fiber that waits on a `Deferred` runs on the stack of whoever completes it, until it waits again**, a fiber or
   plain code. No guarantee rests on it, only killers of mutations: those of "the end of the run may begin inside a
   step" and "drive wakes its waits inside the step", which tell a wake inside the step only where it is resumed there,

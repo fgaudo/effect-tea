@@ -24,27 +24,41 @@ test of it. A finding of a review goes here with its `test.failing`, until its f
 lead of the types has no `test.failing`: its fix adds the test of the types that holds it, and a lead of the inference
 matrix is shown by its case (`bun run inference --filter <case>`).
 
+- **A `hearNext` whose job a release holds fails only once the release has ended**, though another fiber died
+  before: its doc comment says it fails with the defect "also when it was already waiting". From the review of the
+  premises of 26 November 2026; `test.failing` "hearNext waiting for the job that opens its call fails as soon as
+  another fiber of the test's dies" in `src/testing/contract.test.ts`. `hear` had the same form, fixed by racing its
+  wait for its start with `orDead`. The same race in `hearNext` (`stage.orDead(Deferred.await(done))` in
+  `rehearse.ts`) passes the test, and leaves the mutation "the job of a hearNext starts its subscription after the
+  first defect" with no killer: the call leaves at the defect before its job, so no deterministic test reaches the
+  `dead()` check of the job, which a schedule still may. The fix needs that check reached again, or shown not needed.
+  `send` waits for its job the same way, on purpose: its message is applied, and the job goes on whole. Opus 5.5,
+  `high` (`change-engine`).
+- **A `Child` written by hand compiles, and one that says it is always there dies where it is not.** A lead of the
+  types, from the review of the premises of 26 November 2026: `const liar: Child<Own, Leaf, 'always'> = { _tag:
+  'Child', program: leaf, there: 'always', key: (state) => state.on ? Opt.some(undefined) : Opt.none() }`, given to
+  `withChildren`, compiles with no cast, and `children.Liar()` in `makeModel` is typed as a model and throws a
+  `CompositionDefect` that the doc comment of `CompositionDefect` does not list among its four cases. It breaks "No
+  broken combination can" of `AGENTS.md` ("What belongs here"), and is the fact that the entry "What `child` and
+  `childById` take, mirrored in what they make" of `docs/rejected.md` reopens on, by what it did not weigh: that a
+  program can write one. A fix could begin by making a `Child` and a `ChildById` only by `child` and `childById`,
+  through a member keyed by a symbol the package does not export, with a test of the types that refuses the object
+  above. Opus 5.5, `high` (`change-api`).
+
 ## Next, in order
 
 Both readings are due before the release after 0.9.0, whose breaking changes go out together ("What may change" in
 `AGENTS.md`), and in this order (`release`, point 1 of "Releasing").
 
-### 99. Review the premises since step 65
-
-**Model and effort.** Opus 5.5, `high`: a review.
-
-**Depends on** no other step. It reads the changes of the engine and of the testing tools since the commit that closed
-step 65 (`git log --grep "Close step 65"`), by [`premise-review`](.agents/skills/premise-review/SKILL.md).
-
-**Done when** each finding is fixed, or is an open problem of this file with its `test.failing`, and, in place of this
-step, one line here names the commit that closed it, for the next review.
+The last review of the premises is the commit that closed it (`git log --grep "the premises reviewed since step 65"`):
+the next one reads the changes since.
 
 ### 100. Read the promises since step 90
 
 **Model and effort.** Opus 5.5, `high`: a review.
 
-**Depends on** step 99. It reads the guide, the doc comments and the examples changed since the commit that closed
-step 90 (`git log --grep "Close step 90"`), each against the whole of the other side, by
+**Depends on** no other step. It reads the guide, the doc comments and the examples changed since the commit that
+closed step 90 (`git log --grep "Close step 90"`), each against the whole of the other side, by
 [`promise-reading`](.agents/skills/promise-reading/SKILL.md).
 
 **Done when** each gap is closed, or is a step of this file, and, in place of this step, one line here names the

@@ -123,6 +123,29 @@ describe("HashMap calls a key's Equal and Hash only during a call of its functio
   })
 })
 
+test("Equal.equals and Hash.hash let what a value's Equal and Hash throw leave the call", () => {
+  const thrown = new Error("the value")
+  // `equals` compares the hashes first: one that throws there would not reach `Equal`.
+  class Unequal implements Equal.Equal {
+    [Equal.symbol](): boolean {
+      throw thrown
+    }
+    [Hash.symbol](): number {
+      return 0
+    }
+  }
+  class Unhashable implements Equal.Equal {
+    [Equal.symbol](that: Equal.Equal): boolean {
+      return that === this
+    }
+    [Hash.symbol](): number {
+      throw thrown
+    }
+  }
+  expect(() => Equal.equals(new Unequal(), new Unequal())).toThrow(thrown)
+  expect(() => Hash.hash(new Unhashable())).toThrow(thrown)
+})
+
 // What the watch of a key across the calls of a map fails with: a `FiberMap` compares a key in the observer of a fiber,
 // as it ends. `Equal` keeps the result of each pair of objects it compared, so the observer calls a key's `Equal` only
 // on a pair that no call compared: here, the key of a fiber replaced under an equal one, which ends once that key has

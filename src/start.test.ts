@@ -201,7 +201,7 @@ describe("a program started", () => {
     expect(wheres(exit)).toEqual(["update: Error: broke"])
   })
 
-  test("whose run is interrupted before it begins, is as one never run: it applies messages, starts nothing, reports no defect, and runs later", async () => {
+  test("whose run is interrupted before it begins, is as one never run: it applies messages, starts nothing, reports no defect, and a later run starts the commands that waited, then dies of the defect", async () => {
     type Noting = Program<{ state: Readonly<{ n: number }>; model: number; message: "Up" | "Break"; command: "Note" }>
     const log: Array<string> = []
     const noting: Noting = {
@@ -228,7 +228,10 @@ describe("a program started", () => {
       log
     }).toEqual({ interrupted: true, model: 1, log: [] })
     const exit = await Effect.runPromiseExit(run)
-    expect(wheres(exit)).toEqual(["update: Error: broke"])
+    expect({ wheres: wheres(exit), log }).toEqual({
+      wheres: ["update: Error: broke"],
+      log: ["command started", "command started"]
+    })
   })
 })
 

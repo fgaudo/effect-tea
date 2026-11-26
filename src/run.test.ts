@@ -1099,6 +1099,238 @@ describe("defects", () => {
     expect(await outcome()).toEqual({ where, message: said[where], logged: [] })
   })
 
+  // The pieces of a parent, each of which dies once its parent's step has counted to 1, and the children they read.
+  const Parent = program<{ state: Count; message: "Increment" }>()
+  const Keyed = program<{ state: Count; message: "Increment"; key: number }>()
+  const Flagged = program<{ state: Count; flags: number }>()
+  const counted = {
+    init: { state: { count: 0 } },
+    update: () => ({ count }: Count) => ({ state: { count: count + 1 } })
+  }
+  const plain = program<{ state: Count }>().make({ init: { state: { count: 0 } }, makeModel: () => null })
+  const hearing = program<{ state: Count; external: "Told" }>().make({
+    init: { state: { count: 0 } },
+    external: () => ({ count }) => ({ state: { count: count + 1 } }),
+    makeModel: () => null
+  })
+  const seeded = program<{ state: Count; flags: number }>().make({
+    init: (count) => count === 1 ? boom() : { state: { count } },
+    makeModel: () => null
+  })
+  const outputting = program<{ state: Count; output: number }>().make({
+    init: { state: { count: 0 } },
+    output: () => boom(),
+    makeModel: () => null
+  })
+  const listing = program<{ state: Count; key: "k" }>().make({
+    init: { state: { count: 0 } },
+    subscriptions: () => boom(),
+    listen: () => Channel.never,
+    makeModel: () => null
+  })
+  const drawing = program<{ state: Count }>().make({ init: { state: { count: 0 } }, makeModel: () => boom() })
+  const subscribing = program<{ state: Count; key: "k" }>().make({
+    init: { state: { count: 0 } },
+    subscriptions: () => ["k"],
+    listen: () => boom(),
+    makeModel: () => null
+  })
+  const commanding = program<{ state: Count; command: "Go" }>().make({
+    init: { state: { count: 0 }, commands: ["Go"] },
+    runCommand: () => boom(),
+    makeModel: () => null
+  })
+  const once = ({ count }: Count) => count === 1
+  /** Runs a parent, sends `Increment`, reads the model, and tells where the run died of the defect thrown. */
+  const steppedOnce = async ({ app, run }: Started<unknown, "Increment">) => {
+    const fiber = Effect.runFork(run)
+    app.dispatch("Increment")
+    thrownBy(app.model)
+    const exit = await ended(fiber)
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    return defect instanceof ProgramDefect && defect.cause instanceof Boom ? defect.where : defect
+  }
+  /** Starts a parent with the flags 1, and tells where its run died of the defect thrown. */
+  const startedAtOne = async ({ run }: Started<unknown, never>) => {
+    const exit = await Effect.runPromiseExit(run)
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    return defect instanceof ProgramDefect && defect.cause instanceof Boom ? defect.where : defect
+  }
+  test.each<[string, DefectSite, () => Promise<unknown>]>([
+    [
+      "there",
+      "update",
+      () =>
+        steppedOnce(
+          start(
+            Parent.withChildren({ Child: Parent.child(plain, { there: (state) => once(state) && boom() }) })
+              .make({ ...counted, makeModel: () => null })
+          )
+        )
+    ],
+    [
+      "key",
+      "update",
+      () =>
+        steppedOnce(
+          start(
+            Parent.withChildren({ Child: Parent.child(plain, { key: (state) => once(state) ? boom() : 0 }) })
+              .make({ ...counted, makeModel: () => null })
+          )
+        )
+    ],
+    [
+      "ids",
+      "update",
+      () =>
+        steppedOnce(
+          start(
+            Parent.withChildren({ Rows: Parent.childById(plain, { ids: (state) => once(state) ? boom() : [] }) })
+              .make({ ...counted, makeModel: () => null })
+          )
+        )
+    ],
+    [
+      "the tell of a declaration",
+      "update",
+      () =>
+        steppedOnce(
+          start(
+            Parent.withChildren({ Child: Parent.child(hearing, { tell: (state) => once(state) ? boom() : "Told" }) })
+              .make({ ...counted, makeModel: () => null })
+          )
+        )
+    ],
+    [
+      "the init of a child that a step starts",
+      "update",
+      () =>
+        steppedOnce(
+          start(
+            Parent.withChildren({ Child: Parent.child(seeded, { flags: (state) => state.count }) })
+              .make({ ...counted, makeModel: () => null })
+          )
+        )
+    ],
+    [
+      "an output read in update",
+      "update",
+      () =>
+        steppedOnce(start(
+          Parent.withChildren({ Child: Parent.child(outputting) }).make({
+            init: { state: { count: 0 } },
+            update: (_, children) => ({ count }) => ({ state: { count: count + children.Child.output() } }),
+            makeModel: () => null
+          })
+        ))
+    ],
+    [
+      "listening",
+      "subscriptions",
+      () =>
+        steppedOnce(
+          start(
+            Parent.withChildren({ Child: Parent.child(plain, { listening: (state) => !once(state) || boom() }) })
+              .make({ ...counted, makeModel: () => null })
+          )
+        )
+    ],
+    [
+      "the subscriptions of a child",
+      "subscriptions",
+      () =>
+        steppedOnce(
+          start(
+            Parent.withChildren({ Child: Parent.child(listing, { there: once }) })
+              .make({ ...counted, makeModel: () => null })
+          )
+        )
+    ],
+    [
+      "an output read in subscriptions",
+      "subscriptions",
+      () =>
+        steppedOnce(start(
+          Keyed.withChildren({ Child: Keyed.child(outputting) }).make({
+            ...counted,
+            subscriptions: (state, children) => once(state) ? [children.Child.output()] : [],
+            listen: () => Channel.never,
+            makeModel: () => null
+          })
+        ))
+    ],
+    [
+      "the makeModel of a child",
+      "render",
+      () =>
+        steppedOnce(
+          start(
+            Parent.withChildren({ Child: Parent.child(drawing, { there: once }) })
+              .make({ ...counted, makeModel: (_, children) => Opt.isSome(children.Child()) })
+          )
+        )
+    ],
+    [
+      "an output read in makeModel",
+      "render",
+      () =>
+        steppedOnce(
+          start(
+            Parent.withChildren({ Child: Parent.child(outputting) })
+              .make({ ...counted, makeModel: (state, children) => once(state) ? children.Child.output() : 0 })
+          )
+        )
+    ],
+    [
+      "the listen of a child",
+      "subscription",
+      () =>
+        steppedOnce(
+          start(
+            Parent.withChildren({ Child: Parent.child(subscribing, { there: once }) })
+              .make({ ...counted, makeModel: () => null })
+          )
+        )
+    ],
+    [
+      "the runCommand of a child",
+      "command",
+      () =>
+        steppedOnce(
+          start(
+            Parent.withChildren({ Child: Parent.child(commanding, { there: once }) })
+              .make({ ...counted, makeModel: () => null })
+          )
+        )
+    ],
+    [
+      "the init of a child as a parent with flags starts",
+      "init",
+      () =>
+        startedAtOne(
+          start(
+            Flagged.withChildren({ Child: Flagged.child(seeded, { flags: (state) => state.count }) })
+              .make({ init: (count) => ({ state: { count } }), makeModel: () => null }),
+            { flags: 1 }
+          )
+        )
+    ],
+    [
+      "the tell of a declaration as a parent with flags starts",
+      "init",
+      () =>
+        startedAtOne(
+          start(
+            Flagged.withChildren({ Child: Flagged.child(hearing, { tell: (state) => once(state) ? boom() : "Told" }) })
+              .make({ init: (count) => ({ state: { count } }), makeModel: () => null }),
+            { flags: 1 }
+          )
+        )
+    ]
+  ])("a defect in %s of a parent dies in %s", async (_, where, outcome) => {
+    expect(await outcome()).toBe(where)
+  })
+
   // The fibers of a run ignore their interruptions: one that came from the program itself would otherwise leave
   // a command without its answer, or a subscription ended without its last message, and the run going on.
   const joinsAnInterruptedFiber = Effect.gen(function*() {

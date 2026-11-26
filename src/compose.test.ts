@@ -1106,7 +1106,7 @@ describe("the children that the library keeps", () => {
     expect(single.update({ _tag: "One", message: { _tag: "Bumped" } })(closed)).toBe(reject)
   })
 
-  test("a dropped child's subscriptions stop: the state after lists none of its keys, by id and alone", () => {
+  test("the state after a child is dropped lists none of its keys, by id and alone", () => {
     const listed = after(added(1), added(2)).state
     expect(rowList.subscriptions(listed)).toHaveLength(2)
     const { state } = applyAll(rowList.update, [{ _tag: "Removed", id: 1 }], listed)

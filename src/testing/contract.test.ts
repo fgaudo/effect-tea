@@ -18,7 +18,7 @@ import { start } from "../run.ts"
 import { reject, type Update } from "../update.ts"
 import { applyAll } from "./apply-all.ts"
 import { drive } from "./drive.ts"
-import { rehearse } from "./rehearse.ts"
+import { type Rehearsal, rehearse } from "./rehearse.ts"
 import { simulate } from "./simulate.ts"
 
 // The same program and the same inputs, given to each testing tool and to the run (through `drive`): where the
@@ -1561,7 +1561,8 @@ describe("a command or a subscription that a fiber of the program interrupts", (
   // Found by the review of the testing tools of November 2026. The interrupter runs at once in the release of the
   // command's scope, where nothing interrupts the fiber: the interruption lands once the scope has closed, which only the
   // root of the fiber takes for a defect. The run records it; `rehearse` gave it only to the `run` that awaits the
-  // fiber, so a scenario that caught that failure, or a `run` nobody joined, lost it.
+  // fiber, so a scenario that caught that failure, or a `run` nobody joined, lost it. The review of 26 November 2026
+  // found that `rehearse` applied the answer before the interruption landed, where the run applies none.
   const releasing: Program<{
     state: Row
     model: number
@@ -1594,18 +1595,45 @@ describe("a command or a subscription that a fiber of the program interrupts", (
   })
 
   test(
-    "rehearse fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, though the scenario catches it",
+    "rehearse fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, though the scenario catches it, and applies no answer, as the run applies none",
     async () => {
+      let seen: number | undefined
       const exit = await Effect.runPromiseExit(
-        rehearse(
-          releasing,
-          (rehearsal) =>
-            rehearsal.send(() => Opt.some("Go")).pipe(Effect.andThen(Effect.exit(rehearsal.run(() => true))))
-        )
+        rehearse(releasing, (rehearsal) =>
+          rehearsal.send(() => Opt.some("Go")).pipe(
+            Effect.andThen(Effect.exit(rehearsal.run(() => true))),
+            Effect.andThen(rehearsal.state),
+            Effect.map((state) => {
+              seen = state.seen
+            })
+          ))
       )
+      expect({ where: diedIn(exit), seen }).toEqual({ where: "command", seen: 0 })
+    }
+  )
+
+  // `simulate` runs the command's fiber as `rehearse` does (`answering`): an answer applied would die in `update`.
+  test(
+    "simulate fails with a defect, as the run dies, of a command a fiber of the program interrupts as it releases, and applies no answer",
+    async () => {
+      const throwing: typeof releasing = {
+        ...releasing,
+        update: (message) => {
+          if (message === "Done") throw new Error("The answer is applied")
+          return releasing.update(message)
+        }
+      }
+      const exit = await Effect.runPromiseExit(simulate(throwing, ["Go"], { state: { seen: 0 } }))
       expect(diedIn(exit)).toBe("command")
     }
   )
+
+  test("in the run, the answer of a command a fiber of the program interrupts as it releases reaches no update", async () => {
+    const { app, run } = start(releasing)
+    app.dispatch("Go")
+    const exit = await Effect.runPromiseExit(run)
+    expect({ where: diedIn(exit), seen: app.model() }).toEqual({ where: "command", seen: 0 })
+  })
 
   // The same of a subscription, whose release interrupts its fiber once it has given its last message: the
   // interruption lands once the scope has closed, before the message is sent, which only the root takes for a defect.
@@ -1966,5 +1994,173 @@ describe("an end where the release of a fiber waits for the release of another",
 
   test("rehearse ends too, as the run does, failing on the command still under way, whose release waits for the subscription's", async () => {
     expect(await rehearsed("command")).toContain("Commands still under way when the scenario ended: Hold")
+  })
+})
+
+// Found as suspects by the review of the premises of the testing tools of 26 November 2026. `Swap` stops `a`, whose
+// release waits for `gate`, and starts `b` and `c`, with `Cmd`; `b` sends `Heard` as it starts, which drops `c` and
+// starts `Reply`. While the release holds the job of `Swap`, `hear` on `b` waits for the start of `b`, which that job
+// begins: the call then applies `Heard` on the stack of the fiber of effects, in the middle of the job, before `c`
+// starts and before `Cmd` is owed. `Boom`, a command of `init` where a test gives it, dies once `boom` is done.
+describe("a message heard while the job of its own start is under way", () => {
+  type Job = Readonly<{ a: boolean; b: boolean; c: boolean; applied: ReadonlyArray<"Swap" | "Heard"> }>
+  type JobMessage = "Swap" | "Heard"
+  type Signals = Readonly<{
+    releasing: Deferred.Deferred<void>
+    gate: Deferred.Deferred<void>
+    replied: Deferred.Deferred<void>
+    boom: Deferred.Deferred<void>
+    log: Array<string>
+  }>
+  const signals = Effect.gen(function*(): Effect.fn.Return<Signals> {
+    return {
+      releasing: yield* Deferred.make<void>(),
+      gate: yield* Deferred.make<void>(),
+      replied: yield* Deferred.make<void>(),
+      boom: yield* Deferred.make<void>(),
+      log: []
+    }
+  })
+  const jobbing = (
+    { releasing, gate, replied, boom, log }: Signals
+  ): Program<
+    { state: Job; model: Job; message: JobMessage; command: "Cmd" | "Reply" | "Boom"; key: "a" | "b" | "c" }
+  > => ({
+    init: { state: { a: true, b: false, c: false, applied: [] } },
+    update: (message) => (state) =>
+      message === "Swap"
+        ? { state: { a: false, b: true, c: true, applied: [...state.applied, message] }, commands: ["Cmd"] }
+        : { state: { ...state, c: false, applied: [...state.applied, message] }, commands: ["Reply"] },
+    runCommand: (command) => {
+      switch (command) {
+        case "Cmd":
+          return Effect.sync(() => log.push("Cmd")).pipe(Effect.as(Opt.none()))
+        case "Reply":
+          return Effect.sync(() => log.push("Reply")).pipe(
+            Effect.andThen(Deferred.succeed(replied, undefined)),
+            Effect.as(Opt.none())
+          )
+        case "Boom":
+          return Effect.andThen(Deferred.await(boom), Effect.die("boom"))
+      }
+    },
+    subscriptions: ({ a, b, c }) => [
+      ...(a ? ["a" as const] : []),
+      ...(b ? ["b" as const] : []),
+      ...(c ? ["c" as const] : [])
+    ],
+    listen: (key) => {
+      switch (key) {
+        case "a":
+          return Channel.never.pipe(
+            Channel.ensuring(Effect.andThen(Deferred.succeed(releasing, undefined), Deferred.await(gate)))
+          )
+        case "b":
+          return Channel.succeed<JobMessage>("Heard").pipe(Channel.concatWith(() => Channel.never))
+        case "c":
+          return Channel.never
+      }
+    },
+    makeModel: (state) => state
+  })
+  const after: Job = { a: false, b: true, c: false, applied: ["Swap", "Heard"] }
+  const diedWhere = (exit: Exit.Exit<unknown, unknown>) => {
+    const defect = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    return defect instanceof ProgramDefect ? defect.where : undefined
+  }
+
+  test("in the run, the commands of the job start before those of the message its start sends", async () => {
+    const seen = await Effect.runPromise(Effect.gen(function*() {
+      const given = yield* signals
+      return yield* drive(
+        jobbing(given),
+        Effect.fnUntraced(function*(driver) {
+          yield* driver.send(() => Opt.some<JobMessage>("Swap"))
+          yield* Deferred.await(given.releasing)
+          const meanwhile = [...given.log]
+          yield* Deferred.succeed(given.gate, undefined)
+          yield* Deferred.await(given.replied)
+          const model = yield* driver.waitFor((model) => model.applied.length === 2 ? Opt.some(model) : Opt.none())
+          return { meanwhile, started: [...given.log], model }
+        })
+      )
+    }))
+    expect(seen).toEqual({ meanwhile: [], started: ["Cmd", "Reply"], model: after })
+  })
+
+  test("rehearse owes the commands of the job before those of the message hear applies in it, as the run starts them", async () => {
+    const seen = await Effect.runPromise(Effect.gen(function*() {
+      const given = yield* signals
+      return yield* rehearse(
+        jobbing(given),
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* Effect.forkChild(rehearsal.hearNext((key) => key === "a"), { startImmediately: true })
+          const swapping = yield* Effect.forkChild(rehearsal.send(() => Opt.some<JobMessage>("Swap")))
+          yield* Deferred.await(given.releasing)
+          // Started on this stack, the call waits for the start of `b` once the fork returns.
+          const hearing = yield* Effect.forkChild(rehearsal.hear((key) => key === "b", "Heard"), {
+            startImmediately: true
+          })
+          const meanwhile = { pending: yield* rehearsal.pending, applied: (yield* rehearsal.state).applied }
+          yield* Deferred.succeed(given.gate, undefined)
+          yield* Fiber.join(swapping)
+          yield* Fiber.join(hearing)
+          const pending = yield* rehearsal.pending
+          const state = yield* rehearsal.state
+          const later = yield* Effect.exit(rehearsal.hear((key) => key === "c", "Heard"))
+          yield* rehearsal.runAll
+          return { meanwhile, pending, state, cGone: Exit.isFailure(later), started: [...given.log] }
+        })
+      )
+    }))
+    expect(seen).toEqual({
+      meanwhile: { pending: [], applied: ["Swap"] },
+      pending: ["Cmd", "Reply"],
+      state: after,
+      cGone: true,
+      started: ["Cmd", "Reply"]
+    })
+  })
+
+  // Found by the review of the premises of 26 November 2026: `hear` waited past the defect for the release that holds
+  // the job, before anything of its own was applied. The bound is reached only by a rehearsal that
+  // does so: a correct one ends the call in a few milliseconds.
+  const waitingPastBoom = async (
+    waiting: (rehearsal: Rehearsal<Job, Job, JobMessage, "Cmd" | "Reply" | "Boom">) => Effect.Effect<unknown>
+  ) => {
+    let outcome: Opt.Option<Exit.Exit<unknown>> = Opt.none()
+    await Effect.runPromise(Effect.gen(function*() {
+      const given = yield* signals
+      const program = jobbing(given)
+      const booming: typeof program = { ...program, init: { ...program.init, commands: ["Boom"] } }
+      return yield* Effect.exit(rehearse(
+        booming,
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* Effect.forkChild(rehearsal.hearNext((key) => key === "a"), { startImmediately: true })
+          yield* Effect.forkChild(rehearsal.run((command) => command === "Boom"), { startImmediately: true })
+          yield* Effect.forkChild(rehearsal.send(() => Opt.some<JobMessage>("Swap")))
+          yield* Deferred.await(given.releasing)
+          const hearing = yield* Effect.forkChild(waiting(rehearsal), { startImmediately: true })
+          yield* Deferred.succeed(given.boom, undefined)
+          outcome = yield* Effect.timeoutOption(Fiber.await(hearing), "1 second")
+          yield* Deferred.succeed(given.gate, undefined)
+        })
+      ))
+    }))
+    return Opt.map(outcome, diedWhere)
+  }
+
+  test(
+    "hear waiting for the start of its key fails as soon as another fiber of the test's dies, as hearNext does",
+    async () => {
+      expect(await waitingPastBoom((rehearsal) => rehearsal.hear((key) => key === "b", "Heard"))).toEqual(
+        Opt.some("command")
+      )
+    }
+  )
+
+  // An open problem of ROADMAP.md: `hearNext` waits for the job that opens its call as `send` waits for its job.
+  test.failing("hearNext waiting for the job that opens its call fails as soon as another fiber of the test's dies", async () => {
+    expect(await waitingPastBoom((rehearsal) => rehearsal.hearNext((key) => key === "b"))).toEqual(Opt.some("command"))
   })
 })

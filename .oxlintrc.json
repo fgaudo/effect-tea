@@ -34,7 +34,14 @@
           "message": "A testing tool runs a program on the engine, and makes no step, no scope of a subscription or a command, and no site of a defect (docs/invariants.md, \"The testing tools behave like the engine\"): it takes of core.ts and shell.ts only the names listed here, each a reviewed edit of this list."
         }, {
           "regex": "(^|/)shell\\.ts$",
-          "allowImportNames": ["makeDeaths", "startFiber", "commandFiber", "stopping", "Deaths"],
+          "allowImportNames": [
+            "makeDeaths",
+            "startFiber",
+            "commandFiber",
+            "stopping",
+            "interruptedByTheProgram",
+            "Deaths"
+          ],
           "message": "A testing tool runs a program on the engine, and makes no step, no scope of a subscription or a command, and no site of a defect (docs/invariants.md, \"The testing tools behave like the engine\"): it takes of core.ts and shell.ts only the names listed here, each a reviewed edit of this list."
         }, {
           "group": ["snabbdom", "snabbdom/**", "react", "react/**", "react-dom", "react-dom/**"],

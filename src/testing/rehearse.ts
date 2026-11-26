@@ -102,8 +102,9 @@ export type Rehearsal<
    * Applies a message as the subscription under the key `select` matches would send it, without running the
    * subscription.
    *
-   * - `select` is given each key of the current state, as the program lists it. A key of a child's subscriptions names
-   *   the child and its instance, as its parent lists it: `{ _tag: 'Row', id, instance, key: 'ticks' }`.
+   * - `select` is given each key of the current state, as the listing that started its subscription gave it. A key of a
+   *   child's subscriptions names the child and its instance, as its parent lists it:
+   *   `{ _tag: 'Row', id, instance, key: 'ticks' }`.
    * - It fails the test when `select` matches no key, or more than one.
    * - The test answers for what it says was heard, and for whether the subscription had ended.
    * - A key that has just appeared is heard once its subscription would have started: once what the message before it
@@ -374,16 +375,18 @@ const rehearsing = Effect.fnUntraced(function*<
         return stage.outcomeOf(stage.apply({ _tag: "Subscription", key, generation }, message, "list"))
     }
   }
-  // In one thunk: the key `select` matches in the current state; a start whose fiber has not begun waited for, and
-  // `select` given the keys again after it, since it may have gone, or come back with another start, so that the start played is
-  // always the current state's.
+  // In one thunk: the key `select` matches in the current state; a start whose fiber has not begun waited for, as a
+  // wait for a subscription, raced with a death, and `select` given the keys again after it, since it may have gone, or
+  // come back with another start, so that the start played is always the current state's.
   const hear = (select: (key: unknown) => boolean, message: Message): Effect.Effect<void> =>
     stage.submit(() => {
       const found = startOf(select)
       if (Effect.isEffect(found)) return found
       const [key, generation] = found
       const starting = stage.ledger.starting.get(generation)
-      if (starting !== undefined) return Effect.andThen(Deferred.await(starting.begun), hear(select, message))
+      if (starting !== undefined) {
+        return Effect.andThen(stage.orDead(Deferred.await(starting.begun)), hear(select, message))
+      }
       return play(key, generation, message)
     })
   // The job of a call of `hearNext`, after the stops of every step before it, and so after the job that begins its

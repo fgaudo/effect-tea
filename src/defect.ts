@@ -3,10 +3,12 @@ import * as Data from "effect/Data"
 /**
  * Where a defect happened, as a `ProgramDefect` says it in `where`.
  *
- * - `'init'` is the `init` of a program that starts from flags.
+ * - `'init'` is the `init` of a program that starts from flags, with what its children's declarations run as it
+ *   starts.
  * - `'update'` includes `onEvent`, a child's `external`, a child's `init` when a step of its parent starts it, `there`,
- *   `key`, `flags`, `ids`, and an output read in `update`. The message is in `on`.
- * - `'subscriptions'` includes the `Equal` and `Hash` of the keys, `listening`, and a child's `subscriptions`.
+ *   `key`, `flags`, `ids`, the declared `tell`, and an output read in `update`. The message is in `on`.
+ * - `'subscriptions'` includes the `Equal` and `Hash` of the keys, `listening`, a child's `subscriptions`, and an
+ *   output read in `subscriptions`.
  * - `'subscription'` is a subscription, and `listen` as it makes one, a child's too. The key is in `key`.
  * - `'command'` is a command, and `runCommand` as it makes the command's effect.
  * - `'render'` is `makeModel`, a child's too, wherever the model is read, an output read in `makeModel`, a listener of
