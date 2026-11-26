@@ -1055,14 +1055,27 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "stateOf tells no child what its declaration gives",
     file: "src/compose.ts",
-    from: "    const gathered = opening(own, [])\n"
-      + "    reconcile(gathered, Opt.none())\n"
-      + "    if (tellers.length > 0) sync(gathered, Opt.none(), nothing)\n",
-    to: "    const gathered = opening(own, [])\n    reconcile(gathered, Opt.none())\n",
+    from: "    if (tellers.length > 0) sync(gathered, Opt.none(), nothing)\n"
+      + "    if (!Object.is(gathered.own, own)) {\n",
+    to: "    if (!Object.is(gathered.own, own)) {\n",
     killedBy: [
       [
         "src/compose.test.ts",
-        "stateOf tells the children it starts, and a state given for one replaces what it was told into"
+        "stateOf tells each child it starts once it is in the state given for it, as a start tells it from its init"
+      ]
+    ]
+  },
+  {
+    name: "stateOf tells the children before it puts them in the states given",
+    file: "src/compose.ts",
+    from: "    reconcile(gathered, Opt.none())\n    for (const name of Object.keys(states)) {\n",
+    to: "    reconcile(gathered, Opt.none())\n"
+      + "    if (tellers.length > 0) sync(gathered, Opt.none(), nothing)\n"
+      + "    for (const name of Object.keys(states)) {\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "stateOf tells each child it starts once it is in the state given for it, as a start tells it from its init"
       ]
     ]
   },

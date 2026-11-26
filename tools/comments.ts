@@ -73,7 +73,7 @@ const ceilings: Readonly<Record<string, number>> = {
   "Running": 1800,
   "Guarantees": 2100,
   "Writing a bridge": 2150,
-  "Testing": 1350,
+  "Testing": 1370,
   "Testing tools": 1300
 }
 

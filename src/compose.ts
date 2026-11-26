@@ -929,14 +929,12 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
   const ownOf = (state: unknown) => composed ? (state as Kept<unknown, unknown>).own : state
   const ownExternal = config.external
   const ownOutput = config.output
-  // The state that a start makes, each child told as it starts, then each state given put in place of its child's.
+  // The state that a start makes, where each state given stands in place of its child's first state: the children are
+  // told only once they are in place, so that each was last told what the own state gives, as in a state the program
+  // made.
   const placer: Placer = (own, states) => {
     const gathered = opening(own, [])
     reconcile(gathered, Opt.none())
-    if (tellers.length > 0) sync(gathered, Opt.none(), nothing)
-    if (!Object.is(gathered.own, own)) {
-      throw new Error("stateOf: a handler of onEvent gives another own state, in answer to what a child is told")
-    }
     for (const name of Object.keys(states)) {
       if (!Object.hasOwn(programs, name)) throw new Error(`stateOf: "${name}" is no child`)
       const given = states[name]
@@ -953,6 +951,10 @@ const make = (children: Readonly<Record<string, UntypedChild>> | undefined, conf
         )
         putAt(gathered, place, { ...entry, state: childState })
       }
+    }
+    if (tellers.length > 0) sync(gathered, Opt.none(), nothing)
+    if (!Object.is(gathered.own, own)) {
+      throw new Error("stateOf: a handler of onEvent gives another own state, in answer to what a child is told")
     }
     return { own: gathered.own, starts: gathered.starts, children: gathered.children }
   }

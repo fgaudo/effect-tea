@@ -54,7 +54,7 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 93 to 98 come from the report of an application written again on 0.9.0, weighed on 26 November 2026
+Steps 94 to 98 come from the report of an application written again on 0.9.0, weighed on 26 November 2026
 ([`application-report-0.9.md`](docs/records/application-report-0.9.md)), and run in the order of their numbers. Each
 decides its point by "Deciding": a step that decides against its point writes its entry of
 [`rejected.md`](docs/rejected.md), and is done. Their breaking changes go out together, in the release after 0.9.0.
@@ -62,7 +62,9 @@ decides its point by "Deciding": a step that decides against its point writes it
 Step 92 decided the report's third point ([`instance-in-view.md`](docs/records/instance-in-view.md)): `makeModel`
 reads the number of a child's instance, and `forwardTo` takes it, so that a message of a view names its instance where
 the view gives one. A message that names none is still a message, which reaches the child that is there, so no test
-written before it changes.
+written before it changes. Step 93 decided the first two items of the sixth point: `stateOf` tells each child once it
+is in the state given for it, and a test reads what a step told in the child's state and commands, with no list of it
+in the tools ([`rejected.md`](docs/rejected.md), "A list of what a step told").
 
 The release of 0.9.0 waited, as the owner asked on 25 November 2026, for a bridge to
 React Native, which step 83 made, for whether a view of React can have a `messagesSentBy`, and for a reading of the
@@ -91,32 +93,6 @@ after 0.9.0, reads the changes since that commit, and one of everything is due b
 The next review of the premises ([`premise-review`](.agents/skills/premise-review/SKILL.md)), before the release
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
-
-### 93. A parent's state, and what its steps tell, in the testing tools
-
-**Model and effort.** Opus 5.5, `high`.
-
-**Depends on** no other step.
-
-**Why.** Two things a test of a parent cannot do, or does wrongly
-([`application-report-0.9.md`](docs/records/application-report-0.9.md), point 6).
-
-**How.** Two questions, each decided apart.
-
-- **`stateOf` makes states that the declared `tell` would not leave.** Its `placer`, in `src/compose.ts`, tells each
-  child as it starts and then puts in its place the state given for it. So a property test that draws its children's
-  states draws parents that "Guarantees" rules out ("A state that starts a program elsewhere is one that the program
-  made"). Forms to weigh: telling after the states are placed, so that every child was last told its parent's value;
-  refusing a state given that being told would change; or the guide saying what a test must give. With each, what a
-  child's `external` answers as it is told, a command or an event, where `stateOf` throws today.
-- **Nothing shows what a step told.** `applyAll`, `simulate` and a `Rehearsal` give the state, the commands and the
-  events, and "Testing" asks for one test per message that asserts them. A parent's `tell` is taken by the `update`
-  that `make` composes, and shows only in the child's state, which a test reads from `state.children`. Weigh a list of
-  what was told in what the tools give, against a sentence of "Testing" that says where a test reads it.
-
-**Done when** each question has its decision in the commit, with a record if the API changes; the tests of
-`src/testing/` and `src/testing/contract.test.ts` hold what was taken, and a check added to `src/compose.ts` has its
-mutation; "Testing" and the doc comments say it; and `bun run test:node` and `bun run interleavings` pass.
 
 ### 94. A child with flags that is always there
 

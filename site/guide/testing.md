@@ -37,7 +37,7 @@ The tests of a program follow its shape, in four steps:
    - what the program listens to (`program.subscriptions`).
 3. **Write one test per message.** Assert the next state, the commands and the events by value. Assert a rejection as
    `reject` itself, with `toBe(reject)`. Never assert it as "the state did not change": a step that keeps the state
-   would pass that test too.
+   would pass that test too. What a parent tells a child shows in the child's state and commands.
 4. **Check the defects apart.** The invariants rule out some pairs of state and message (see
    [rejections and defects](./rejections-and-defects.md)). The steps above skip those pairs. Check them as defects:
    `expect(() => update(message)(state)).toThrow(InvariantDefect)`.
@@ -65,15 +65,16 @@ expect(Equal.equals(counter.makeModel(one), counter.makeModel(other))).toBe(true
 A state of a parent holds its own state and the children that the library keeps (see
 [what the library derives](./composition.md#what-the-library-derives)). A test makes one with `stateOf`, of
 `@fgaudo/effect-tea/testing`, or folds messages from `init` with `applyAll`:
-`stateOf(app, { about: Opt.none() }, { Clock: clock })`.
+`stateOf(app, { about: Opt.none() }, { Clock: clock })`. `stateOf` tells each child once it is in the state given
+for it, as a start does.
 
 A child's commands, as its parent's `update` returns them, name the instance that asked:
 `{ _tag: 'About', instance: 2, command }`. The keys of a child's subscriptions are `{ _tag: <child>, instance, key }`,
 and `{ _tag: <child>, id, instance, key }` for children by id. The instances are numbered in the order the library
 starts them, from 1 (see [the order of the starts](./composition.md#how-a-parent-and-its-children-start)). In
 [`pages`](../../examples/pages/app.test.ts), the Clock that `init` starts is 1, and the About that a step opens next is
-2. `stateOf` numbers them as a start does, from 1, even where a run would reach that state with other numbers. A
-test that needs only the child reads the key's `_tag`, as `pages` does.
+2. `stateOf` numbers them from 1, even where a run would reach that state with others. A test that needs only the
+child reads the key's `_tag`, as `pages` does.
 
 ### The reader
 

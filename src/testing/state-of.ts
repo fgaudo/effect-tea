@@ -17,8 +17,11 @@ type StatesOf<Children> = {
 /**
  * A state of a parent, for a test: the parent's own state, with the children it lists, each in the state given for it.
  *
- * - Each child that the own state lists is started, and told what the `tell` of its declaration gives, as the parent's
- *   `init` starts it, and then put in the state given for it. A child that is given no state is as it starts.
+ * - Each child that the own state lists is started as the parent's `init` starts it, with the state given for it in
+ *   place of its first state, and then told what the `tell` of its declaration gives. So each child was last told what
+ *   the own state gives, as in a state that the program made, and a state given that being told changes is changed. A
+ *   child that is given no state is as it starts. The commands of these starts and tells are not run, and not
+ *   given.
  * - Its instances are numbered as a start numbers them, from 1 in the order of the starts, whatever run would have
  *   reached that state.
  * - A state given for a child that the own state does not list is an error, and so is a handler of `onEvent` that

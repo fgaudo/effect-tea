@@ -1572,12 +1572,26 @@ describe("what a declaration tells its children", () => {
     expect(heard(startOf(raising(start).init, "a").state as never)).toEqual([["a"], ["a"]])
   })
 
-  test("stateOf tells the children it starts, and a state given for one replaces what it was told into", () => {
+  test("stateOf tells each child it starts once it is in the state given for it, as a start tells it from its init", () => {
     const app = parent(start)
     const state = stateOf(app, { condition: "c", ids: [1, 2], bounces: 0 }, { Kid: [[2, { heard: ["given"] }]] })
-    expect(heard(state)).toEqual([["c"], ["given"]])
-    // The child whose state was given counts as told: a step that keeps the value tells it nothing.
-    expect(heard(accepted(app.update({ _tag: "Touched" })(state)).state)).toEqual([["c"], ["given"]])
+    expect(heard(state)).toEqual([["c"], ["given", "c"]])
+    // Each child was last told what the own state gives: a step that keeps the value tells it nothing.
+    expect(heard(accepted(app.update({ _tag: "Touched" })(state)).state)).toEqual([["c"], ["given", "c"]])
+    // A handler that answers what a child is told, by telling it again, reaches the state given.
+    const Poking = program<{ state: Own }>()
+    const poking = Poking.withChildren({
+      Kid: Poking.childById(hearing, {
+        ids: (state) => state.ids,
+        tell: (state) => ({ _tag: "Cond", value: state.condition })
+      })
+    }).make({
+      init: { state: start },
+      onEvent: { Kid: (id) => (state) => ({ state, tell: [{ _tag: "Kid", id, message: { _tag: "Poke" } }] }) },
+      makeModel: () => null
+    })
+    const poked = stateOf(poking, { condition: "b", ids: [1], bounces: 0 }, { Kid: [[1, { heard: ["given"] }]] })
+    expect(heard(poked)).toEqual([["given", "b", "poke"]])
   })
 
   // As a state kept across a reload in development, under a `tell` that has changed since.

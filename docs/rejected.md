@@ -155,6 +155,19 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   values: it is simpler (value 5), and it would give a defect another site than the run gives it, so that two tools
   disagree on where a defect is (value 4). _Reopen if_ what the engine gives the tools comes to cost the run a
   guarantee.
+- **A list of what a step told, in what the testing tools give.** Reasoned, 26 November 2026, in step 93
+  ([`application-report-0.9.md`](records/application-report-0.9.md), point 6): a parent's `tell` is taken by the
+  `update` that `make` composes, and leaves it as the child's state and commands, which a test reads where it reads the
+  rest of the step ("Testing"). A list would be a fourth thing that each tool gives, made by the composed `update`
+  beside the step that the engine takes (values 3 and 5), and would tie a test of the parent to the messages it sends
+  rather than to what they did. _Reopen if_ what a child is told can leave nothing in its state or its commands that a
+  test reads, or a test must tell apart two messages told that leave the same state.
+- **`stateOf` refusing a state given that being told would change**, in place of telling each child once it is in the
+  state given for it. Reasoned, 26 November 2026, in step 93: the check would rest on a child's `external` leaving an
+  equal state when it is told again what its state holds, a premise of each program and false of one that counts what
+  it is told, and on comparing states by `Equal`. Telling the child as a start does keeps "A child was last told what
+  its parent's state gives" by construction, and a rule of the guide asking a test for such states was the last rung
+  (value 2). _Reopen if_ a test must hold a child in a state that its declared `tell` would change.
 - **A caret as the peer range of Effect** (`^4.1.4`). Reasoned, 23 November 2026
   ([`premises-and-range.md`](records/premises-and-range.md)): the owner kept the tilde, since a published version keeps
   its range and a patch that leaves a broken Effect out reaches only who installs after it. The range was a caret from

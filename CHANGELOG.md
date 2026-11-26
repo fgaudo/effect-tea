@@ -17,6 +17,12 @@ version, and everything else, features included, the patch version.
 - **Breaking**: `forwardTo` no longer takes a name whose type is a union of names, which could send one child's
   message as another's.
   Upgrade: call `forwardTo` once for each name, each a literal.
+- **Breaking**: `stateOf` tells each child what its declaration's `tell` gives once the child is in the state given for
+  it, as a start tells a child in its first state, so that each child of a state it makes was last told what the own
+  state gives. It told the child first, and then put the state given in its place ("Testing").
+  Upgrade: a test that gives a child a state that being told changes gets the state that the child's `external` makes
+  of it, and what its parent's `onEvent` makes of the child's answer, or its errors; one that gives a state the child
+  would keep sees no change.
 
 ## 0.9.0 (2026-11-26)
 
