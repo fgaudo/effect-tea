@@ -1138,8 +1138,8 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> =>
     child: (
       program: AnyProgram,
       options: Readonly<{
-        flags?: (state: unknown) => Opt.Option<unknown>
-        there?: (state: unknown) => boolean
+        flags?: (state: unknown) => unknown
+        there?: (state: unknown) => boolean | Opt.Option<unknown>
         key?: (state: unknown) => unknown
         listening?: (state: unknown) => boolean
         tell?: (state: unknown) => unknown
@@ -1150,8 +1150,16 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> =>
       return {
         _tag: "Child",
         program,
-        there: flags === undefined && there === undefined ? "always" : "sometimes",
-        key: flags ?? (there === undefined ? keyed : (state: unknown) => there(state) ? keyed(state) : Opt.none()),
+        there: there === undefined ? "always" : "sometimes",
+        key: flags !== undefined
+          ? (state: unknown) => Opt.some(flags(state))
+          : there === undefined
+          ? keyed
+          : (state: unknown) => {
+            // A program with flags gives them in `there`, an `Option`; one without gives a boolean.
+            const given = there(state)
+            return Opt.isOption(given) ? given : given ? keyed(state) : Opt.none()
+          },
         ...(listening === undefined ? {} : { listening }),
         ...(tell === undefined ? {} : { tell })
       }
@@ -1197,19 +1205,20 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * - `child(program)` is always there, and so is `child(program, { key })`, which starts again where `key` gives
    *   another value, compared with `Equal`.
    * - `child(program, { there })` is there in the states where `there` holds, and `key` may be given beside it.
-   * - A child with flags is there where `flags` gives `Some`, and starts from them. Other flags start it again. It
-   *   has no `key` beside them, so it does not start again from equal flags.
+   * - A child with flags starts from them, and other flags, by `Equal`, start it again. `child(program, { flags })`
+   *   is always there, and `flags` gives its flags. `child(program, { there })` is there where `there` gives `Some` of
+   *   its flags. It has no `key` beside them, so it does not start again from equal flags.
    * - `listening` says in which states its subscriptions run. Without it, they run whenever the child is there.
    * - `tell` gives, from the parent's state, an external message that the child is told: as it starts, in the first
    *   state too, and after a step of the parent's own only where it gives another value, by `Equal`, than the one it
    *   last told the child, apart from what a step lists in `tell`. It does not compile for a child without external
    *   messages, nor for a message that is not one of the child's.
    *
-   * A program with flags is declared with `flags`, and one without flags is declared without them. A child written
-   * as an object, and not typed `Program<…>`, is checked as a program is: one whose steps list commands has a
-   * `runCommand`, and one whose subscriptions list keys has a `listen`. Each of these does not compile otherwise.
-   * Nor does `child` for a type parameter, as `P` in `<P extends AnyProgram>(p: P) => …`: a function over any
-   * program is an overload, whose body declares a program of `unknown` types.
+   * A program with flags is declared with `flags`, or with a `there` that gives them, and one without flags is
+   * declared without them. A child written as an object, and not typed `Program<…>`, is checked as a program is: one
+   * whose steps list commands has a `runCommand`, and one whose subscriptions list keys has a `listen`. Each of these
+   * does not compile otherwise. Nor does `child` for a type parameter, as `P` in `<P extends AnyProgram>(p: P) => …`:
+   * a function over any program is an overload, whose body declares a program of `unknown` types.
    *
    * @param program - The child.
    * @param options - When the child is there, what it starts from, when it listens and what it is told: functions of
@@ -1218,7 +1227,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    *
    * @example
    * ```ts
-   * About: child(about, { flags: (state) => state.about }),
+   * About: child(about, { there: (state) => state.about }),
    * ```
    *
    * @see The guide, "Composition".
@@ -1318,7 +1327,8 @@ type Telling<State, P> = Readonly<{
 }>
 
 // A child with flags is declared with them. In the options, and not on the program: inferred from `P & …`, `P` would
-// lose the name `Program<…>`, as `CheckedChild` says.
+// lose the name `Program<…>`, as `CheckedChild` says. Their flags are given by an option of its own in each form, and
+// not by the type of what one option returns: flags may be an `Option` themselves.
 type AlwaysOptions<State, P> = [FlagsOf<P>] extends [never] ? [
     options?:
       & Readonly<{
@@ -1330,7 +1340,17 @@ type AlwaysOptions<State, P> = [FlagsOf<P>] extends [never] ? [
       & Listening<State>
       & Telling<State, P>
   ]
-  : [options: { readonly "a child with flags is declared with its flags": FlagsOf<P> }]
+  : [
+    options:
+      & Readonly<{
+        /** The child's flags in a state: other flags, by `Equal`, start it again. */
+        flags: (state: State) => FlagsOf<P>
+        there?: never
+        key?: never
+      }>
+      & Listening<State>
+      & Telling<State, P>
+  ]
 
 /** The states where a child that may not be there is there, and what it starts from. */
 type SometimesOptions<State, P> = [FlagsOf<P>] extends [never] ? Readonly<{
@@ -1345,8 +1365,8 @@ type SometimesOptions<State, P> = [FlagsOf<P>] extends [never] ? Readonly<{
   }>
   : Readonly<{
     /** The child's flags in the states where it is there, `None` in the others: other flags start it again. */
-    flags: (state: State) => Opt.Option<FlagsOf<P>>
-    there?: never
+    there: (state: State) => Opt.Option<FlagsOf<P>>
+    flags?: never
     key?: never
   }>
 

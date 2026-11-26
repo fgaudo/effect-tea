@@ -30,7 +30,7 @@ export const app = withChildren({
   // Always there. Hidden under About, the Clock keeps its state but stops ticking.
   Clock: child(Clock.clock, { listening: (state) => Opt.isNone(state.about) }),
   // There while the state gives its flags, and started from them.
-  About: child(About.about, { flags: (state) => state.about })
+  About: child(About.about, { there: (state) => state.about })
 }).make({
   init: { state: { about: Opt.none() } },
   onEvent: {
@@ -63,8 +63,9 @@ A parent declares each child by name, in `withChildren`, with functions of the p
 
 - **`child(program)` is always there.**
 - **`child(program, { there })`** is there in the states where `there` holds. Its model is an `Option`.
-- **`child(program, { flags })`** declares a program that has flags. `flags` gives `Some` of them in the states where
-  the child is there, and the child starts from them. Its model is an `Option`.
+- **A program that has flags starts from them.** `child(program, { flags })` is always there, and `flags` gives its
+  flags in each state. `child(program, { there })` is there in the states where `there` gives `Some` of them, and
+  its model is an `Option`.
 - **`key`** gives a value from the parent's state, for a child without flags: `child(program, { key })`.
 - **A child that the state no longer lists is dropped.** Its state is gone, its subscriptions stop, and a message for
   it is rejected. A child that a later state lists again starts again, from its `init`.

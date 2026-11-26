@@ -90,14 +90,19 @@ export const quiet = program<{ state: CounterState; model: CounterState; message
 
 // Exported, as a package that publishes a program would: its declarations name what `child` and `childById` give. A
 // child always there, children by id, told a literal as each starts, a child started again on another key, one there in
-// some states, one with flags.
+// some states, one with flags there in some states, and one with flags always there.
 export const children = {
   Main: child(counter),
   Row: childById(counter, { ids: (state) => state.ids, listening: (_, id) => id > 0, tell: () => ({ _tag: "Reset" }) }),
   Keyed: child(quiet, { key: (state) => state.fulls }),
   Shown: child(quiet, { there: (state) => state.fulls > 0, listening: (state) => state.fulls < 10 }),
-  Greeter: child(greeter, { flags: (state) => state.opened })
+  Greeter: child(greeter, { there: (state) => state.opened }),
+  Started: child(greeter, { flags: (state) => state.fulls })
 }
+
+// A child with flags always there is given them, not an `Option` of them.
+// @ts-expect-error
+child(greeter, { flags: (state) => state.opened })
 
 const first: State = { ids: [1], fulls: 0, opened: Opt.none() }
 
@@ -119,6 +124,7 @@ export const app = withChildren(children).make({
     keyed: children.Keyed(),
     shown: children.Shown(),
     greeter: children.Greeter(),
+    started: children.Started(),
     fulls: state.fulls
   })
 })
@@ -514,14 +520,22 @@ assert(countOf(folded.state.children.Main) === 3 && folded.state.own.fulls === 1
 const foldedModel = app.makeModel(folded.state)
 assert(foldedModel.rows[0]?.model.count === 1, "makeModel reads the children by id")
 assert(
-  Opt.getOrThrow(foldedModel.greeter) === 1 && Opt.isSome(foldedModel.shown),
+  Opt.getOrThrow(foldedModel.greeter) === 1 && Opt.isSome(foldedModel.shown) && foldedModel.started === 1,
   "a child is there where its state says"
 )
 
 // A whole state for a test, from the own state and the states of the children it lists.
-const placed = stateOf(app, { ...first, ids: [1, 2] }, { Main: { count: 2 }, Row: [[2, { count: 1 }]] })
+// A row is then told what its declaration's `tell` gives, `Reset`, as a start tells it.
+const placed = stateOf(app, { ...first, ids: [1, 2] }, {
+  Main: { count: 2 },
+  Keyed: { count: 3 },
+  Row: [[2, { count: 1 }]]
+})
 const placedModel = app.makeModel(placed)
-assert(placedModel.main.count === 2 && placedModel.rows[1]?.model.count === 1, "stateOf puts the children in place")
+assert(
+  placedModel.main.count === 2 && placedModel.keyed.count === 3 && placedModel.rows[1]?.model.count === 0,
+  "stateOf puts the children in place, and tells them"
+)
 // @ts-expect-error
 stateOf(app, first, { Main: { count: "2" } })
 

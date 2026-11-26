@@ -312,7 +312,7 @@ describe("a program whose start throws", () => {
     [
       "own init, from its flags",
       () =>
-        Unflagged.withChildren({ Leaf: Unflagged.child(seeded, { flags: () => Opt.some(true) }) }).make({
+        Unflagged.withChildren({ Leaf: Unflagged.child(seeded, { there: () => Opt.some(true) }) }).make({
           init: { state: { on: true } },
           makeModel: () => null
         })

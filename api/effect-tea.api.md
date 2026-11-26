@@ -19,9 +19,13 @@ options?: Readonly<{
     there?: never;
     flags?: never;
 }> & Listening<State> & Telling<State, P>
-] : [options: {
-    readonly "a child with flags is declared with its flags": FlagsOf<P>;
-}];
+] : [
+options: Readonly<{
+    flags: (state: State) => FlagsOf<P>;
+    there?: never;
+    key?: never;
+}> & Listening<State> & Telling<State, P>
+];
 
 // @public
 export const andThen: {
@@ -683,8 +687,8 @@ type SometimesOptions<State, P> = [FlagsOf<P>] extends [never] ? Readonly<{
     key?: (state: State) => unknown;
     flags?: never;
 }> : Readonly<{
-    flags: (state: State) => Opt.Option<FlagsOf<P>>;
-    there?: never;
+    there: (state: State) => Opt.Option<FlagsOf<P>>;
+    flags?: never;
     key?: never;
 }>;
 

@@ -14,6 +14,13 @@ version, and everything else, features included, the patch version.
 
 ### Changed
 
+- **Breaking**: `child(program, { flags })` declares a child with flags that is always there: `flags` gives its flags,
+  not an `Option` of them, and its model, its output and the number of its instance are read with no `Option`. A child
+  with flags that may not be there is declared with `there`, which gives `Some` of its flags where it is there.
+  Upgrade: `child(program, { flags: (state) => state.page })`, where `flags` gives an `Option`, becomes
+  `child(program, { there: (state) => state.page })`; where it always gave `Some`, give the flags to `flags` alone, and
+  read the child with no `Option`. Where the flags are typed `unknown` or `object`, an `Option` is flags too and the
+  old call still compiles, as a child always there: check each `child(…, { flags })` of such a program.
 - **Breaking**: `forwardTo` no longer takes a name whose type is a union of names, which could send one child's
   message as another's.
   Upgrade: call `forwardTo` once for each name, each a literal.

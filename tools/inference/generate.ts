@@ -79,7 +79,8 @@ const kidShapes: ReadonlyArray<KidShape> = ["commands", "events", "external", "o
 // that names what it tells.
 type UpdateForm = "absent" | "annotated" | "contextual" | "outside"
 // The options of a child, beside what lists it: always there, started again on another key, there in some states, or
-// listening in some. A child with flags is there where they are given.
+// listening in some. A child with flags is always there where `flags` gives them, and there in some states where
+// `there` gives them.
 type ChildOptions = "plain" | "key" | "there" | "listening"
 // How a parent's step tells its child an external message, in `update`, `external` and `onEvent`: not at all, in a
 // step written inline, in a ternary beside `reject` (or, where a step is required, beside another step), in a
@@ -298,16 +299,18 @@ const childOptionsOf = (c: Case, a: (type: string) => string) => {
     return `, { ${listed}${listening} }`
   }
   const fields = [
-    ...(c.kidFlags ? [`flags: (${s}) => state.open ? Opt.some(state.n) : Opt.none()`] : []),
+    ...(c.kidFlags && c.childOptions !== "there" ? [`flags: (${s}) => state.n`] : []),
     ...(c.childOptions === "key" ? [`key: (${s}) => state.open`] : []),
-    ...(c.childOptions === "there" ? [`there: (${s}) => state.open`] : []),
+    ...(c.childOptions === "there"
+      ? [c.kidFlags ? `there: (${s}) => state.open ? Opt.some(state.n) : Opt.none()` : `there: (${s}) => state.open`]
+      : []),
     ...(c.childOptions === "listening" ? [`listening: (${s}) => state.n > 0`] : [])
   ]
   return fields.length === 0 ? "" : `, { ${fields.join(", ")} }`
 }
 
 // Whether the child alone may not be there, so that its model is an `Option`.
-const sometimes = (c: Case) => c.comp !== "childById" && (c.kidFlags || c.childOptions === "there")
+const sometimes = (c: Case) => c.comp !== "childById" && c.childOptions === "there"
 
 // A part of a case, checked apart by its lines: the program, or what one function makes of it. A case of one part is
 // reported by its id, and a part of a case of several by `<id>/<label>`.
@@ -463,7 +466,7 @@ const parentLines = (byId: boolean, program: string, types: Types, assert: boole
       ? ", { flags: (): ReadonlyArray<readonly [number, number]> => [[1, 3]] }"
       : ", { ids: (): ReadonlyArray<number> => [1] }"
     : flagged
-    ? ", { flags: () => Opt.some(3) }"
+    ? ", { flags: () => 3 }"
     : ""
   const lines = [
     `  const Parent = program<{ state: OuterOwn${external ? `; message: Go; external: ${types.external}` : ""} }>()`,
@@ -479,8 +482,7 @@ const parentLines = (byId: boolean, program: string, types: Types, assert: boole
   if (types.event !== "never" && onEvent) {
     lines.push(`    onEvent: { Inner: ${byId ? "(id, event)" : "(event)"} => (state) => ({ state }) },`)
   }
-  const read = (what: string) =>
-    byId ? `children.Inner${what}(1)` : flagged ? `Opt.getOrThrow(children.Inner${what}())` : `children.Inner${what}()`
+  const read = (what: string) => byId ? `children.Inner${what}(1)` : `children.Inner${what}()`
   lines.push(
     `    makeModel: (_, children) => ${
       types.output === "never" ? read("") : `[${read("")}, ${read(".output")}] as const`
@@ -858,7 +860,7 @@ const madeOf = (c: Case): Readonly<{ lines: ReadonlyArray<string>; expected: Typ
 const generate = (c: Case): ReadonlyArray<Part> => {
   const { expected, lines } = madeOf(c)
   if (!isValid(c)) {
-    const flagged = c.named.has("flags") ? ", { flags: () => Opt.some(3) }" : ""
+    const flagged = c.named.has("flags") ? ", { flags: () => 3 }" : ""
     return [{
       label: "program",
       valid: verdictOf(c),
@@ -992,7 +994,7 @@ const layoutsOf = (comp: Comp): ReadonlyArray<Layout> => {
           tell: "inline" as const
         })),
         ...(["none", "ternary", "switch"] as const).map((tell) => ({ ...plain, tell })),
-        ...(["plain", "listening"] as const).map((childOptions) => ({
+        ...(["plain", "there", "listening"] as const).map((childOptions) => ({
           ...plain,
           kidFlags: true,
           childOptions,

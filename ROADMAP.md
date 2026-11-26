@@ -54,7 +54,7 @@ matrix is shown by its case (`bun run inference --filter <case>`).
 
 ## Next, in order
 
-Steps 94 to 98 come from the report of an application written again on 0.9.0, weighed on 26 November 2026
+Steps 95 to 98 come from the report of an application written again on 0.9.0, weighed on 26 November 2026
 ([`application-report-0.9.md`](docs/records/application-report-0.9.md)), and run in the order of their numbers. Each
 decides its point by "Deciding": a step that decides against its point writes its entry of
 [`rejected.md`](docs/rejected.md), and is done. Their breaking changes go out together, in the release after 0.9.0.
@@ -64,7 +64,9 @@ reads the number of a child's instance, and `forwardTo` takes it, so that a mess
 the view gives one. A message that names none is still a message, which reaches the child that is there, so no test
 written before it changes. Step 93 decided the first two items of the sixth point: `stateOf` tells each child once it
 is in the state given for it, and a test reads what a step told in the child's state and commands, with no list of it
-in the tools ([`rejected.md`](docs/rejected.md), "A list of what a step told").
+in the tools ([`rejected.md`](docs/rejected.md), "A list of what a step told"). Step 94 decided the fourth
+([`flags-always-there.md`](docs/records/flags-always-there.md)): `child(program, { flags })` is always there, and
+`flags` gives the flags, while `child(program, { there })` gives `Some` of them where the child is there.
 
 The release of 0.9.0 waited, as the owner asked on 25 November 2026, for a bridge to
 React Native, which step 83 made, for whether a view of React can have a `messagesSentBy`, and for a reading of the
@@ -94,29 +96,6 @@ The next review of the premises ([`premise-review`](.agents/skills/premise-revie
 after 0.9.0, reads the changes since the commit that closed step 65 (`git log --grep "Close step 65"`): steps 55 and
 65 together read every change since `ce1ffd1`.
 
-### 94. A child with flags that is always there
-
-**Model and effort.** Opus 5.5, `high`: the types of `compose.ts`, each check with its mutation.
-
-**Depends on** no other step.
-
-**Why.** `child(program, { flags })` is there where `flags` gives `Some`, so its model and its output are an `Option`
-also for a parent whose every state gives the flags. That parent unwraps them with a defect that no state reaches
-([`application-report-0.9.md`](docs/records/application-report-0.9.md), point 4): a state that cannot be is written
-in the program, where the types could say that it cannot.
-
-**How.** A form of `child` for a program with flags that is there in every state, as `child(program, { key })` is for
-one without: its function gives the flags, and no `Option`. The types cannot tell flags from an `Option` of them where
-the flags are an `Option`, so it is an option of its own, named by the glossary. Other flags start the child again, as
-they do today. `children.Name()` and `children.Name.output()` then give a value. `childById` is not concerned: `flags`
-lists each id with its flags. Read first `rejected.md` ("What `child` and `childById` take, mirrored in what they
-make"; "A `key` beside the `flags` of a child", parked) and [`names.md`](docs/records/names.md).
-
-**Done when** such a child is declared and read with no `Option`, the tests of the types hold what compiles and what
-does not, each new check has its mutation, the inference matrix passes on its cases (`bun run inference --filter`),
-"Composition" ("When a child is there"), the skill and the doc comment of `child` say it, the changelog has its entry,
-and the checks of `change-api` pass.
-
 ### 95. A parent's `subscriptions` given its children's outputs
 
 **Model and effort.** Opus 5.5, `high`.
@@ -143,7 +122,7 @@ the checks of `change-engine` and `change-api` pass.
 
 **Model and effort.** Opus 5.5, `high`.
 
-**Depends on** steps 94 and 95, which change the types it prints.
+**Depends on** step 95, which changes the types it prints.
 
 **Why.** The lead of "Open problems". An error that names the keys, the messages or the state of a parent prints the
 declarations of its children, each with its whole program, at each level of the tree: a mistake of one line gave an
@@ -166,7 +145,7 @@ changelog has an entry only where a consumer's declarations name another type.
 
 **Model and effort.** Opus 5.5, `high`.
 
-**Depends on** steps 94, 95 and 96: it names the types that they change, and that step 96 prints.
+**Depends on** steps 95 and 96: it names the types that they change, and that step 96 prints.
 
 **Why.** "Structuring a program" splits a program by concern, each part asked for a `Step`. For a parent, a handler
 written outside `make` takes its children's outputs and returns a step that tells them, and the package exports no

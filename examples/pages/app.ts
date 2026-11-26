@@ -14,7 +14,7 @@ export const app = withChildren({
   // Always there. Hidden under About, the Clock keeps its state but stops ticking.
   Clock: child(Clock.clock, { listening: (state) => Opt.isNone(state.about) }),
   // There while the state gives its flags, and started from them.
-  About: child(About.about, { flags: (state) => state.about })
+  About: child(About.about, { there: (state) => state.about })
 }).make({
   init: { state: { about: Opt.none() } },
   onEvent: {

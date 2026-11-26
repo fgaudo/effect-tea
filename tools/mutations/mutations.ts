@@ -4549,11 +4549,20 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a child with flags is declared always there without them",
     file: "src/compose.ts",
-    from: "  : [options: { readonly \"a child with flags is declared with its flags\": FlagsOf<P> }]\n",
-    to: "  : [options?: unknown]\n",
+    from: "  : [\n    options:\n",
+    to: "  : [\n    options?:\n",
     killedBy: [
       ["src/compose.test.ts", "a child with flags is declared with them", "typecheck"],
       ["src/compose.test.ts", "a child whose init is a function starts from flags, whatever their type", "typecheck"]
+    ]
+  },
+  {
+    name: "a child with flags is declared always there with options that give none",
+    file: "src/compose.ts",
+    from: "        flags: (state: State) => FlagsOf<P>\n",
+    to: "        flags?: (state: State) => FlagsOf<P>\n",
+    killedBy: [
+      ["src/compose.test.ts", "a child with flags is declared with them", "typecheck"]
     ]
   },
   {
@@ -4570,10 +4579,54 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
+    name: "a child with flags always there is declared with there",
+    file: "src/compose.ts",
+    from: "        flags: (state: State) => FlagsOf<P>\n        there?: never\n",
+    to: "        flags: (state: State) => FlagsOf<P>\n",
+    killedBy: [
+      ["src/compose.test.ts", "a child with flags is declared with them", "typecheck"]
+    ]
+  },
+  {
+    name: "a child with flags always there is declared with a key",
+    file: "src/compose.ts",
+    from: "        there?: never\n        key?: never\n",
+    to: "        there?: never\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child with flags takes no key beside them, and the tell of children by id takes no id",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a child with flags that may not be there is declared with flags",
+    file: "src/compose.ts",
+    from: "    flags?: never\n    key?: never\n",
+    to: "    key?: never\n",
+    killedBy: [
+      ["src/compose.test.ts", "a child with flags is declared with them", "typecheck"]
+    ]
+  },
+  {
+    name: "a child with flags that may not be there is declared with a key",
+    file: "src/compose.ts",
+    from: "    flags?: never\n    key?: never\n",
+    to: "    flags?: never\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child with flags takes no key beside them, and the tell of children by id takes no id",
+        "typecheck"
+      ]
+    ]
+  },
+  {
     name: "a child with flags that may not be there is declared without them",
     file: "src/compose.ts",
-    from: "    flags: (state: State) => Opt.Option<FlagsOf<P>>\n",
-    to: "    flags?: (state: State) => Opt.Option<FlagsOf<P>>\n",
+    from: "    there: (state: State) => Opt.Option<FlagsOf<P>>\n",
+    to: "    there?: (state: State) => Opt.Option<FlagsOf<P>>\n",
     killedBy: [
       ["src/compose.test.ts", "a child with flags is declared with them", "typecheck"]
     ]

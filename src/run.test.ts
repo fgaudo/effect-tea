@@ -1261,7 +1261,7 @@ describe("defects", () => {
             start(
               Desk.withChildren({
                 Leaf: Desk.child(flagged((flags) => ({ state: flags })), {
-                  flags: (state) => state.step === 1 ? boom() : Opt.some({ on: false })
+                  there: (state) => state.step === 1 ? boom() : Opt.some({ on: false })
                 })
               }).make({ init: initial, update: next, makeModel: () => null })
             ),
@@ -1288,7 +1288,7 @@ describe("defects", () => {
             start(
               Desk.withChildren({
                 Leaf: Desk.child(flagged((flags) => flags.on ? boom() : { state: flags }), {
-                  flags: (state) => Opt.some({ on: state.step === 1 })
+                  there: (state) => Opt.some({ on: state.step === 1 })
                 })
               }).make({ init: initial, update: next, makeModel: () => null })
             ),
