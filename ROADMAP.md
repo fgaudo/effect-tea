@@ -41,25 +41,9 @@ difference. Step 100 reads what steps 101 to 103 changed of the doc comments, th
 among them. None rests on a new premise, so the next review of the premises reads them, and none is due for them before
 the release: a step that finds it needs a premise says so here.
 
-Step 105 was an open problem, made a step on 26 November 2026 so that it comes before step 100: its fix is a breaking
-change, due with the others of the release, and changes doc comments that step 100 reads.
-
-### 105. Make a `Child` and a `ChildById` only by `child` and `childById`
-
-**Model and effort.** Opus 5.5, `high` (`change-api`).
-
-**Depends on** no other step. A lead of the types, from the review of the premises of 26 November 2026: `const liar:
-Child<Own, Leaf, 'always'> = { _tag: 'Child', program: leaf, there: 'always', key: (state) => state.on ?
-Opt.some(undefined) : Opt.none() }`, given to `withChildren`, compiles with no cast, and `children.Liar()` in
-`makeModel` is typed as a model and throws a `CompositionDefect` that the doc comment of `CompositionDefect` does not
-list among its four cases. It breaks "No broken combination can" of `AGENTS.md` ("What belongs here"), and is the fact
-that the entry "What `child` and `childById` take, mirrored in what they make" of `docs/rejected.md` reopens on, by what
-it did not weigh: that a program can write one. A fix could begin with a member keyed by a symbol the package does not
-export.
-
-**Done when** the object above does not compile, a test of the types holds it, the entry of `docs/rejected.md` is
-updated by what was found, the doc comments of `Child`, `ChildById` and `CompositionDefect` say what is true, and the
-breaking change has its changelog entry.
+Step 105, of 26 November 2026, made a `Child` and a `ChildById` classes that only `child` and `childById` make, and
+changed the doc comments of `Child`, `ChildById` and `CompositionDefect`, a fifth case among them, which step 100 reads
+too.
 
 ### 100. Read the promises since step 90
 

@@ -619,8 +619,9 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a child that the children inherit is reconciled and has its subscriptions lifted",
     file: "src/compose.ts",
-    from: "  const names = Object.keys(programs)\n",
-    to: "  const names = [...(function*() { for (const name in programs) yield name })()]\n",
+    from: "  Object.fromEntries(Object.entries(record).map(([name, value]) => [name, f(value, name)]))",
+    to: "  Object.fromEntries([...(function*() { for (const name in record) yield name })()]"
+      + ".map((name) => [name, f(record[name] as A, name)]))",
     killedBy: [
       [
         "src/compose.test.ts",
@@ -638,6 +639,19 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/compose.test.ts",
         "a child's keys are kept while its instance is the same object, and made again for a new state"
+      ]
+    ]
+  },
+  {
+    name: "a child that child or childById did not make is taken",
+    guarantees: ["Nothing ends in silence"],
+    file: "src/compose.ts",
+    from: "    if (declared === undefined) {\n",
+    to: "    if (false) {\n",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child that child or childById did not make, as a copy of one, is a CompositionDefect as its parent is made"
       ]
     ]
   },
@@ -4196,6 +4210,58 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
+    name: "a child alone has a member that a program can write",
+    file: "src/compose.ts",
+    from: "  declare protected readonly \"~@fgaudo/effect-tea/Child/declaration\": ChildDeclaration<State, P, There>",
+    to: "  declare readonly \"~@fgaudo/effect-tea/Child/declaration\": ChildDeclaration<State, P, There>",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child alone is made only by child, and children by id only by childById",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "children by id have a member that a program can write",
+    file: "src/compose.ts",
+    from: "  declare protected readonly \"~@fgaudo/effect-tea/Child/declaration\": ChildByIdDeclaration<State, Id, P>",
+    to: "  declare readonly \"~@fgaudo/effect-tea/Child/declaration\": ChildByIdDeclaration<State, Id, P>",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child alone is made only by child, and children by id only by childById",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "a child always there can be typed as one that may not be",
+    file: "src/compose.ts",
+    from: "export class Child<State, P, in out There extends",
+    to: "export class Child<State, P, There extends",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child alone is made only by child, and children by id only by childById",
+        "typecheck"
+      ]
+    ]
+  },
+  {
+    name: "children by id can be typed with fewer ids than theirs",
+    file: "src/compose.ts",
+    from: "export class ChildById<State, in out Id, P>",
+    to: "export class ChildById<State, Id, P>",
+    killedBy: [
+      [
+        "src/compose.test.ts",
+        "a child alone is made only by child, and children by id only by childById",
+        "typecheck"
+      ]
+    ]
+  },
+  {
     name: "a child lacks only runCommand and listen",
     file: "src/compose.ts",
     from: "    & { readonly \"a child is a program of the types read back from it\": ProgramChecked<P> }\n",
@@ -4234,10 +4300,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a child alone of another state is taken",
     file: "src/compose.ts",
-    from: "      key: (state: State) => Opt.Option<unknown>\n      listening?: (state: State) => boolean\n"
-      + "      tell?: (state: State) => unknown\n",
-    to: "      key: (state: any) => Opt.Option<unknown>\n      listening?: (state: any) => boolean\n"
-      + "      tell?: (state: any) => unknown\n",
+    from: "  Record<string, Child<State, any, any> |",
+    to: "  Record<string, Child<any, any, any> |",
     killedBy: [
       [
         "src/compose.test.ts",
@@ -4249,10 +4313,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "children by id of another state are taken",
     file: "src/compose.ts",
-    from: "      listed: (state: State) => Iterable<unknown>\n      flagged: boolean\n"
-      + "      listening?: (state: State, id: never) => boolean\n      tell?: (state: State) => unknown\n",
-    to: "      listed: (state: any) => Iterable<unknown>\n      flagged: boolean\n"
-      + "      listening?: (state: any, id: never) => boolean\n      tell?: (state: any) => unknown\n",
+    from: "| ChildById<State, any, any> | ChildById<State, never, any>>",
+    to: "| ChildById<any, any, any> | ChildById<any, never, any>>",
     killedBy: [
       [
         "src/compose.test.ts",

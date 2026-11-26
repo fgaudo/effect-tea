@@ -105,12 +105,23 @@ export type Kept<Own, Children> = {
   readonly children: Children
 }
 
+// A `Child` and a `ChildById` are classes whose constructor is private, and whose one member is `protected` and
+// typed alone: the types refuse an object written as one, with the member or without it, so that none lies to the
+// library, as a child said to be always there whose `key` gives `None` would. What `child` and `childById` made is kept
+// here, by the object they made: a copy, which `Object.assign` makes and its types take, has no declaration, and
+// `make` refuses it. `There` and `Id` are invariant: a child typed as another would read back what it is not.
+const declarations = new WeakMap<object, UntypedChild>()
+
 /**
  * A child alone: what `child` returns, for `withChildren`.
  *
  * - A child that is always there is there in every state of its parent.
  * - Another child is there in the states its declaration says, and its model is an `Option`.
  * - Another value of `key`, or other flags, start the child again, as another instance.
+ *
+ * Only `child` makes one: the types refuse an object written as one, a `new` of it, a class that extends it, and a
+ * child always there typed as one that may not be, or the reverse. A copy of one is a `CompositionDefect` as its
+ * parent is made.
  *
  * @example
  * ```ts
@@ -119,21 +130,19 @@ export type Kept<Own, Children> = {
  *
  * @see The guide, "Composition".
  */
-export type Child<State, P, There extends "always" | "sometimes"> = {
-  /** A child alone, not one of children by id. */
+export class Child<State, P, in out There extends "always" | "sometimes"> {
+  /** The declaration, as the library reads it. */
+  declare protected readonly "~@fgaudo/effect-tea/Child/declaration": ChildDeclaration<State, P, There>
+  private constructor() {}
+}
+
+type ChildDeclaration<State, P, There> = {
   readonly _tag: "Child"
-  /** The child's program. */
   readonly program: P
-  /** Whether the child is there in every state of its parent. */
   readonly there: There
-  /**
-   * What a state gives the child as it starts: its flags, or what the `key` of its declaration gives. `None` where the
-   * child is not there.
-   */
+  // The child's flags, or what the `key` of its declaration gives, and `None` where it is not there.
   readonly key: (state: State) => Opt.Option<unknown>
-  /** Whether the child's subscriptions run in a state where it is there. Without it, they always run. */
   readonly listening?: (state: State) => boolean
-  /** What the child is told in a state: as it starts, and again only where it gives another value, by `Equal`. */
   readonly tell?: (state: State) => ExternalOf<P>
 }
 
@@ -143,6 +152,9 @@ export type Child<State, P, There extends "always" | "sometimes"> = {
  * - The children that are there are those whose ids the parent's state lists.
  * - Ids are compared by value, with `Equal`.
  *
+ * Only `childById` makes one: the types refuse an object written as one, a `new` of it, a class that extends it, and
+ * children typed with another id than theirs. A copy of one is a `CompositionDefect` as its parent is made.
+ *
  * @example
  * ```ts
  * export const rows: ChildById<State, number, typeof Row.row> = childById(Row.row, { ids: (state) => state.ids })
@@ -150,54 +162,42 @@ export type Child<State, P, There extends "always" | "sometimes"> = {
  *
  * @see The guide, "Composition".
  */
-export type ChildById<State, Id, P> = {
-  /** Children by id, not a child alone. */
+export class ChildById<State, in out Id, P> {
+  /** The declaration, as the library reads it. */
+  declare protected readonly "~@fgaudo/effect-tea/Child/declaration": ChildByIdDeclaration<State, Id, P>
+  private constructor() {}
+}
+
+type ChildByIdDeclaration<State, Id, P> = {
   readonly _tag: "ChildById"
-  /** The program of each child. */
   readonly program: P
-  /** The children in a state: their ids, or, for a program with flags, each id with its flags. */
+  // The ids, or, where `flagged`, each id with its flags.
   readonly listed: (state: State) => Iterable<unknown>
-  /** Whether `listed` gives each id with its flags. */
   readonly flagged: boolean
-  /** Whether the child at an id listens, in a state where it is there. Without it, every child does. */
   readonly listening?: (state: State, id: Id) => boolean
-  /**
-   * What each child is told in a state, one value for them all: as it starts, and again only where it gives another
-   * value, by `Equal`.
-   */
   readonly tell?: (state: State) => ExternalOf<P>
+}
+
+// How `child` and `childById` make one: the constructor is the class's own.
+const declare = (made: typeof Child | typeof ChildById, declared: unknown): unknown => {
+  const child = new (made as unknown as new() => object)()
+  declarations.set(child, declared as UntypedChild)
+  return child
 }
 
 /** No children: what a program that declares none has. */
 type None = Readonly<Record<never, never>>
 
-// `never` parameters: any `listening` fits, whatever its id.
+// Any program, which `child` and `childById` checked, and only they make a child. `never` ids apart: `any`, invariant,
+// fits every id but `never`.
 type Children<State> = Readonly<
-  Record<
-    string,
-    | Readonly<{
-      _tag: "Child"
-      program: AnyProgram
-      there: "always" | "sometimes"
-      key: (state: State) => Opt.Option<unknown>
-      listening?: (state: State) => boolean
-      tell?: (state: State) => unknown
-    }>
-    | Readonly<{
-      _tag: "ChildById"
-      program: AnyProgram
-      listed: (state: State) => Iterable<unknown>
-      flagged: boolean
-      listening?: (state: State, id: never) => boolean
-      tell?: (state: State) => unknown
-    }>
-  >
+  Record<string, Child<State, any, any> | ChildById<State, any, any> | ChildById<State, never, any>>
 >
 
-type ProgramOf<C> = C extends { readonly program: infer P } ? P : never
+type ProgramOf<C> = C extends Child<any, infer P, any> | ChildById<any, infer _, infer P> ? P : never
 
-// Told by `_tag` and the id `listening` takes, which the type declares whether or not the child has one.
-type ChildByIdOf<Id, P> = Readonly<{ _tag: "ChildById"; program: P; listening?: (state: any, id: Id) => boolean }>
+// Told by the id `listening` takes, which the type declares whether or not the child has one.
+type ChildByIdOf<Id, P> = ChildById<any, Id, P>
 
 /**
  * Where a child's messages and commands, and the keys of its subscriptions, carry its id: only for children by id.
@@ -205,7 +205,7 @@ type ChildByIdOf<Id, P> = Readonly<{ _tag: "ChildById"; program: P; listening?: 
 type At<C> = C extends ChildByIdOf<infer Id, any> ? Readonly<{ id: Id }> : unknown
 
 /** Whether a child alone is there in every state of its parent. */
-type IsAlways<C> = C extends Readonly<{ there: "always" }> ? true : false
+type IsAlways<C> = C extends Child<any, any, "always"> ? true : false
 
 /**
  * What a step of a parent may tell its children `C`: an external message of one, by its name, with its id for children
@@ -564,8 +564,20 @@ const none: ReadonlyArray<unknown> = []
 const nothing: ReadonlySet<string> = new Set()
 
 // One `make` for a program and for a parent: `children` is `undefined` for a program, whose state is its own alone.
-const make = (children: Readonly<Record<string, UntypedChild>> | undefined, config: UntypedConfig): unknown => {
-  const programs = children ?? {}
+const make = (
+  children: Readonly<Record<string, unknown>> | undefined,
+  config: UntypedConfig
+): unknown => {
+  const programs = children === undefined ? {} : mapOwn(children, (child, name) => {
+    const declared = declarations.get(child as object)
+    if (declared === undefined) {
+      throw compositionDefect({
+        message: `The child "${name}", which \`child\` or \`childById\` did not make`,
+        child: name
+      })
+    }
+    return declared
+  })
   const composed = children !== undefined
   const names = Object.keys(programs)
   const childOf = (name: string) => programs[name] as UntypedChild
@@ -1143,7 +1155,7 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> =>
     ) => {
       const { flags, key, listening, tell, there } = options
       const keyed = key === undefined ? () => present : (state: unknown) => Opt.some(key(state))
-      return {
+      return declare(Child, {
         _tag: "Child",
         program,
         there: there === undefined ? "always" : "sometimes",
@@ -1158,7 +1170,7 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> =>
           },
         ...(listening === undefined ? {} : { listening }),
         ...(tell === undefined ? {} : { tell })
-      }
+      })
     },
     childById: (
       program: AnyProgram,
@@ -1168,16 +1180,19 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> =>
         listening?: (state: unknown, id: unknown) => boolean
         tell?: (state: unknown) => unknown
       }>
-    ) => ({
-      _tag: "ChildById",
-      program,
-      listed: options.flags ?? options.ids,
-      flagged: options.flags !== undefined,
-      ...(options.listening === undefined ? {} : { listening: options.listening }),
-      ...(options.tell === undefined ? {} : { tell: options.tell })
-    }),
+    ) =>
+      declare(ChildById, {
+        _tag: "ChildById",
+        program,
+        listed: options.flags ?? options.ids,
+        flagged: options.flags !== undefined,
+        ...(options.listening === undefined ? {} : { listening: options.listening }),
+        ...(options.tell === undefined ? {} : { tell: options.tell })
+      }),
     make: (config: UntypedConfig) => make(undefined, config),
-    withChildren: (children: Readonly<Record<string, UntypedChild>>) => ({
+    withChildren: (
+      children: Readonly<Record<string, unknown>>
+    ) => ({
       make: (config: UntypedConfig) => make(children, config)
     })
   }) as unknown as ProgramMaker<T>

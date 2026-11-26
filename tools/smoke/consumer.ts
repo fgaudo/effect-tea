@@ -107,6 +107,19 @@ export const children = {
 // @ts-expect-error
 child(greeter, { flags: (state) => state.opened })
 
+// A child is what `child` makes: an object written as one is none, with the member that `child` writes or without it.
+const written = { _tag: "Child", program: counter, there: "always", key: () => Opt.some(undefined) } as const
+// @ts-expect-error
+withChildren({ Written: written })
+// @ts-expect-error
+withChildren({ Written: { "~@fgaudo/effect-tea/Child/declaration": written } })
+
+// A child is typed as what it is: one always there is not one that may not be, and children by id keep their ids.
+// @ts-expect-error
+export const widened: Library.Child<State, typeof counter, "always" | "sometimes"> = child(counter)
+// @ts-expect-error
+export const narrowed: Library.ChildById<State, 1, typeof counter> = childById(counter, { ids: (state) => state.ids })
+
 const first: State = { ids: [1], fulls: 0, opened: Opt.none() }
 
 // What a parent tells its children is data of its step, typed by their external messages.

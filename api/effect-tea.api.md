@@ -72,17 +72,17 @@ type At<C> = C extends ChildByIdOf<infer Id, any> ? Readonly<{
 type CheckedChild<P> = unknown extends Lacking<P> ? P : P & Lacking<P>;
 
 // @public
-export type Child<State, P, There extends "always" | "sometimes"> = {
-    readonly _tag: "Child";
-    readonly program: P;
-    readonly there: There;
-    readonly key: (state: State) => Opt.Option<unknown>;
-    readonly listening?: (state: State) => boolean;
-    readonly tell?: (state: State) => ExternalOf<P>;
-};
+export class Child<State, P, in out There extends "always" | "sometimes"> {
+    protected readonly "~@fgaudo/effect-tea/Child/declaration": ChildDeclaration<State, P, There>;
+}
 
 // @public
-export type ChildById<State, Id, P> = {
+export class ChildById<State, in out Id, P> {
+    protected readonly "~@fgaudo/effect-tea/Child/declaration": ChildByIdDeclaration<State, Id, P>;
+}
+
+// @public (undocumented)
+type ChildByIdDeclaration<State, Id, P> = {
     readonly _tag: "ChildById";
     readonly program: P;
     readonly listed: (state: State) => Iterable<unknown>;
@@ -92,11 +92,17 @@ export type ChildById<State, Id, P> = {
 };
 
 // @public (undocumented)
-type ChildByIdOf<Id, P> = Readonly<{
-    _tag: "ChildById";
-    program: P;
-    listening?: (state: any, id: Id) => boolean;
-}>;
+type ChildByIdOf<Id, P> = ChildById<any, Id, P>;
+
+// @public (undocumented)
+type ChildDeclaration<State, P, There> = {
+    readonly _tag: "Child";
+    readonly program: P;
+    readonly there: There;
+    readonly key: (state: State) => Opt.Option<unknown>;
+    readonly listening?: (state: State) => boolean;
+    readonly tell?: (state: State) => ExternalOf<P>;
+};
 
 // @public
 type ChildDispatch<Message, To extends string | OfInstance> = string extends NameOf<To> ? Readonly<{
@@ -121,21 +127,7 @@ type ChildOf<Message, Name> = Extract<Routed<Message>, Readonly<{
 }>>;
 
 // @public (undocumented)
-type Children<State> = Readonly<Record<string, Readonly<{
-    _tag: "Child";
-    program: AnyProgram;
-    there: "always" | "sometimes";
-    key: (state: State) => Opt.Option<unknown>;
-    listening?: (state: State) => boolean;
-    tell?: (state: State) => unknown;
-}> | Readonly<{
-    _tag: "ChildById";
-    program: AnyProgram;
-    listed: (state: State) => Iterable<unknown>;
-    flagged: boolean;
-    listening?: (state: State, id: never) => boolean;
-    tell?: (state: State) => unknown;
-}>>>;
+type Children<State> = Readonly<Record<string, Child<State, any, any> | ChildById<State, any, any> | ChildById<State, never, any>>>;
 
 // @public
 export type CommandOf<P> = [Listed<FirstStepOf<P>, "commands"> | Returned<P, "commands">] extends [infer C] ? C : never;
@@ -337,9 +329,7 @@ const InvariantDefect_base: new <A extends Record<string, any> = {}>(args: VoidI
 } & Readonly<A>;
 
 // @public
-type IsAlways<C> = C extends Readonly<{
-    there: "always";
-}> ? true : false;
+type IsAlways<C> = C extends Child<any, any, "always"> ? true : false;
 
 // @public
 type IsUnion<Name, Whole = Name> = Name extends unknown ? [Whole] extends [Name] ? false : true : never;
@@ -593,9 +583,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
 }
 
 // @public (undocumented)
-type ProgramOf<C> = C extends {
-    readonly program: infer P;
-} ? P : never;
+type ProgramOf<C> = C extends Child<any, infer P, any> | ChildById<any, infer _, infer P> ? P : never;
 
 // @public
 type ProgramTypes = Readonly<{

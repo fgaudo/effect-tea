@@ -3046,6 +3046,56 @@ describe("what the types reject", () => {
     expect(typed).toBeDefined()
   })
 
+  test("a child alone is made only by child, and children by id only by childById", () => {
+    type Own = Readonly<{ on: boolean; ids: ReadonlyArray<number> }>
+    // What `child` and `childById` make, written by hand: a child said to be always there whose `key` says it is not,
+    // and children by id of a program with flags, said to be listed without them.
+    const lying = {
+      _tag: "Child",
+      program: ticker,
+      there: "always",
+      key: (state: Own) => state.on ? Opt.some(undefined) : Opt.none()
+    } as const
+    const unflagged = {
+      _tag: "ChildById",
+      program: labelled,
+      listed: (state: Own) => state.ids,
+      flagged: false
+    } as const
+    // @ts-expect-error: only `child` makes a child alone.
+    const alone: Child<Own, typeof ticker, "always"> = lying
+    // @ts-expect-error: only `childById` makes children by id.
+    const byId: ChildById<Own, number, typeof labelled> = unflagged
+    // The same, under the member that `child` and `childById` write.
+    const keyedAlone = { "~@fgaudo/effect-tea/Child/declaration": lying } as const
+    const keyedById = { "~@fgaudo/effect-tea/Child/declaration": unflagged } as const
+    // @ts-expect-error: nor is an object that writes the member a child alone.
+    const forgedAlone: Child<Own, typeof ticker, "always"> = keyedAlone
+    // @ts-expect-error: nor children by id.
+    const forgedById: ChildById<Own, number, typeof labelled> = keyedById
+    const Parent = program<{ state: Own }>()
+    // @ts-expect-error: nor does `withChildren` take one.
+    Parent.withChildren({ Lying: lying })
+    // @ts-expect-error: alone or by id.
+    Parent.withChildren({ Rows: keyedById })
+    // @ts-expect-error: a child always there is not one that may not be, whose model would be an `Option`.
+    const widened: Child<Own, typeof ticker, "always" | "sometimes"> = Parent.child(ticker)
+    const numbered = Parent.childById(ticker, { ids: (state) => state.ids })
+    // @ts-expect-error: nor are children by id typed with fewer ids than theirs, which their messages would carry.
+    const narrowed: ChildById<Own, 1 | 2, typeof ticker> = numbered
+    expect([alone, byId, forgedAlone, forgedById, widened, narrowed]).toHaveLength(6)
+  })
+
+  test("a child that child or childById did not make, as a copy of one, is a CompositionDefect as its parent is made", () => {
+    const Parent = program<{ state: Ticks }>()
+    // A copy that the types take, as `Object.assign` types it: what `child` made is not copied with it.
+    const copied = Object.assign({}, Parent.child(ticker))
+    expect(
+      thrown(() => Parent.withChildren({ Copied: copied }).make({ init: { state: noTicks }, makeModel: () => null }))
+    )
+      .toMatchObject({ _tag: "CompositionDefect", child: "Copied" })
+  })
+
   test("a child declared for another state is no child of a parent, alone or by id", () => {
     type Other = Readonly<{ other: string }>
     const elsewhere = program<{ state: Other }>()

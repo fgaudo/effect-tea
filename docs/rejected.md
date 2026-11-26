@@ -416,9 +416,13 @@ what its "Reopen if" names, or by a reason it does not answer, which the proposa
   and `flagged`, and `there` as a function in a `Child`; and another name for the `flags` of `childById`, which lists
   each id with its flags. Reasoned, 25 November 2026, in step 86 ([`names.md`](records/names.md)): a `Child` and a
   `ChildById` hold a declaration as the library reads it, with one function for whether a child is there and what it
-  starts from, and no program writes or reads their members. A mirror would have the types that read them decide by
-  which option is present. `flags` says in `childById` what it says in `child`: the flags of each child that is there.
-  _Reopen if_ a user comes to write a `Child` by hand, or to read one.
+  starts from. A mirror would have the types that read them decide by which option is present. `flags` says in
+  `childById` what it says in `child`: the flags of each child that is there. Reopened on 26 November 2026, in step
+  105 ([`child-declarations.md`](records/child-declarations.md)), by what it did not weigh: a program could write one,
+  as a child always there whose `key` gives `None`, which compiled and died. Each is now a class whose constructor is
+  private, whose one member no program writes or reads, and whose declaration the library keeps, so a mirror has
+  still less to mirror.
+  _Reopen if_ a user comes to need what a declaration holds, outside the library.
 - **One word for the state in `Applied` and in `Ignored`**: `state` for `after`, or `before` for the `state` of an
   `Ignored`. Reasoned, in the same step: an applied message has two states and an ignored one has one. `state` beside
   `before` would not say which of the two it is, and `before` alone would promise an `after`. _Reopen if_ a third

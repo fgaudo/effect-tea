@@ -109,8 +109,9 @@ type CompositionFields = Readonly<{
 /**
  * A parent that breaks what it declared of a child.
  *
- * A program meets it in four cases:
+ * A program meets it in five cases:
  *
+ * - `make` is given a child that `child` or `childById` did not make, as a copy of one that `Object.assign` makes;
  * - a step of a parent tells a child that is not there once the step is taken;
  * - children by id whose `ids` or `flags` list an id twice;
  * - the model or the output of a child by id is read at an id that the parent's state does not list;
@@ -119,7 +120,7 @@ type CompositionFields = Readonly<{
  *
  * `on` names the message by its tags. `id` is the child's id as it is, and may hold the program's data. Only
  * `program` makes one: a test reads it, and the types refuse a `new` of it, or a class that extends it. What a parent
- * does once a cast has let through what the types refuse is unspecified.
+ * does once a cast, or an `any`, has let through what the types refuse is unspecified.
  *
  * @example
  * ```ts
