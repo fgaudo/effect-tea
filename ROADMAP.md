@@ -9,13 +9,13 @@ here.
 
 ## How the steps run
 
-One after another, in the order of "Next, in order", each in a context of its own (a workflow per step, or a session
-per step), and with no question to the owner but those of "Deciding". An agent of the step's model and effort does
-the step. Then an agent that wrote none of it, on Opus 5.5 at `high`, runs the checks of its "Done when" and reads its
-diff against "Deciding" and the step; the first agent fixes what it finds, twice at most, and a step whose checks
-still fail stops the chain, with a report. A step ends in one local commit, with its decisions in the body, and takes
-itself out of this file. Before each step, the use of the owner's plan is read where a tool reports it: a step that
-the rest of the week cannot pay for waits for the reset.
+One after another, in the order of "Next, in order", each in a context of its own (a workflow per step, or a session per
+step), and with no question to the owner but those of "Deciding". An agent of the step's model and effort does the step.
+Then an agent that wrote none of it, on Opus 5.5 at `high`, runs the checks of its "Done when" and reads its diff
+against "Deciding" and the step, and the step against `docs/invariants.md`; the first agent fixes what it finds, twice
+at most, and a step whose checks still fail stops the chain, with a report. A step ends in one local commit, with its
+decisions in the body, and takes itself out of this file. Before each step, the use of the owner's plan is read where a
+tool reports it: a step that the rest of the week cannot pay for waits for the reset.
 
 ## Open problems
 

@@ -1062,6 +1062,10 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/compose.test.ts",
         "stateOf tells each child it starts once it is in the state given for it, as a start tells it from its init"
+      ],
+      [
+        "src/compose.test.ts",
+        "so was every child of a state that stateOf makes, whatever state it was given, and of what follows"
       ]
     ]
   },
@@ -1076,6 +1080,10 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/compose.test.ts",
         "stateOf tells each child it starts once it is in the state given for it, as a start tells it from its init"
+      ],
+      [
+        "src/compose.test.ts",
+        "so was every child of a state that stateOf makes, whatever state it was given, and of what follows"
       ]
     ]
   },

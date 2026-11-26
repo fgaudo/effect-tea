@@ -1738,17 +1738,19 @@ describe("what a declaration tells its children, over random histories", () => {
     id.map((id) => ({ _tag: "Kid", id, message: "Ping" }) as const),
     fc.constant({ _tag: "Solo", message: "Ping" } as const)
   )
-  // Every child was last told what the own state gives, and never one value twice in a row.
-  const agrees = (state: StateOf<typeof scripted>) => {
-    const told = (heard: ReadonlyArray<string>, value: string) => {
+  // Every child was last told what the own state gives, and never one value twice in a row. What a child given to
+  // `stateOf` heard before is the test's, by the instance's number: only what follows it is checked.
+  const agrees = (state: StateOf<typeof scripted>, given: ReadonlyMap<number, number> = new Map()) => {
+    const told = (kept: Instance<Heard>, value: string) => {
+      const heard = kept.state.heard.slice(given.get(kept.instance) ?? 0)
       expect(heard.at(-1)).toBe(value)
       expect(Arr.filter(heard, (said, at) => at > 0 && heard[at - 1] === said)).toEqual([])
     }
     const ascending = (ids: Iterable<number>) => [...ids].sort((a, b) => a - b)
     expect(ascending(HashMap.keys(state.children.Kid))).toEqual(ascending(Arr.map(state.own.kids, ([id]) => id)))
-    for (const kept of HashMap.values(state.children.Kid)) told(kept.state.heard, kidValue(state.own))
+    for (const kept of HashMap.values(state.children.Kid)) told(kept, kidValue(state.own))
     expect(Opt.isSome(state.children.Solo)).toBe(Opt.isSome(state.own.solo))
-    for (const kept of Opt.toArray(state.children.Solo)) told(kept.state.heard, soloValue(state.own))
+    for (const kept of Opt.toArray(state.children.Solo)) told(kept, soloValue(state.own))
   }
 
   test("every child was last told what its parent's state gives, and never one value twice in a row", () => {
@@ -1760,6 +1762,41 @@ describe("what a declaration tells its children, over random histories", () => {
           const result = scripted.update(message)(state)
           if (result !== reject) state = result.state
           agrees(state)
+        }
+      }),
+      { numRuns: 300 }
+    )
+  })
+
+  // An own state of an empty script, since a handler that changes the own state is an error of `stateOf`, and for each
+  // child that it lists, maybe what it heard before.
+  const said = fc.array(fc.constantFrom("k0", "k1", "k2", "low", "high"), { maxLength: 3 })
+  const placed = first.map((own): Own => ({ ...own, script: [] })).chain((own) =>
+    fc.record({
+      kid: fc.array(fc.option(said, { nil: undefined }), { minLength: own.kids.length, maxLength: own.kids.length }),
+      solo: fc.option(said, { nil: undefined })
+    }).map(({ kid, solo }) => ({ own, kid, solo }))
+  )
+
+  test("so was every child of a state that stateOf makes, whatever state it was given, and of what follows", () => {
+    fc.assert(
+      fc.property(placed, fc.array(message, { maxLength: 20 }), ({ kid, own, solo }, messages) => {
+        const kids = Arr.flatMap(own.kids, ([id], at) => {
+          const heard = kid[at]
+          return heard === undefined ? [] : [[id, { heard }] as const]
+        })
+        const alone = Opt.isSome(own.solo) && solo !== undefined
+        let state = stateOf(scripted, own, { Kid: kids, ...(alone ? { Solo: { heard: solo } } : {}) })
+        const given = new Map<number, number>()
+        for (const [id, { heard }] of kids) {
+          given.set(Opt.getOrThrow(HashMap.get(state.children.Kid, id)).instance, heard.length)
+        }
+        if (alone) given.set(Opt.getOrThrow(state.children.Solo).instance, solo.length)
+        agrees(state, given)
+        for (const message of messages) {
+          const result = scripted.update(message)(state)
+          if (result !== reject) state = result.state
+          agrees(state, given)
         }
       }),
       { numRuns: 300 }
