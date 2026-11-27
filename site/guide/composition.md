@@ -186,6 +186,13 @@ old ones keep the old handlers. Neither is needed where each state is drawn befo
 package's bridges in a browser. [`react-native`](../../examples/react-native/views.tsx) gives both to a page started at
 each visit.
 
+**Read a child declared with `there` as one `Option`.** Its model, its instance and its output are `Option`s of one
+fact: `Opt.all` makes them one, as [`notes.ts`](../../examples/react-native/notes.ts) does in `makeModel`, and a
+piece that reads one of them alone needs none. Where a case of the parent's state holds more than that the child is
+there, as the index of the note open, the case and the child go together: a parent's children are those its state
+lists (see [guarantees](./guarantees.md#what-you-can-rely-on)), so a `None` of one where the other is there is a
+`defect`, as in the `onEvent` of `notes.ts`.
+
 ## A function over any program
 
 This section explains, and adds no rule.

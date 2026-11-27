@@ -37,7 +37,8 @@ The tests of a program follow its shape, in four steps:
    - what the program listens to (`program.subscriptions`).
 3. **Write one test per message.** Assert the next state, the commands and the events by value. Assert a rejection as
    `reject` itself, with `toBe(reject)`. Never assert it as "the state did not change": a step that keeps the state
-   would pass that test too. What a parent tells a child shows in the child's state and commands.
+   would pass that test too. What a parent tells a child shows in the child's state and commands. Test `external` the
+   same way: `applyAll(program.external, messages, state)`.
 4. **Check the defects apart.** The invariants rule out some pairs of state and message (see
    [rejections and defects](./rejections-and-defects.md)). The steps above skip those pairs. Check them as defects:
    `expect(() => update(message)(state)).toThrow(InvariantDefect)`.
@@ -100,7 +101,8 @@ fills it into each message that the model holds without it, as the view does (se
 it: `{ _tag: 'Clock', message }`, with the `id` for children by id, as [`pages`](../../examples/pages/app.test.ts) and
 [`list`](../../examples/list/list.test.ts) do. A value that a child's reader takes is a parameter of the parent's
 reader too. Where the view's dispatch names the instance of a child, the reader wraps with the number that the model
-holds, `{ _tag: 'About', instance, message }`, and the `candidates` of that child name it too.
+holds, `{ _tag: 'About', instance, message }`, and the `candidates` of that child name it too. A child that is not
+there has no number: its candidates name none, and `update` rejects them.
 
 **The reader is complete only as far as the candidates go.** A reader that forgets a field of the model still passes
 `Rejected`, `Inert` and `ActsTwice`, which judge only what the reader returns. `Missing` finds the forgotten field when

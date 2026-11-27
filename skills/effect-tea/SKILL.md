@@ -201,6 +201,7 @@ Advice binds nothing: each piece gives its reason, and the case where it does no
 
 - Where the screen may show an older draw, give a child's view the number of its instance, in its dispatch and as
   its key
+- Read a child declared with `there` as one `Option`
 
 ### [Events and external messages](../../site/guide/events-and-external-messages.md), "Rules"
 

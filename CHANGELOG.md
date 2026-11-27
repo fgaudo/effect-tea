@@ -9,6 +9,9 @@ version, and everything else, features included, the patch version.
 
 - The example `react-native` draws a list of notes whose page each visit starts again, with a dispatch and a key that
   name its instance, and the device's back button as a subscription of the parent.
+- Promised: `applyAll` takes a program's `external` as it takes `update` ("Testing"); a child that a parent's step
+  keeps, and tells before anything else changes it, is told in the state whose output the step read ("Rejections and
+  defects").
 
 ### Changed
 
@@ -33,6 +36,9 @@ version, and everything else, features included, the patch version.
 
 ### Changed
 
+- **Breaking**: the peer dependency on `effect` is `^4.1.6`, where it was `~4.1.5`: every later Effect 4 is accepted,
+  and 4.1.5 no longer is.
+  Upgrade: `"effect": "4.1.5"` becomes `"effect": "^4.1.6"` in `package.json`.
 - **Breaking**: `child(program, { flags })` declares a child with flags that is always there: `flags` gives its flags,
   not an `Option` of them, and its model, its output and the number of its instance are read with no `Option`. A child
   with flags that may not be there is declared with `there`, which gives `Some` of its flags where it is there.
@@ -53,9 +59,9 @@ version, and everything else, features included, the patch version.
 - **Breaking**: `stateOf` tells each child what its declaration's `tell` gives once the child is in the state given for
   it, as a start tells a child in its first state, so that each child of a state it makes was last told what the own
   state gives. It told the child first, and then put the state given in its place ("Testing").
-  Upgrade: a test that gives a child a state that being told changes gets the state that the child's `external` makes
-  of it, and what its parent's `onEvent` makes of the child's answer, or its errors; one that gives a state the child
-  would keep sees no change.
+  Upgrade: check each `stateOf` of a parent with a child declared with `tell`: a state given for the child that being
+  told changes is now what its `external` makes of it, with what the parent's `onEvent` makes of its answer, or their
+  errors.
 - **Breaking**: unspecified, and no longer promised: that a state made by a program of another `tell`, and given as
   `init: { state }`, keeps what each child was told until the value changes. A parent's state given as
   `init: { state }` is one that the program made, or that `stateOf` made for it; a program without children may start
@@ -78,9 +84,6 @@ version, and everything else, features included, the patch version.
   Upgrade: declare each child with `child` or `childById`, and give `withChildren` what they return; a program that
   read a member of a declaration (`_tag`, `program`, `there`, `key`, `listening`, `tell`, `listed`, `flagged`) keeps
   what it gave to `child` or `childById` instead, and a type written for a child names its own `There` and `Id`.
-- **Breaking**: the peer dependency on `effect` is `^4.1.6`, where it was `~4.1.5`: every later Effect 4 is accepted,
-  and 4.1.5 no longer is.
-  Upgrade: `"effect": "4.1.5"` becomes `"effect": "^4.1.6"` in `package.json`.
 - The skill for coding agents, `skills/effect-tea/SKILL.md`, is an index of the guide: the title of each rule and of
   each piece of advice, under its page and its section, in place of a summary of the rules in its own words.
 

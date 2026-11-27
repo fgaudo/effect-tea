@@ -1,4 +1,6 @@
 import { describe, expect, expectTypeOf, test } from "bun:test"
+import * as Effect from "effect/Effect"
+import { program } from "../compose.ts"
 import { defect, InvariantDefect } from "../defect.ts"
 import { type Folded, reject, type Update } from "../update.ts"
 import { applyAll } from "./apply-all.ts"
@@ -64,6 +66,23 @@ describe("applyAll", () => {
       events: [`${message}${count}`]
     })
     expect(applyAll(announce, ["a", "b"], 0).events).toEqual(["a0", "b1"])
+  })
+
+  test("takes a program's external as it takes update, and returns both lists", () => {
+    // A stopwatch that its parent halts: halted, it says so to its parent and runs no command.
+    const stopwatch = program<
+      { state: boolean; message: "Started"; command: "Tick"; event: "Stopped"; external: "Halted" }
+    >()
+      .make({
+        init: { state: true },
+        update: () => () => ({ state: true, commands: ["Tick"] }),
+        external: () => (running) => (running ? { state: false, events: ["Stopped"] } : { state: false }),
+        runCommand: () => Effect.never,
+        makeModel: () => null
+      })
+    const halted = applyAll(stopwatch.external, ["Halted", "Halted"], true)
+    expect(halted).toEqual({ state: false, commands: [], events: ["Stopped"] })
+    expectTypeOf(halted).toEqualTypeOf<Folded<boolean, "Tick", "Stopped">>()
   })
 
   test("a rejection fails, naming the message", () => {

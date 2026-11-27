@@ -4,10 +4,12 @@ import { unexpectedRejection } from "./failure.ts"
 /**
  * Applies messages to a state with `update`, one after the other, and collects their commands and events.
  *
- * It tests the rules of `update` alone, without a run. It takes only the test's messages. It fails when `update`
- * rejects one of them, and with the defect itself when `update` dies.
+ * It tests the rules of `update` alone, without a run, and those of `external` the same way:
+ * `applyAll(program.external, [Halted()], state)`. It takes only the test's messages. It fails when `update`
+ * rejects one of them, and with the defect itself when `update` dies. The commands and the events are always lists,
+ * empty where no step listed any.
  *
- * @param update - The program's `update`, which alone gives the types.
+ * @param update - The program's `update`, or its `external`, which alone gives the types.
  * @param messages - The test's messages, applied in order.
  * @param from - The state to start from.
  * @returns The last state, with the commands and the events of every step, in order.

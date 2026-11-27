@@ -28,8 +28,10 @@ Before a commit, answer these in order:
    `**Breaking**: unspecified, and no longer promised:`. What the guide does not promise has no entry.
 
 An entry is one line, two at most: what changes, in the user's words, with no why and no example. One that groups
-changes of one kind lists them, a few words each. A breaking entry starts with `**Breaking**:` and adds below it,
-indented, `Upgrade:` with the old and the new spelling, in at most three lines. An entry for the guide names its pages.
+changes of one kind lists them, a few words each. A breaking entry starts with `**Breaking**:`, is the first under
+`Changed` where it changes what is installed with the package, as a peer range, and adds below it, indented, `Upgrade:`
+with the old and the new spelling and, where the old still compiles, how to find its places, in at most three lines.
+An entry for the guide names its pages.
 
 ## The version
 

@@ -41,11 +41,10 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
 
 ## Next, in order
 
-Steps 113 and 114 come from the report of an application moved to 0.10.0, weighed on 27 November 2026
-([`application-report-0.10.md`](docs/records/application-report-0.10.md)), as step 111 did, 114 by what step 111
-found, and run in the order of their numbers. Each decides its point by "Deciding": a step that decides against its
-point writes its entry of [`rejected.md`](docs/rejected.md), and is done. Their changes go out together, in the
-release after 0.10.0.
+Step 114 comes from the report of an application moved to 0.10.0, weighed on 27 November 2026
+([`application-report-0.10.md`](docs/records/application-report-0.10.md)), by what step 111 found. It decides its
+point by "Deciding": where it decides against its point, it writes its entry of [`rejected.md`](docs/rejected.md), and
+is done. Its changes go out with those of steps 111 to 113, in the release after 0.10.0.
 
 The next review of the premises reads the changes since the commit that closed step 99 (`git log --grep
 "the premises reviewed since step 65"`), and the next reading of the promises those since the commit that closed step
@@ -54,52 +53,6 @@ added by the model, that the `Fiber` a fork returns is the very one its effect s
 "Code that a fiber runs on the stack"), and what `Effect.interruptible` fails with, left a premise of tests alone. It
 reads nothing of an `Equal` or a `Hash` of the program that throws: step 107 dropped the three premises that served
 that case alone, by the rule it left in `docs/premises.md` ("What no program that keeps the guide's rules can see").
-
-### 113. What the report asks of the guide, of the doc comments and of the changelog
-
-**Model and effort.** Opus 5.5, `medium`.
-
-**Depends on** no other step: the example that the advice names is
-[`examples/react-native/notes.ts`](examples/react-native/notes.ts).
-
-**Why.** Four things that the code does and no page says, or that a page says in a way that was read wrongly, and the
-order of a changelog's section ([`application-report-0.10.md`](docs/records/application-report-0.10.md), points 3 to
-8).
-
-**How.** Each sentence is judged by the test of "What belongs here" in `AGENTS.md`, and goes to a doc comment first.
-
-- **The candidates of a child that is not there.** "Testing", "The reader", says that where the view's dispatch names
-  the instance of a child, "the `candidates` of that child name it too". A test read it as a number for every
-  candidate, and made up one for a child that is not there. Such a candidate names no instance, or is left out: either
-  way `update` rejects it.
-- **`applyAll` takes `external`**, as it takes `update`: both are a function of a message, then of a state, and it
-  gives the commands and the events as lists that are always there. It compiles today, and its doc comment speaks of
-  `update` alone. Its doc comment, and "Testing", "How a program is tested". As a promise, its test is named, or
-  written. Weigh the name of its first parameter.
-- **What a parent tells in the step that read an output.** "Rejections and defects", "What 'cannot arrive' rests on",
-  says that nothing else makes that promise. But `update` and `external` read the outputs as they were before the
-  step, and what the step tells arrives once the step is taken ("Events and external messages"). So where the step
-  keeps the child, and tells it before anything else changes it, the child is in the state whose output the parent
-  read, and its `external` may answer with `defect` what that output rules out. Say when it holds, and when it does
-  not: a step that starts the child again, and a child told after another one whose event its parent handled. As a
-  promise, its test is named, or written.
-- **A child that goes with a case of its parent's state.** "Composition", "Advice". A parent reads a child declared
-  with `there` once, as one `Option`, and makes its model from it where that the child is there is all it reads, as
-  [`pages`](examples/pages/app.ts) does. Where a case of its state holds more, the case and the child go together by
-  the parent's own `there`, and "Guarantees" promises that a parent's children are those its state lists: a `None`
-  there is a `defect`. [`notes.ts`](examples/react-native/notes.ts) is the code: its `onEvent` reads the note open
-  as one `Option`, with a `defect` on `None`. Its page's `external` ([`note.ts`](examples/react-native/note.ts)) is the
-  case of the point above: it answers a press outside an edit with its state, which that point may make a `defect`,
-  since its parent tells it only where its output says it edits.
-- **The changelog** ([`release`](.agents/skills/release/SKILL.md)). An entry that changes what is installed with the
-  package, as a peer range, is the first under "Changed": two upgrades by agents ran on an Effect below the range,
-  which bun installs with no warning. And `Upgrade:` says, where the old spelling still compiles, how to find its
-  places. Both are written into the sentences of the skill on a breaking entry, with no rule added beside them. The
-  section of 0.10.0 is put in that order too.
-
-**Done when** `bun run comments` passes with each page under its ceiling, or with a ceiling raised and the reason in
-the commit; each promise added has a test that the commit names, and a changelog entry; and `bun run typecheck`,
-`bun run lint` and `bun run test` pass.
 
 ### 114. A function for each kind of child, each with one signature
 

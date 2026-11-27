@@ -66,6 +66,11 @@ older than the state.
   operation that is a state of its own, which only its completion leaves, is never outdated, and an answer outside
   that state is a defect.
 - When the state stops listing a key, the run drops what that subscription sent.
+- A parent's `update` and `external` read a child's output as it was before the step, and what the step tells arrives
+  after it (see [external messages](./events-and-external-messages.md#external-messages)). So a child that the step
+  keeps, and tells before anything else changes it, is in the state whose output the parent read: its `external` may
+  throw `defect` on what that output rules out. Not where the step starts the child again, nor where an event of a
+  child told before it was handled: that handler may have told it first.
 
 Nothing else makes that promise. What the view draws never makes it, as the rules above say. An event never makes it
 either.

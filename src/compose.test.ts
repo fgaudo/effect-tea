@@ -14,7 +14,7 @@ import * as fc from "fast-check"
 import { collectGarbage } from "../test/gc.test_helper.ts"
 import type { Execution } from "./command.ts"
 import { Child, ChildById, type Instance, type Kept, type OutputsOf, program, type TellOf } from "./compose.ts"
-import { CompositionDefect, compositionDefect, defect } from "./defect.ts"
+import { CompositionDefect, compositionDefect, defect, InvariantDefect } from "./defect.ts"
 import { type Dispatch, forwardTo } from "./dispatch.ts"
 import type { Ignored } from "./engine.ts"
 import {
@@ -1921,6 +1921,50 @@ describe("what a parent reads of its children", () => {
     const flipped = accepted(room.external("FlipCeiling")(lit)).state
     expect(flipped.own.seen).toEqual([true])
     expect(stateAt(flipped.children.Ceiling)).toEqual({ on: false })
+  })
+
+  test("a child that the step keeps, and tells before anything else changes it, is told in the state that it read", () => {
+    // A lamp told what its parent read of it, whose external is a defect where its state says otherwise; and a bell
+    // whose ring its parent answers by flipping the lamp.
+    const checked = program<{ state: Lamp; message: "Pressed"; external: boolean | Flip; output: boolean }>().make({
+      init: { state: { on: false } },
+      update: () => (state) => ({ state: { on: !state.on } }),
+      external: (told) => (state) => {
+        if (typeof told !== "boolean") return { state: { on: !state.on } }
+        if (state.on !== told) throw defect("told what its output ruled out")
+        return { state }
+      },
+      output: (state) => state.on,
+      makeModel: () => null
+    })
+    const bell = program<{ state: object; message: "Pressed"; event: "Rang"; external: "Ring" }>().make({
+      init: { state: {} },
+      update: () => (state) => ({ state }),
+      external: () => (state) => ({ state, events: ["Rang"] }),
+      makeModel: () => null
+    })
+    type Told = "Kept" | "Restarted" | "AfterBell"
+    const Desk = program<{ state: Readonly<{ key: number }>; message: Told }>()
+    const desk = Desk.withChildren({
+      Lamp: Desk.child(checked, { key: (state) => state.key }),
+      Bell: Desk.child(bell)
+    }).make({
+      init: { state: { key: 0 } },
+      update: (message, children) => (state) => {
+        const read = { _tag: "Lamp", message: children.Lamp.output() } as const
+        return message === "Kept"
+          ? { state, tell: [read] }
+          : message === "Restarted"
+          ? { state: { key: state.key + 1 }, tell: [read] }
+          : { state, tell: [{ _tag: "Bell", message: "Ring" }, read] }
+      },
+      onEvent: { Bell: () => (state) => ({ state, tell: [{ _tag: "Lamp", message: flip }] }) },
+      makeModel: () => null
+    })
+    const on = stateOf(desk, { key: 0 }, { Lamp: { on: true } })
+    expect(stateAt(accepted(desk.update("Kept")(on)).state.children.Lamp)).toEqual({ on: true })
+    expect(thrown(() => desk.update("Restarted")(on))).toBeInstanceOf(InvariantDefect)
+    expect(thrown(() => desk.update("AfterBell")(on))).toBeInstanceOf(InvariantDefect)
   })
 
   test("a handler of onEvent reads the outputs as the child's step left them", () => {
