@@ -42,6 +42,10 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
 - `Host`, shown again by `<Activity>`, draws the ended run's last model until the new run gives its own, and a handler
   of that frame sends to a stopped engine, which drops it; the old run's release may overlap the new run's start.
   Shown by a test of that frame, or a user's report of a lost click; the guide says nothing of it.
+- A child named `__proto__`, `withChildren({ __proto__: child(p) })`, compiles, while JavaScript's object literal sets
+  the prototype with it: `Object.keys` and `Object.hasOwn` (`compose.ts`, where `make` reads the children) see no
+  child, and the types see one. The mirror of the numeric names `withChildren` now refuses. Shown by a test of
+  `make` with that child, beside the test of names in `compose.test.ts`; `""`, `constructor` and `"a-b"` compile too.
 
 ## Next, in order
 
@@ -50,6 +54,27 @@ both before 0.11.0 (`git log --grep "the promises read for 0.11.0"`), and are du
 review of the premises reads nothing of an `Equal` or a `Hash` of the program that throws: step 107 dropped the three
 premises that served that case alone, by the rule it left in `docs/premises.md` ("What no program that keeps the
 guide's rules can see").
+
+### 118. Each region nothing may interrupt has a mutation, killed by one sweep of interruptions
+
+Opus 5.5, `high`. Depends on nothing. The bug hunt of 27 November 2026 (commit `73aeb05`) found that `run` marked its
+start and its end outside one region nothing interrupts, which no test reached: `docs/invariants.md` exempted such
+regions from mutations, as no gate reached them, while whoever runs the program interrupts at any yield of the
+scheduler. `run` now has its region, a mutation that takes it out, and a killer in `start.test.ts` that sweeps
+`Scheduler.MaxOpsBeforeYield` with `MixedScheduler`; `rehearse.test.ts` ("rehearse, interrupted by whoever runs it as
+it sets up") sweeps an interruption at the nth preemption under `scheduled`, and counts the fibers left.
+
+- One helper of the tests sweeps an interruption by whoever runs the program at each yield, with a row for `run`,
+  `drive`, `rehearse` and `simulate`, and the post-condition of each: never begun, or stopped; no fiber left; every
+  scope closed. The two sweeps of today become rows of it. The bridges need no row: `Host` forks the `run` that `start` gives, and the bridge to snabbdom is given an app
+  whose `run` its caller forks.
+- Each other region nothing may interrupt has a mutation that takes it out, killed by its row: the fork of the fiber
+  of effects (`engine.ts`, the end of `effectsIn`), `Stage.play`, and the region of `drive`.
+- Not an interruption at each yield inside `bun run interleavings`: its properties are written against `settled`, and
+  a property is no killer. A fate "interrupted without awaiting `idle`" is a lead at most.
+
+Done when each region of `docs/invariants.md`, "A region nothing may interrupt", names its mutation, and
+`bun run mutations` kills them all.
 
 ## For the owner
 

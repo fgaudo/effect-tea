@@ -52,7 +52,9 @@ changes the same code.
 A killer fails alone, not only beside the others of its file. A property of fast-check is a killer only when it fails
 under the mutation on each of a hundred runs, which the script does not check. A form the structure rules out (a
 second read of `pending` apart from `Ledger.take`) has no mutation, and is held by the test of the transition that
-rules it out (`ledger.test.ts`, `core.test.ts`); nor has a region nothing may interrupt (`docs/invariants.md`).
+rules it out (`ledger.test.ts`, `core.test.ts`). A region nothing may interrupt is no such form: whoever runs the
+program may interrupt at any yield of the scheduler around it, so a mutation that takes the region out is killed by a
+test that interrupts at each yield, as `start.test.ts` does for `run` (`docs/invariants.md`).
 
 A mutation of the engine whose check holds a part of an item of the guide's "What you can rely on" names that item in
 its `guarantees`, by its bold title without its final period; one of a tool or a bridge names none. `bun run comments`

@@ -307,11 +307,15 @@ the engine and in the testing tools.
   resuming the fiber of effects in a task, which the guide leaves unspecified. The release of the snabbdom bridge's
   subscription to the handle has no killer: its stop sets `stopped` first.
 
-  A region nothing may interrupt holds no code of the program, so no gate reaches it, and it has no mutation. It is one
-  of two forms: a transition of the ledger made in the thunk that checks the end (`submit` in `testing/stage.ts`), which
-  asks the engine for a job that only tells (`afterJobs`), held by the test of the transition; and a fiber and how it
-  stops, above, held by Effect's documentation. The checks beside them have mutations with deterministic killers, and
-  the tests of `rehearse.test.ts` under the scheduler of the tests are alarms of the search, killing none.
+  A region nothing may interrupt holds no code of the program, but it is no exemption: whoever runs the program may
+  interrupt its fiber at any yield of the scheduler, before the region or where `restore` makes it interruptible. The
+  region of `run` (`startWith` in `run.ts`) has a mutation that takes it out, killed by a test that interrupts at each
+  yield (`start.test.ts`). The others have none yet (`ROADMAP.md`, step 118): a transition of the ledger made in the
+  thunk that checks the end (`submit` in `testing/stage.ts`), which asks the engine for a job that only tells
+  (`afterJobs`), held by the test of the transition; and a fiber and how it stops, above (`engine.ts`, `Stage.play`,
+  `drive`), held by Effect's documentation and by the sweep of `rehearse.test.ts` that interrupts it as it sets up. The
+  checks beside them have mutations with deterministic killers, and the tests of `rehearse.test.ts` under the scheduler
+  of the tests are alarms of the search, killing none.
 - **What the engine gives a testing tool, the run takes by its defaults** ([`one-engine.md`](records/one-engine.md),
   "What the engine gets").
   - The config of `Engine.build` has five. `settled` is called last as the outermost `apply` returns. `listening` and
