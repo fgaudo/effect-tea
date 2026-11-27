@@ -39,6 +39,11 @@ from a plain callback, a testing tool that runs what the engine runs), or where 
 documentation does not promise. Commit f415d46 is one found and
 fixed, a defect lost as FiberMap closes: read it as the example, and do not report it again.
 
+WHAT COUNTS: a bug of a program written as the guide teaches (AGENTS.md, "What the library owes, and to whom"), as
+it runs: its orders, its interruptions, its costs. The program of your test is made of the forms that the guide and
+the examples show. A form that no page shows, or a corner of JavaScript or of TypeScript under one that a page
+shows, is unspecified: do not look for one, and report none, as a finding or as a lead.
+
 WHAT TO READ: <the invariants, premises and guarantees, and the modules of src/ that keep them>.
 
 ALREADY KNOWN, not to report again: <the open problems of ROADMAP.md, the test.failing cases of
@@ -56,7 +61,8 @@ HOW:
    one call per message. Then ask whether the code still gives each condition, in every case it opens, and whether
    the test would fail without it.
 3. A suspect is a finding only once you have tried to confirm it: a test that fails, written beside the module it
-   tests, through behaviour (`run`, `Engine.make`, the public functions). A reading of the code alone, or of Effect's
+   tests, through behaviour (`run`, `Engine.make`, the public functions), of a program that WHAT COUNTS takes. A
+   reading of the code alone, or of Effect's
    source, gives a lead and no finding: report it as a lead, with the test that would reproduce it. Run only the
    tests you need.
 4. A suspect is ruled out as docs/premises.md says: by the documentation of a stable

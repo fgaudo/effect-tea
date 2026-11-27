@@ -28,8 +28,8 @@ judged as "What belongs here" in `AGENTS.md` says. An export removed or refused 
   types of `program.ts` or `compose.ts`, runs `bun run inference` and `bun run inference --run`. A new function that
   takes a program goes in its `uses`, one that takes a message in its `takers` (`tools/inference/generate.ts`).
 - A check added to the types of `program.ts` or `compose.ts` gets a test of the types that refuses what it refuses,
-  written as a user writes, and seen to fail without the check. It refuses what a program written as the guide and the
-  doc comments teach could get wrong, and no more (`AGENTS.md`, "Deciding", value 2).
+  written as a user writes, and seen to fail without the check. It refuses a mistake of a program written as the guide
+  teaches, and no more: a form that no page shows gets no check (`AGENTS.md`, "What the library owes, and to whom").
 - A testing tool's test shows it on a program, and an example's test uses it
   ([`add-example`](../add-example/SKILL.md)); the README's "Examples" table stays true.
 

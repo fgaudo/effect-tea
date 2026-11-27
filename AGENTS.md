@@ -24,20 +24,39 @@ decision is not put to the owner because it is hard, or because it breaks someth
 of this section, says it in one line in the report of its step and in the commit, and the owner may undo it. So agents
 that read this section, and the precedents it names, decide alike.
 
+### What the library owes, and to whom
+
+The library is written for a program written as the guide teaches: one made of the forms that the guide, the tutorial,
+the examples and the `@example` of a doc comment show as the way to write something, with a user's own types, values
+and names in them. A sentence that says what does not compile, or what is unspecified, shows no form.
+
+- **To such a program the library owes everything**: each value below, each promise and each invariant, under every
+  order in which its events may come.
+- **A mistake is such a program with one thing wrong**, as a user writes it while meaning a form of the guide: a wrong
+  value or type, a piece left out or added, pieces that do not go together, a name given to two things. Value 2 says
+  what it is owed.
+- **The rest is unspecified, as a cast is**: a form that no page shows, an `any`, a value that only a function of the
+  library makes, written by hand, and a corner of JavaScript or of TypeScript under a form that a page shows (a key
+  that is `__proto__`, a number or a symbol, a getter, a union where the guide writes one object). It gets no check, no
+  test, no sentence and no changelog entry. A review reports nothing of it, and it is no lead.
+- **A form becomes the library's business by use, never by search.** Use is a user's report, or a program that an
+  agent wrote from the documentation alone and that went wrong (`guide-reader`, `add-example`). The form is then shown
+  by a page and owed everything, or refused. A review searches what a program of the guide may do as it runs, its
+  orders, its interruptions and its costs, and never the ways in which one could be written. In doubt, a form is not
+  one of the guide's.
+
 ### The values, in order
 
 When two of them pull apart, the higher one wins. When the lower one would lose much, look first for a third design,
 changing an invariant, a premise or the API if that is what it takes.
 
-1. **Correct.** Every behaviour is defined, and nothing fails in silence.
-2. **A misuse that would leave the library's behaviour undefined is refused.** One that only exposes users to their own
-   bugs is allowed. A refusal is owed to a program written as the guide and the doc comments teach: past a cast, an
-   `any`, or a value that only a function of the library makes, written by hand, what the library does is unspecified.
-   A refusal comes from the types or the shape of the API first; where they cannot give one, from a defect as the
-   program is made (`make`); last, from a rule that nothing checks, listed in "Guarantees", under "What is left to
-   you". Three things are axioms, never checked: the functions of a program are pure, a user's values are immutable
-   (none that a user gives the library, or takes from it, is mutated once made, nested objects included), and a model
-   holds no function.
+1. **Correct.** Every behaviour of a program written as the guide teaches is defined, and nothing fails in silence.
+2. **A mistake that would leave the library's behaviour undefined is refused.** One that only exposes users to their
+   own bugs is allowed. A refusal comes from the types or the shape of the API first; where they cannot give one, from
+   a defect as the program is made (`make`); last, from a rule that nothing checks, listed in "Guarantees", under "What
+   is left to you". A refusal by the types or by a defect says what to write instead. Three things are axioms, never
+   checked: the functions of a program are pure, a user's values are immutable (none that a user gives the library, or
+   takes from it, is mutated once made, nested objects included), and a model holds no function.
 3. **The public API is small, clear and symmetric.** Few concepts. Small is counted in concepts, not in exports: two
    functions of one plain signature each are smaller than one whose signature a conditional type chooses. One word for
    each concept, and one concept for each word: the guide's glossary is the dictionary. A name says what the thing is
@@ -73,9 +92,10 @@ functions. A change that leaves it makes another library.
 - Read the precedents first: `docs/rejected.md`, and the records that the change touches. A decision is not reopened
   without a new fact: a bug that a test shows, a user's report, or a change of Effect. An argument alone is none, and
   the proposal names the fact, as the "Reopen if" of an entry asks.
-- What a task or a review finds that is no such fact is a lead: a form that the types take and no page teaches, a more
-  elegant design, a better name. It is a line of `ROADMAP.md`, under "Leads", and no step of its own: the leads are
-  weighed together before a release (`release`).
+- What a task or a review finds that is no such fact is a lead: a more elegant design, a better name, a suspect in a
+  program of the guide that no test reaches yet. A form that no page shows is none ("What the library owes, and to
+  whom"). A lead is a line of `ROADMAP.md`, under "Leads", and no step of its own: the leads are weighed together
+  before a release (`release`).
 - Write the decision where the next agent will look: one line in the report of the step and in its commit, and an
   entry of `docs/rejected.md` for a design weighed and rejected. A record, in `docs/records/`, is for a decision whose
   reasons do not fit the body of a commit, and is a page at most: most decisions need none.
@@ -103,13 +123,13 @@ stay local ("Deciding"). One made with an AI agent ends with an `Assisted-by: <m
   by hand (a `Step`), hidden where not (`Rejected`), with the functions over it (`andThen`). A type is the library's
   only where the library must do what Effect cannot: inspect it in tests without running it, keep it the same across
   draws (`forwardTo`), or enforce what its type cannot.
-- **The types of a program keep three rules, and only these.** Every correct program can be written (a concrete one: a
-  function over any program is an overload over erased types). No broken combination can, of a program written as the
-  guide and the doc comments teach ("Deciding", value 2): pieces that cannot work together, and what compiles and then
-  dies where the types could have prevented it. And what a program names is what its types give back, however it is
-  written. A form may be refused, never taken wrongly. The first rule is owed to a program of `make`, a value typed
-  `Program<…>` and `{ ...program, init }`, the others to every form a function takes. A misspelled name, a form that
-  repeats another and a type empty but true are no gaps (`docs/rejected.md`, "The API").
+- **The types of a program keep three rules, for a program written as the guide teaches ("Deciding"), and only
+  these.** Every correct program can be written (a concrete one: a function over any program is an overload over
+  erased types). No mistake compiles that the types can refuse: pieces that cannot work together, and what compiles and
+  then dies. And what a program names is what its types give back. A program is made by `make`, started elsewhere as
+  `{ ...program, init }`, and named `Program<…>` where a function takes one: the rules are owed to these forms. A
+  check is not made wider for a form that no page shows, and one that serves only such a form is removed. A misspelled
+  name, a form that repeats another and a type empty but true are no gaps (`docs/rejected.md`, "The API").
 - **A function earns its place by doing what Effect alone cannot**, or by being the one place where a rule of the
   library is applied (`reject`, `program`): never a name over Effect's combinators, a documented literal or an operator
   (`docs/rejected.md`, "The API"). A declaration that takes a standard type of Effect (the `flags` of a child, an
@@ -138,10 +158,11 @@ stay local ("Deciding"). One made with an AI agent ends with an `Assisted-by: <m
   where it does not hold, where there is one. Advice of one program is a comment in its example's code, and an example
   never brings the rule that allows it.
 - **A finding of a review becomes a type, the message of a defect or a doc comment first, and a sentence of the guide
-  last**, and only by the test above. A page of the guide has a ceiling of words, which `bun run comments` holds: a
-  change that passes it cuts a sentence, or raises the ceiling and says why in its commit.
-- **A doc comment specifies its export, in plain words**: what it is, how it is called, what it refuses and what it
-  throws, in a screen at most. It names the page of the guide that teaches its concept with a line
+  last**, and only by the test above. It is a finding only of a program written as the guide teaches ("Deciding"),
+  which its report shows. A page of the guide has a ceiling of words, which `bun run comments` holds: a change that
+  passes it cuts a sentence, or raises the ceiling and says why in its commit.
+- **A doc comment specifies its export, in plain words**: what it is, how it is called, the mistakes it refuses and
+  what it throws, in a screen at most. It names the page of the guide that teaches its concept with a line
   `@see The guide, "<page>".`, never a link to the site, and never a section. Where a comment and that page say the
   same thing, a change of one rereads the other.
 - **The package ships its documentation, at its version**: the guide, the tutorial, the examples and the skill

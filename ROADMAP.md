@@ -29,8 +29,9 @@ problem whose fix is due before a step of "Next, in order" leaves this list for 
 
 What a task or a review found that no failing test shows and no user met ("How a decision is taken and kept" in
 `AGENTS.md`): a line each, with what would show it, as the test of the types that would hold a lead of the types, or
-the case of the inference matrix (`bun run inference --filter <case>`). None is a step of its own: they are weighed
-together before a release, and one not taken then goes to `docs/rejected.md`.
+the case of the inference matrix (`bun run inference --filter <case>`). A form that no page shows is no lead ("What
+the library owes, and to whom" in `AGENTS.md`). None is a step of its own: they are weighed together before a release,
+and one not taken then goes to `docs/rejected.md`.
 
 None is open: those found before 0.11.0 were weighed on 27 November 2026.
 
@@ -43,21 +44,77 @@ It reads nothing of an `Equal` or a `Hash` of the program that throws: step 107 
 premises that served that case alone, by the rule it left in `docs/premises.md` ("What no program that keeps the
 guide's rules can see").
 
-### 121. The review of the premises reads every form of this bug hunt, over all the code
+The owner's rule of 27 November 2026 says what the library owes, and to whom (`AGENTS.md`, "Deciding"): to a program
+written as the guide teaches, and nothing to a form that no page shows. Steps 122 and 123 take out what the code holds
+for such forms, before the review of step 121 reads the code.
 
-Opus 5.5, `high`. Depends on nothing. The bug hunt of 27 November 2026 found four bugs in code that three reviews of
-the premises had in their scope (21, 24 and 26 November): their brief named none of the four forms, and read the
+### 122. The checks of the names of children go, with all that says them
+
+Opus 5.5, `medium`. Depends on nothing. By `change-api`. `withChildren` refuses five forms that no page shows, each
+found by a review and none by use (commits `73aeb05`, `a9c9747` and `c074855`): a name that is a number, a symbol or
+`__proto__`, a union of objects of children, and an optional child. They are unspecified, and a check that stays is a
+precedent that the next review makes wider.
+
+- `compose.ts`: `NamedAsMakeReads`, `NamedOnce`, `Several` and `Optional` go, and `withChildren` takes `children: C`.
+  Its doc comment loses its sentences from "A name is a string" on.
+- `compose.test.ts`: the `describe` "a name of a child is refused by the types, or is one child to both the types and
+  make" goes. One case of a plain name stays, only where no other test holds that a child's message, event, command,
+  key and model are routed by its name.
+- `CHANGELOG.md`: the entry of 0.11.0 on a child's name goes whole, since no release held the checks.
+  `api/effect-tea.api.md` is written again.
+- `docs/rejected.md`, "The API": one entry for the five, reasoned, reopened by a user's report of one. It says that
+  the optional child, spread in by a condition (`{ ...(flag ? { b: … } : {}) }`), is the one of the five that a user is
+  likeliest to write: it compiles, and its `makeModel` throws where the flag is off.
+
+Done when the four types and the `describe` are gone, `grep -rn "__proto__" src CHANGELOG.md` finds nothing, and the
+checks of `AGENTS.md` for `compose.ts` and for the API pass (`bun run inference`, `bun run smoke` and
+`bun run api --check` among them).
+
+### 123. What else the types, the tests and the comments hold only for a form that no page shows
+
+Opus 5.5, `high`. Depends on 122. By `change-api`. Decided with the rule: a program is made by `make`, and one written
+by hand as an object is no form of the guide, typed `Program<…>` or not, though the library's own tests write many
+so, and may. Nor is a `Child`, a `ChildById` or a defect made otherwise than by the library's functions. Each item
+below is read. What serves only such a form goes, where taking it out changes nothing for a program of `make`, which
+`bun run inference` and the counts of the smoke test say. What also serves a form of the guide, or how a consumer's
+types print, stays, and the commit says which and why.
+
+- The check of a child written as an object: `ProgramChecked`, `Lacking` and the intersection of `CheckedChild`
+  (`compose.ts`), its sentence in the doc comment of `child`, and its tests. `CheckedChild` also keeps the name
+  `Program<…>` in a consumer's declarations (`change-api`, "No new type for how a consumer's types print").
+- `TagsTaken` for a tag that is `string`, a template or `any`, or that the type lacks. An own message, command or key
+  whose literal tag is the name of a child is a mistake, and stays refused.
+- The sentences and the tests that say that the types refuse a `new`, an `extends` or an object written as a `Child`,
+  a `ChildById` or a defect class (`compose.ts`, `defect.ts`). The classes stay as they are: they are how the types
+  are opaque.
+- The tests named "a program written as a plain object…" of `run`, `drive`, `rehearse` and `simulate`, and the sentence
+  of the doc comment of `Program` on one written as an object without `subscriptions`: each stays only where no test
+  of a program of `make` holds the same.
+- Then every other `Refused<…>`, `@ts-expect-error` and "does not compile" of `src/`, read once against the rule: the
+  commit lists each that goes. A refusal of a mistake stays.
+
+Done when each item is taken out, or kept with its reason in the commit, the checks of `AGENTS.md` for `compose.ts`
+and for the API pass, and the changelog says what a consumer can notice (`release`).
+
+### 121. The review of the premises names the forms of this bug hunt, and reads all the code
+
+Opus 5.5, `high`. Depends on 122 and 123. The bug hunt of 27 November 2026 found bugs in code that three reviews of
+the premises had in their scope (21, 24 and 26 November): their brief named none of the hunt's forms, and read the
 changes since the last review, of the engine and the testing tools alone.
 
-- `premise-review`: its "THE KIND OF BUG" names the four forms: an interruption by whoever runs the program at a yield
-  of the scheduler; a cost that grows with the number of messages; a name that the types drop and `make` does not; a
-  tool that imitates a dependency. Its reviewers read four areas apart: the engine, the testing tools, the types of
-  composition, and the bridges. It reads all of the code before the library is made known, as before 1.0.
+- `premise-review`: its "THE KIND OF BUG" names three forms: an interruption by whoever runs the program at a yield of
+  the scheduler; a cost that grows with the number of messages; a tool that imitates a dependency. Its reviewers read
+  three areas apart: the engine, the testing tools, and the bridges. The types are no area of a review: the tests of
+  the types and `bun run inference` hold them, for the forms of the guide. The hunt's fourth form, a name that the
+  types drop and `make` does not, was a search of the ways to write a program, which a review does not make. It reads
+  all of the code before the library is made known, as before 1.0.
 - Then one review over all of the code, one reviewer for each form rather than each area, as the skill says otherwise:
   each finding an open problem with its `test.failing`, each fix by its form. It is the review of the premises due
-  before 0.11.0. A review over all the code is made again while the last one confirmed a bug.
+  before 0.11.0. A review over all the code is made again while the last one confirmed a bug of a program written as
+  the guide teaches.
 
-Done when the skill names the four forms and the four areas, and a review over all of the code confirms no bug.
+Done when the skill names the three forms and the three areas, and a review over all of the code confirms no such
+bug.
 
 ## For the owner
 
