@@ -164,6 +164,9 @@ export type CommandServicesOf<P> = P extends {
 
 // @public
 export class CompositionDefect extends CompositionDefect_base<CompositionFields> {
+    constructor(fields: CompositionFields & {
+        readonly "only program makes a CompositionDefect": never;
+    });
 }
 
 // @public (undocumented)
@@ -318,6 +321,9 @@ export class InvariantDefect extends InvariantDefect_base<Readonly<{
     reason: string;
     message: string;
 }>> {
+    constructor(reason: string & {
+        readonly "only defect makes an InvariantDefect": never;
+    });
 }
 
 // @public (undocumented)
@@ -573,6 +579,9 @@ type ProgramConfig<State, Message, Command, Event, Model, Ran, Heard, Key, Exter
 export class ProgramDefect extends ProgramDefect_base<Fields & Readonly<{
     message: string;
 }>> {
+    constructor(fields: Fields & {
+        readonly "only the run makes a ProgramDefect": never;
+    });
 }
 
 // @public (undocumented)

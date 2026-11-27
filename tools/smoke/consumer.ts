@@ -37,6 +37,7 @@ import * as Channel from "effect/Channel"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
+import * as Match from "effect/Match"
 import * as Opt from "effect/Option"
 import * as Stream from "effect/Stream"
 
@@ -521,13 +522,25 @@ export const crashed = (error: unknown) =>
     : error instanceof CompositionDefect
     ? error.child
     : undefined
+// Each is taken where a class is asked for, as `Match.instanceOf` and the `toThrow` of jest's types ask.
+export const classes: ReadonlyArray<new(...args: Array<any>) => unknown> = [
+  InvariantDefect,
+  ProgramDefect,
+  CompositionDefect
+]
+export const where = Match.type<unknown>().pipe(
+  Match.when(Match.instanceOf(ProgramDefect), (died) => died.where),
+  Match.orElse(() => undefined)
+)
 export const built = () => [
   // @ts-expect-error
   new InvariantDefect("A save completed while nothing was saving"),
   // @ts-expect-error
   new ProgramDefect({ where: "update", cause: "boom" }),
   // @ts-expect-error
-  new CompositionDefect({ message: "Broken", child: "Page" })
+  new CompositionDefect({ message: "Broken", child: "Page" }),
+  // @ts-expect-error
+  new (class extends InvariantDefect {})("A save completed while nothing was saving")
 ]
 
 // A state is any value: a number, alone, as a child and by id, a state without fields, and a type parameter.

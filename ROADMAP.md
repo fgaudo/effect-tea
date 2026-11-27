@@ -32,19 +32,6 @@ What a task or a review found that no failing test shows and no user met ("How a
 the case of the inference matrix (`bun run inference --filter <case>`). None is a step of its own: they are weighed
 together before a release, and one not taken then goes to `docs/rejected.md`.
 
-- Under jest's types, `expect(…).toThrow(InvariantDefect)` does not compile, since the constructor is private: a test
-  of `examples/react-native` takes the error with a `try` and `toBeInstanceOf`. Under `bun:test` it compiles. A test
-  of the types with `@types/jest` would show it.
-- `childById` with one list for every program: `ids`, and `flags: (state, id) => FlagsOf<P>`, required exactly when the
-  program has flags, in place of the two lists and `ByIdForm`. `flags` would then be in `childById` what it is in
-  `child`, the flags of a child. Probed by the review that steps 115 to 117 come from, with a signature declared and no
-  body, with TypeScript 5.9, 6.0 and 7.0: the `Id`, inferred from `ids` alone, types the `id` of `listening` and of
-  `flags`, and `flags` is refused for a program without flags, and required for one with. Against it: a step of the
-  parent's own would read and compare the flags of each child listed, where the very same list skips them today
-  (`rejected.md`, "A declared `tell` that takes the id of a child", refused for such a cost), and a parent that keeps
-  its children in an array would look each id up in it, a cost that grows with the square of their number. A measure
-  of both forms at 1,000 and 10,000 children, with the state as an array and as a `HashMap`, would show it.
-
 ## Next, in order
 
 The next review of the premises reads the changes since the commit that closed step 99 (`git log --grep

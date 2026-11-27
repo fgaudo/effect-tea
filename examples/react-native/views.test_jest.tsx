@@ -239,15 +239,7 @@ describe("notes", () => {
 
   // The key of the button is listed only while a note is open, and the run drops what the button sent once it is not.
   test("dies on a press of back while no note is open", () => {
-    // jest's types take no class whose constructor is not public.
-    const thrown = (() => {
-      try {
-        notes.update(backPressed)(list)
-      } catch (error) {
-        return error
-      }
-    })()
-    expect(thrown).toBeInstanceOf(InvariantDefect)
+    expect(() => notes.update(backPressed)(list)).toThrow(InvariantDefect)
   })
 
   // What the model holds, in the order the test acts: the header's Close, then the page's controls, what is typed

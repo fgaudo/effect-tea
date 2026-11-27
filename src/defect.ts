@@ -43,12 +43,6 @@ const described: Readonly<Record<DefectSite, string>> = {
   render: "makeModel or the renderer"
 }
 
-// The constructors are private, so that each class keeps the one meaning the library gives it: the types refuse a
-// `new` of one outside its class. The functions at the end of this module are the only way to build one, and are not
-// exported by the package. They call each constructor through the type it has at run time, and not from a `static {}`
-// block of the class: that syntax is the one the package would add to what Effect's own `dist/` asks of a toolchain.
-type Constructor<A, Fields> = new(fields: Fields) => A
-
 type Fields = Readonly<{
   /** Where the defect happened. */
   where: DefectSite
@@ -59,6 +53,12 @@ type Fields = Readonly<{
   /** The message `update` was given, by its tags (`Home › Products › Deleted`), for a defect in `update`. */
   on?: unknown
 }>
+
+// A private constructor would make its class unusable where a public construct signature is asked for, as by
+// `Match.instanceOf` of Effect and by the `toThrow` of jest's types. So each constructor is public, and takes with its
+// fields a member typed `never`, named by the rule, which no program written as the guide teaches gives: the types
+// refuse a `new` of the class, and of a class that extends it, and each class keeps the one meaning the library gives
+// it. The functions at the end of this module build them, and are not exported by the package.
 
 /**
  * The defect a run dies with: the one that happened, and where.
@@ -73,7 +73,7 @@ type Fields = Readonly<{
  * - `key` is the subscription's key as it is. Like `cause`, it may hold the program's data.
  * - The run does not log the defect and does not recover from it. Report it, and choose what the user sees next.
  * - Only the library makes one: the run, and the testing tools that fail as the run dies. Read it, as a crash report
- *   or a test does: the types refuse a `new` of it.
+ *   or a test does: the types refuse a `new` of it, and of a class that extends it.
  * - What throws outside the functions of the program, in the run's own code or as the run reads a message's tags for
  *   `on`, is in the run's cause as it is, with no `where`, and ends the run as a defect does.
  *
@@ -85,7 +85,8 @@ type Fields = Readonly<{
  * @see The guide, "Running".
  */
 export class ProgramDefect extends Data.TaggedError("ProgramDefect")<Fields & Readonly<{ message: string }>> {
-  private constructor(fields: Fields) {
+  /** Not for a program: only the run makes one, and the types refuse a `new` of it. */
+  constructor(fields: Fields & { readonly "only the run makes a ProgramDefect": never }) {
     super({
       ...fields,
       // oxlint-disable-next-line typescript/no-base-to-string -- `on` is a message's tags, or its `typeof`
@@ -118,8 +119,8 @@ type CompositionFields = Readonly<{
  *   too.
  *
  * `on` names the message by its tags. `id` is the child's id as it is, and may hold the program's data. Only
- * `program` makes one: a test reads it, and the types refuse a `new` of it, or a class that extends it. What a parent
- * does once a cast, or an `any`, has let through what the types refuse is unspecified.
+ * `program` makes one: a test reads it, and the types refuse a `new` of it, and of a class that extends it. What a
+ * parent does once a cast, or an `any`, has let through what the types refuse is unspecified.
  *
  * @example
  * ```ts
@@ -131,7 +132,8 @@ type CompositionFields = Readonly<{
  * @see The guide, "Running".
  */
 export class CompositionDefect extends Data.TaggedError("CompositionDefect")<CompositionFields> {
-  private constructor(fields: CompositionFields) {
+  /** Not for a program: only `program` makes one, and the types refuse a `new` of it. */
+  constructor(fields: CompositionFields & { readonly "only program makes a CompositionDefect": never }) {
     super(fields)
   }
 }
@@ -141,7 +143,7 @@ export class CompositionDefect extends Data.TaggedError("CompositionDefect")<Com
  *
  * The run dies with it as with any other defect, and it is the `cause` of the `ProgramDefect`. It lets a crash report
  * tell a broken rule of the program from any other error. Only `defect` makes one: a test or a crash report reads it,
- * and the types refuse a `new` of it, or a class that extends it.
+ * and the types refuse a `new` of it, and of a class that extends it.
  *
  * @example
  * ```ts
@@ -159,7 +161,8 @@ export class InvariantDefect extends Data.TaggedError("InvariantDefect")<
     message: string
   }>
 > {
-  private constructor(reason: string) {
+  /** Not for a program: only `defect` makes one, and the types refuse a `new` of it. */
+  constructor(reason: string & { readonly "only defect makes an InvariantDefect": never }) {
     super({ reason, message: reason })
   }
 }
@@ -186,13 +189,12 @@ export class InvariantDefect extends Data.TaggedError("InvariantDefect")<
  * @see The guide, "Update".
  */
 export const defect = (reason: string): never => {
-  throw new (InvariantDefect as unknown as Constructor<InvariantDefect, string>)(reason)
+  throw new InvariantDefect(reason as never)
 }
 
 /** Builds the `ProgramDefect` the run dies with: only the engine does. */
-export const programDefect = (fields: Fields): ProgramDefect =>
-  new (ProgramDefect as unknown as Constructor<ProgramDefect, Fields>)(fields)
+export const programDefect = (fields: Fields): ProgramDefect => new ProgramDefect(fields as never)
 
 /** Builds the `CompositionDefect` of a parent that breaks what it declared: only `program` does. */
 export const compositionDefect = (fields: CompositionFields): CompositionDefect =>
-  new (CompositionDefect as unknown as Constructor<CompositionDefect, CompositionFields>)(fields)
+  new CompositionDefect(fields as never)

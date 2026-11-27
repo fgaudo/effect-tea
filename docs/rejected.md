@@ -288,6 +288,19 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   makes one required. An option of the other form is refused by a member that says what to write. _Reopen if_ the run
   can tell the form of a child from the types of its declaration, or TypeScript reports a failed overloaded call
   against the overload meant.
+- **`childById` with one list for every program**: `ids`, and `flags: (state, id) => FlagsOf<P>`, required exactly
+  when the program has flags, in place of the two lists and `ByIdForm`, so that `flags` has in `childById` the form it
+  has in `child`. Probed in the review of 27 November 2026, with a signature declared and no body, with TypeScript 5.9,
+  6.0 and 7.0: the types hold, as the `Id` inferred from `ids` alone types the `id` of `listening` and of `flags`.
+  Measured on 27 November 2026, on the loop of `reconcile` in a script not kept, for a step of the parent's own that
+  changes no child. With the rows in an array, as the guide keeps them, a `flags` that finds its row by id costs
+  0.6 ms at 1,000 children and 59 ms at 10,000, where today's list, mapped from that array, costs 0.15 ms and 1.8 ms.
+  With the rows in a `HashMap` it costs 0.09 ms and 1.2 ms, at every step: a list of pairs that the state keeps is
+  skipped by its identity, and flags read at each id never are, as the id of a declared `tell` (below). The form
+  would make the slow program the one that reads best, and break each program with flags by id, for a word that
+  already says in `childById` what it says in `child` ("What `child` and `childById` take, mirrored in what they
+  make", below). _Reopen if_ programs with flags by id are found to keep their rows by id, in a `HashMap` or a record,
+  and to build the list of pairs for the library alone.
 - **External messages answered by `update`**, so that a program has one function of its messages. Reasoned, 20
   November 2026 ([`external-handler.md`](records/external-handler.md)), and weighed again in step 61, by the values: a
   `tell` that `update` may reject ends in silence, or `reject` comes to mean a defect there (values 1 and 2), where
@@ -509,6 +522,15 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   as a child always there whose `key` gives `None`, which compiled and died. Each is now a class whose constructor is
   private, and whose one member, the declaration, no program writes or reads, so a mirror has still less to mirror.
   _Reopen if_ a user comes to need what a declaration holds, outside the library.
+- **A private constructor for `InvariantDefect`, `ProgramDefect` and `CompositionDefect`**, and a public one that
+  takes their fields. The first was taken on 18 November 2026 (commit 41ba879), and dropped on 27 November 2026 by a
+  test of the types: TypeScript refuses such a class wherever a public construct signature is asked for, so
+  `expect(…).toThrow(InvariantDefect)`, which "Testing" teaches, did not compile under jest's types, nor did
+  `Match.instanceOf` and `Schema.instanceOf` of Effect. Each constructor is public, and takes with its fields a member
+  typed `never`, named by the rule. A program that goes out of its way gives one, as by a getter typed `never` or a
+  type predicate that lies, and only misleads its own crash report. The second would make a defect two ways, `defect`
+  and `new`, and a `ProgramDefect` that no run died with. _Reopen if_ TypeScript takes a class whose constructor is
+  private where a construct signature is asked for, or a program is found to build one by mistake.
 - **A copy of a child refused as its parent is made**: what `child` and `childById` made kept in a `WeakMap` of the
   object they made, and a `CompositionDefect` for an object that has none, as `Object.assign({}, child(p))`, which the
   types take. Written in step 105, and taken out by the owner on 26 November 2026: a copy holds the declaration that

@@ -41,6 +41,13 @@ version, and everything else, features included, the patch version.
 - The errors of `child`, `childWhen` and `childById`, and of `make`, `start`, `drive` and `rehearse` given a piece or
   `flags` that the program does not name, are at the option, and say what to write or the type it takes, in place of
   that it takes `never` or the error of another form.
+- A class that extends `InvariantDefect`, `ProgramDefect` or `CompositionDefect` compiles, where the types refused it,
+  and they refuse a `new` of it, as of the class it extends.
+
+### Fixed
+
+- `InvariantDefect`, `ProgramDefect` and `CompositionDefect` can be passed where a class is asked for: to jest's
+  `toThrow`, as "Testing" writes it, and to Effect's `Match.instanceOf` and `Schema.instanceOf`.
 
 ## 0.10.0 (2026-11-27)
 
