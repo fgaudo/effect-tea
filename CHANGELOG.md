@@ -3,7 +3,7 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
-## 0.10.1 (unreleased)
+## 0.11.0 (unreleased)
 
 ### Added
 
@@ -15,8 +15,12 @@ version, and everything else, features included, the patch version.
 
 ### Changed
 
-- The error of `child` given an option of the wrong type, as `flags` that give an `Option`, says the type that option
-  takes, in place of the error of another form of `child`, that it takes `never`.
+- **Breaking**: a child alone that may not be there is declared with `childWhen(program, { there })`, beside `child`
+  in what `program<…>()` returns, and `child` declares one always there, with no `there`.
+  Upgrade: `child(program, { there })` becomes `childWhen(program, { there })`.
+- The errors of `child`, `childWhen` and `childById`, and of `make`, `start`, `drive` and `rehearse` given a piece or
+  `flags` that the program does not name, are at the option, and say what to write or the type it takes, in place of
+  that it takes `never` or the error of another form.
 
 ## 0.10.0 (2026-11-27)
 

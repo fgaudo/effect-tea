@@ -16,14 +16,14 @@ import { YieldableError } from 'effect/Cause';
 type AlwaysOptions<State, P> = [FlagsOf<P>] extends [never] ? [
 options?: Readonly<{
     key?: (state: State) => unknown;
-    there?: never;
-    flags?: never;
+    there?: Refused<"a child that may not be there is declared with childWhen">;
+    flags?: Refused<"a child without flags is declared without them">;
 }> & Listening<State> & Telling<State, P>
 ] : [
 options: Readonly<{
     flags: (state: State) => FlagsOf<P>;
-    there?: never;
-    key?: never;
+    there?: Refused<"a child that may not be there is declared with childWhen">;
+    key?: Refused<"a child with flags starts again from other flags, and takes no key">;
 }> & Listening<State> & Telling<State, P>
 ];
 
@@ -67,6 +67,22 @@ export type Applied<State, Message, Command = never> = {
 type At<C> = C extends ChildByIdOf<infer Id, any> ? Readonly<{
     id: Id;
 }> : unknown;
+
+// @public
+type ByIdForm<P> = [FlagsOf<P>] extends [never] ? Readonly<{
+    ids: object;
+    flags?: Refused<"a child without flags is declared with its ids">;
+}> : Readonly<{
+    flags: object;
+    ids?: Refused<"a child with flags is declared with its flags">;
+}>;
+
+// @public (undocumented)
+type ByIdOptions<State, Id, Flags> = Readonly<{
+    ids?: (state: State) => Iterable<Id>;
+    flags?: (state: State) => Iterable<readonly [Id, Flags]>;
+    listening?: (state: State, id: Id) => boolean;
+}>;
 
 // @public (undocumented)
 type CheckedChild<P> = unknown extends Lacking<P> ? P : P & Lacking<P>;
@@ -161,22 +177,16 @@ type Config<State, C, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, Externa
 }>;
 
 // @public
-export type DeclareChild<T extends DeclaredTypes> = {
-    <P extends AnyProgram>(program: CheckedChild<P>, ...options: AlwaysOptions<Field<T, "state">, P>): Child<Field<T, "state">, P, "always">;
-    <P extends AnyProgram>(program: CheckedChild<P>, options: SometimesOptions<Field<T, "state">, P> & Listening<Field<T, "state">> & Telling<Field<T, "state">, P>): Child<Field<T, "state">, P, "sometimes">;
-    <P extends AnyProgram>(program: CheckedChild<P>, ...options: EitherOptions<Field<T, "state">, P>): {
-        readonly "a child is declared in one form, always there or not": never;
-    };
-};
+export type DeclareChild<T extends DeclaredTypes> = <P extends AnyProgram>(program: CheckedChild<P>, ...options: AlwaysOptions<Field<T, "state">, P>) => Child<Field<T, "state">, P, "always">;
 
 // @public
-export type DeclareChildById<T extends DeclaredTypes> = {
-    <Id, P extends AnyProgram>(program: CheckedChild<P>, options: IdsOptions<Field<T, "state">, Id> & FlagsChecked<P, false> & Telling<Field<T, "state">, P>): ChildById<Field<T, "state">, Id, P>;
-    <Id, P extends AnyProgram>(program: CheckedChild<P>, options: FlaggedIdsOptions<Field<T, "state">, Id, FlagsOf<P>> & FlagsChecked<P, true> & Telling<Field<T, "state">, P>): ChildById<Field<T, "state">, Id, P>;
-};
+export type DeclareChildById<T extends DeclaredTypes> = <Id, P extends AnyProgram>(program: CheckedChild<P>, options: ByIdOptions<Field<T, "state">, Id, FlagsOf<P>> & ByIdForm<P> & Telling<Field<T, "state">, P>) => ChildById<Field<T, "state">, Id, P>;
 
 // @public
 export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field<T, "state">>>(children: C) => ParentMaker<T, C>;
+
+// @public
+export type DeclareChildWhen<T extends DeclaredTypes> = <P extends AnyProgram>(program: CheckedChild<P>, options: WhenOptions<Field<T, "state">, P>) => Child<Field<T, "state">, P, "sometimes">;
 
 // @public
 type DeclaredTypes = Readonly<{
@@ -202,9 +212,6 @@ export type DefectSite = "init" | "update" | "subscriptions" | "subscription" | 
 // @public
 export type Dispatch<Message> = (message: Message) => void;
 
-// @public (undocumented)
-type EitherOptions<State, P> = [FlagsOf<P>] extends [never] ? [options?: OneOf<State, P>] : [options: OneOf<State, P>];
-
 // @public
 export type EventOf<P> = Returned<P, "events">;
 
@@ -213,7 +220,7 @@ export type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, n
 
 // @public
 type ExternalHandlerOf<State, C, External, Command, Event> = [External] extends [never] ? Readonly<{
-    external?: never;
+    external?: Refused<"a program has an external only where its types name external messages">;
 }> : Readonly<{
     external: (message: External, ...children: Reading<C>) => (state: State) => Step<State, Command, Event, TellOf<C>>;
 }>;
@@ -243,20 +250,6 @@ type FirstStepOf<P> = P extends {
     readonly init: infer S;
 } ? S : never;
 
-// @public (undocumented)
-type FlaggedIdsOptions<State, Id, Flags> = Readonly<{
-    flags: (state: State) => Iterable<readonly [Id, Flags]>;
-    listening?: (state: State, id: Id) => boolean;
-    ids?: never;
-}>;
-
-// @public
-type FlagsChecked<P, Flagged extends boolean> = [FlagsOf<P>] extends [never] ? Flagged extends true ? {
-    readonly "a child without flags is declared with its ids": never;
-} : unknown : Flagged extends true ? unknown : {
-    readonly "a child with flags is declared with its flags": FlagsOf<P>;
-};
-
 // @public
 export type FlagsOf<P> = P extends {
     readonly init: (flags: infer F) => any;
@@ -264,7 +257,9 @@ export type FlagsOf<P> = P extends {
 
 // @public
 export type FlagsOption<Flags> = [Flags] extends [never] ? {
-    readonly flags?: never;
+    readonly flags?: {
+        readonly "a program is given flags only where its types name them": never;
+    };
 } : {
     readonly flags: Flags;
 };
@@ -292,13 +287,6 @@ type HeardServices<Heard> = Heard extends Subscription<any, infer R> ? R : never
 type IdOf<Message, Name> = [ChildOf<Message, Name>] extends [never] ? [] : ChildOf<Message, Name> extends Readonly<{
     id: infer Id;
 }> ? [id: Id] : [];
-
-// @public (undocumented)
-type IdsOptions<State, Id> = Readonly<{
-    ids: (state: State) => Iterable<Id>;
-    listening?: (state: State, id: Id) => boolean;
-    flags?: never;
-}>;
 
 // @public
 export type Ignored<State, Message> = {
@@ -375,8 +363,8 @@ type Listening<State> = Readonly<{
 
 // @public
 type ListenOf<State, C, OwnKey, Message, Heard> = [OwnKey] extends [never] ? Readonly<{
-    subscriptions?: never;
-    listen?: never;
+    subscriptions?: Refused<"a program has subscriptions only where its types name keys">;
+    listen?: Refused<"a program has a listen only where its types name keys">;
 }> : Readonly<{
     subscriptions: (state: State, ...children: Reading<C>) => ReadonlyArray<OwnKey>;
     listen: (key: OwnKey) => Heard & Subscription<Message, any>;
@@ -493,9 +481,6 @@ type OfInstance = Readonly<{
     id?: unknown;
 }>;
 
-// @public (undocumented)
-type OneOf<State, P> = Exclude<AlwaysOptions<State, P>[0], undefined> | (SometimesOptions<State, P> & Listening<State> & Telling<State, P>);
-
 // @public
 type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Event>] extends [never] ? Readonly<{
     onEvent?: OnEvents<State, C, Command, Event>;
@@ -520,7 +505,7 @@ export type Origin = {
 
 // @public
 type OutputHandlerOf<State, C, Output> = [Output] extends [never] ? Readonly<{
-    output?: never;
+    output?: Refused<"a program has an output only where its types name one">;
 }> : Readonly<{
     output: (state: State, ...children: Reading<C>) => Output;
 }>;
@@ -587,6 +572,7 @@ const ProgramDefect_base: new <A extends Record<string, any> = {}>(args: VoidIfE
 export interface ProgramMaker<T extends DeclaredTypes> {
     readonly child: DeclareChild<T>;
     readonly childById: DeclareChildById<T>;
+    readonly childWhen: DeclareChildWhen<T>;
     readonly make: MakeProgram<T>;
     readonly withChildren: DeclareChildren<T>;
 }
@@ -621,6 +607,11 @@ type ReadInstance<C> = C extends ChildByIdOf<infer Id, any> ? (id: Id) => number
 // @public
 type ReadOutput<C> = C extends ChildByIdOf<infer Id, infer P> ? (id: Id) => OutputOf<P> : IsAlways<C> extends true ? () => OutputOf<ProgramOf<C>> : () => Opt.Option<OutputOf<ProgramOf<C>>>;
 
+// @public (undocumented)
+type Refused<Rule extends string> = {
+    readonly [K in Rule]: never;
+};
+
 // @public
 export const reject: unique symbol;
 
@@ -643,7 +634,7 @@ export type RunCommand<Command, Message, R = never> = (command: Command) => Exec
 
 // @public
 type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never] ? Readonly<{
-    runCommand?: never;
+    runCommand?: Refused<"a program has a runCommand only where its types name commands">;
 }> : Readonly<{
     runCommand: (command: OwnCommand) => Ran & Execution<Message, any>;
 }>;
@@ -661,17 +652,6 @@ type Shape<State, Model, Message, Command, CommandServices, SubscriptionServices
     readonly subscriptions: Subscriptions<State, Key>;
     readonly makeModel: (state: State) => Model;
 } & WithRunCommand<Command, NoInfer<Message>, CommandServices> & WithListen<Key, NoInfer<Message>, SubscriptionServices> & WithExternal<External, State, Command, Event> & WithOutput<Output, State>;
-
-// @public
-type SometimesOptions<State, P> = [FlagsOf<P>] extends [never] ? Readonly<{
-    there: (state: State) => boolean;
-    key?: (state: State) => unknown;
-    flags?: never;
-}> : Readonly<{
-    there: (state: State) => Opt.Option<FlagsOf<P>>;
-    flags?: never;
-    key?: never;
-}>;
 
 // @public
 export const start: <State, Model, Message, Command = never, CommandServices = never, SubscriptionServices = never, Flags = never, Key = never, External = never, Output = never>(program: Program<{
@@ -722,7 +702,7 @@ type TagsTaken<M, Names> = 0 extends 1 & M ? Names : M extends unknown ? "_tag" 
 
 // @public
 type Telling<State, P> = Readonly<{
-    tell?: [ExternalOf<P>] extends [never] ? never : (state: State) => ExternalOf<P>;
+    tell?: [ExternalOf<P>] extends [never] ? Refused<"a child without external messages is told nothing"> : (state: State) => ExternalOf<P>;
 }>;
 
 // @public
@@ -741,10 +721,21 @@ export type Update<State, Message, Command = never, Event = never> = (message: M
 
 // @public
 type UpdateOf<State, C, Own, Command, Event> = [Own] extends [never] ? Readonly<{
-    update?: never;
+    update?: Refused<"a program has an update only where its types name messages">;
 }> : Readonly<{
     update: (message: Own, ...children: Reading<C>) => (state: State) => Transition<State, Command, Event, TellOf<C>>;
 }>;
+
+// @public
+type WhenOptions<State, P> = ([FlagsOf<P>] extends [never] ? Readonly<{
+    there: (state: State) => boolean;
+    key?: (state: State) => unknown;
+    flags?: Refused<"a child without flags is declared without them">;
+}> : Readonly<{
+    there: (state: State) => Opt.Option<FlagsOf<P>>;
+    flags?: Refused<"a child that may not be there is given its flags by there">;
+    key?: Refused<"a child with flags starts again from other flags, and takes no key">;
+}>) & Listening<State> & Telling<State, P>;
 
 // @public
 type WithExternal<External, State, Command, Event> = [External] extends [never] ? object : {

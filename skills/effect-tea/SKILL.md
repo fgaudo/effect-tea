@@ -61,8 +61,8 @@ back to that table.
 ## The rules, page by page
 
 What is left to you comes first: no type refuses a break of it, and most often the run goes on, so check each one by
-reading the code. What the compiler refuses is in the doc comments of `program`, `Program`, `child` and `childById`.
-Advice binds nothing: each piece gives its reason, and the case where it does not hold.
+reading the code. What the compiler refuses is in the doc comments of `program`, `Program`, `child`, `childWhen` and
+`childById`. Advice binds nothing: each piece gives its reason, and the case where it does not hold.
 
 ### [Guarantees](../../site/guide/guarantees.md), "What is left to you"
 
@@ -165,7 +165,7 @@ Advice binds nothing: each piece gives its reason, and the case where it does no
 
 - When a child is there
   - `child(program)` is always there
-  - `child(program, { there })`
+  - `childWhen(program, { there })`
   - A program that has flags starts from them
   - `key`
   - A child that the state no longer lists is dropped
@@ -201,7 +201,7 @@ Advice binds nothing: each piece gives its reason, and the case where it does no
 
 - Where the screen may show an older draw, give a child's view the number of its instance, in its dispatch and as
   its key
-- Read a child declared with `there` as one `Option`
+- Read a child declared with `childWhen` as one `Option`
 
 ### [Events and external messages](../../site/guide/events-and-external-messages.md), "Rules"
 

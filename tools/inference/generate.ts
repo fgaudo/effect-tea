@@ -10,12 +10,13 @@
 // each other in pairs (`crossings`). Each valid case asserts, with `Exactly`, the state, model, messages, commands,
 // events, external messages, flags, services, keys and output read back from the program, and is given to every
 // function that takes a program:
-// `Program<…>` of the expected types, `start`, `drive`, `rehearse`, `simulate`, `child` and `childById`, each in a part
-// of its own, which must take it and give back the same types, or refuse it where the table of the differences meant
-// says (`checks`, `refusesEvents`, `formsRefused`). A broken program of `make` must fail to compile where it is made;
-// one written as an object must be refused by each function that checks the piece it breaks, and taken by the others.
-// The forms are judged by the rule of `AGENTS.md`: a form may be refused, but it is never taken wrongly. So a lead is a
-// part that fails where it should compile, but a valid program in a form not typed that a function refuses is a note;
+// `Program<…>` of the expected types, `start`, `drive`, `rehearse`, `simulate`, `child`, `childWhen` and `childById`,
+// each in a part of its own, which must take it and give back the same types, or refuse it where the table of the
+// differences meant says (`checks`, `refusesEvents`, `formsRefused`). A broken program of `make` must fail to compile
+// where it is made; one written as an object must be refused by each function that checks the piece it breaks, and
+// taken by the others. The forms are judged by the rule of `AGENTS.md`: a form may be refused, but it is never taken
+// wrongly. So a lead is a part that fails where it should compile, but a valid program in a form not typed that a
+// function refuses is a note;
 // or a part that compiles where it should not, or that gives back other types. The run of a program that needs no
 // service compiles with `Effect.runFork`, the parent's of a child too. And each message a program can have, its own,
 // and a child's, is given to every function that takes one, the dispatch of a run and of a driver, `forwardTo`,
@@ -287,7 +288,7 @@ const tellsOf = (c: Case, tag: "KInc" | "KReset") =>
     ? `state.ids.map((id) => ({ _tag: 'Kid', id, message: { _tag: '${tag}' } }))`
     : `[${itemOf(c, tag)}${c.comp === "pair" ? ", { _tag: 'Pal', id: 1, message: { _tag: 'PClear' } }" : ""}]`
 
-// The child's options, the second argument of `child` or `childById`, as the case writes it.
+// The child's options, the second argument of `child`, `childWhen` or `childById`, as the case writes it.
 const childOptionsOf = (c: Case, a: (type: string) => string) => {
   const s = `state${a(S[c.comp])}`
   if (c.comp === "childById") {
@@ -351,8 +352,17 @@ const fieldsOf = (types: Types) => Object.entries(types).map(([key, type]) => `$
 
 // The functions that take a program (step 16, point 3), and `Program<…>`, the type a function that takes one names.
 // Each is given the program, and must take it or refuse it as the table below says, and give back its types.
-type Use = "typed" | "start" | "drive" | "rehearse" | "simulate" | "child" | "childById"
-const uses: ReadonlyArray<Use> = ["typed", "start", "drive", "rehearse", "simulate", "child", "childById"]
+type Use = "typed" | "start" | "drive" | "rehearse" | "simulate" | "child" | "childWhen" | "childById"
+const uses: ReadonlyArray<Use> = [
+  "typed",
+  "start",
+  "drive",
+  "rehearse",
+  "simulate",
+  "child",
+  "childWhen",
+  "childById"
+]
 
 // The pieces of a program a function may check, with the parent's `onEvent` for a child's events.
 type Piece =
@@ -399,6 +409,7 @@ const checks: Readonly<Record<Use, ReadonlySet<Piece>>> = {
   rehearse: running,
   simulate: new Set<Piece>(["state", "init", "update", "subscriptions", "runCommand"]),
   child: new Set(pieces),
+  childWhen: new Set(pieces),
   childById: new Set(pieces)
 }
 const refusesEvents: ReadonlySet<Use> = new Set<Use>(["start", "drive"])
@@ -407,7 +418,7 @@ const refusesEvents: ReadonlySet<Use> = new Set<Use>(["start", "drive"])
 const formsRefused: ReadonlyArray<Readonly<{ form: string; uses: ReadonlyArray<Use>; why: string }>> = [
   {
     form: "call.contextual",
-    uses: ["child", "childById"],
+    uses: ["child", "childWhen", "childById"],
     // `docs/records/program-checks.md`, finding 1: the check is needed for the name of `P`.
     why: "a child is checked by the types read back from it, which leaves a parameter of a child written in the call"
       + " that is not annotated without a type"
@@ -430,16 +441,22 @@ const verdictFor = (use: Use, events: boolean, broken: Piece | undefined, form?:
     ? true
     : "untyped"
 
-// What a parent of the program reads back of it, as its child alone or as its children by id.
-const parentTypes = (types: Types, byId: boolean): Types => {
+// The function that declares the program a child of a parent.
+type Declare = "child" | "childWhen" | "childById"
+
+// What a parent of the program reads back of it, as its child alone, always there or not, or as its children by id.
+const parentTypes = (types: Types, declare: Declare): Types => {
+  const byId = declare === "childById"
   const at = byId ? " & Readonly<{ id: number }>" : ""
+  // A child that may not be there is read as an `Option`.
+  const read = (type: string) => (declare === "childWhen" ? `Opt.Option<${type}>` : type)
   const external = types.external !== "never"
   return {
     state: `Kept<OuterOwn, { readonly Inner: ${
       byId ? `HashMap.HashMap<number, Instance<${types.state}>>` : `Opt.Option<Instance<${types.state}>>`
     } }>`,
     // Its model beside its output, which the parent reads where the program has one.
-    model: types.output === "never" ? types.model : `readonly [${types.model}, ${types.output}]`,
+    model: types.output === "never" ? read(types.model) : `readonly [${read(types.model)}, ${read(types.output)}]`,
     message: `${external ? "Go | " : ""}Readonly<{ _tag: 'Inner'; message: ${types.message}; instance?: number }>${at}`,
     command: types.command === "never"
       ? "never"
@@ -456,7 +473,8 @@ const parentTypes = (types: Types, byId: boolean): Types => {
 
 // The program given to a parent that uses all it has: its flags, its external message, told from the parent's `update`
 // and passed on from its `external`, and its events, unless the case leaves out `onEvent`.
-const parentLines = (byId: boolean, program: string, types: Types, assert: boolean, onEvent: boolean) => {
+const parentLines = (declare: Declare, program: string, types: Types, assert: boolean, onEvent: boolean) => {
+  const byId = declare === "childById"
   const external = types.external !== "never"
   const flagged = types.flags !== "never"
   const id = byId ? ", id: 1" : ""
@@ -464,14 +482,14 @@ const parentLines = (byId: boolean, program: string, types: Types, assert: boole
     ? flagged
       ? ", { flags: (): ReadonlyArray<readonly [number, number]> => [[1, 3]] }"
       : ", { ids: (): ReadonlyArray<number> => [1] }"
+    : declare === "childWhen"
+    ? flagged ? ", { there: () => Opt.some(3) }" : ", { there: () => true }"
     : flagged
     ? ", { flags: () => 3 }"
     : ""
   const lines = [
     `  const Parent = program<{ state: OuterOwn${external ? `; message: Go; external: ${types.external}` : ""} }>()`,
-    `  const parent = Parent.withChildren({ Inner: Parent.${
-      byId ? "childById" : "child"
-    }(${program}${childOptions}) }).make({`,
+    `  const parent = Parent.withChildren({ Inner: Parent.${declare}(${program}${childOptions}) }).make({`,
     "    init: { state: { m: 0 } },"
   ]
   if (external) {
@@ -492,7 +510,7 @@ const parentLines = (byId: boolean, program: string, types: Types, assert: boole
   const services = servicesOf(types)
   return [
     ...lines,
-    ...readerLines("parent", parentTypes(types, byId), "parent_"),
+    ...readerLines("parent", parentTypes(types, declare), "parent_"),
     "  const parentStarted = start(parent)",
     `  const parent_run: Exactly<StartRead<typeof parentStarted>['services'], ${services}> = true`,
     ...forkLines("parentStarted", services)
@@ -558,8 +576,9 @@ const useLines = (use: Use, program: string, types: Types, assert: boolean, onEv
         })
       ]
     case "child":
+    case "childWhen":
     case "childById":
-      return parentLines(use === "childById", program, types, assert, onEvent)
+      return parentLines(use, program, types, assert, onEvent)
   }
 }
 
@@ -612,8 +631,10 @@ const madeOf = (c: Case): Readonly<{ lines: ReadonlyArray<string>; expected: Typ
   if (c.subs !== "none") typeFields.push(`key: ${ownKey}`)
   const T = `{ ${typeFields.join("; ")} }`
   const functions = kidded ? ["withChildren"] : ["make"]
-  if (pair) functions.push("child", "childById")
-  else if (c.comp !== "none") functions.push(c.comp)
+  // The function that declares the child: `childWhen` for one that may not be there.
+  const declare = c.comp === "childById" ? "childById" : sometimes(c) ? "childWhen" : "child"
+  if (kidded) functions.push(declare)
+  if (pair) functions.push("childById")
   const lines: Array<string> = []
   lines.push(`  const { ${functions.join(", ")} } = program<${T}>()`)
   const entries: Array<string> = []
@@ -808,7 +829,6 @@ const madeOf = (c: Case): Readonly<{ lines: ReadonlyArray<string>; expected: Typ
     entries.push(`    output: (${s}${children(!c.annotate)}) => state.n > 0${reads ? ` && ${output}` : ""},`)
   }
   const kidProgram = kidName(c.kid, c.kidFlags)
-  const declare = c.comp === "childById" ? "childById" : "child"
   const pal = pair ? `, Pal: childById(pal, { ids: (state${a(state)}) => state.ids })` : ""
   lines.push(
     kidded
@@ -2016,9 +2036,13 @@ const messageMembers: ReadonlyArray<Member> = messageCases.flatMap((c) => {
         {
           label: "program",
           valid: true,
-          lines: [...lines, ...parentLines(byId, "made", expected, false, true), ...constructorsOf(target)]
+          lines: [
+            ...lines,
+            ...parentLines(byId ? "childById" : "child", "made", expected, false, true),
+            ...constructorsOf(target)
+          ]
         },
-        ...takersOf("parent", parentTypes(expected, byId), target)
+        ...takersOf("parent", parentTypes(expected, byId ? "childById" : "child"), target)
       ]
     }
   }
@@ -2106,7 +2130,7 @@ const runLines = (r: Runnable) => {
   const go = r.types.external === "never" ? [] : ["{ _tag: 'Go' }"]
   const parent = (name: string, byId: boolean, wrapped: ReadonlyArray<string>) => [
     `  const ${name} = (() => {`,
-    ...parentLines(byId, "made", r.types, false, true),
+    ...parentLines(byId ? "childById" : "child", "made", r.types, false, true),
     "    return parent",
     "  })()",
     `  const ${name}Played = played<typeof ${name}>('${r.id}/${

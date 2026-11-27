@@ -27,7 +27,7 @@ import { program } from "./compose.ts"
 import { CompositionDefect, defect, type DefectSite, InvariantDefect, ProgramDefect } from "./defect.ts"
 import { forwardTo } from "./dispatch.ts"
 import type { Applied, Ignored, Origin, RunOptions } from "./engine.ts"
-import type { Program } from "./program.ts"
+import type { FlagsOption, Program } from "./program.ts"
 import { type App, start, type Started } from "./run.ts"
 import type { Subscription } from "./subscription.ts"
 import { reject, type Step } from "./update.ts"
@@ -692,6 +692,9 @@ describe("the run", () => {
     expect(() => start(seeded, {})).toBeDefined()
     // @ts-expect-error: it starts without flags.
     expect(() => start(counter, { flags: 5 })).toBeDefined()
+    // What the compiler prints where they are given: the rule, which `drive` and `rehearse` read too.
+    expectTypeOf<keyof NonNullable<FlagsOption<never>["flags"]>>()
+      .toEqualTypeOf<"a program is given flags only where its types name them">()
   })
 
   test("a program written as a plain object needs a runCommand only for commands it has", async () => {
@@ -1165,7 +1168,7 @@ describe("defects", () => {
       () =>
         steppedOnce(
           start(
-            Parent.withChildren({ Child: Parent.child(plain, { there: (state) => once(state) && boom() }) })
+            Parent.withChildren({ Child: Parent.childWhen(plain, { there: (state) => once(state) && boom() }) })
               .make({ ...counted, makeModel: () => null })
           )
         )
@@ -1243,7 +1246,7 @@ describe("defects", () => {
       () =>
         steppedOnce(
           start(
-            Parent.withChildren({ Child: Parent.child(listing, { there: once }) })
+            Parent.withChildren({ Child: Parent.childWhen(listing, { there: once }) })
               .make({ ...counted, makeModel: () => null })
           )
         )
@@ -1267,7 +1270,7 @@ describe("defects", () => {
       () =>
         steppedOnce(
           start(
-            Parent.withChildren({ Child: Parent.child(drawing, { there: once }) })
+            Parent.withChildren({ Child: Parent.childWhen(drawing, { there: once }) })
               .make({ ...counted, makeModel: (_, children) => Opt.isSome(children.Child()) })
           )
         )
@@ -1289,7 +1292,7 @@ describe("defects", () => {
       () =>
         steppedOnce(
           start(
-            Parent.withChildren({ Child: Parent.child(subscribing, { there: once }) })
+            Parent.withChildren({ Child: Parent.childWhen(subscribing, { there: once }) })
               .make({ ...counted, makeModel: () => null })
           )
         )
@@ -1300,7 +1303,7 @@ describe("defects", () => {
       () =>
         steppedOnce(
           start(
-            Parent.withChildren({ Child: Parent.child(commanding, { there: once }) })
+            Parent.withChildren({ Child: Parent.childWhen(commanding, { there: once }) })
               .make({ ...counted, makeModel: () => null })
           )
         )
@@ -1323,7 +1326,7 @@ describe("defects", () => {
       () =>
         startedAtOne(
           start(
-            Flagged.withChildren({ Child: Flagged.child(plain, { there: (state) => once(state) && boom() }) })
+            Flagged.withChildren({ Child: Flagged.childWhen(plain, { there: (state) => once(state) && boom() }) })
               .make({ init: (count) => ({ state: { count } }), makeModel: () => null }),
             { flags: 1 }
           )
@@ -1517,7 +1520,7 @@ describe("defects", () => {
         () =>
           diedIn(
             start(
-              Desk.withChildren({ Leaf: Desk.child(quiet, { there: (state) => state.step === 1 ? boom() : true }) })
+              Desk.withChildren({ Leaf: Desk.childWhen(quiet, { there: (state) => state.step === 1 ? boom() : true }) })
                 .make({ init: initial, update: next, makeModel: () => null })
             ),
             "Next"
@@ -1569,7 +1572,7 @@ describe("defects", () => {
           diedIn(
             start(
               Desk.withChildren({
-                Leaf: Desk.child(flagged((flags) => flags.on ? boom() : { state: flags }), {
+                Leaf: Desk.childWhen(flagged((flags) => flags.on ? boom() : { state: flags }), {
                   there: (state) => Opt.some({ on: state.step === 1 })
                 })
               }).make({ init: initial, update: next, makeModel: () => null })

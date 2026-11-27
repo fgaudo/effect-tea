@@ -58,9 +58,8 @@ const expectedSpellings = 13
 const misprintBound = 7000
 
 // What is wrong in what a consumer's TypeScript prints of the errors of `misprint.ts`, as the lines to print. The error
-// of the child's options says the type that `flags` takes: TypeScript 7 prints the last overload alone, whose form,
-// before step 111, said that `flags` takes `never`. TypeScript 5.9 and 6.0 print every overload, with its program,
-// which the count of programs and the bound leave out.
+// of the child's options is one, at the option, which says the type that `flags` takes, and names no overload: before
+// step 114, `child` had three, and TypeScript 5.9 and 6.0 printed each, with its program.
 const misprintProblemsOf = (printed: string, source: string) => {
   const problems: Array<string> = []
   const errors = printed.match(/^misprint\.ts\(\d+,\d+\): error TS\d+:/gm)?.length ?? 0
@@ -70,14 +69,14 @@ const misprintProblemsOf = (printed: string, source: string) => {
   }
   const line = source.split("\n").findIndex((text) => text.startsWith("export const greeted"))
   const blocks = printed.split(/^(?=misprint\.ts\()/m)
-  const isGreeted = (block: string) => block.startsWith(`misprint.ts(${line + 1},`)
-  if (!blocks.some((block) => isGreeted(block) && /'Option<number>' is not assignable to type 'number'/.test(block))) {
-    problems.push("misprint.ts prints no error of greeted that says the type its flags take")
+  const greeted = blocks.filter((block) => block.startsWith(`misprint.ts(${line + 1},`))
+  const said = greeted.length === 1 && /'Option<number>' is not assignable to type 'number'/.test(greeted[0] ?? "")
+  if (!said || /overload/i.test(greeted[0] ?? "")) {
+    problems.push("misprint.ts prints of greeted no one error, with no overload, that says the type its flags take")
   }
-  const rest = blocks.filter((block) => !isGreeted(block)).join("")
-  const programs = rest.match(/\bProgram</g)?.length ?? 0
+  const programs = printed.match(/\bProgram</g)?.length ?? 0
   if (programs > 0) problems.push(`misprint.ts prints a program ${programs} times`)
-  const bytes = new TextEncoder().encode(rest).length
+  const bytes = new TextEncoder().encode(printed).length
   if (bytes > misprintBound) problems.push(`misprint.ts prints ${bytes} bytes, more than ${misprintBound}`)
   return problems
 }

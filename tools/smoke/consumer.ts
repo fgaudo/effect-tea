@@ -81,7 +81,7 @@ type State = Readonly<{
 type ResetAll = Readonly<{ _tag: "ResetAll" }>
 
 // Exported, as a module that declares a program for others: its declarations name the types of `program`.
-export const { child, childById, make, withChildren } = program<{ state: State; message: ResetAll }>()
+export const { child, childById, childWhen, make, withChildren } = program<{ state: State; message: ResetAll }>()
 
 // A child that names no external message, which `nodenext` checks without `exactOptionalPropertyTypes`.
 export const quiet = program<{ state: CounterState; model: CounterState; message: Readonly<{ _tag: "Increment" }> }>()
@@ -91,21 +91,27 @@ export const quiet = program<{ state: CounterState; model: CounterState; message
     makeModel: (state) => state
   })
 
-// Exported, as a package that publishes a program would: its declarations name what `child` and `childById` give. A
-// child always there, children by id, told a literal as each starts, a child started again on another key, one there in
-// some states, one with flags there in some states, and one with flags always there.
+// Exported, as a package that publishes a program would: its declarations name what `child`, `childWhen` and
+// `childById` give. A child always there, children by id, told a literal as each starts, a child started again on
+// another key, one there in some states, one with flags there in some states, and one with flags always there.
 export const children = {
   Main: child(counter),
   Row: childById(counter, { ids: (state) => state.ids, listening: (_, id) => id > 0, tell: () => ({ _tag: "Reset" }) }),
   Keyed: child(quiet, { key: (state) => state.fulls }),
-  Shown: child(quiet, { there: (state) => state.fulls > 0, listening: (state) => state.fulls < 10 }),
-  Greeter: child(greeter, { there: (state) => state.opened }),
+  Shown: childWhen(quiet, { there: (state) => state.fulls > 0, listening: (state) => state.fulls < 10 }),
+  Greeter: childWhen(greeter, { there: (state) => state.opened }),
   Started: child(greeter, { flags: (state) => state.fulls })
 }
 
 // A child with flags always there is given them, not an `Option` of them.
 // @ts-expect-error
 child(greeter, { flags: (state) => state.opened })
+// A child that may not be there is declared with `childWhen`, not with `child`.
+// @ts-expect-error
+child(quiet, { there: (state) => state.fulls > 0 })
+// Children by id are listed by a function, which is not missing where optional properties take `undefined`.
+// @ts-expect-error
+childById(counter, { ids: undefined })
 
 // A child is what `child` makes: an object written as one is none, with the member that `child` writes or without it.
 const written = { _tag: "Child", program: counter, there: "always", key: () => Opt.some(undefined) } as const

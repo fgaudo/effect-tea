@@ -24,9 +24,9 @@ judged as "What belongs here" in `AGENTS.md` says. An export removed or refused 
 - A `*.test.ts` next to the module, through behaviour. A new guarantee of "Guarantees" gets a property in
   `src/interleaving.test.ts`.
 - A change of the signature of a function that takes a program (`start`, `drive`, `rehearse`, `simulate`, `child`,
-  `childById`) or a message (a `Dispatch`, `forwardTo`, `send`, `hear`, `simulate`, `applyAll`), or of the types of
-  `program.ts` or `compose.ts`, runs `bun run inference` and `bun run inference --run`. A new function that takes a
-  program goes in its `uses`, one that takes a message in its `takers` (`tools/inference/generate.ts`).
+  `childWhen`, `childById`) or a message (a `Dispatch`, `forwardTo`, `send`, `hear`, `simulate`, `applyAll`), or of the
+  types of `program.ts` or `compose.ts`, runs `bun run inference` and `bun run inference --run`. A new function that
+  takes a program goes in its `uses`, one that takes a message in its `takers` (`tools/inference/generate.ts`).
 - A check added to the types of `program.ts` or `compose.ts` gets a test of the types that refuses what it refuses,
   written as a user writes, and seen to fail without the check. It refuses what a program written as the guide and the
   doc comments teach could get wrong, and no more (`AGENTS.md`, "Deciding", value 2).

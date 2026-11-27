@@ -92,7 +92,9 @@ type Field<T, K extends string> = T extends {
 
 // @public
 type FlagsOption<Flags> = [Flags] extends [never] ? {
-    readonly flags?: never;
+    readonly flags?: {
+        readonly "a program is given flags only where its types name them": never;
+    };
 } : {
     readonly flags: Flags;
 };

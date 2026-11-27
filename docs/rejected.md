@@ -251,19 +251,18 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   `as const`. The owner chose `withChildren(children).make(config)`
   ([`kept-children.md`](records/kept-children.md), "Decided, under the store"). _Reopen if_ TypeScript keeps the literal
   types of a return inferred against a contextual type that holds a type parameter being inferred.
-- **`child` with one signature**, whose `There` is read from what `there` returns. Spiked in step 111, 27 November
-  2026: its errors were the best, but the types read the form from what `there` may be, and the run from what it is:
-  options of either form, or that may be `undefined`, were typed as a child that may not be there and ran as one always
-  there. `child` keeps its two overloads, and a last one, for options of either form, whose error is the compiler's
-  report and whose result `withChildren` refuses. _Reopen if_ the run can tell the form of a child from the types of
-  its declaration.
-- **A property that says what to write, in place of `flags?: never` and `there?: never`.** Reasoned in step 111: the
-  compiler still reports the last overload, so `flags` of a wrong type for a child always there would print the message
-  of the other form. _Reopen if_ TypeScript reports a failed overloaded call against the overload meant.
-- **`childById` with one signature.** Spiked in step 111, 27 November 2026: under a conditional type of its two forms
-  the `Id` of `ids` does not reach `listening`, which takes `any` in the children of `withChildren`, as a rest parameter
-  `unknown` outside them. Its two overloads stay, and a call that matches neither still reports the last, which step 114
-  of `ROADMAP.md` takes up. _Reopen if_ TypeScript infers a type parameter through a conditional type over another one.
+- **A child alone, always there or not, declared by one function, and children by id by overloads or by a conditional
+  type of their two forms.** Spiked in steps 111 and 114, 27 November 2026, with TypeScript 5.9, 6.0 and 7.0. One
+  `child`, whose form is read from what `there` returns, types options of either form, or that may be `undefined`, as
+  a child that may not be there, and runs it as one always there. Its overloads print the error of the last one, at
+  the option of the other form, and a last overload whose result is no child is a refusal at `withChildren`. Under a
+  conditional type of the two forms of `childById`, the `Id` of `ids` does not reach `listening`, which takes `any`
+  among the children of `withChildren`; a refusal of the other list typed `never` loses it too. Step 114 gave each
+  form of a child alone a function, `child` and `childWhen`, read by the run from the function called, and
+  `childById` one signature, whose lists are optional in a type that holds `Id` and whose conditional over `P` alone
+  makes one required. An option of the other form is refused by a member that says what to write. _Reopen if_ the run
+  can tell the form of a child from the types of its declaration, or TypeScript reports a failed overloaded call
+  against the overload meant.
 - **External messages answered by `update`**, so that a program has one function of its messages. Reasoned, 20
   November 2026 ([`external-handler.md`](records/external-handler.md)), and weighed again in step 61, by the values: a
   `tell` that `update` may reject ends in silence, or `reject` comes to mean a defect there (values 1 and 2), where

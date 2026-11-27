@@ -178,7 +178,9 @@ export type Init<State, Command, Flags> = [Flags] extends [never] ? Step<State, 
  * @group Types of the signatures
  * @see The guide, "Anatomy of a program".
  */
-export type FlagsOption<Flags> = [Flags] extends [never] ? { readonly flags?: never }
+// Without flags, `flags` is typed by the rule that says what to write, as `Refused` of `compose.ts` says.
+export type FlagsOption<Flags> = [Flags] extends [never]
+  ? { readonly flags?: { readonly "a program is given flags only where its types name them": never } }
   : { readonly flags: Flags }
 
 // A program's pieces, of the types given in a row. Kept to this module: the API and the rest of the library name a

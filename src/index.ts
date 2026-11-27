@@ -18,6 +18,7 @@ export {
   type DeclareChild,
   type DeclareChildById,
   type DeclareChildren,
+  type DeclareChildWhen,
   type Instance,
   type Kept,
   type MakeParent,

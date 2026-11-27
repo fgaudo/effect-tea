@@ -8,13 +8,13 @@ import * as Clock from "./clock.ts"
 /** The parent's own state: whether About is open, and what it was opened with. */
 export type Own = Readonly<{ about: Opt.Option<About.Flags> }>
 
-const { child, withChildren } = program<{ state: Own }>()
+const { child, childWhen, withChildren } = program<{ state: Own }>()
 
 export const app = withChildren({
   // Always there. Hidden under About, the Clock keeps its state but stops ticking.
   Clock: child(Clock.clock, { listening: (state) => Opt.isNone(state.about) }),
   // There while the state gives its flags, and started from them.
-  About: child(About.about, { there: (state) => state.about })
+  About: childWhen(About.about, { there: (state) => state.about })
 }).make({
   init: { state: { about: Opt.none() } },
   onEvent: {

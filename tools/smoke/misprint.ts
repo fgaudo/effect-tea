@@ -68,5 +68,5 @@ declare const outputs: OutputsOf<typeof told>
 export const reading: number = outputs
 
 // A child with flags given an `Option` of them, as a child that may not be there is given them by `there`: `smoke.ts`
-// holds that the error says the type that `flags` takes.
+// holds that the error is one, which says the type that `flags` takes.
 export const greeted = treeOf.child(greeter, { flags: (state) => Opt.some(state.n) })

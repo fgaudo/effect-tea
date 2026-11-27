@@ -24,13 +24,13 @@ Here is an app of two pages, a clock and an about page. It is [`pages`](../../ex
 ```ts
 type Own = Readonly<{ about: Opt.Option<About.Flags> }>
 
-const { child, withChildren } = program<{ state: Own }>()
+const { child, childWhen, withChildren } = program<{ state: Own }>()
 
 export const app = withChildren({
   // Always there. Hidden under About, the Clock keeps its state but stops ticking.
   Clock: child(Clock.clock, { listening: (state) => Opt.isNone(state.about) }),
   // There while the state gives its flags, and started from them.
-  About: child(About.about, { there: (state) => state.about })
+  About: childWhen(About.about, { there: (state) => state.about })
 }).make({
   init: { state: { about: Opt.none() } },
   onEvent: {
@@ -62,10 +62,9 @@ of what it returns, of `forwardTo` and of `CompositionDefect`.
 A parent declares each child by name, in `withChildren`, with functions of the parent's own state.
 
 - **`child(program)` is always there.**
-- **`child(program, { there })`** is there in the states where `there` holds. Its model is an `Option`.
+- **`childWhen(program, { there })`** is there in the states where `there` holds. Its model is an `Option`.
 - **A program that has flags starts from them.** `child(program, { flags })` is always there, and `flags` gives its
-  flags in each state. `child(program, { there })` is there in the states where `there` gives `Some` of them, and
-  its model is an `Option`.
+  flags in each state. `childWhen(program, { there })` is there in the states where `there` gives `Some` of them.
 - **`key`** gives a value from the parent's state, for a child without flags: `child(program, { key })`.
 - **A child that the state no longer lists is dropped.** Its state is gone, its subscriptions stop, and a message for
   it is rejected. A child that a later state lists again starts again, from its `init`.
@@ -186,7 +185,7 @@ old ones keep the old handlers. Neither is needed where each state is drawn befo
 package's bridges in a browser. [`react-native`](../../examples/react-native/views.tsx) gives both to a page started at
 each visit.
 
-**Read a child declared with `there` as one `Option`.** Its model, its instance and its output are `Option`s of one
+**Read a child declared with `childWhen` as one `Option`.** Its model, its instance and its output are `Option`s of one
 fact: `Opt.all` makes them one, as [`notes.ts`](../../examples/react-native/notes.ts) does in `makeModel`, and a
 piece that reads one of them alone needs none. Where a case of the parent's state holds more than that the child is
 there, as the index of the note open, the case and the child go together: a parent's children are those its state

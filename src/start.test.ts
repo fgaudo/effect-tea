@@ -307,7 +307,7 @@ describe("a program whose start throws", () => {
     [
       "options",
       () =>
-        Unflagged.withChildren({ Leaf: Unflagged.child(leaf, { there: () => defect("no child starts") }) }).make({
+        Unflagged.withChildren({ Leaf: Unflagged.childWhen(leaf, { there: () => defect("no child starts") }) }).make({
           init: { state: { on: true } },
           makeModel: () => null
         })
@@ -315,7 +315,7 @@ describe("a program whose start throws", () => {
     [
       "own init, from its flags",
       () =>
-        Unflagged.withChildren({ Leaf: Unflagged.child(seeded, { there: () => Opt.some(true) }) }).make({
+        Unflagged.withChildren({ Leaf: Unflagged.childWhen(seeded, { there: () => Opt.some(true) }) }).make({
           init: { state: { on: true } },
           makeModel: () => null
         })

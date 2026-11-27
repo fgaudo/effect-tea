@@ -155,7 +155,7 @@ const Parent = program<{ state: ParentState; message: Reset }>()
 
 const app = Parent.withChildren({
   Left: Parent.child(counter),
-  Right: Parent.child(counter, { there: (state) => state.right }),
+  Right: Parent.childWhen(counter, { there: (state) => state.right }),
   // Listens only while the right counter is there.
   Ticker: Parent.child(ticker, { listening: (state) => state.right })
 }).make({
@@ -430,7 +430,7 @@ describe("compose", () => {
 
   test("a child without listening listens whenever it is there", () => {
     const Maybe = program<{ state: Readonly<{ ticking: boolean }> }>()
-    const maybe = Maybe.withChildren({ Ticker: Maybe.child(ticker, { there: (state) => state.ticking }) }).make({
+    const maybe = Maybe.withChildren({ Ticker: Maybe.childWhen(ticker, { there: (state) => state.ticking }) }).make({
       init: { state: { ticking: false } },
       makeModel: () => null
     })
@@ -464,7 +464,7 @@ describe("compose", () => {
     const Shown = program<{ state: Shown; message: Toggle }>()
     const toggling = Shown.withChildren({
       Left: Shown.child(counter),
-      Right: Shown.child(counter, { there: (state) => state.right })
+      Right: Shown.childWhen(counter, { there: (state) => state.right })
     }).make({
       init: { state: { right: true } },
       update: () => (state) => ({ state: { right: !state.right } }),
@@ -490,7 +490,7 @@ describe("compose", () => {
   test("a child started again on the very same state makes its own keys, under its new instance", () => {
     type Shown = Readonly<{ shown: boolean }>
     const Shown = program<{ state: Shown; message: "Toggled" }>()
-    const toggling = Shown.withChildren({ Ticker: Shown.child(ticker, { there: (state) => state.shown }) }).make({
+    const toggling = Shown.withChildren({ Ticker: Shown.childWhen(ticker, { there: (state) => state.shown }) }).make({
       init: { state: { shown: true } },
       update: () => (state) => ({ state: { shown: !state.shown } }),
       makeModel: () => null
@@ -840,7 +840,7 @@ type SingleMessage =
 const Single = program<{ state: Single; message: SingleMessage }>()
 
 const single = Single.withChildren({
-  One: Single.child(loader, { there: (state) => state.open, key: (state) => ({ generation: state.generation }) })
+  One: Single.childWhen(loader, { there: (state) => state.open, key: (state) => ({ generation: state.generation }) })
 }).make({
   init: { state: { open: false, generation: 0, notes: 0 } },
   update: (message) => (state) => {
@@ -922,7 +922,7 @@ describe("the instance of a child", () => {
   const Shown = program<{ state: Shown; message: ShownMessage }>()
   const shown = Shown.withChildren({
     Always: Shown.child(loader),
-    Maybe: Shown.child(loader, { there: (state) => state.open }),
+    Maybe: Shown.childWhen(loader, { there: (state) => state.open }),
     Each: Shown.childById(loader, { ids: (state) => state.ids })
   }).make({
     init: { state: { open: true, ids: [7] } },
@@ -1164,7 +1164,7 @@ describe("the children that the library keeps", () => {
     type Seeds = Readonly<{ seed: number; turn: number }>
     const Seeds = program<{ state: Seeds; message: "Turned" | "Reseeded" }>()
     const seeds = Seeds.withChildren({
-      Seeded: Seeds.child(seeded, { there: (state) => Opt.some({ seed: state.seed }) })
+      Seeded: Seeds.childWhen(seeded, { there: (state) => Opt.some({ seed: state.seed }) })
     }).make({
       init: { state: { seed: 1, turn: 0 } },
       update: (message) => (state) =>
@@ -1514,7 +1514,7 @@ describe("what a declaration tells its children", () => {
     type Alone = Readonly<{ open: Opt.Option<number>; condition: string }>
     const Alone = program<{ state: Alone; message: "Opened" | "Reopened" }>()
     const app = Alone.withChildren({
-      Kid: Alone.child(hearing, {
+      Kid: Alone.childWhen(hearing, {
         there: (state) => Opt.isSome(state.open),
         key: (state) => state.open,
         tell: (state) => ({ _tag: "Cond", value: state.condition })
@@ -1596,7 +1596,7 @@ describe("what a declaration tells its children", () => {
     // The same, where a step of its own parent starts it: the defect is of that step.
     const Outer = program<{ state: Readonly<{ open: boolean }>; message: "Opened"; event: "Up" }>()
     const outer = Outer.withChildren({
-      Inner: Outer.child(raising(start), { there: (state) => state.open ? Opt.some("b") : Opt.none() })
+      Inner: Outer.childWhen(raising(start), { there: (state) => state.open ? Opt.some("b") : Opt.none() })
     }).make({
       init: { state: { open: false } },
       update: () => () => ({ state: { open: true } }),
@@ -1749,7 +1749,7 @@ describe("what a declaration tells its children, over random histories", () => {
       flags: (state) => state.kids,
       tell: (state) => ({ _tag: "Cond", value: kidValue(state) })
     }),
-    Solo: Scripted.child(hearing, {
+    Solo: Scripted.childWhen(hearing, {
       there: (state) => state.solo,
       tell: (state) => ({ _tag: "Cond", value: soloValue(state) })
     })
@@ -1876,7 +1876,7 @@ describe("what a parent reads of its children", () => {
   const Room = program<{ state: Room; message: Look; external: Look; output: number }>()
   const room = Room.withChildren({
     Ceiling: Room.child(lamp),
-    Desk: Room.child(lamp, { there: (state) => state.desk }),
+    Desk: Room.childWhen(lamp, { there: (state) => state.desk }),
     Wall: Room.childById(lamp, { ids: (state) => state.lamps })
   }).make({
     init: { state: { seen: [], lamps: [1, 2], desk: false } },
@@ -2237,7 +2237,7 @@ describe("what a parent reads of its children", () => {
       }
     })
     const Shelf = program<{ state: Readonly<{ lit: boolean }>; message: "Looked" }>()
-    const shelf = Shelf.withChildren({ Bulb: Shelf.child(broken, { there: (state) => state.lit }) }).make({
+    const shelf = Shelf.withChildren({ Bulb: Shelf.childWhen(broken, { there: (state) => state.lit }) }).make({
       init: { state: { lit: true } },
       update: (_, children) => () => ({ state: { lit: Opt.isSome(children.Bulb.output()) } }),
       makeModel: (_, children) => children.Bulb()
@@ -2325,7 +2325,7 @@ describe("what a parent can do with a child", () => {
   }
   type Pages = Readonly<{ page: boolean }>
   const Pages = program<{ state: Pages; message: BackPressed }>()
-  const pages = Pages.withChildren({ Page: Pages.child(page, { there: (state) => state.page }) }).make({
+  const pages = Pages.withChildren({ Page: Pages.childWhen(page, { there: (state) => state.page }) }).make({
     init: { state: { page: true } },
     update: (message) => (state) => ({ state, tell: [{ _tag: "Page", message }] }),
     onEvent: { Page: () => () => ({ state: { page: false } }) },
@@ -2712,7 +2712,7 @@ describe("flags", () => {
   type Seed = Readonly<{ _tag: "Seed"; count: number }>
   const Seeds = program<{ state: Seeds; message: Seed }>()
   const seeds = Seeds.withChildren({
-    Seeded: Seeds.child(seeded, { there: (state) => state.seed }),
+    Seeded: Seeds.childWhen(seeded, { there: (state) => state.seed }),
     Rows: Seeds.childById(seeded, { flags: (state) => state.rows })
   }).make({
     init: { state: { seed: Opt.none(), rows: [] } },
@@ -2836,49 +2836,69 @@ describe("flags", () => {
   })
 
   test("a child without flags is declared without them", () => {
-    const { child, childById } = program<{ state: Ticks }>()
+    const { child, childById, childWhen } = program<{ state: Ticks }>()
     // @ts-expect-error: its first step is a value, started from nothing.
     expect(child(ticker, { flags: () => 1 })).toBeDefined()
     // @ts-expect-error: by id too.
     expect(childById(ticker, { flags: (): ReadonlyArray<readonly [number, number]> => [[1, 1]] })).toBeDefined()
     // Options that are no literal: their fields are not checked as fields too many.
     const options = { there: () => true, flags: () => 1 }
-    // @ts-expect-error: nor where it is sometimes there, however its options are written.
-    expect(child(ticker, options)).toBeDefined()
+    // @ts-expect-error: nor where it may not be there, however its options are written.
+    expect(childWhen(ticker, options)).toBeDefined()
   })
 
   test("a child with flags is declared with them", () => {
-    const { child, childById } = program<{ state: Ticks }>()
+    const { child, childById, childWhen } = program<{ state: Ticks }>()
     // @ts-expect-error: it would start without them.
     expect(child(seeded)).toBeDefined()
-    // @ts-expect-error: nor where it is sometimes there, with a `there` that gives no flags.
-    expect(child(seeded, { there: () => true })).toBeDefined()
+    // @ts-expect-error: nor where it may not be there, with a `there` that gives no flags.
+    expect(childWhen(seeded, { there: () => true })).toBeDefined()
     // @ts-expect-error: nor always there, with flags that are an `Option` of them: `there` gives that.
     expect(child(seeded, { flags: () => Opt.some(1) })).toBeDefined()
-    // @ts-expect-error: nor with both: a child is either always there or sometimes.
-    expect(child(seeded, { flags: () => 1, there: () => Opt.some(1) })).toBeDefined()
-    // Options that are no literal: their fields are not checked as fields too many.
-    const both = { flags: () => 1, there: () => Opt.some(1) }
-    // @ts-expect-error: nor with both, however its options are written.
-    expect(child(seeded, both)).toBeDefined()
+    // @ts-expect-error: nor where it may not be there, with flags beside `there`.
+    expect(childWhen(seeded, { flags: () => 1, there: () => Opt.some(1) })).toBeDefined()
     // @ts-expect-error: nor with options that give none.
     expect(child(seeded, { listening: () => true })).toBeDefined()
     // @ts-expect-error: by id neither.
     expect(childById(seeded, { ids: (): ReadonlyArray<number> => [1] })).toBeDefined()
     // @ts-expect-error: nor with options that list neither ids nor flags.
     expect(childById(seeded, { listening: () => true })).toBeDefined()
-    // A child without flags is listed by its ids alone.
-    // @ts-expect-error: it has no flags to start from.
-    expect(childById(ticker, { flags: (): ReadonlyArray<readonly [number, number]> => [[1, 1]] })).toBeDefined()
-    // `listening` takes the id that `ids` gives, inferred from it.
+    const ids = (): ReadonlyArray<number> => [1]
+    const flags = (): ReadonlyArray<readonly [number, number]> => [[1, 1]]
+    // @ts-expect-error: nor with both.
+    expect(childById(seeded, { ids, flags })).toBeDefined()
+    // `listening` takes the id that `ids` gives, inferred from it, and the one that `flags` gives.
     expectTypeOf(childById(ticker, { ids: (state) => (state.ticks > 0 ? [1] : []), listening: (_, id) => id > 0 }))
       .toEqualTypeOf<ChildById<Ticks, number, typeof ticker>>()
+    expectTypeOf(childById(seeded, { flags, listening: (_, id) => id > 0 }))
+      .toEqualTypeOf<ChildById<Ticks, number, typeof seeded>>()
+  })
+
+  test("listening takes the id of children by id among the children of withChildren too", () => {
+    const { childById, withChildren } = program<{ state: Ticks }>()
+    const parent = withChildren({
+      Rows: childById(ticker, {
+        ids: (state) => [state.ticks],
+        listening: (_, id) => {
+          expectTypeOf(id).toEqualTypeOf<number>()
+          return true
+        }
+      }),
+      Seeds: childById(seeded, {
+        flags: (state) => [[String(state.ticks), state.ticks] as const],
+        listening: (_, id) => {
+          expectTypeOf(id).toEqualTypeOf<string>()
+          return true
+        }
+      })
+    })
+    expect(parent).toBeDefined()
   })
 
   test("a child with flags takes no key beside them, and the tell of children by id takes no id", () => {
-    const { child, childById } = program<{ state: Ticks }>()
+    const { child, childById, childWhen } = program<{ state: Ticks }>()
     // @ts-expect-error: other flags start it again: equal flags under another key would not.
-    expect(child(seeded, { there: () => Opt.some(1), key: (state) => state.ticks })).toBeDefined()
+    expect(childWhen(seeded, { there: () => Opt.some(1), key: (state) => state.ticks })).toBeDefined()
     // @ts-expect-error: nor where it is always there.
     expect(child(seeded, { flags: () => 1, key: (state) => state.ticks })).toBeDefined()
     // Options that are no literal: their fields are not checked as fields too many.
@@ -2886,37 +2906,85 @@ describe("flags", () => {
     const keyedSometimes = { there: () => Opt.some(1), key: () => 1 }
     // @ts-expect-error: nor however its options are written, always there…
     expect(child(seeded, keyedAlways)).toBeDefined()
-    // @ts-expect-error: …or sometimes.
-    expect(child(seeded, keyedSometimes)).toBeDefined()
+    // @ts-expect-error: …or not.
+    expect(childWhen(seeded, keyedSometimes)).toBeDefined()
     const ids = (): ReadonlyArray<number> => [1]
     // @ts-expect-error: one value for all the children of the declaration.
     expect(childById(counter, { ids, tell: (_: Ticks, id: number) => (id > 0 ? cleared : cleared) })).toBeDefined()
-    expect([child(seeded, { there: () => Opt.some(1) }), childById(counter, { ids, tell: () => cleared })])
+    expect([childWhen(seeded, { there: () => Opt.some(1) }), childById(counter, { ids, tell: () => cleared })])
       .toHaveLength(2)
   })
 
   test("a child is declared in one form, always there or not", () => {
-    const { child, withChildren } = program<{ state: Ticks }>()
+    const { child, childWhen } = program<{ state: Ticks }>()
     const optionsOf = (open: boolean) => (open ? { there: (state: Ticks) => state.ticks > 0 } : undefined)
     const eitherOf = (open: boolean) => (open ? { there: () => true } : { key: (state: Ticks) => state.ticks })
     const flaggedOf = (open: boolean) => (open ? { there: () => Opt.some(1) } : { flags: () => 1 })
     const seedOf = (open: boolean) => (open ? () => Opt.some(1) : undefined)
-    // @ts-expect-error: options that may be missing would run the child as always there.
-    expect(withChildren({ Kid: child(ticker, optionsOf(true)) })).toBeDefined()
-    // @ts-expect-error: so would options of either form.
-    expect(withChildren({ Kid: child(ticker, eitherOf(true)) })).toBeDefined()
-    // @ts-expect-error: with flags too.
-    expect(withChildren({ Kid: child(seeded, flaggedOf(true)) })).toBeDefined()
-    // @ts-expect-error: and a `there` that may be missing.
-    expect(withChildren({ Kid: child(seeded, { there: seedOf(true) }) })).toBeDefined()
+    // @ts-expect-error: a child always there takes no `there`, in options that may be missing…
+    expect(child(ticker, optionsOf(true))).toBeDefined()
+    // @ts-expect-error: …nor in options of either form…
+    expect(child(ticker, eitherOf(true))).toBeDefined()
+    // @ts-expect-error: …with flags too.
+    expect(child(seeded, flaggedOf(true))).toBeDefined()
+    // @ts-expect-error: and a child that may not be there takes a `there` that is not missing…
+    expect(childWhen(seeded, { there: seedOf(true) })).toBeDefined()
+    // @ts-expect-error: …in options that are not missing…
+    expect(childWhen(ticker, optionsOf(true))).toBeDefined()
+    // @ts-expect-error: …and that give it.
+    expect(childWhen(ticker, { key: (state) => state.ticks })).toBeDefined()
+  })
+
+  test("an option that a declaration does not take says what to write", () => {
+    const { child, childById, childWhen, make, withChildren } = program<{ state: Ticks }>()
+    // What the compiler prints where the option is given.
+    type Rule<Options, K extends string> = keyof NonNullable<NonNullable<Options>[K & keyof NonNullable<Options>]>
+    type Always<P extends AnyProgram> = Parameters<typeof child<P>>[1]
+    type When<P extends AnyProgram> = Parameters<typeof childWhen<P>>[1]
+    type ById<P extends AnyProgram> = Parameters<typeof childById<unknown, P>>[1]
+    expectTypeOf<Rule<Always<typeof ticker>, "there">>()
+      .toEqualTypeOf<"a child that may not be there is declared with childWhen">()
+    expectTypeOf<Rule<Always<typeof seeded>, "there">>()
+      .toEqualTypeOf<"a child that may not be there is declared with childWhen">()
+    expectTypeOf<Rule<Always<typeof ticker>, "flags">>()
+      .toEqualTypeOf<"a child without flags is declared without them">()
+    expectTypeOf<Rule<When<typeof ticker>, "flags">>()
+      .toEqualTypeOf<"a child without flags is declared without them">()
+    expectTypeOf<Rule<When<typeof seeded>, "flags">>()
+      .toEqualTypeOf<"a child that may not be there is given its flags by there">()
+    expectTypeOf<Rule<Always<typeof seeded>, "key">>()
+      .toEqualTypeOf<"a child with flags starts again from other flags, and takes no key">()
+    expectTypeOf<Rule<When<typeof seeded>, "key">>()
+      .toEqualTypeOf<"a child with flags starts again from other flags, and takes no key">()
+    expectTypeOf<Rule<Always<typeof ticker>, "tell">>()
+      .toEqualTypeOf<"a child without external messages is told nothing">()
+    expectTypeOf<Rule<ById<typeof ticker>, "flags">>()
+      .toEqualTypeOf<"a child without flags is declared with its ids">()
+    expectTypeOf<Rule<ById<typeof seeded>, "ids">>()
+      .toEqualTypeOf<"a child with flags is declared with its flags">()
+    // `make` refuses the pieces of what the program does not name, alone or as a parent.
+    const parent = withChildren({ Ticker: child(ticker) })
+    type Pieces = Parameters<typeof make<null>>[0] | Parameters<typeof parent.make<null>>[0]
+    expectTypeOf<Rule<Pieces, "update">>()
+      .toEqualTypeOf<"a program has an update only where its types name messages">()
+    expectTypeOf<Rule<Pieces, "external">>()
+      .toEqualTypeOf<"a program has an external only where its types name external messages">()
+    expectTypeOf<Rule<Pieces, "output">>()
+      .toEqualTypeOf<"a program has an output only where its types name one">()
+    expectTypeOf<Rule<Pieces, "runCommand">>()
+      .toEqualTypeOf<"a program has a runCommand only where its types name commands">()
+    expectTypeOf<Rule<Pieces, "subscriptions">>()
+      .toEqualTypeOf<"a program has subscriptions only where its types name keys">()
+    expectTypeOf<Rule<Pieces, "listen">>()
+      .toEqualTypeOf<"a program has a listen only where its types name keys">()
   })
 
   test("the functions of a child's options take the parent's state, without annotations", () => {
     type Shown = Readonly<{ open: boolean; generation: number; seed: Opt.Option<number> }>
-    const { child } = program<{ state: Shown }>()
-    expectTypeOf(child(ticker, { there: (state) => state.open, key: (state) => state.generation }))
+    const { child, childWhen } = program<{ state: Shown }>()
+    expectTypeOf(childWhen(ticker, { there: (state) => state.open, key: (state) => state.generation }))
       .toEqualTypeOf<Child<Shown, typeof ticker, "sometimes">>()
-    expectTypeOf(child(seeded, { there: (state) => state.seed, listening: (state) => state.open }))
+    expectTypeOf(childWhen(seeded, { there: (state) => state.seed, listening: (state) => state.open }))
       .toEqualTypeOf<Child<Shown, typeof seeded, "sometimes">>()
     expectTypeOf(child(seeded, { flags: (state) => state.generation, listening: (state) => state.open }))
       .toEqualTypeOf<Child<Shown, typeof seeded, "always">>()
@@ -2945,9 +3013,9 @@ describe("a child started again while its command waits", () => {
   type Shown = Readonly<{ open: boolean; generation: number }>
   type Toggle = Readonly<{ _tag: "Opened" }> | Readonly<{ _tag: "Closed" }> | Readonly<{ _tag: "Renewed" }>
   const pageOf = (form: ReturnType<typeof formOf>) => {
-    const { child, withChildren } = program<{ state: Shown; message: Toggle }>()
+    const { childWhen, withChildren } = program<{ state: Shown; message: Toggle }>()
     // There while open, under the generation as its key: another generation, another form, in one step.
-    return withChildren({ Form: child(form, { there: (state) => state.open, key: (state) => state.generation }) })
+    return withChildren({ Form: childWhen(form, { there: (state) => state.open, key: (state) => state.generation }) })
       .make({
         init: { state: { open: false, generation: 0 } },
         update: (message) => (state) => {
@@ -3189,8 +3257,8 @@ describe("what the types reject", () => {
 
   test("a child alone is made only by child, and children by id only by childById", () => {
     type Own = Readonly<{ on: boolean; ids: ReadonlyArray<number> }>
-    // What `child` and `childById` make, written by hand: a child said to be always there whose `key` says it is not,
-    // and children by id of a program with flags, said to be listed without them.
+    // What `child`, `childWhen` and `childById` make, written by hand: a child said to be always there whose `key` says
+    // it is not, and children by id of a program with flags, said to be listed without them.
     const lying = {
       _tag: "Child",
       program: ticker,
@@ -3207,7 +3275,7 @@ describe("what the types reject", () => {
     const alone: Child<Own, typeof ticker, "always"> = lying
     // @ts-expect-error: only `childById` makes children by id.
     const byId: ChildById<Own, number, typeof labelled> = unflagged
-    // The same, under the member that `child` and `childById` write.
+    // The same, under the member that `child`, `childWhen` and `childById` write.
     const keyedAlone = { "~@fgaudo/effect-tea/Child/declaration": lying } as const
     const keyedById = { "~@fgaudo/effect-tea/Child/declaration": unflagged } as const
     // @ts-expect-error: nor is an object that writes the member a child alone.
@@ -3225,7 +3293,7 @@ describe("what the types reject", () => {
     // @ts-expect-error: nor are children by id typed with fewer ids than theirs, which their messages would carry.
     const narrowed: ChildById<Own, 1 | 2, typeof ticker> = numbered
     // @ts-expect-error: nor is a child that may not be there one always there, whose model would be no `Option`.
-    const assumed: Child<Own, typeof ticker, "always"> = Parent.child(ticker, { there: (state) => state.on })
+    const assumed: Child<Own, typeof ticker, "always"> = Parent.childWhen(ticker, { there: (state) => state.on })
     // @ts-expect-error: nor with more ids than theirs, which a parent's functions would read them with.
     const widenedIds: ChildById<Own, number | string, typeof ticker> = numbered
     // @ts-expect-error: nor does a `new` make a child alone.
@@ -3308,7 +3376,7 @@ describe("what the types reject", () => {
       makeModel: (state) => state
     })
     const LOCKED: Locked = { _tag: "LockChanged", locked: true }
-    const { child, childById } = program<{ state: Own }>()
+    const { child, childWhen, childById } = program<{ state: Own }>()
     const ids = (state: Own) => state.ids
     // Literals, with no `as const`: of each form of declaration, a branch for each value, and a value made apart.
     const taken = [
@@ -3325,11 +3393,11 @@ describe("what the types reject", () => {
       }),
       child(lockable, { tell: (state) => ({ _tag: "LockChanged", locked: state.locked }) }),
       child(lockable, { key: (state) => state.ids, tell: (state) => ({ _tag: "LockChanged", locked: state.locked }) }),
-      child(lockable, {
+      childWhen(lockable, {
         there: (state) => state.locked,
         tell: (state) => ({ _tag: "LockChanged", locked: state.locked })
       }),
-      child(flagged, {
+      childWhen(flagged, {
         there: (state) => state.locked ? Opt.some(true) : Opt.none(),
         tell: (state) => ({ _tag: "LockChanged", locked: state.locked })
       }),
@@ -3349,7 +3417,7 @@ describe("what the types reject", () => {
     // @ts-expect-error: and with flags.
     child(flagged, { flags: () => true, tell: () => ({ _tag: "Unlocked" }) })
     // @ts-expect-error: there in some states too.
-    child(flagged, { there: () => Opt.some(true), tell: () => ({ _tag: "Unlocked" }) })
+    childWhen(flagged, { there: () => Opt.some(true), tell: () => ({ _tag: "Unlocked" }) })
     // A child that has no external messages is told nothing.
     const silent = program<{ state: number }>().make({ init: { state: 0 }, makeModel: (state) => state })
     // @ts-expect-error: by id.

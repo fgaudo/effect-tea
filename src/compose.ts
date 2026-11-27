@@ -70,6 +70,11 @@ type Lacking<P> = P extends ProgramChecked<P> ? unknown
 // would then see `P` as `P & ProgramChecked<P>`, the contextual type of a child written in the call.
 type CheckedChild<P> = unknown extends Lacking<P> ? P : P & Lacking<P>
 
+// An option or a piece that a declaration or a program does not take, typed by the rule that says what to write: the
+// compiler prints the rule where it is given. No value has the type, so the run never reads one. Each site writes
+// `Refused<"…">` itself: an alias of one rule would print its own name, not the rule.
+type Refused<Rule extends string> = { readonly [K in Rule]: never }
+
 /**
  * A child that the library keeps: the number of its start, what it was started from, and its state.
  *
@@ -108,21 +113,21 @@ export type Kept<Own, Children> = {
 // A `Child` and a `ChildById` are classes whose constructor is private, and whose one member is `protected`: the types
 // refuse an object written as one, with the member or without it, so that none lies to the library, as a child said to
 // be always there whose `key` gives `None` would. A copy, which `Object.assign` makes and its types take, holds the
-// declaration that `child` or `childById` made, so it cannot lie either. `There` and `Id` are invariant: a child typed
-// as another would read back what it is not.
+// declaration that `child`, `childWhen` or `childById` made, so it cannot lie either. `There` and `Id` are invariant: a
+// child typed as another would read back what it is not.
 const declaration = "~@fgaudo/effect-tea/Child/declaration"
 
 type Declared = { readonly [declaration]: UntypedChild }
 
 /**
- * A child alone: what `child` returns, for `withChildren`.
+ * A child alone: what `child` and `childWhen` return, for `withChildren`.
  *
  * - A child that is always there is there in every state of its parent.
- * - Another child is there in the states its declaration says, and its model is an `Option`.
+ * - A child declared with `childWhen` is there in the states its declaration says, and its model is an `Option`.
  * - Another value of `key`, or other flags, start the child again, as another instance.
  *
- * Only `child` makes one: the types refuse an object written as one, a `new` of it, a class that extends it, and a
- * child always there typed as one that may not be, or the reverse.
+ * Only `child` and `childWhen` make one: the types refuse an object written as one, a `new` of it, a class that extends
+ * it, and a child always there typed as one that may not be, or the reverse.
  *
  * @example
  * ```ts
@@ -183,15 +188,15 @@ type ChildByIdDeclaration<State, Id, P> = {
   readonly tell?: (state: State) => ExternalOf<P>
 }
 
-// How `child` and `childById` make one: the constructor is the class's own.
+// How `child`, `childWhen` and `childById` make one: the constructor is the class's own.
 const declare = (made: typeof Child | typeof ChildById, declared: unknown): unknown =>
   new (made as unknown as new(declared: unknown) => object)(declared)
 
 /** No children: what a program that declares none has. */
 type None = Readonly<Record<never, never>>
 
-// Any program, which `child` and `childById` checked, and only they make a child. `never` ids apart: `any`, invariant,
-// fits every id but `never`.
+// Any program, which `child`, `childWhen` and `childById` checked, and only they make a child. `never` ids apart:
+// `any`, invariant, fits every id but `never`.
 type Children<State> = Readonly<
   Record<string, Child<State, any, any> | ChildById<State, any, any> | ChildById<State, never, any>>
 >
@@ -360,7 +365,8 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
   }>
 
 /** `update` is required exactly when the program names messages of its own, and refused when it names none. */
-type UpdateOf<State, C, Own, Command, Event> = [Own] extends [never] ? Readonly<{ update?: never }>
+type UpdateOf<State, C, Own, Command, Event> = [Own] extends [never]
+  ? Readonly<{ update?: Refused<"a program has an update only where its types name messages"> }>
   : Readonly<{
     /**
      * What the program's own messages do: the step, as a function of its own state, or `reject`.
@@ -377,7 +383,9 @@ type UpdateOf<State, C, Own, Command, Event> = [Own] extends [never] ? Readonly<
  * `external` is required exactly when the program names external messages, and refused when it names none: what its
  * parent sends it is answered in every state.
  */
-type ExternalHandlerOf<State, C, External, Command, Event> = [External] extends [never] ? Readonly<{ external?: never }>
+type ExternalHandlerOf<State, C, External, Command, Event> = [External] extends [never] ? Readonly<{
+    external?: Refused<"a program has an external only where its types name external messages">
+  }>
   : Readonly<{
     /**
      * What each external message does: the step, as a function of the state.
@@ -393,7 +401,8 @@ type ExternalHandlerOf<State, C, External, Command, Event> = [External] extends 
   }>
 
 /** `output` is required exactly when the program names an output, and refused when it names none. */
-type OutputHandlerOf<State, C, Output> = [Output] extends [never] ? Readonly<{ output?: never }>
+type OutputHandlerOf<State, C, Output> = [Output] extends [never]
+  ? Readonly<{ output?: Refused<"a program has an output only where its types name one"> }>
   : Readonly<{
     /**
      * What the program's parent reads of it: a value of its state, as whether a stopwatch runs.
@@ -410,7 +419,8 @@ type OutputHandlerOf<State, C, Output> = [Output] extends [never] ? Readonly<{ o
   }>
 
 /** `runCommand` is required exactly when the program has commands of its own, so that none goes uninterpreted. */
-type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never] ? Readonly<{ runCommand?: never }>
+type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never]
+  ? Readonly<{ runCommand?: Refused<"a program has a runCommand only where its types name commands"> }>
   : Readonly<{
     /**
      * Runs one of the program's own commands.
@@ -447,8 +457,10 @@ type NoKeyClash<OwnKey, C> = [TagsTaken<OwnKey, keyof C & string>] extends [neve
   : { readonly "an own key takes the name of a child": TagsTaken<OwnKey, keyof C & string> }
 
 /** `subscriptions` and `listen` are required exactly when the program names keys of its own. */
-type ListenOf<State, C, OwnKey, Message, Heard> = [OwnKey] extends [never]
-  ? Readonly<{ subscriptions?: never; listen?: never }>
+type ListenOf<State, C, OwnKey, Message, Heard> = [OwnKey] extends [never] ? Readonly<{
+    subscriptions?: Refused<"a program has subscriptions only where its types name keys">
+    listen?: Refused<"a program has a listen only where its types name keys">
+  }>
   : Readonly<{
     /**
      * The keys of the program's own subscriptions in a state, as data, from its own state. A parent takes its
@@ -969,9 +981,9 @@ const make = (children: Readonly<Record<string, Declared>> | undefined, config: 
       const place = placeOf(command)
       if (isChildName(place.name)) {
         const childCommand = field(command, "command")
-        // Unreachable through the types: `child` and `childById` ask for a `runCommand` whenever the child has
-        // commands. Read as it is, not through `runCommandOf`, whose stand-in, `absurd`, would die of an error of its
-        // own: a child that has none is a `CompositionDefect` that names it.
+        // Unreachable through the types: `child`, `childWhen` and `childById` ask for a `runCommand` whenever the child
+        // has commands. Read as it is, not through `runCommandOf`, whose stand-in, `absurd`, would die of an error of
+        // its own: a child that has none is a `CompositionDefect` that names it.
         const run = (childOf(place.name).program as Readonly<{ runCommand?: RunCommand<unknown, unknown, unknown> }>)
           .runCommand
         if (run === undefined) {
@@ -1016,7 +1028,8 @@ const make = (children: Readonly<Record<string, Declared>> | undefined, config: 
       const place = placeOf(key)
       if (isChildName(place.name)) {
         const childKey = field(key, "key")
-        // Unreachable through the types: `child` and `childById` ask for a `listen` whenever the child lists keys.
+        // Unreachable through the types: `child`, `childWhen` and `childById` ask for a `listen` whenever the child
+        // lists keys.
         const listen = (childOf(place.name).program as Readonly<{ listen?: Listen<unknown, unknown, unknown> }>).listen
         if (listen === undefined) {
           throw defectAt(place, `A key of "${place.name}", which has no listen`)
@@ -1110,8 +1123,8 @@ type Inferred = Readonly<{ "the services are inferred, never named": never }>
  * For children by id, each of these also carries the `id`. A message, a command or a key of the parent's own that can
  * take the name of a child does not compile, as one tagged `string` can.
  *
- * @returns `child` and `childById`, which declare a child alone and children by id, `withChildren`, which takes the
- * children of a parent, and `make`, which makes a program without children.
+ * @returns `child`, `childWhen` and `childById`, which declare a child alone, always there or not, and children by
+ * id, `withChildren`, which takes the children of a parent, and `make`, which makes a program without children.
  *
  * @example
  * ```ts
@@ -1141,27 +1154,50 @@ export const program = <T extends DeclaredTypes>(): ProgramMaker<T> =>
       program: AnyProgram,
       options: Readonly<{
         flags?: (state: unknown) => unknown
-        there?: (state: unknown) => boolean | Opt.Option<unknown>
         key?: (state: unknown) => unknown
         listening?: (state: unknown) => boolean
         tell?: (state: unknown) => unknown
       }> = {}
     ) => {
-      const { flags, key, listening, tell, there } = options
-      const keyed = key === undefined ? () => present : (state: unknown) => Opt.some(key(state))
+      const { flags, key, listening, tell } = options
       return declare(Child, {
         _tag: "Child",
         program,
-        there: there === undefined ? "always" : "sometimes",
+        there: "always",
         key: flags !== undefined
           ? (state: unknown) => Opt.some(flags(state))
-          : there === undefined
-          ? keyed
-          : (state: unknown) => {
-            // A program with flags gives them in `there`, an `Option`; one without gives a boolean.
-            const given = there(state)
-            return Opt.isOption(given) ? given : given ? keyed(state) : Opt.none()
-          },
+          : key === undefined
+          ? () => present
+          : (state: unknown) => Opt.some(key(state)),
+        ...(listening === undefined ? {} : { listening }),
+        ...(tell === undefined ? {} : { tell })
+      })
+    },
+    childWhen: (
+      program: AnyProgram,
+      options: Readonly<{
+        there: (state: unknown) => boolean | Opt.Option<unknown>
+        key?: (state: unknown) => unknown
+        listening?: (state: unknown) => boolean
+        tell?: (state: unknown) => unknown
+      }>
+    ) => {
+      const { key, listening, tell, there } = options
+      return declare(Child, {
+        _tag: "Child",
+        program,
+        there: "sometimes",
+        key: (state: unknown) => {
+          // A program with flags gives them in `there`, an `Option`; one without gives a boolean.
+          const given = there(state)
+          return Opt.isOption(given)
+            ? given
+            : !given
+            ? Opt.none()
+            : key === undefined
+            ? present
+            : Opt.some(key(state))
+        },
         ...(listening === undefined ? {} : { listening }),
         ...(tell === undefined ? {} : { tell })
       })
@@ -1203,25 +1239,48 @@ type Named<T, K extends "model", Inferred> = T extends { readonly [P in K]: infe
  */
 export interface ProgramMaker<T extends DeclaredTypes> {
   /**
-   * Declares a child alone.
+   * Declares a child alone that is always there.
    *
-   * - `child(program)` is always there, and so is `child(program, { key })`, which starts again where `key` gives
-   *   another value, compared with `Equal`.
-   * - `child(program, { there })` is there in the states where `there` holds, and `key` may be given beside it.
-   * - A child with flags starts from them, and other flags, by `Equal`, start it again. `child(program, { flags })`
-   *   is always there, and `flags` gives its flags. `child(program, { there })` is there where `there` gives `Some` of
-   *   its flags. It has no `key` beside them, so it does not start again from equal flags.
-   * - `listening` says in which states its subscriptions run. Without it, they run whenever the child is there.
+   * - `child(program)` is there in every state of its parent, and so is `child(program, { key })`, which starts again
+   *   where `key` gives another value, compared with `Equal`.
+   * - A child with flags starts from them, and other flags, by `Equal`, start it again: `child(program, { flags })`,
+   *   where `flags` gives its flags. It has no `key` beside them, so it does not start again from equal flags.
+   * - `listening` says in which states its subscriptions run. Without it, they run in every state.
    * - `tell` gives, from the parent's state, an external message that the child is told: as it starts, in the first
    *   state too, and after a step of the parent's own only where it gives another value, by `Equal`, than the one it
    *   last told the child, apart from what a step lists in `tell`. It does not compile for a child without external
    *   messages, nor for a message that is not one of the child's.
    *
-   * A program with flags is declared with `flags`, or with a `there` that gives them, and one without flags is
-   * declared without them. A child written as an object, and not typed `Program<…>`, is checked as a program is: one
-   * whose steps list commands has a `runCommand`, and one whose subscriptions list keys has a `listen`. Each of these
-   * does not compile otherwise. Nor does `child` for a type parameter, as `P` in `<P extends AnyProgram>(p: P) => …`:
-   * a function over any program is an overload, whose body declares a program of `unknown` types.
+   * A program with flags is declared with `flags`, and one without flags is declared without them. A child that may
+   * not be there is declared with `childWhen`: `child` does not compile with `there`. A child written as an object, and
+   * not typed `Program<…>`, is checked as a program is: one whose steps list commands has a `runCommand`, and one whose
+   * subscriptions list keys has a `listen`. Each of these does not compile otherwise. Nor does `child` for a type
+   * parameter, as `P` in `<P extends AnyProgram>(p: P) => …`: a function over any program is an overload, whose body
+   * declares a program of `unknown` types.
+   *
+   * @param program - The child.
+   * @param options - What it starts from, when it listens and what it is told: functions of the parent's own state.
+   * @returns The child, for `withChildren`.
+   *
+   * @example
+   * ```ts
+   * Clock: child(clock),
+   * ```
+   *
+   * @see The guide, "Composition".
+   */
+  readonly child: DeclareChild<T>
+  /**
+   * Declares a child alone that may not be there: its model, its instance and its output are an `Option`.
+   *
+   * - `childWhen(program, { there })` is there in the states where `there` holds, and `key` may be given beside it,
+   *   as `child` takes it.
+   * - A child with flags is there where `there` gives `Some` of its flags, and other flags start it again. It has no
+   *   `key` beside them.
+   * - `listening` says in which states its subscriptions run. Without it, they run whenever the child is there.
+   * - `tell` is that of `child`.
+   *
+   * It takes `there`, and does not compile without it, nor with `flags`. The program is checked as `child` checks it.
    *
    * @param program - The child.
    * @param options - When the child is there, what it starts from, when it listens and what it is told: functions of
@@ -1230,12 +1289,12 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    *
    * @example
    * ```ts
-   * About: child(about, { there: (state) => state.about }),
+   * About: childWhen(about, { there: (state) => state.about }),
    * ```
    *
    * @see The guide, "Composition".
    */
-  readonly child: DeclareChild<T>
+  readonly childWhen: DeclareChildWhen<T>
   /**
    * Declares children told apart by an id, such as the rows of a list, each with a state of its own.
    *
@@ -1326,7 +1385,8 @@ type Telling<State, P> = Readonly<{
    * another value, by `Equal`, than the one it last told the child, apart from what a step lists in `tell`. One value
    * for all the children of the declaration.
    */
-  tell?: [ExternalOf<P>] extends [never] ? never : (state: State) => ExternalOf<P>
+  tell?: [ExternalOf<P>] extends [never] ? Refused<"a child without external messages is told nothing">
+    : (state: State) => ExternalOf<P>
 }>
 
 // A child with flags is declared with them. In the options, and not on the program: inferred from `P & …`, `P` would
@@ -1337,8 +1397,8 @@ type AlwaysOptions<State, P> = [FlagsOf<P>] extends [never] ? [
       & Readonly<{
         /** A value from the parent's state: another value, by `Equal`, starts the child again. */
         key?: (state: State) => unknown
-        there?: never
-        flags?: never
+        there?: Refused<"a child that may not be there is declared with childWhen">
+        flags?: Refused<"a child without flags is declared without them">
       }>
       & Listening<State>
       & Telling<State, P>
@@ -1346,90 +1406,74 @@ type AlwaysOptions<State, P> = [FlagsOf<P>] extends [never] ? [
   : [
     options:
       & Readonly<{
-        /**
-         * The child's flags in a state: other flags, by `Equal`, start it again. A child that may not be there is given
-         * them by `there`.
-         */
+        /** The child's flags in a state: other flags, by `Equal`, start it again. */
         flags: (state: State) => FlagsOf<P>
-        there?: never
-        key?: never
+        there?: Refused<"a child that may not be there is declared with childWhen">
+        key?: Refused<"a child with flags starts again from other flags, and takes no key">
       }>
       & Listening<State>
       & Telling<State, P>
   ]
 
 /** The states where a child that may not be there is there, and what it starts from. */
-type SometimesOptions<State, P> = [FlagsOf<P>] extends [never] ? Readonly<{
-    /** Whether the child is there in a state. */
-    there: (state: State) => boolean
-    /**
-     * A value from the parent's state, in a state where the child is there: another value, by `Equal`, starts the child
-     * again.
-     */
-    key?: (state: State) => unknown
-    flags?: never
-  }>
-  : Readonly<{
-    /** The child's flags in the states where it is there, `None` in the others: other flags start it again. */
-    there: (state: State) => Opt.Option<FlagsOf<P>>
-    flags?: never
-    key?: never
-  }>
+type WhenOptions<State, P> =
+  & ([FlagsOf<P>] extends [never] ? Readonly<{
+      /** Whether the child is there in a state. */
+      there: (state: State) => boolean
+      /**
+       * A value from the parent's state, in a state where the child is there: another value, by `Equal`, starts the
+       * child again.
+       */
+      key?: (state: State) => unknown
+      flags?: Refused<"a child without flags is declared without them">
+    }>
+    : Readonly<{
+      /** The child's flags in the states where it is there, `None` in the others: other flags start it again. */
+      there: (state: State) => Opt.Option<FlagsOf<P>>
+      flags?: Refused<"a child that may not be there is given its flags by there">
+      key?: Refused<"a child with flags starts again from other flags, and takes no key">
+    }>)
+  & Listening<State>
+  & Telling<State, P>
 
-// Two forms, and no conditional type over them: an `Id` inferred from `ids` reaches `listening`, beside it in the same
-// object, only through types that hold it as they are.
-type IdsOptions<State, Id> = Readonly<{
+// Both lists optional in a type that holds `Id` as it is, and the one the program takes made required by a conditional
+// over `P` alone: an `Id` inferred from `ids` reaches `listening`, beside it in the same object, only through types
+// that hold it as they are.
+type ByIdOptions<State, Id, Flags> = Readonly<{
   /** The ids of the children that are there. */
-  ids: (state: State) => Iterable<Id>
-  /** Whether the child at an id listens. Without it, every child does. */
-  listening?: (state: State, id: Id) => boolean
-  flags?: never
-}>
-
-type FlaggedIdsOptions<State, Id, Flags> = Readonly<{
+  ids?: (state: State) => Iterable<Id>
   /** The ids of the children that are there, each with its flags: other flags start the child again. */
-  flags: (state: State) => Iterable<readonly [Id, Flags]>
+  flags?: (state: State) => Iterable<readonly [Id, Flags]>
   /** Whether the child at an id listens. Without it, every child does. */
   listening?: (state: State, id: Id) => boolean
-  ids?: never
 }>
 
 /** A program with flags is declared with them, and one without is declared without. */
-type FlagsChecked<P, Flagged extends boolean> = [FlagsOf<P>] extends [never]
-  ? Flagged extends true ? { readonly "a child without flags is declared with its ids": never } : unknown
-  : Flagged extends true ? unknown
-  : { readonly "a child with flags is declared with its flags": FlagsOf<P> }
-
-// Options of either form, for the last overload of `DeclareChild`: of a call that matches no overload, the compiler
-// reports the last one, and against both forms its error is at the option that is wrong. A call that matches it alone
-// is given options that may be of either form, which the run would tell apart only as it reads them: what it returns is
-// no child, and `withChildren` refuses it.
-type EitherOptions<State, P> = [FlagsOf<P>] extends [never] ? [options?: OneOf<State, P>] : [options: OneOf<State, P>]
-
-type OneOf<State, P> =
-  | Exclude<AlwaysOptions<State, P>[0], undefined>
-  | (SometimesOptions<State, P> & Listening<State> & Telling<State, P>)
+type ByIdForm<P> = [FlagsOf<P>] extends [never]
+  ? Readonly<{ ids: object; flags?: Refused<"a child without flags is declared with its ids"> }>
+  : Readonly<{ flags: object; ids?: Refused<"a child with flags is declared with its flags"> }>
 
 /**
- * The function of `program` that declares a child alone: always there, or there in the states its options say.
+ * The function of `program` that declares a child alone that is always there.
  *
  * @group Types of the signatures
  * @see The guide, "Composition".
  */
-export type DeclareChild<T extends DeclaredTypes> = {
-  <P extends AnyProgram>(
-    program: CheckedChild<P>,
-    ...options: AlwaysOptions<Field<T, "state">, P>
-  ): Child<Field<T, "state">, P, "always">
-  <P extends AnyProgram>(
-    program: CheckedChild<P>,
-    options: SometimesOptions<Field<T, "state">, P> & Listening<Field<T, "state">> & Telling<Field<T, "state">, P>
-  ): Child<Field<T, "state">, P, "sometimes">
-  <P extends AnyProgram>(
-    program: CheckedChild<P>,
-    ...options: EitherOptions<Field<T, "state">, P>
-  ): { readonly "a child is declared in one form, always there or not": never }
-}
+export type DeclareChild<T extends DeclaredTypes> = <P extends AnyProgram>(
+  program: CheckedChild<P>,
+  ...options: AlwaysOptions<Field<T, "state">, P>
+) => Child<Field<T, "state">, P, "always">
+
+/**
+ * The function of `program` that declares a child alone that may not be there.
+ *
+ * @group Types of the signatures
+ * @see The guide, "Composition".
+ */
+export type DeclareChildWhen<T extends DeclaredTypes> = <P extends AnyProgram>(
+  program: CheckedChild<P>,
+  options: WhenOptions<Field<T, "state">, P>
+) => Child<Field<T, "state">, P, "sometimes">
 
 /**
  * The function of `program` that declares children told apart by an id.
@@ -1437,19 +1481,10 @@ export type DeclareChild<T extends DeclaredTypes> = {
  * @group Types of the signatures
  * @see The guide, "Composition".
  */
-export type DeclareChildById<T extends DeclaredTypes> = {
-  <Id, P extends AnyProgram>(
-    program: CheckedChild<P>,
-    options: IdsOptions<Field<T, "state">, Id> & FlagsChecked<P, false> & Telling<Field<T, "state">, P>
-  ): ChildById<Field<T, "state">, Id, P>
-  <Id, P extends AnyProgram>(
-    program: CheckedChild<P>,
-    options:
-      & FlaggedIdsOptions<Field<T, "state">, Id, FlagsOf<P>>
-      & FlagsChecked<P, true>
-      & Telling<Field<T, "state">, P>
-  ): ChildById<Field<T, "state">, Id, P>
-}
+export type DeclareChildById<T extends DeclaredTypes> = <Id, P extends AnyProgram>(
+  program: CheckedChild<P>,
+  options: ByIdOptions<Field<T, "state">, Id, FlagsOf<P>> & ByIdForm<P> & Telling<Field<T, "state">, P>
+) => ChildById<Field<T, "state">, Id, P>
 
 /**
  * The function of `program` that takes a parent's children, and gives its `make`.
