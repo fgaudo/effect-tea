@@ -36,7 +36,12 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
   throws is undefined since 26 November 2026 ("Guarantees", "What is left to you"), so a program that keeps the rule
   cannot see when they are called: that half of the premise (`docs/premises.md`), and "keeps its fibers by their
   start" (`docs/invariants.md`), may serve undefined behaviour alone. What would show it: no test failing with the
-  fibers kept in a `FiberMap` by their keys, but those of an `Equal` that throws.
+  fibers kept in a `FiberMap` by their keys, but those of an `Equal` that throws. Shown, 27 November 2026: with the
+  `FiberMap` of `engine.ts` keyed by `K` (four lines), `typecheck`, `test`, `test:node` and `interleavings` all pass,
+  and no test of the run has a key whose `Equal` throws any more. Taken, it also rewrites the two mutations that name
+  `subscriptionFibers` by its generations, and `Generation` stays, for a message's `Source` and `rehearse`'s ledger.
+  The other half of the premise, a throw that leaves the call, and the premise of `Equal.equals` and `Hash.hash`, serve
+  the same undefined behaviour: weigh whether either is still needed.
 
 ## Next, in order
 
