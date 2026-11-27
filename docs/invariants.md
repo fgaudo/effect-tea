@@ -213,7 +213,9 @@ the engine and in the testing tools.
     releases, which record what they die of as they end. The stop of the fiber of effects has no mutation: the end
     interrupts every fiber at once after it, so only the scheduler of the tests reaches what it keeps. The end never
     begins inside a step: the outermost `apply` holds the register (`hold` of `Deaths`), and a defect recorded meanwhile
-    completes `died` only as it returns (`release`). It may begin on the stack of the dispatch, once it has applied.
+    completes `died` only as it returns (`release`); an end that comes during a step, as whoever runs the program stops
+    it on the stack of a listener that completed what it waits for, waits for the same return (`end`, `returned`), in
+    the run, in its finalizer and in `Stage.play`. It may begin on the stack of the dispatch, once it has applied.
   - From the first defect on, the run applies no message: it calls no `update`, checked in the thunk (`arrive` in
     `core.ts`, called by `applyOne`), the only check. A defect in the thunk stops the step there: one of `update`
     changes nothing, and one of `onApplied` or of `subscriptions` leaves the state and its keys as they were, tells no
@@ -225,12 +227,12 @@ the engine and in the testing tools.
     reads: `model()` checks no register.
   - Never report a defect only through a `join` or a fiber that races: once nothing awaits it, it is lost, and
     `FiberSet` and `FiberMap` discard the exits of the fibers they interrupt as they close.
-  - A program started is run once: the run's first operation is a region nothing interrupts, whose thunk reads and
-    sets `begun` (`startWith` in `run.ts`), and a second `run` dies with a plain `Error`, while the first goes on. A
-    program whose `run` was interrupted before that operation, or never forked, is never stopped: its state can still
-    change, and no effect follows. One that has set `begun` is stopped by that region as the effects end, by
-    `engine.end()` before the read: the scope's own stop is added after steps that can be interrupted, at a yield of
-    the scheduler, and a scope interrupted before it closes without it.
+  - A program started is run once: the run's first operation is a region nothing interrupts, whose thunk reads and sets
+    `begun` (`startWith` in `run.ts`), and a second `run` dies with a plain `Error`, while the first goes on. A program
+    whose `run` was interrupted before that operation, or never forked, is never stopped: its state can still change,
+    and no effect follows. One that has set `begun` is stopped by that region as the effects end, by `engine.end()`,
+    which waits for a step under way, before the read: the scope's own stop is added after steps that can be
+    interrupted, at a yield of the scheduler, and a scope interrupted before it closes without it.
   - `drive` starts the program by plain code (`startWith`), subscribes before its first read, forks its run, stops and
     awaits it however it ends, and begins its scenario once the run has started the effects of the first state
     (`began`), unless the program has died. It reads each model in its listener (`readEach`), so a defect of `makeModel`
@@ -307,18 +309,18 @@ the engine and in the testing tools.
   of these orders has a mutation. That the effects of a step start only once its call has returned rests on the queue
   resuming the fiber of effects in a task, which the guide leaves unspecified. The release of the snabbdom bridge's
   subscription to the handle has no killer: its stop sets `stopped` first.
-
   A region nothing may interrupt holds no code of the program, but it is no exemption: whoever runs the program may
   interrupt its fiber at any yield of the scheduler, before the region or where `restore` makes it interruptible. One
   test sweeps that interruption over every yield of whoever runs the run, `drive`, `rehearse` and `simulate`, on
-  Effect's own scheduler, and checks that each was never begun or is stopped, with no fiber left and nothing held as it
-  ends (`contract.test.ts`, "the run and each tool, interrupted by whoever runs it at any yield of the scheduler"). It
-  kills the mutation that takes out the region of `run` (`startWith` in `run.ts`), of `Stage.play` and of `drive`. Two
-  have none: the transition of the ledger made in the thunk that checks the end (`submit` in `testing/stage.ts`), which
-  asks the engine for a job that only tells (`afterJobs`), held by the test of the transition; and the region of the
-  fork of the fiber of effects (the end of `effectsIn` in `engine.ts`), which only keeps that fiber for the end to stop
-  first: without it, `FiberSet` and `FiberMap` still stop what that fiber forks late, and only the order of the
-  releases at the end changes, which the guide leaves unspecified, as for the stop of the fiber of effects.
+  Effect's own scheduler, given a program that holds a command and a subscription from its first state, and checks that
+  each was never begun or is stopped, with no fiber left and nothing held as it ends (`contract.test.ts`, "the run and
+  each tool, interrupted by whoever runs it at any yield of the scheduler"). It kills the mutation that takes out the
+  region of `run` (`startWith` in `run.ts`), of `Stage.play` and of `drive`. Two have none: the transition of the ledger
+  made in the thunk that checks the end (`submit` in `testing/stage.ts`), which asks the engine for a job that only
+  tells (`afterJobs`), held by the test of the transition; and the region of the fork of the fiber of effects (the end
+  of `effectsIn` in `engine.ts`), which only keeps that fiber for the end to stop first: without it, `FiberSet` and
+  `FiberMap` still stop what that fiber forks late, and only the order of the releases at the end changes, which the
+  guide leaves unspecified, as for the stop of the fiber of effects.
   The checks beside them have mutations with deterministic killers, and the tests of `rehearse.test.ts` under the
   scheduler of the tests are alarms of the search, killing none.
 - **What the engine gives a testing tool, the run takes by its defaults** ([`one-engine.md`](records/one-engine.md),
@@ -331,8 +333,8 @@ the engine and in the testing tools.
     the keys of each new state once they are the active ones. `released` is told once the stops of a job have ended,
     before its starts.
   - The engine gives five more: `after`, a job that only tells, done once every job before it is; `send`, which applies
-    a message as its source sends it; `active`, the keys of the current state; and `end` and `ended`, which mark and
-    read the end by plain code.
+    a message as its source sends it; `active`, the keys of the current state; and `end` and `ended`, which mark the
+    end, once no step is under way, and read it by plain code.
   - The run gives none of them: `drive` gives `settled`, `rehearse` all but `settled`, and `simulate` `stepped`,
     `listening` and `answering`. They add no premise, and each has a test in `engine.test.ts` and a mutation.
 - **The testing tools behave like the engine** where it is deterministic, with the test as the scheduler ("Testing
@@ -352,17 +354,18 @@ the engine and in the testing tools.
     when a command runs, and when a subscription's message is heard. A call that applies a message gives it to the
     engine's `send` in a thunk of its own, reads what it came to (`stepped`), and waits for a job that only tells
     (`after`), so each call is whole for the test. A call waits in two ways only, both given by `testing/stage.ts`, and
-    the lint keeps `rehearse.ts` and `simulate.ts` from awaiting a `Deferred` of their own. Before it has applied
-    anything (a start, a subscription's message, a command, the job that opens a `hearNext`), it fails as soon as any
-    fiber dies, as the run dies at once (`waiting`, `afterJobs`, `runFirst`), but where it was told what it heard: a
-    `hearNext`, and a `run` whose command answers, are told before the message is applied (`applyFor`), so that a
-    death that the message meets, as a defect of its model, leaves each to its message. Once it has applied its
-    message, it waits for the job whole, though another fiber dies (what `apply`, `applyFor` and `dispatch` give, and
-    `runFirst` once told): the job of a step applied before the first defect goes on whole, its commands owed and its
-    starts opened, for as long as a release holds it. The fiber of effects dies of nothing: what it and the end tell a
-    call is data, which the call makes its error of in its own fiber, and a tool names a value in its errors by one
-    function (`failure` in `testing/failure.ts`), which throws nothing. What a value throws as it is named is a failure
-    of the test, no defect: the tool's error comes first, with what was thrown as its `cause`.
+    the lint keeps `rehearse.ts` and `simulate.ts` from awaiting a `Deferred` of their own, but where a start's fiber
+    waits for an ask (`nextAsk`), which is no call's wait. Before it has applied anything (a start, a subscription's
+    message, a command, the job that opens a `hearNext`), it fails as soon as any fiber dies, as the run dies at once
+    (`waiting`, `afterJobs`, `runFirst`), but where it was told what it heard: a `hearNext`, and a `run` whose command
+    answers, are told before the message is applied (`applyFor`), so that a death that the message meets, as a defect of
+    its model, leaves each to its message. Once it has applied its message, it waits for the job whole, though another
+    fiber dies (what `apply`, `applyFor` and `dispatch` give, and `runFirst` once told): the job of a step applied
+    before the first defect goes on whole, its commands owed and its starts opened, for as long as a release holds it.
+    The fiber of effects dies of nothing: what it and the end tell a call is data, which the call makes its error of in
+    its own fiber, and a tool names a value in its errors by one function (`failure` in `testing/failure.ts`), which
+    throws nothing. What a value throws as it is named is a failure of the test, no defect: the tool's error comes
+    first, with what was thrown as its `cause`.
   - A command's fiber (`answering`) is pending once its step's stops are released, and waits for a `run` to give it the
     effect `runCommand` returned in the `run`'s thunk, run in `commandFiber` with the services of that call. It is
     interruptible as the engine's is, by the engine's end, by an interrupted `run` and by the program alike: an
@@ -377,16 +380,17 @@ the engine and in the testing tools.
   - What a start, a command and a call are to the test is the ledger's (`ledger.ts`): a start is starting until its job
     begins its fiber, though its key goes away first, and the calls that waited on a start whose key went are told once
     the engine has released it (`released`).
-  - The end of a rehearsal reads the commands under way in the thunk that marks the engine's end (`end`), after which
-    `rehearse`'s thunks refuse what is asked (`submit`): a command that answers, or a subscription that sends, once the
-    end is marked is refused with no defect, as the run applies nothing once stopped. A scenario that returned lets the
-    engine finish what it was offered, a held release included: never interrupt that job to end sooner. One that
-    failed, or was interrupted, has the end stop the fiber of effects at once, then interrupt the calls that wait for a
-    job it will not do, before the engine's end waits for the releases, which may wait for what such a call holds. The
-    rehearsal then tells every `hearNext` not ended (`calls` in `ledger.ts`), never only what the ledger still says of
-    a start. A `run` interrupted before its command's fiber began waits for it, and the end interrupts that wait once
-    it has stopped the fibers: no deterministic test reaches it, so it has no mutation. Never make what an end stops, or
-    tells, depend on what a job it may interrupt writes after its thunk.
+  - The end of a rehearsal reads the commands under way in the thunk that marks the engine's end (`end`, given the read;
+    an alarm of the search, `rehearse.test.ts`, "rehearse, as its end is marked while a command left under way
+    answers"), after which `rehearse`'s thunks refuse what is asked (`submit`): a command that answers, or a
+    subscription that sends, once the end is marked is refused with no defect, as the run applies nothing once stopped.
+    A scenario that returned lets the engine finish what it was offered, a held release included: never interrupt that
+    job to end sooner. One that failed, or was interrupted, has the end stop the fiber of effects at once, then
+    interrupt the calls that wait for a job it will not do, before the engine's end waits for the releases, which may
+    wait for what such a call holds. The rehearsal then tells every `hearNext` not ended (`calls` in `ledger.ts`), never
+    only what the ledger still says of a start. A `run` interrupted before its command's fiber began waits for it, and
+    the end interrupts that wait once it has stopped the fibers: no deterministic test reaches it, so it has no
+    mutation. Never make what an end stops, or tells, depend on what a job it may interrupt writes after its thunk.
   - `simulate` shares with `rehearse` `testing/stage.ts` (a command's fiber that waits for a `run`, the ledger of the
     commands, a message applied and what its call waits for, `runFirst`, the end). It has no handle and no model, and a
     start whose fiber ends at once. It runs the commands oldest first until none is pending, applies each message of the

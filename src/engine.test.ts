@@ -1037,6 +1037,35 @@ describe("defects in the thunk", () => {
     expect(sites(exit)).toEqual(["render: first listener", "render: second listener"])
   })
 
+  // A fiber that waits on `died` is woken on the stack of whoever completes it: inside the step, were it completed as
+  // the defect is recorded.
+  test("died wakes no fiber inside a step: a defect a listener throws completes it once every listener is told", async () => {
+    const log = await Effect.runPromise(Effect.gen(function*() {
+      const log: Array<string> = []
+      yield* ended(Effect.fnUntraced(function*(deaths: Deaths) {
+        const engine = yield* Engine.make<{ n: number }, "Up", never, never, never>({
+          deaths,
+          init: { state: { n: 0 } },
+          runCommand: absurd,
+          update: () => (state) => ({ state: { n: state.n + 1 } }),
+          subscriptions: () => [],
+          listen: absurd
+        })
+        engine.subscribe(() => {
+          throw "first listener"
+        })
+        engine.subscribe(() => void log.push("second listener told"))
+        const woken = yield* Effect.forkChild(Effect.andThen(engine.died, Effect.sync(() => log.push("woken"))), {
+          startImmediately: true
+        })
+        engine.dispatch("Up")
+        yield* Fiber.join(woken)
+      }))
+      return log
+    }))
+    expect(log.indexOf("woken")).toBeGreaterThan(log.indexOf("second listener told"))
+  })
+
   // What the subscription asks for after `Late` comes once the call that sent `Late` has returned.
   test("from the first defect on, no update is called, on a subscription's message either", async () => {
     const calls = await Effect.runPromise(Effect.gen(function*() {
@@ -1668,7 +1697,7 @@ describe("what a testing tool is given", () => {
     expect(outcome).toEqual({ first: "a:1", later: "b:2", heard: ["Dispatch", "Subscription b", "Command"], works: 2 })
   })
 
-  test("end marks the end at once, with no effect: nothing sent after is applied, and ended says so, as it does once stop has run", async () => {
+  test("end, outside a step, marks the end at once: nothing sent after is applied, and ended says so, as it does once stop has run", async () => {
     const outcome = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const made = () =>
         Engine.make<Seen, Order, number, never, string>({
@@ -1682,7 +1711,7 @@ describe("what a testing tool is given", () => {
       const ended = yield* made()
       const before = ended.ended()
       ended.dispatch({ _tag: "Work" })
-      ended.end()
+      yield* ended.end()
       ended.dispatch({ _tag: "Work" })
       const stopped = yield* made()
       yield* stopped.stop

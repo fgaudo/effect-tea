@@ -10,7 +10,7 @@ import * as Opt from "effect/Option"
 import { child, childWhen, program } from "./compose.ts"
 import { defect, InvariantDefect, ProgramDefect } from "./defect.ts"
 import type { Program } from "./program.ts"
-import { start } from "./run.ts"
+import { type App, start } from "./run.ts"
 
 // A loader: `init` starts the command `Load`, which answers `Loaded` once `answer` is done, and listens to `held`,
 // which logs what it acquires and releases. `More` starts another `Load`.
@@ -373,6 +373,62 @@ describe("the end of a run", () => {
     expect(wheres(exit)).toEqual(["render: Error: listener"])
     expect(log.indexOf("second listener told")).toBe(0)
     expect(log.indexOf("subscription released")).toBeGreaterThan(log.indexOf("second listener told"))
+  })
+
+  // Whoever runs the program stops it with `Fiber.interrupt` once a listener has seen what it waits for, as the
+  // examples `list` and `pages` race the run with a `Deferred` that a listener completes. Effect resumes what waits on
+  // a `Deferred` on the stack of whoever completes it, and runs an interruption on the stack of whoever makes it: the
+  // run's end begins inside the step, and, every fiber of the run waiting, ends there, its register read before the
+  // rest of the step. The message is sent by plain code, as a handler of a view sends it.
+  const stoppedByAListener = (
+    listeners: Readonly<{ before?: (app: App<Loads, LoadMessage>) => void; after?: () => void }>
+  ) => {
+    const { app, run } = start(loader([], Deferred.makeUnsafe<void>()))
+    const fiber = Effect.runFork(run)
+    const seen = Deferred.makeUnsafe<void>()
+    Effect.runFork(Effect.andThen(Deferred.await(seen), Fiber.interrupt(fiber)))
+    const { before, after } = listeners
+    if (before !== undefined) app.subscribe(() => before(app))
+    app.subscribe(() => Deferred.doneUnsafe(seen, Exit.void))
+    if (after !== undefined) app.subscribe(after)
+    app.dispatch("More")
+    return { app, exit: ended(fiber) }
+  }
+
+  test("never begins inside a step that whoever runs stops it in: a later listener's defect is in its cause", async () => {
+    const { exit } = stoppedByAListener({
+      after: () => {
+        throw new Error("listener")
+      }
+    })
+    expect(wheres(await exit)).toEqual(["render: Error: listener"])
+  })
+
+  test("never begins inside a step that whoever runs stops it in: a message a listener sent in it is applied", async () => {
+    // The listener told first sends one more `More` in the step of the first, before whoever runs is told.
+    const { app, exit } = stoppedByAListener({
+      before: (app) => {
+        if (app.model().asked === 2) app.dispatch("More")
+      }
+    })
+    await exit
+    expect(app.model().asked).toBe(3)
+  })
+
+  // The same, where `onApplied` completes what whoever runs waits for, as the guide's `onApplied` offers a step to a
+  // queue: the end would begin before any listener of the step is told.
+  test("never begins inside a step that whoever runs stops it in from onApplied: a listener's defect is in its cause", async () => {
+    const seen = Deferred.makeUnsafe<void>()
+    const { app, run } = start(loader([], Deferred.makeUnsafe<void>()), {
+      onApplied: () => void Deferred.doneUnsafe(seen, Exit.void)
+    })
+    const fiber = Effect.runFork(run)
+    Effect.runFork(Effect.andThen(Deferred.await(seen), Fiber.interrupt(fiber)))
+    app.subscribe(() => {
+      throw new Error("listener")
+    })
+    app.dispatch("More")
+    expect(wheres(await ended(fiber))).toEqual(["render: Error: listener"])
   })
 
   // `update` throws, and the engine reads the message's tag to say what the defect was on: a tag that throws there is

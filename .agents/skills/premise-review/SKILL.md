@@ -1,11 +1,11 @@
 ---
 name: premise-review
-description: How a review of the premises of @fgaudo/effect-tea is done: a reviewer that wrote none of the changes reads the invariants of docs/invariants.md, what they rest on (docs/premises.md) and the guide's "Guarantees" against the code, and reproduces what it finds with a failing test; then what becomes of its findings, its leads and what it ruled out, and how a finding is fixed by its form. Use before a release, over the changes of the engine and of the testing tools since the last review, before 1.0, or when the author asks whether an invariant still holds.
+description: How a review of the premises of @fgaudo/effect-tea is done: a reviewer that wrote none of the changes reads the invariants of docs/invariants.md, what they rest on (docs/premises.md) and the guide's "Guarantees" against the code, and reproduces what it finds with a failing test; then what becomes of its findings, its leads and what it ruled out, and how a finding is fixed by its form. Use before a release, over the changes of the engine, of the testing tools and of the bridges since the last review; over all of the code before the library is made known and before 1.0; or when the author asks whether an invariant still holds.
 ---
 
 # A review of the premises
 
-A change of the engine, or of a testing tool, may take away a premise of an invariant of
+A change of the engine, of a testing tool or of a bridge may take away a premise of an invariant of
 [`docs/invariants.md`](../../../docs/invariants.md) without a test failing, until a run meets the case: commit f415d46
 fixed one, a defect lost as `FiberMap` closes. This review looks for the same, by the rule of
 [`docs/premises.md`](../../../docs/premises.md): a reading gives a lead, and a finding is a test that fails.
@@ -14,9 +14,11 @@ fixed one, a defect lost as `FiberMap` closes. This review looks for the same, b
 
 1. Choose what the review reads: the invariants, premises and guarantees that the changes since the last review touch
    (`git log <the last review's commit>..main`), by the modules they changed and the names those cite, or all of them
-   before 1.0. A review is due before a release, not after each change.
+   before the library is made known and before 1.0. A review is due before a release, not after each change.
 2. The reviewer wrote none of the changes. Start it in a worktree of its own, cut from the last commit, so that its
-   failing tests stay off `main` until they are read. Two reviewers read apart: the engine and the testing tools.
+   failing tests stay off `main` until they are read. Three reviewers read apart: the engine, the testing tools and
+   the bridges. The types are no area of a review: the tests of the types and `bun run inference` hold them, for the
+   forms of the guide.
 3. Fill the brief's two places: what to read, and what is already known (the open problems of
    [`ROADMAP.md`](../../../ROADMAP.md), the `test.failing` cases of `src/testing/contract.test.ts`, and the premises
    that no test reaches yet, listed in `docs/premises.md`), so that the reviewer does not report them again, and
@@ -28,8 +30,8 @@ Start the reviewer with this brief, with its two places filled in:
 
 ```text
 Read AGENTS.md, docs/invariants.md and docs/premises.md first: the rules, the invariants and what they rest on bind
-you. The guide's "Guarantees" (site/guide/guarantees.md), and
-"Testing tools" for the testing tools, say what the library promises a user.
+you. The guide's "Guarantees" (site/guide/guarantees.md), "Testing tools" for the testing tools, and "Writing a
+bridge" for the bridges, say what the library promises a user.
 
 THE KIND OF BUG: a change takes away a condition an invariant or a guarantee needs, written or unwritten, and no
 test fails until a run meets the case. It often does so where a value is taken to its end (none, the same state,
@@ -38,6 +40,16 @@ ends, a message sent while another is applied, a job the fiber of effects has no
 from a plain callback, a testing tool that runs what the engine runs), or where Effect does something its
 documentation does not promise. Commit f415d46 is one found and
 fixed, a defect lost as FiberMap closes: read it as the example, and do not report it again.
+Three forms of it went past three reviews, and a bug hunt found them (commit 73aeb05). Look for each:
+- An interruption by whoever runs the program, at any yield of Effect's scheduler: between a check and what it
+  guards, before a finalizer is added, at a step of a tool or of the run that no region nothing interrupts holds
+  whole. Found: a run interrupted as it began left a program begun and never stopped.
+- A cost in memory or in time that grows with the number of messages, or of keys, children or answers, with no need:
+  a list copied at each message, a table that keeps what has ended. Found: applyAll, simulate and Stage copied their
+  lists at each message.
+- A tool that imitates a dependency and does otherwise than it: a testing tool that runs what the engine runs, a
+  bridge's tool that does what a renderer does. Found: messagesSentBy called a listener of a thunk as snabbdom does
+  not.
 
 WHAT COUNTS: a bug of a program written as the guide teaches (AGENTS.md, "What the library owes, and to whom"), as
 it runs: its orders, its interruptions, its costs. The program of your test is made of the forms that the guide and

@@ -422,11 +422,10 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
       let owed = stage.ledger
       // Suspended, so that a scenario that throws before it returns its effect still meets the end.
       const result = yield* Effect.exit(restore(Effect.suspend(() => scenario))).pipe(
-        // The commands under way and those cancelled are read as the exit is taken, in the thunk that marks the end,
-        // before anything of the end: what happens while the end waits changes nothing of them.
+        // The commands under way and those cancelled are read as the end is marked, before anything else of the end:
+        // what happens while the end waits changes nothing of them.
         Effect.tap(() =>
-          Effect.sync(() => {
-            engine.end()
+          engine.end(() => {
             owed = stage.ledger
           })
         ),

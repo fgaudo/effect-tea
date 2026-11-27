@@ -320,7 +320,7 @@ export const mutations: ReadonlyArray<Mutation> = [
       ],
       [
         "src/testing/rehearse.test.ts",
-        "keys that go away together release the subscriptions hearNext started together, as the run does"
+        "keys that go away together release the subscriptions hearNext started together"
       ],
       ["src/testing/drive.test.ts", "a program whose commands acquire needs no scope: each command has its own"]
     ]
@@ -2150,7 +2150,7 @@ export const mutations: ReadonlyArray<Mutation> = [
       ["src/engine.test.ts", "keys that go away together are stopped together, not one after the other"],
       [
         "src/testing/rehearse.test.ts",
-        "keys that go away together release the subscriptions hearNext started together, as the run does"
+        "keys that go away together release the subscriptions hearNext started together"
       ]
     ]
   },
@@ -2615,15 +2615,36 @@ export const mutations: ReadonlyArray<Mutation> = [
   // The engine in two halves (`docs/records/store-and-effects.md`): the register held while a call applies, the jobs
   // offered as the outermost call returns, the `catch` of its loop, and a program started that is run once.
   {
-    name: "the end of the run may begin inside a step",
+    name: "died wakes a fiber inside a step",
     guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
     from: "    deaths.hold()\n",
     to: "",
     killedBy: [
       [
+        "src/engine.test.ts",
+        "died wakes no fiber inside a step: a defect a listener throws completes it once every listener is told"
+      ]
+    ]
+  },
+  {
+    name: "an end that whoever runs the program makes during a step begins inside it",
+    guarantees: ["One message at a time, in the order they were sent", "Nothing ends in silence"],
+    file: "src/engine.ts",
+    from: "      if (!applying) {\n",
+    to: "      if (true) {\n",
+    killedBy: [
+      [
         "src/start.test.ts",
-        "never begins inside a step: a defect a listener throws ends the run once every listener of the step is told"
+        "never begins inside a step that whoever runs stops it in: a later listener's defect is in its cause"
+      ],
+      [
+        "src/start.test.ts",
+        "never begins inside a step that whoever runs stops it in: a message a listener sent in it is applied"
+      ],
+      [
+        "src/start.test.ts",
+        "never begins inside a step that whoever runs stops it in from onApplied: a listener's defect is in its cause"
       ]
     ]
   },
@@ -2824,12 +2845,12 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "the end of the engine marks nothing",
     file: "src/engine.ts",
-    from: "  const end = () => {\n    stopped = true\n  }\n",
-    to: "  const end = () => {}\n",
+    from: "        stopped = true\n        marked()\n",
+    to: "        marked()\n",
     killedBy: [
       [
         "src/engine.test.ts",
-        "end marks the end at once, with no effect: nothing sent after is applied, and ended says so, as it does once stop has run"
+        "end, outside a step, marks the end at once: nothing sent after is applied, and ended says so, as it does once stop has run"
       ],
       ["src/engine.test.ts", "once the end has stopped the engine, nothing sent is applied"]
     ]
@@ -2842,7 +2863,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/engine.test.ts",
-        "end marks the end at once, with no effect: nothing sent after is applied, and ended says so, as it does once stop has run"
+        "end, outside a step, marks the end at once: nothing sent after is applied, and ended says so, as it does once stop has run"
       ]
     ]
   },
@@ -2873,7 +2894,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "the run ends without stopping the engine, though its scope closed without its stop",
     guarantees: ["Nothing ends in silence"],
     file: "src/run.ts",
-    from: "        engine?.end()\n",
+    from: "        Effect.tap(() => engine === undefined ? Effect.void : engine.end()),\n",
     to: "",
     killedBy: [
       [

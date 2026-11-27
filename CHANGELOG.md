@@ -70,6 +70,9 @@ version, and everything else, features included, the patch version.
   the test and another in the browser. It calls it with the thunk's node, as snabbdom does.
 - The comment of `Host`, of `./react`, said that once a `makeModel` throws it draws the model it drew last: it draws the
   last model that did not throw, which it may not have drawn yet, as two messages in one task make two models.
+- A run that whoever runs it stopped from a listener, as a test does that awaits a `Deferred` the listener completes,
+  could end inside the step, against "Running": a later listener's defect was reported nowhere, and a message an
+  earlier listener sent in that step was not applied. The end now waits for the step to return.
 
 ## 0.10.0 (2026-11-27)
 

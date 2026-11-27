@@ -244,12 +244,14 @@ export const startWith = <State, Model, Message, Command, CommandServices, Subsc
       // The fiber of the run, the engine's fibers and its thunk record what they die of in one place: the defects come
       // first in the cause, in the order they died, then the rest of what the run ended with (an interruption by
       // whoever runs it), but for the defects already among them, by their identity. The read is the end of the run.
-      return Effect.exit(restore(effects)).pipe(Effect.flatMap((exit) => {
-        engine?.end()
-        const read = deaths.all()
-        end(read)
-        return Core.endedWith(read, exit)
-      }))
+      return Effect.exit(restore(effects)).pipe(
+        Effect.tap(() => engine === undefined ? Effect.void : engine.end()),
+        Effect.flatMap((exit) => {
+          const read = deaths.all()
+          end(read)
+          return Core.endedWith(read, exit)
+        })
+      )
     })
   )
   // What `Needed` leaves out is never asked: a program without commands calls no `runCommand`, one without keys no

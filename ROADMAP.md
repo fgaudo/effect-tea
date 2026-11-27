@@ -38,36 +38,26 @@ None is open: those found before 0.11.0 were weighed on 27 November 2026.
 ## Next, in order
 
 0.11.0 is not released: the readings made for it, in commit `5f13b2b`, are made again before it, over what
-came after them. The next reading of the promises reads the changes since that commit
-(`git log --grep "the promises read for 0.11.0"`). The next review of the premises is step 121, over all of the code.
-It reads nothing of an `Equal` or a `Hash` of the program that throws: step 107 dropped the three
-premises that served that case alone, by the rule it left in `docs/premises.md` ("What no program that keeps the
-guide's rules can see").
+came after them. Step 121 made the review of the premises again, over all of the code; the reading of the promises is
+step 124. A review of the premises reads nothing of an `Equal` or a `Hash` of the program that throws: step 107
+dropped the three premises that served that case alone, by the rule it left in `docs/premises.md` ("What no program
+that keeps the guide's rules can see").
 
 The owner's rule of 27 November 2026 says what the library owes, and to whom (`AGENTS.md`, "Deciding"): to a program
 written as the guide teaches, and nothing to a form that no page shows. Steps 122 and 123 took out what the code held
-for such forms, before the review of step 121 reads the code. The inference matrix still writes programs as objects,
-valid ones alone: the library's own tests write programs so, and the matrix checks that each tool takes them.
+for such forms. The inference matrix still writes programs as objects, valid ones alone: the library's own tests write
+programs so, and the matrix checks that each tool takes them.
 
-### 121. The review of the premises names the forms of this bug hunt, and reads all the code
+### 124. The reading of the promises for 0.11.0
 
-Opus 5.5, `high`. Depends on nothing. The bug hunt of 27 November 2026 found bugs in code that three reviews of
-the premises had in their scope (21, 24 and 26 November): their brief named none of the hunt's forms, and read the
-changes since the last review, of the engine and the testing tools alone.
+Opus 5.5, `high`. Depends on nothing. `promise-reading` over what changed since the last reading
+(`git log --grep "the promises read for 0.11.0"`, commit `5f13b2b`): the bug hunt of 27 November 2026, steps 118 to
+123 and the fix of step 121, a run stopped from a listener or from `onApplied` whose end waits for the step. Its
+readers list each sentence of the guide and of a doc comment that these commits added or changed, and the rules they
+changed against every example.
 
-- `premise-review`: its "THE KIND OF BUG" names three forms: an interruption by whoever runs the program at a yield of
-  the scheduler; a cost that grows with the number of messages; a tool that imitates a dependency. Its reviewers read
-  three areas apart: the engine, the testing tools, and the bridges. The types are no area of a review: the tests of
-  the types and `bun run inference` hold them, for the forms of the guide. The hunt's fourth form, a name that the
-  types drop and `make` does not, was a search of the ways to write a program, which a review does not make. It reads
-  all of the code before the library is made known, as before 1.0.
-- Then one review over all of the code, one reviewer for each form rather than each area, as the skill says otherwise:
-  each finding an open problem with its `test.failing`, each fix by its form. It is the review of the premises due
-  before 0.11.0. A review over all the code is made again while the last one confirmed a bug of a program written as
-  the guide teaches.
-
-Done when the skill names the three forms and the three areas, and a review over all of the code confirms no such
-bug.
+Done when each such promise has the test that would fail if it were false, or its sentence is cut or made unspecified
+as "What belongs here" in `AGENTS.md` says, no sentence read is false of the code, and no example breaks a rule read.
 
 ## For the owner
 
@@ -75,10 +65,12 @@ What leaves this machine, or decides what the project is ("Deciding" in `AGENTS.
 owner does it.
 
 - **0.10.0** is published. It holds the first bug of the hunt of 27 November 2026, as 0.8.0 and 0.9.0 do: a `run`
-  interrupted as it begins may leave a program that applies messages and reports none of their defects.
+  interrupted as it begins may leave a program that applies messages and reports none of their defects. It holds the
+  bug that the review of step 121 found too: a run stopped from a listener may end inside the step, and lose the
+  defect of a later listener.
 - **0.11.0** is not released: the bug hunt of 27 November 2026 reopened its section of `CHANGELOG.md`, and took out the
-  tag `v0.11.0` that pointed to commit `acbada3`, before its fixes. It is released, by `release`, once step 121 and the
-  reading of the promises are done.
+  tag `v0.11.0` that pointed to commit `acbada3`, before its fixes. It is released, by `release`, once step 124 is
+  done.
 - **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
   decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API, after a
   reading of the promises and a review of the premises over everything. Until then, releases stay at 0.x.

@@ -18,13 +18,16 @@ below by `answering`. `simulate` runs no subscription, so the premise of a subsc
 afresh) is none of its own.
 
 - **A fiber that waits on a `Deferred` runs on the stack of whoever completes it, until it waits again**, a fiber or
-  plain code. No guarantee rests on it, only killers of mutations: those of "the end of the run may begin inside a
-  step" and "drive wakes its waits inside the step", which tell a wake inside the step only where it is resumed there,
-  and those of `rehearse` refusing a command's answer and a subscription's message once it has ended. Should it fall,
-  `bun run mutations` reports those mutations as survivors, and the library stays correct. Read in the source
-  (`Deferred.doneUnsafe` resumes each waiter on the caller's stack, `internal/effect.ts`). Its test fails with the
-  `Deferred` completed by a fiber of its own. Open, and not asked: when a waiter resumes is a turn of the scheduler,
-  and the JSDoc promises none, as it says of a fork ("without promising a scheduler turn").
+  plain code. No guarantee rests on it, only killers of mutations: those of "died wakes a fiber inside a step" and
+  "drive wakes its waits inside the step", which tell a wake inside the step only where it is resumed there; those of
+  "an end that whoever runs the program makes during a step begins inside it", where whoever runs it, so resumed by a
+  listener, interrupts the run, whose end then runs on the same stack (`Fiber.interrupt` runs a fiber that waits where
+  it is interrupted, read in the source, `interruptUnsafe`); and those of `rehearse` refusing a command's answer and a
+  subscription's message once it has ended. Should it fall, `bun run mutations` reports those mutations as survivors,
+  and the library stays correct. Read in the source (`Deferred.doneUnsafe` resumes each waiter on the caller's stack,
+  `internal/effect.ts`). Its test fails with the `Deferred` completed by a fiber of its own. Open, and not asked: when a
+  waiter resumes is a turn of the scheduler, and the JSDoc promises none, as it says of a fork ("without promising a
+  scheduler turn").
 - **Code that a fiber runs on the stack of the fiber that forks it sees the forked fiber as its own**, through
   `Effect.withFiber`, `Fiber.getCurrent` and `Effect.fiber` alike, from its first step on, and it is the very `Fiber`
   that the fork returns and that a `FiberSet` or a `FiberMap` keeps; and no stable API gives a fiber the one that
@@ -194,15 +197,17 @@ reasoned. A new one is taken only where no design without it is as good (value 5
 
 ## Reviews and fixes
 
-A review of the premises ([`premise-review`](../.agents/skills/premise-review/SKILL.md)) is due before a release and
-before 1.0, over the changes of the engine and the tools since the last one, by a session that wrote none of them. It
-reports a finding only once a test reproduces it, or the rule rules it out: a reading of the code, or of a
-dependency's source, is a lead.
+A review of the premises ([`premise-review`](../.agents/skills/premise-review/SKILL.md)) is due before a release,
+over the changes of the engine, the tools and the bridges since the last one, and over all of the code before the
+library is made known and before 1.0, by a session that wrote none of them. It reports a finding only once a test
+reproduces it, or the rule rules it out: a reading of the code, or of a dependency's source, is a lead.
 
 The rule of fixes: a finding is fixed by its form, not only by the sequence that found it. The fix names the form (a
 cleanup skipped, or an exit discarded, as a scope closes; a step applied by two actors at once; a window between two
-fibers that nobody watches), looks for it in every place of the engine and of the tools that ends a run, applies a
-message or releases what a fiber holds, and leaves a test at each place the form can reach.
+fibers that nobody watches; an interruption at a yield between two operations that must be one; a cost that grows
+with the messages; a tool that does otherwise than what it imitates), looks for it in every place of the engine, of
+the tools and of the bridges that ends a run, applies a message or releases what a fiber holds, and leaves a test at
+each place the form can reach.
 
 ## Premises that no test reaches yet
 

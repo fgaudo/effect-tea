@@ -1104,7 +1104,7 @@ describe("rehearse", () => {
 
   // Each release waits a while for the other to have begun, as the run's do ("keys that go away together release
   // their subscriptions together", `engine.test.ts`): released one after the other, the first would wait in vain.
-  test("keys that go away together release the subscriptions hearNext started together, as the run does", async () => {
+  test("keys that go away together release the subscriptions hearNext started together", async () => {
     type Listening = Readonly<{ names: ReadonlyArray<string> }>
     const waited: Array<"together" | "alone"> = []
     const released = await Effect.runPromise(Effect.gen(function*() {
@@ -2270,6 +2270,49 @@ describe("rehearse, as a call is interrupted between what it took and its job", 
   }, Infinity)
 })
 
+// `Stage.play` reads the commands under way in the thunk that marks the end (`end` of the engine, given the read): a
+// fiber that ran between the two could answer a command, refused as the end is marked, and settle it before the read,
+// neither applied nor reported. A `run` forked and not joined, as the tutorial warns against, leaves its command under
+// way as the scenario returns: the rehearsal fails on it, or on the command its answer started. The command's fiber is
+// ready as the scenario returns (`Effect.yieldNow` after its gate), and a preemption of the scenario's fiber lets it
+// run, as Effect's budget of operations does; resumptions are inline, as under Effect's own scheduler.
+describe("rehearse, as its end is marked while a command left under way answers", () => {
+  type Answering = Readonly<{ answered: boolean }>
+  const left = Effect.gen(function*() {
+    const gate = yield* Deferred.make<void>()
+    const started = yield* Deferred.make<void>()
+    const program: Program<{ state: Answering; model: Answering; message: "Answered"; command: "Answer" | "Next" }> = {
+      init: { state: { answered: false }, commands: ["Answer"] },
+      update: () => () => ({ state: { answered: true }, commands: ["Next"] }),
+      runCommand: (command) =>
+        command === "Answer"
+          ? Deferred.succeed(started, undefined).pipe(
+            Effect.andThen(Deferred.await(gate)),
+            Effect.andThen(Effect.yieldNow),
+            Effect.as(Opt.some<"Answered">("Answered"))
+          )
+          : Effect.succeedNone,
+      subscriptions: () => [],
+      makeModel: (state) => state
+    }
+    return yield* Effect.exit(rehearse(
+      program,
+      Effect.fnUntraced(function*(rehearsal) {
+        yield* Effect.forkChild(rehearsal.run((command) => command === "Answer"))
+        yield* Deferred.await(started)
+        yield* Deferred.succeed(gate, undefined)
+      })
+    ))
+  })
+
+  test("a command under way as the scenario returns fails the rehearsal, or its answer is applied", () => {
+    prioritizedSchedules(left, { runs: 1000, depth: 3, first: 1, pinned: [123], resumptions: "inline" }, (exit) => {
+      if (Exit.isFailure(exit)) throw new Error(Cause.pretty(exit.cause))
+      expect(Exit.isFailure(exit.value)).toBe(true)
+    })
+  }, Infinity)
+})
+
 // The fiber of effects is kept in a release, of `a`, by a gate: the job of a `hearNext` asked meanwhile waits in its
 // queue.
 describe("rehearse, as a call leaves while the fiber of effects is in a release", () => {
@@ -2965,7 +3008,7 @@ describe("rehearse, as the job of a message waits for a release", () => {
     expect(pending).toEqual(["Note"])
   })
 
-  test("a state whose subscriptions are a defect owes no command, as the run starts none", async () => {
+  test("a state whose subscriptions are a defect owes no command", async () => {
     let pending: ReadonlyArray<"Note"> = ["Note"]
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const releasing = yield* Deferred.make<void>()
