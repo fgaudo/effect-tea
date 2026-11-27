@@ -32,17 +32,17 @@ What a task or a review found that no failing test shows and no user met ("How a
 the case of the inference matrix (`bun run inference --filter <case>`). None is a step of its own: they are weighed
 together before a release, and one not taken then goes to `docs/rejected.md`.
 
-- `child(program, { flags })` for a program without flags, `{ key }` beside a `there` or `flags` for one with flags,
-  and `childById` given `ids` for one with flags or `flags` for one without, print that the option takes `never` (or
-  `undefined`), the first with its `state` typed `any`; `childById` reports its last overload whichever option is
-  wrong, which a third overload, as `child` has since step 111, would fix. A probe of each call, `tsc` on it, shows it.
+- Under `withChildren`, `childById(program, { listening: (_, id) => …, ids })`, with `listening` written before `ids`,
+  types `id` as `any`, with no error; outside `withChildren`, as `unknown`. With TypeScript 5.9, 6.0 and 7.0: a test of
+  the types under `withChildren`, with the options in that order, shows it. Step 114 does not fix it.
 
 ## Next, in order
 
-Steps 112 and 113 come from the report of an application moved to 0.10.0, weighed on 27 November 2026
-([`application-report-0.10.md`](docs/records/application-report-0.10.md)), as step 111 did, and run in the order of
-their numbers. Each decides its point by "Deciding": a step that decides against its point writes its entry of
-[`rejected.md`](docs/rejected.md), and is done. Their changes go out together, in the release after 0.10.0.
+Steps 112 to 114 come from the report of an application moved to 0.10.0, weighed on 27 November 2026
+([`application-report-0.10.md`](docs/records/application-report-0.10.md)), as step 111 did, 114 by what step 111
+found, and run in the order of their numbers. Each decides its point by "Deciding": a step that decides against its
+point writes its entry of [`rejected.md`](docs/rejected.md), and is done. Their changes go out together, in the
+release after 0.10.0.
 
 The next review of the premises reads the changes since the commit that closed step 99 (`git log --grep
 "the premises reviewed since step 65"`), and the next reading of the promises those since the commit that closed step
@@ -124,6 +124,41 @@ order of a changelog's section ([`application-report-0.10.md`](docs/records/appl
 **Done when** `bun run comments` passes with each page under its ceiling, or with a ceiling raised and the reason in
 the commit; each promise added has a test that the commit names, and a changelog entry; and `bun run typecheck`,
 `bun run lint` and `bun run test` pass.
+
+### 114. A function for each kind of child, each with one signature
+
+**Model and effort.** Opus 5.5, `high`: the types of an export, and the engine's reading of a declaration.
+
+**Depends on** no other step. After 112 and 113, it renames what they wrote, and the compiler finds each place.
+
+**Why.** `child` says whether a child is always there by an optional `there`, and the result type depends on it. One
+signature cannot follow an optional key soundly (step 111, `rejected.md`, "`child` with one signature"), so `child` has
+three overloads, members typed `never`, a last overload whose result is no child, and errors that depend on the order
+of the overloads. `childById` has no such choice, `P` decides between `ids` and `flags`, and its two overloads are an
+inference workaround, whose errors report the last one whichever option is wrong. The owner decided the step on 27
+November 2026, after an opinion of Fable 5.2, which probed the forms below with TypeScript 5.9, 6.0 and 7.0.
+
+**How.** By [`change-api`](.agents/skills/change-api/SKILL.md) and
+[`change-engine`](.agents/skills/change-engine/SKILL.md).
+
+- `child` declares a child always there. A second function, `childWhen` unless a better name is found, declares one
+  that may not be: `there` is required, and its options are otherwise those of today. Each has one signature, whose
+  only conditional is over `P`.
+- The run reads the form from the function called, never from `there`.
+- An option of the other form is refused by a member that says what to write, as
+  `there?: "a child that may not be there is declared with childWhen"`.
+- `childById` has one signature: `ids` and `flags` optional in a type that holds `Id` outside any conditional, and the
+  one the program takes made required by a conditional over `P` alone, whose refusal of the other is a member that says
+  what to write. A refusal typed `never` or `undefined` lost the `Id` under `withChildren` in the probe. If no form
+  holds with the three compilers, its overloads stay.
+- The three entries of `rejected.md` of step 111 become one, and the glossary of the guide and "Composition" name the
+  new function.
+
+**Done when** the refusals of "a child with flags is declared with them", and the four of "a child is declared in one
+form, always there or not", are tests at the call; a test under `withChildren` holds the `Id` that `listening` takes;
+what `misprint.ts` prints of `greeted` is one error with no overload; the changelog has the breaking entry with its
+`Upgrade:`; and `bun run typecheck`, `lint`, `test`, `test:node`, `interleavings`, `inference`, `inference --run`,
+`comments` and the smoke test, with TypeScript 5.9, 6.0 and 7.0, pass.
 
 ## For the owner
 

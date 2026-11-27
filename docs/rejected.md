@@ -262,8 +262,8 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   of the other form. _Reopen if_ TypeScript reports a failed overloaded call against the overload meant.
 - **`childById` with one signature.** Spiked in step 111, 27 November 2026: under a conditional type of its two forms
   the `Id` of `ids` does not reach `listening`, which takes `any` in the children of `withChildren`, as a rest parameter
-  `unknown` outside them. Its two overloads stay, and a call that matches neither still reports the last, which a lead
-  of `ROADMAP.md` holds. _Reopen if_ TypeScript infers a type parameter through a conditional type over another one.
+  `unknown` outside them. Its two overloads stay, and a call that matches neither still reports the last, which step 114
+  of `ROADMAP.md` takes up. _Reopen if_ TypeScript infers a type parameter through a conditional type over another one.
 - **External messages answered by `update`**, so that a program has one function of its messages. Reasoned, 20
   November 2026 ([`external-handler.md`](records/external-handler.md)), and weighed again in step 61, by the values: a
   `tell` that `update` may reject ends in silence, or `reject` comes to mean a defect there (values 1 and 2), where
