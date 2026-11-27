@@ -46,8 +46,9 @@ the repository's tests. React is used only by [`counter`](../../../examples/coun
 bridges' tests in a DOM register one (happy-dom), and they run in Chromium, Firefox and WebKit too
 (`bun run test:browsers`).
 
-[`examples/react-native`](../../../examples/react-native) draws `counter` and `form` on React Native: `views.tsx`,
-an `App.tsx` that draws both with `Host`, and `views.test_jest.tsx`, their tests under React Native's jest preset.
+[`examples/react-native`](../../../examples/react-native) draws `counter` and `form` on React Native, and `notes.ts`,
+a parent of its own whose page comes and goes, with the device's back button: `views.tsx`, an `App.tsx` that draws the
+three with `Host`, and `views.test_jest.tsx`, their tests under React Native's jest preset.
 `bun run test:react-native` (`tools/react-native/check.ts`) copies the folder, and those of `counter` and `form`, from
 the packed package into a project of its own with React Native, where it typechecks them, bundles the application with
 Metro and Hermes, and runs the tests. `tsc -p examples` and oxlint leave the folder out, each by one glob, and

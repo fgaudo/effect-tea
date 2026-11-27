@@ -35,10 +35,13 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
 - Under `withChildren`, `childById(program, { listening: (_, id) => …, ids })`, with `listening` written before `ids`,
   types `id` as `any`, with no error; outside `withChildren`, as `unknown`. With TypeScript 5.9, 6.0 and 7.0: a test of
   the types under `withChildren`, with the options in that order, shows it. Step 114 does not fix it.
+- Under jest's types, `expect(…).toThrow(InvariantDefect)` does not compile, since the constructor is private: a test
+  of `examples/react-native` takes the error with a `try` and `toBeInstanceOf`. Under `bun:test` it compiles. A test
+  of the types with `@types/jest` would show it.
 
 ## Next, in order
 
-Steps 112 to 114 come from the report of an application moved to 0.10.0, weighed on 27 November 2026
+Steps 113 and 114 come from the report of an application moved to 0.10.0, weighed on 27 November 2026
 ([`application-report-0.10.md`](docs/records/application-report-0.10.md)), as step 111 did, 114 by what step 111
 found, and run in the order of their numbers. Each decides its point by "Deciding": a step that decides against its
 point writes its entry of [`rejected.md`](docs/rejected.md), and is done. Their changes go out together, in the
@@ -52,42 +55,12 @@ added by the model, that the `Fiber` a fork returns is the very one its effect s
 reads nothing of an `Equal` or a `Hash` of the program that throws: step 107 dropped the three premises that served
 that case alone, by the rule it left in `docs/premises.md` ("What no program that keeps the guide's rules can see").
 
-### 112. A parent on React Native, whose page comes and goes
-
-**Model and effort.** Opus 5.5, `medium`.
-
-**Depends on** no other step.
-
-**Why.** No example reads `children.X.instance()`: the advice of "Composition", a dispatch that names its instance
-and the number as the key of the child's view, has no code, and its form in React is in no page
-([`application-report-0.10.md`](docs/records/application-report-0.10.md), point 10). An application followed it from
-the text alone. Step 92 reasoned the advice and ran none of it
-([`instance-in-view.md`](docs/records/instance-in-view.md), 5), and the example waited under "Any time" for such a
-report. The same example shows two things that the report's agent worked out alone (points 5 and 6): a child declared
-with `there`, read as one `Option`, and a back button.
-
-**How.** By [`add-example`](.agents/skills/add-example/SKILL.md), in
-[`examples/react-native`](examples/react-native), which draws no parent today.
-
-- A parent with a page declared with `there`, which each visit starts again.
-- Its `makeModel` reads the page once, with `Opt.all` of its instance and its model.
-- Its view gives the page's view `forwardTo(dispatch, { _tag, instance })`, and the number as its `key`.
-- React Native's `BackHandler` is a subscription of the parent, listed only while something takes the press: the
-  parent's `subscriptions` reads the page's `output`, and its `update` tells the press to the page.
-
-Weigh whether a second level of children earns its place: each level repeats the lines of the first. Advice of one
-program is a comment in its code, and the example brings no rule. Under jest, a message of a view drawn for an earlier
-visit is rejected: the test keeps the dispatch of the earlier draw. What a tap does on a device stays for an
-application's report: the report's application ran on none.
-
-**Done when** `bun run test:react-native` passes, with the tests of the parent among those it runs; "Composition",
-"Advice", names the example; the row of the example in the README says what it shows; and `bun run comments` passes.
-
 ### 113. What the report asks of the guide, of the doc comments and of the changelog
 
 **Model and effort.** Opus 5.5, `medium`.
 
-**Depends on** step 112, for the example that the advice names.
+**Depends on** no other step: the example that the advice names is
+[`examples/react-native/notes.ts`](examples/react-native/notes.ts).
 
 **Why.** Four things that the code does and no page says, or that a page says in a way that was read wrongly, and the
 order of a changelog's section ([`application-report-0.10.md`](docs/records/application-report-0.10.md), points 3 to
@@ -114,7 +87,10 @@ order of a changelog's section ([`application-report-0.10.md`](docs/records/appl
   with `there` once, as one `Option`, and makes its model from it where that the child is there is all it reads, as
   [`pages`](examples/pages/app.ts) does. Where a case of its state holds more, the case and the child go together by
   the parent's own `there`, and "Guarantees" promises that a parent's children are those its state lists: a `None`
-  there is a `defect`. The example of step 112 is the code.
+  there is a `defect`. [`notes.ts`](examples/react-native/notes.ts) is the code: its `onEvent` reads the note open
+  as one `Option`, with a `defect` on `None`. Its page's `external` ([`note.ts`](examples/react-native/note.ts)) is the
+  case of the point above: it answers a press outside an edit with its state, which that point may make a `defect`,
+  since its parent tells it only where its output says it edits.
 - **The changelog** ([`release`](.agents/skills/release/SKILL.md)). An entry that changes what is installed with the
   package, as a peer range, is the first under "Changed": two upgrades by agents ran on an Effect below the range,
   which bun installs with no warning. And `Upgrade:` says, where the old spelling still compiles, how to find its
@@ -129,7 +105,7 @@ the commit; each promise added has a test that the commit names, and a changelog
 
 **Model and effort.** Opus 5.5, `high`: the types of an export, and the engine's reading of a declaration.
 
-**Depends on** no other step. After 112 and 113, it renames what they wrote, and the compiler finds each place.
+**Depends on** no other step. After 113, it renames what it and step 112 wrote, and the compiler finds each place.
 
 **Why.** `child` says whether a child is always there by an optional `there`, and the result type depends on it. One
 signature cannot follow an optional key soundly (step 111, `rejected.md`, "`child` with one signature"), so `child` has

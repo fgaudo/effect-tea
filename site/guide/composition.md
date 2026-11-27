@@ -183,7 +183,8 @@ again since. A dispatch that names the instance has that message rejected. But a
 keeps the handlers of its latest draw, so a click on what the screen still shows may run a handler of the new
 instance. A key that is the number, `key` in snabbdom and in React, draws the new instance as other elements, and the
 old ones keep the old handlers. Neither is needed where each state is drawn before the next event, as with the
-package's bridges in a browser.
+package's bridges in a browser. [`react-native`](../../examples/react-native/views.tsx) gives both to a page started at
+each visit.
 
 ## A function over any program
 

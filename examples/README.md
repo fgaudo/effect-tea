@@ -31,10 +31,10 @@ for each renderer. Their `main.tsx` starts the program once and draws it with bo
 do not change with the renderer. Both draw the `App` that `start` gives, snabbdom's with `drawInto` and React's with
 `Draw`. The other examples are drawn with snabbdom alone, by a `view.ts`, and started by a `main.ts`.
 
-[`react-native/`](react-native) draws the programs of `counter/` and `form/` on React Native: their views, an
-`App.tsx` that draws both with `Host`, and their tests, in `views.test_jest.tsx`. `bun run test:react-native` installs
-React Native in a project of its own, and runs them there with jest. `bun test`, the typecheck and oxlint leave the
-folder out.
+[`react-native/`](react-native) draws the programs of `counter/` and `form/` on React Native, and one of its own, a
+parent whose page comes and goes (`notes.ts`, `note.ts`): their views, an `App.tsx` that draws the three with `Host`,
+and their tests, in `views.test_jest.tsx`. `bun run test:react-native` installs React Native in a project of its own,
+and runs them there with jest. `bun test`, the typecheck and oxlint leave the folder out.
 
 ## The bridges
 

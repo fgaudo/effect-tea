@@ -5,6 +5,11 @@ version, and everything else, features included, the patch version.
 
 ## 0.10.1 (unreleased)
 
+### Added
+
+- The example `react-native` draws a list of notes whose page each visit starts again, with a dispatch and a key that
+  name its instance, and the device's back button as a subscription of the parent.
+
 ### Changed
 
 - The error of `child` given an option of the wrong type, as `flags` that give an `Option`, says the type that option
