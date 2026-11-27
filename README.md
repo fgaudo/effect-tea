@@ -332,8 +332,9 @@ entities on a server, whose state a database keeps. It is experimental, and not 
 - `bun run mutations` takes out each check that the engine's invariants rest on, one at a time. It fails when a test
   that must catch the missing check passes.
 - `bun run interleavings` runs `src/interleaving.test.ts`, which `bun run test` leaves out. It searches random
-  histories from a seed drawn on each run, and the CI runs it every day. `INTERLEAVINGS_SEED`, `INTERLEAVINGS_RUNS`
-  and `INTERLEAVINGS_RESUMPTIONS=inline` give it a seed, more runs, and the other mode of the scheduler of the tests.
+  histories from a seed drawn on each run, under each mode of the scheduler of the tests in turn, and the CI runs it
+  every day. `INTERLEAVINGS_SEED` and `INTERLEAVINGS_RUNS` give it a seed and more runs; `bun test` of the file, with
+  `INTERLEAVINGS_RESUMPTIONS=inline` or not, runs one mode.
 - `bun run comments` checks the doc comments of `src/`, that each page of the guide that they name exists, that each
   section that the skill names exists, once, that the skill indexes the titles of the rules and the advice of each
   page, all of them and no others, and that a page of the guide stays under its ceiling of words. It also

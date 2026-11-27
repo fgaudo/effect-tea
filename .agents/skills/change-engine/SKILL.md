@@ -72,13 +72,14 @@ is in the doc comments of `program.ts` and `compose.ts`, and no list of the guid
 
 ### A lead of the search
 
-`bun run interleavings` searches from a seed drawn on each run. A lead is checked under
-`test/scheduled.test_scheduler.ts` in both its modes: `INTERLEAVINGS_RESUMPTIONS=inline` runs the search in the mode
-that resumes a fiber where Effect does, `INTERLEAVINGS_SEED` from a seed, and `INTERLEAVINGS_RUNS` with at least that
-many runs of each property, and a search that checks a lead or a change names all three. A failure under `'inline'` is
-an order that Effect's own scheduler gives, but for where it preempts. One under `'queued'` alone rests on a fiber
-resumed later than Effect resumes it: still a finding, since that resumption is a premise of the tests alone. A finding
-goes in `ROADMAP.md` with its seed and path until a fix leaves a deterministic test of it.
+`bun run interleavings` searches from a seed drawn on each run, under both modes of `test/scheduled.test_scheduler.ts`
+in turn, and so is a lead checked: `'inline'` alone resumes a fiber where Effect does, on the stack of whoever wakes it,
+which a stop inside a step needs. `bun test src/interleaving.test.ts` runs one mode, `'queued'` unless
+`INTERLEAVINGS_RESUMPTIONS=inline`; `INTERLEAVINGS_SEED` runs from a seed, and `INTERLEAVINGS_RUNS` at least that many
+runs of each property, and a search that checks a lead or a change names them. A failure under `'inline'` is an order
+that Effect's own scheduler gives, but for where it preempts. One under `'queued'` alone rests on a fiber resumed later
+than Effect resumes it: still a finding, since that resumption is a premise of the tests alone. A finding goes in
+`ROADMAP.md` with its seed and path until a fix leaves a deterministic test of it.
 
 A bug that the search did not find, met by a review, a user or a test written by hand, is a bug of the search first:
 its fix adds the generator that would have found it, in the cell of the table of the actors that it was in, and not
