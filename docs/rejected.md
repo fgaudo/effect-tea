@@ -215,7 +215,10 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   library of components over this one needs such functions often.
 - **`DeclareChild<State>` in place of `DeclareChild<T>`**, and the same for its kin. Spiked, 18 November 2026: the types
   are the same, but a state written `Readonly<{ … }>` loses its name in the declarations, and the smoke test's count
-  failed. _Reopen if_ TypeScript keeps the name of an alias of an alias when it prints it.
+  failed. Moot since step 115: the functions are of the package, their state a type parameter of each call, and
+  `DeclareChild` takes no type argument. A child declared apart, whose options annotate a state written
+  `Readonly<{ … }>`, still spells it out in the declarations (the smoke test's `children`). _Reopen if_ TypeScript
+  keeps the name of an alias of an alias when it prints it.
 - **`attempt`**, an effect that may fail as an execution with a message for each outcome. Removed in 0.7.0
   (`775f140`) by "A function earns its place" (`AGENTS.md`): it named `Effect.match` and `Effect.asSome`. _Reopen if_
   it does what they cannot.
@@ -242,10 +245,32 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
 - **`satisfies Program<…>` as the way to write a program without children.** Reasoned, 17 November 2026: `satisfies`
   leaves the literal its own type, which loses what its pieces do not show, and a second way to write a program
   confuses. _Reopen if_ a program that `make` cannot express is written that way.
-- **`child`, `childById`, `input` and `inputById` as free functions, and `make` as `program` itself.** Reasoned, 17
-  November 2026: TypeScript infers no type arguments once one is given, so `make<T>()(config)` would come back under
-  another name, and free declarations would not know the parent's state. _Reopen if_ TypeScript infers the type
-  arguments a call does not give (microsoft/TypeScript#26242).
+- **`make` as `program` itself**, a call that names the types and takes the pieces. Reasoned, 17 November 2026:
+  TypeScript infers no type arguments once one is given, so `make<T>()(config)` would come back under another name.
+  The same reasoning kept `child` and `childById` in what `program<T>()` returns, so that their options knew the
+  parent's state; step 115 probed it, found that in the call of `withChildren` they read that state from the type that
+  `withChildren` expects, and made them functions of the package. _Reopen if_ TypeScript infers the type arguments a
+  call does not give (microsoft/TypeScript#26242).
+- **A second function beside `program` for a parent, `parent<T>()` or `parentProgram<T>()`**, while `child`,
+  `childWhen` and `childById` are functions of the package. Weighed with the owner in the review of 27 November 2026,
+  and decided in step 115: it would take the same types by the same signature. A program and a parent differ by their
+  children, and the API forks there, at `withChildren`. _Reopen if_ a parent must name a type that a program without
+  children cannot.
+- **The functions that declare children given to a callback, `withChildren(({ child }) => ({ … }))`.** Probed in the
+  review of 27 November 2026, with TypeScript 5.9, 6.0 and 7.0: it holds, with the state, the messages and the model
+  of `examples/pages` the very same and the tags of a `tell` kept, and children declared apart are read from
+  `ParentMaker<T, infer C>`. Decided in step 115: it is a callback for what an import does. _Reopen if_ the state no
+  longer reaches the options of a child declared in the call of `withChildren`.
+- **The children in the call that names the types, `program<T>(children)`.** Reasoned in the review of 27 November
+  2026: TypeScript infers no type argument once one is given (microsoft/TypeScript#26242), so the children fall to
+  their constraint, and lose their names. _Reopen if_ TypeScript infers the type arguments a call does not give.
+- **The children and the pieces in one call, as two arguments.** Probed in the review of 27 November 2026: the children
+  fall to their constraint there too, as in `program<T>(children)`. _Reopen if_ TypeScript infers one argument's type
+  before it types the other's functions.
+- **`program` as the name of `withChildren`, and `children` as another.** Weighed in the review of 27 November 2026:
+  `program` would be one word for two signatures, which a module that imports `program` cannot destructure; and
+  `children` is the word of what a parent's pieces take last. _Reopen if_ another word is found that says what takes
+  the children and names no other concept.
 - **A parent's children declared in the call of `make`.** Spiked, 22 November 2026 (`spike/tell-matrix.ts` on
   `spike/kept-children`), with TypeScript 5.9, 6.0 and 7.0: the literals of a `tell` lose their tags, and each needs
   `as const`. The owner chose `withChildren(children).make(config)`

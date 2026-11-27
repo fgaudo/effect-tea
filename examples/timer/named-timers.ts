@@ -1,6 +1,6 @@
 // The application the tutorial's fourth step ends with: the list of the third step, each timer now a named one. Only
 // the child changed: adding one and removing one are the list's own messages, as before.
-import { type MessageOf, type ModelOf, program, reject, type StateOf } from "@fgaudo/effect-tea"
+import { childById, type MessageOf, type ModelOf, program, reject, type StateOf } from "@fgaudo/effect-tea"
 import * as Arr from "effect/Array"
 import * as Named from "./named.ts"
 
@@ -11,10 +11,10 @@ type AddClicked = Readonly<{ _tag: "AddClicked" }>
 
 type RemoveClicked = Readonly<{ _tag: "RemoveClicked"; id: number }>
 
-const { childById, withChildren } = program<{ state: Own; message: AddClicked | RemoveClicked }>()
-
 // A timer is there while its id is listed: a click on a view drawn before its removal is rejected.
-export const namedTimers = withChildren({ Timer: childById(Named.named, { ids: (state) => state.ids }) }).make({
+export const namedTimers = program<{ state: Own; message: AddClicked | RemoveClicked }>().withChildren({
+  Timer: childById(Named.named, { ids: (state) => state.ids })
+}).make({
   init: { state: { nextId: 2, ids: [1] } },
   update: (message) => (state) => {
     switch (message._tag) {

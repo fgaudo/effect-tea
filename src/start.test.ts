@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import * as Opt from "effect/Option"
-import { program } from "./compose.ts"
+import { child, childWhen, program } from "./compose.ts"
 import { defect, InvariantDefect, ProgramDefect } from "./defect.ts"
 import type { Program } from "./program.ts"
 import { start } from "./run.ts"
@@ -307,7 +307,7 @@ describe("a program whose start throws", () => {
     [
       "options",
       () =>
-        Unflagged.withChildren({ Leaf: Unflagged.childWhen(leaf, { there: () => defect("no child starts") }) }).make({
+        Unflagged.withChildren({ Leaf: childWhen(leaf, { there: () => defect("no child starts") }) }).make({
           init: { state: { on: true } },
           makeModel: () => null
         })
@@ -315,7 +315,7 @@ describe("a program whose start throws", () => {
     [
       "own init, from its flags",
       () =>
-        Unflagged.withChildren({ Leaf: Unflagged.childWhen(seeded, { there: () => Opt.some(true) }) }).make({
+        Unflagged.withChildren({ Leaf: childWhen(seeded, { there: () => Opt.some(true) }) }).make({
           init: { state: { on: true } },
           makeModel: () => null
         })
@@ -333,7 +333,7 @@ describe("a program whose start throws", () => {
 
   test("in the init of a parent with a child and flags: the handle is made, model() throws the defect, and run dies of it", async () => {
     const Parent = program<{ state: Readonly<{ flags: number }>; flags: number }>()
-    const made = Parent.withChildren({ Leaf: Parent.child(leaf) }).make({
+    const made = Parent.withChildren({ Leaf: child(leaf) }).make({
       init: (flags) => flags < 0 ? defect("no parent starts") : { state: { flags } },
       makeModel: () => null
     })

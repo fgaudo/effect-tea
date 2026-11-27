@@ -2,7 +2,16 @@
 // for as a whole: from the payment on, the cart is locked, and so is each row, those that start while it is too. The
 // cart says once, in the declaration of its rows, what they are told: the library tells each row the lock as it
 // starts, and again whenever it changes.
-import { defect, type Execution, type MessageOf, type ModelOf, program, reject, type StateOf } from "@fgaudo/effect-tea"
+import {
+  childById,
+  defect,
+  type Execution,
+  type MessageOf,
+  type ModelOf,
+  program,
+  reject,
+  type StateOf
+} from "@fgaudo/effect-tea"
 import * as Arr from "effect/Array"
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
@@ -48,9 +57,7 @@ export const isLocked = (state: Own): boolean => state.payment._tag !== "Idle"
 /** The cart can be paid for while it is not locked and lists a row: `update` and `makeModel` both ask this. */
 const canPay = (state: Own): boolean => !isLocked(state) && Arr.isReadonlyArrayNonEmpty(state.ids)
 
-const { childById, withChildren } = program<{ state: Own; message: OwnMessage; command: Command }>()
-
-export const cart = withChildren({
+export const cart = program<{ state: Own; message: OwnMessage; command: Command }>().withChildren({
   Row: childById(Row.row, {
     ids: (state) => state.ids,
     tell: (state) => ({ _tag: "LockChanged", locked: isLocked(state) })

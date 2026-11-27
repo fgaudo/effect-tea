@@ -1101,8 +1101,8 @@ type DeclaredTypes = Readonly<{
 type Inferred = Readonly<{ "the services are inferred, never named": never }>
 
 /**
- * The way to make a program: its types named once, then the functions that declare its children, and `make`, which
- * makes it.
+ * The way to make a program: its types named once, then `make`, which makes it, or `withChildren`, which takes the
+ * children of a parent and gives its `make`.
  *
  * Naming the types first lets `update`, `makeModel` and the rest be typed without annotations. The types also say
  * the program's own messages, commands, events, external messages, flags and keys. A type that the program does not
@@ -1110,7 +1110,8 @@ type Inferred = Readonly<{ "the services are inferred, never named": never }>
  * raises an event that the program does not name does not compile. The model may be named too. A model that is named
  * is checked, and a model that is not named is inferred. The services are never named: they are inferred.
  *
- * A child is any program. A parent declares its children with `withChildren`, before `make`. The parent's own state
+ * A child is any program. A parent declares its children with `child`, `childWhen` and `childById`, in the call of
+ * `withChildren`, before `make`, and their options take the parent's own state from it. The parent's own state
  * says which children are there, and the library keeps them. A parent and its children talk only through events,
  * external messages and outputs: a parent is given no child's state. The parent's messages, commands and
  * subscriptions are its own, plus each child's, wrapped:
@@ -1123,8 +1124,7 @@ type Inferred = Readonly<{ "the services are inferred, never named": never }>
  * For children by id, each of these also carries the `id`. A message, a command or a key of the parent's own that can
  * take the name of a child does not compile, as one tagged `string` can.
  *
- * @returns `child`, `childWhen` and `childById`, which declare a child alone, always there or not, and children by
- * id, `withChildren`, which takes the children of a parent, and `make`, which makes a program without children.
+ * @returns `withChildren`, which takes the children of a parent, and `make`, which makes a program without children.
  *
  * @example
  * ```ts
@@ -1137,9 +1137,7 @@ type Inferred = Readonly<{ "the services are inferred, never named": never }>
  *
  * @example
  * ```ts
- * const { child, withChildren } = program<{ state: State }>()
- *
- * const app = withChildren({ Clock: child(clock) }).make({
+ * const app = program<{ state: State }>().withChildren({ Clock: child(clock) }).make({
  *   init: { state: {} },
  *   makeModel: (state, children) => ({ clock: children.Clock() }),
  * })
@@ -1150,75 +1148,6 @@ type Inferred = Readonly<{ "the services are inferred, never named": never }>
  */
 export const program = <T extends DeclaredTypes>(): ProgramMaker<T> =>
   ({
-    child: (
-      program: AnyProgram,
-      options: Readonly<{
-        flags?: (state: unknown) => unknown
-        key?: (state: unknown) => unknown
-        listening?: (state: unknown) => boolean
-        tell?: (state: unknown) => unknown
-      }> = {}
-    ) => {
-      const { flags, key, listening, tell } = options
-      return declare(Child, {
-        _tag: "Child",
-        program,
-        there: "always",
-        key: flags !== undefined
-          ? (state: unknown) => Opt.some(flags(state))
-          : key === undefined
-          ? () => present
-          : (state: unknown) => Opt.some(key(state)),
-        ...(listening === undefined ? {} : { listening }),
-        ...(tell === undefined ? {} : { tell })
-      })
-    },
-    childWhen: (
-      program: AnyProgram,
-      options: Readonly<{
-        there: (state: unknown) => boolean | Opt.Option<unknown>
-        key?: (state: unknown) => unknown
-        listening?: (state: unknown) => boolean
-        tell?: (state: unknown) => unknown
-      }>
-    ) => {
-      const { key, listening, tell, there } = options
-      return declare(Child, {
-        _tag: "Child",
-        program,
-        there: "sometimes",
-        key: (state: unknown) => {
-          // A program with flags gives them in `there`, an `Option`; one without gives a boolean.
-          const given = there(state)
-          return Opt.isOption(given)
-            ? given
-            : !given
-            ? Opt.none()
-            : key === undefined
-            ? present
-            : Opt.some(key(state))
-        },
-        ...(listening === undefined ? {} : { listening }),
-        ...(tell === undefined ? {} : { tell })
-      })
-    },
-    childById: (
-      program: AnyProgram,
-      options: Readonly<{
-        ids?: (state: unknown) => Iterable<unknown>
-        flags?: (state: unknown) => Iterable<readonly [unknown, unknown]>
-        listening?: (state: unknown, id: unknown) => boolean
-        tell?: (state: unknown) => unknown
-      }>
-    ) =>
-      declare(ChildById, {
-        _tag: "ChildById",
-        program,
-        listed: options.flags ?? options.ids,
-        flagged: options.flags !== undefined,
-        ...(options.listening === undefined ? {} : { listening: options.listening }),
-        ...(options.tell === undefined ? {} : { tell: options.tell })
-      }),
     make: (config: UntypedConfig) => make(undefined, config),
     withChildren: (children: Readonly<Record<string, Declared>>) => ({
       make: (config: UntypedConfig) => make(children, config)
@@ -1231,7 +1160,7 @@ type Named<T, K extends "model", Inferred> = T extends { readonly [P in K]: infe
 // What `program` returns, and each of its functions, have names of their own: the declarations of a package that
 // exports one name it, where they would spell out every type of this module, for each field of the state.
 /**
- * What `program<T>()` returns: the functions that declare a program's children, and make it.
+ * What `program<T>()` returns: the functions that take a program's children, and make it.
  *
  * @group Types of the signatures
  * @see The guide, "Anatomy of a program".
@@ -1239,98 +1168,15 @@ type Named<T, K extends "model", Inferred> = T extends { readonly [P in K]: infe
  */
 export interface ProgramMaker<T extends DeclaredTypes> {
   /**
-   * Declares a child alone that is always there.
-   *
-   * - `child(program)` is there in every state of its parent, and so is `child(program, { key })`, which starts again
-   *   where `key` gives another value, compared with `Equal`.
-   * - A child with flags starts from them, and other flags, by `Equal`, start it again: `child(program, { flags })`,
-   *   where `flags` gives its flags. It has no `key` beside them, so it does not start again from equal flags.
-   * - `listening` says in which states its subscriptions run. Without it, they run in every state.
-   * - `tell` gives, from the parent's state, an external message that the child is told: as it starts, in the first
-   *   state too, and after a step of the parent's own only where it gives another value, by `Equal`, than the one it
-   *   last told the child, apart from what a step lists in `tell`. It does not compile for a child without external
-   *   messages, nor for a message that is not one of the child's.
-   *
-   * A program with flags is declared with `flags`, and one without flags is declared without them. A child that may
-   * not be there is declared with `childWhen`: `child` does not compile with `there`. A child written as an object, and
-   * not typed `Program<…>`, is checked as a program is: one whose steps list commands has a `runCommand`, and one whose
-   * subscriptions list keys has a `listen`. Each of these does not compile otherwise. Nor does `child` for a type
-   * parameter, as `P` in `<P extends AnyProgram>(p: P) => …`: a function over any program is an overload, whose body
-   * declares a program of `unknown` types.
-   *
-   * @param program - The child.
-   * @param options - What it starts from, when it listens and what it is told: functions of the parent's own state.
-   * @returns The child, for `withChildren`.
-   *
-   * @example
-   * ```ts
-   * Clock: child(clock),
-   * ```
-   *
-   * @see The guide, "Composition".
-   */
-  readonly child: DeclareChild<T>
-  /**
-   * Declares a child alone that may not be there: its model, its instance and its output are an `Option`.
-   *
-   * - `childWhen(program, { there })` is there in the states where `there` holds, and `key` may be given beside it,
-   *   as `child` takes it.
-   * - A child with flags is there where `there` gives `Some` of its flags, and other flags start it again. It has no
-   *   `key` beside them.
-   * - `listening` says in which states its subscriptions run. Without it, they run whenever the child is there.
-   * - `tell` is that of `child`.
-   *
-   * It takes `there`, and does not compile without it, nor with `flags`. The program is checked as `child` checks it.
-   *
-   * @param program - The child.
-   * @param options - When the child is there, what it starts from, when it listens and what it is told: functions of
-   * the parent's own state.
-   * @returns The child, for `withChildren`.
-   *
-   * @example
-   * ```ts
-   * About: childWhen(about, { there: (state) => state.about }),
-   * ```
-   *
-   * @see The guide, "Composition".
-   */
-  readonly childWhen: DeclareChildWhen<T>
-  /**
-   * Declares children told apart by an id, such as the rows of a list, each with a state of its own.
-   *
-   * - `ids` lists the ids of the children that are there. For a program with flags, `flags` lists each id with its
-   *   flags, and other flags start the child again.
-   * - `children.Row(id)` is a row's model, and `forwardTo(dispatch, 'Row', id)` is the row's dispatch.
-   * - Ids are compared by value, with `Equal`. An id listed twice is a defect, a `CompositionDefect`.
-   * - A row removed, and listed again at the same id in a later step, is another instance, which starts again.
-   * - `tell` gives one external message for all the children, which each is told as `child` says, in the order of
-   *   the ids as `ids`, or `flags`, lists them. It takes no id.
-   *
-   * It takes `ids`, or `flags` for a program with flags, and does not compile without one, or with the other. The
-   * program is checked as `child` checks it, and `tell` too. Nor does it compile for a type parameter, as `child`
-   * does not.
-   *
-   * @param program - The program of each child.
-   * @param options - The ids of the children in a state, `listening`, which says whether the child at an id listens,
-   * and `tell`, what every child is told.
-   * @returns The children, for `withChildren`.
-   *
-   * @example
-   * ```ts
-   * Row: childById(row, { ids: (state) => state.ids }),
-   * ```
-   *
-   * @see The guide, "Composition".
-   */
-  readonly childById: DeclareChildById<T>
-  /**
    * Takes the children of a parent, by name, and gives the `make` of the parent.
    *
    * They are declared before the rest, so that what a step tells them is typed by them. The children that one state
    * lists anew start in the order of their names here, as JavaScript gives the keys of an object, then in the order
    * in which `ids`, or `flags`, lists their ids. Each start takes the next number, from 1.
    *
-   * The `make` it gives does not compile for a child whose program is a type parameter, as `child` does not.
+   * The options of a child declared in this call are typed by the parent's own state. A child declared for another
+   * state does not compile here, nor does the `make` it gives for a child whose program is a type parameter, as
+   * `child` does not.
    *
    * @param children - The children, by name: `{ Clock: child(…), Row: childById(…) }`.
    * @returns `make`, which makes the parent.
@@ -1453,38 +1299,204 @@ type ByIdForm<P> = [FlagsOf<P>] extends [never]
   ? Readonly<{ ids: object; flags?: Refused<"a child without flags is declared with its ids"> }>
   : Readonly<{ flags: object; ids?: Refused<"a child with flags is declared with its flags"> }>
 
-/**
- * The function of `program` that declares a child alone that is always there.
- *
- * @group Types of the signatures
- * @see The guide, "Composition".
- */
-export type DeclareChild<T extends DeclaredTypes> = <P extends AnyProgram>(
-  program: CheckedChild<P>,
-  ...options: AlwaysOptions<Field<T, "state">, P>
-) => Child<Field<T, "state">, P, "always">
+// The parent's state is a parameter of each function, which TypeScript infers from the children that `withChildren`
+// expects, where a child is declared in its call, and from the annotation of an option, where it is declared apart.
+// Each function has a type of its own: a package that exports the functions in an object names it in its declarations,
+// where they would spell out the check of `CheckedChild`. The smoke test's `library` holds it.
 
 /**
- * The function of `program` that declares a child alone that may not be there.
+ * The type of `child`.
  *
  * @group Types of the signatures
  * @see The guide, "Composition".
  */
-export type DeclareChildWhen<T extends DeclaredTypes> = <P extends AnyProgram>(
+export type DeclareChild = <State, P extends AnyProgram>(
   program: CheckedChild<P>,
-  options: WhenOptions<Field<T, "state">, P>
-) => Child<Field<T, "state">, P, "sometimes">
+  ...options: AlwaysOptions<State, P>
+) => Child<State, P, "always">
 
 /**
- * The function of `program` that declares children told apart by an id.
+ * The type of `childWhen`.
  *
  * @group Types of the signatures
  * @see The guide, "Composition".
  */
-export type DeclareChildById<T extends DeclaredTypes> = <Id, P extends AnyProgram>(
+export type DeclareChildWhen = <State, P extends AnyProgram>(
   program: CheckedChild<P>,
-  options: ByIdOptions<Field<T, "state">, Id, FlagsOf<P>> & ByIdForm<P> & Telling<Field<T, "state">, P>
-) => ChildById<Field<T, "state">, Id, P>
+  options: WhenOptions<State, P>
+) => Child<State, P, "sometimes">
+
+/**
+ * The type of `childById`.
+ *
+ * @group Types of the signatures
+ * @see The guide, "Composition".
+ */
+export type DeclareChildById = <State, Id, P extends AnyProgram>(
+  program: CheckedChild<P>,
+  options: ByIdOptions<State, Id, FlagsOf<P>> & ByIdForm<P> & Telling<State, P>
+) => ChildById<State, Id, P>
+
+/**
+ * Declares a child alone that is always there, for `withChildren`.
+ *
+ * - `child(program)` is there in every state of its parent, and so is `child(program, { key })`, which starts again
+ *   where `key` gives another value, compared with `Equal`.
+ * - A child with flags starts from them, and other flags, by `Equal`, start it again: `child(program, { flags })`,
+ *   where `flags` gives its flags. It has no `key` beside them, so it does not start again from equal flags.
+ * - `listening` says in which states its subscriptions run. Without it, they run in every state.
+ * - `tell` gives, from the parent's state, an external message that the child is told: as it starts, in the first
+ *   state too, and after a step of the parent's own only where it gives another value, by `Equal`, than the one it
+ *   last told the child, apart from what a step lists in `tell`. It does not compile for a child without external
+ *   messages, nor for a message that is not one of the child's.
+ *
+ * Its options are functions of the parent's own state, which they take from `withChildren` where the child is declared
+ * in its call. A child declared apart from it annotates that state, `(state: Own) => …`: without it, the state is
+ * `unknown`, and an option that reads it does not compile. `withChildren` refuses a child declared for another state.
+ *
+ * A program with flags is declared with `flags`, and one without flags is declared without them. A child that may
+ * not be there is declared with `childWhen`: `child` does not compile with `there`. A child written as an object, and
+ * not typed `Program<…>`, is checked as a program is: one whose steps list commands has a `runCommand`, and one whose
+ * subscriptions list keys has a `listen`. Each of these does not compile otherwise. Nor does `child` for a type
+ * parameter, as `P` in `<P extends AnyProgram>(p: P) => …`: a function over any program is an overload, whose body
+ * declares a program of `unknown` types.
+ *
+ * @param program - The child.
+ * @param options - What it starts from, when it listens and what it is told: functions of the parent's own state.
+ * @returns The child, for `withChildren`.
+ *
+ * @example
+ * ```ts
+ * Clock: child(clock, { listening: (state) => state.ticking }),
+ * ```
+ *
+ * @see The guide, "Composition".
+ */
+export const child: DeclareChild = ((
+  program: AnyProgram,
+  options: Readonly<{
+    flags?: (state: unknown) => unknown
+    key?: (state: unknown) => unknown
+    listening?: (state: unknown) => boolean
+    tell?: (state: unknown) => unknown
+  }> = {}
+) => {
+  const { flags, key, listening, tell } = options
+  return declare(Child, {
+    _tag: "Child",
+    program,
+    there: "always",
+    key: flags !== undefined
+      ? (state: unknown) => Opt.some(flags(state))
+      : key === undefined
+      ? () => present
+      : (state: unknown) => Opt.some(key(state)),
+    ...(listening === undefined ? {} : { listening }),
+    ...(tell === undefined ? {} : { tell })
+  })
+}) as never
+
+/**
+ * Declares a child alone that may not be there, for `withChildren`: its model, its instance and its output are an
+ * `Option`.
+ *
+ * - `childWhen(program, { there })` is there in the states where `there` holds, and `key` may be given beside it,
+ *   as `child` takes it.
+ * - A child with flags is there where `there` gives `Some` of its flags, and other flags start it again. It has no
+ *   `key` beside them.
+ * - `listening` says in which states its subscriptions run. Without it, they run whenever the child is there.
+ * - `tell` is that of `child`.
+ *
+ * It takes `there`, and does not compile without it, nor with `flags`. Its options take the parent's state as those
+ * of `child` do, and the program is checked as `child` checks it.
+ *
+ * @param program - The child.
+ * @param options - When the child is there, what it starts from, when it listens and what it is told: functions of
+ * the parent's own state.
+ * @returns The child, for `withChildren`.
+ *
+ * @example
+ * ```ts
+ * About: childWhen(about, { there: (state) => state.about }),
+ * ```
+ *
+ * @see The guide, "Composition".
+ */
+export const childWhen: DeclareChildWhen = ((
+  program: AnyProgram,
+  options: Readonly<{
+    there: (state: unknown) => boolean | Opt.Option<unknown>
+    key?: (state: unknown) => unknown
+    listening?: (state: unknown) => boolean
+    tell?: (state: unknown) => unknown
+  }>
+) => {
+  const { key, listening, tell, there } = options
+  return declare(Child, {
+    _tag: "Child",
+    program,
+    there: "sometimes",
+    key: (state: unknown) => {
+      // A program with flags gives them in `there`, an `Option`; one without gives a boolean.
+      const given = there(state)
+      return Opt.isOption(given)
+        ? given
+        : !given
+        ? Opt.none()
+        : key === undefined
+        ? present
+        : Opt.some(key(state))
+    },
+    ...(listening === undefined ? {} : { listening }),
+    ...(tell === undefined ? {} : { tell })
+  })
+}) as never
+
+/**
+ * Declares children told apart by an id, such as the rows of a list, each with a state of its own, for
+ * `withChildren`.
+ *
+ * - `ids` lists the ids of the children that are there. For a program with flags, `flags` lists each id with its
+ *   flags, and other flags start the child again.
+ * - `children.Row(id)` is a row's model, and `forwardTo(dispatch, 'Row', id)` is the row's dispatch.
+ * - Ids are compared by value, with `Equal`. An id listed twice is a defect, a `CompositionDefect`.
+ * - A row removed, and listed again at the same id in a later step, is another instance, which starts again.
+ * - `tell` gives one external message for all the children, which each is told as `child` says, in the order of
+ *   the ids as `ids`, or `flags`, lists them. It takes no id.
+ *
+ * It takes `ids`, or `flags` for a program with flags, and does not compile without one, or with the other. Its
+ * options take the parent's state as those of `child` do. The program is checked as `child` checks it, and `tell`
+ * too. Nor does it compile for a type parameter, as `child` does not.
+ *
+ * @param program - The program of each child.
+ * @param options - The ids of the children in a state, `listening`, which says whether the child at an id listens,
+ * and `tell`, what every child is told.
+ * @returns The children, for `withChildren`.
+ *
+ * @example
+ * ```ts
+ * Row: childById(row, { ids: (state) => state.ids }),
+ * ```
+ *
+ * @see The guide, "Composition".
+ */
+export const childById: DeclareChildById = ((
+  program: AnyProgram,
+  options: Readonly<{
+    ids?: (state: unknown) => Iterable<unknown>
+    flags?: (state: unknown) => Iterable<readonly [unknown, unknown]>
+    listening?: (state: unknown, id: unknown) => boolean
+    tell?: (state: unknown) => unknown
+  }>
+) =>
+  declare(ChildById, {
+    _tag: "ChildById",
+    program,
+    listed: options.flags ?? options.ids,
+    flagged: options.flags !== undefined,
+    ...(options.listening === undefined ? {} : { listening: options.listening }),
+    ...(options.tell === undefined ? {} : { tell: options.tell })
+  })) as never
 
 /**
  * The function of `program` that takes a parent's children, and gives its `make`.

@@ -15,7 +15,7 @@ import type * as Tracer from "effect/Tracer"
 import fc from "fast-check"
 import { collectGarbage } from "../test/gc.test_helper.ts"
 import { idle, prioritizedSchedules, unpreempted } from "../test/scheduled.test_scheduler.ts"
-import { type Instance, type Kept, program } from "./compose.ts"
+import { childById, type Instance, type Kept, program } from "./compose.ts"
 import { type DefectSite, ProgramDefect } from "./defect.ts"
 import { type Dispatch, forwardTo } from "./dispatch.ts"
 import type { Applied, Ignored } from "./engine.ts"
@@ -561,7 +561,7 @@ const makeList = (fates: Fates, events: Array<Event>) => {
   // A row is there while its id is listed, started from the flags listed with it: one added again at its id is
   // another row.
   return List.withChildren({
-    Rows: List.childById(row, { flags: (state) => state.rows.map((flags) => [flags.id, flags] as const) })
+    Rows: childById(row, { flags: (state) => state.rows.map((flags) => [flags.id, flags] as const) })
   }).make({
     init: { state: initialOwnOf(fates) },
     update: (message: Own) => (state) => {

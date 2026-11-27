@@ -5,6 +5,9 @@
 // compile, and that the declarations of what it exports can be emitted.
 import {
   andThen,
+  child,
+  childById,
+  childWhen,
   type CommandServicesOf,
   CompositionDefect,
   type Dispatch,
@@ -81,7 +84,7 @@ type State = Readonly<{
 type ResetAll = Readonly<{ _tag: "ResetAll" }>
 
 // Exported, as a module that declares a program for others: its declarations name the types of `program`.
-export const { child, childById, childWhen, make, withChildren } = program<{ state: State; message: ResetAll }>()
+export const { make, withChildren } = program<{ state: State; message: ResetAll }>()
 
 // A child that names no external message, which `nodenext` checks without `exactOptionalPropertyTypes`.
 export const quiet = program<{ state: CounterState; model: CounterState; message: Readonly<{ _tag: "Increment" }> }>()
@@ -94,21 +97,36 @@ export const quiet = program<{ state: CounterState; model: CounterState; message
 // Exported, as a package that publishes a program would: its declarations name what `child`, `childWhen` and
 // `childById` give. A child always there, children by id, told a literal as each starts, a child started again on
 // another key, one there in some states, one with flags there in some states, and one with flags always there.
+// Declared apart from `withChildren`, the first option of each names the parent's state.
 export const children = {
   Main: child(counter),
-  Row: childById(counter, { ids: (state) => state.ids, listening: (_, id) => id > 0, tell: () => ({ _tag: "Reset" }) }),
-  Keyed: child(quiet, { key: (state) => state.fulls }),
-  Shown: childWhen(quiet, { there: (state) => state.fulls > 0, listening: (state) => state.fulls < 10 }),
-  Greeter: childWhen(greeter, { there: (state) => state.opened }),
-  Started: child(greeter, { flags: (state) => state.fulls })
+  Row: childById(counter, {
+    ids: (state: State) => state.ids,
+    listening: (_, id) => id > 0,
+    tell: () => ({ _tag: "Reset" })
+  }),
+  Keyed: child(quiet, { key: (state: State) => state.fulls }),
+  Shown: childWhen(quiet, { there: (state: State) => state.fulls > 0, listening: (state) => state.fulls < 10 }),
+  Greeter: childWhen(greeter, { there: (state: State) => state.opened }),
+  Started: child(greeter, { flags: (state: State) => state.fulls })
 }
+
+// In the call of `withChildren`, the options take the parent's state with no annotation.
+withChildren({
+  Row: childById(counter, { ids: (state) => state.ids, listening: (_, id) => id > 0 }),
+  Shown: childWhen(quiet, { there: (state) => state.fulls > 0 }),
+  Started: child(greeter, { flags: (state) => state.fulls })
+})
+// Apart from it, the state is `unknown`.
+// @ts-expect-error
+child(quiet, { key: (state) => state.fulls })
 
 // A child with flags always there is given them, not an `Option` of them.
 // @ts-expect-error
-child(greeter, { flags: (state) => state.opened })
+child(greeter, { flags: (state: State) => state.opened })
 // A child that may not be there is declared with `childWhen`, not with `child`.
 // @ts-expect-error
-child(quiet, { there: (state) => state.fulls > 0 })
+child(quiet, { there: (state: State) => state.fulls > 0 })
 // Children by id are listed by a function, which is not missing where optional properties take `undefined`.
 // @ts-expect-error
 childById(counter, { ids: undefined })
@@ -124,7 +142,9 @@ withChildren({ Written: { "~@fgaudo/effect-tea/Child/declaration": written } })
 // @ts-expect-error
 export const widened: Library.Child<State, typeof counter, "always" | "sometimes"> = child(counter)
 // @ts-expect-error
-export const narrowed: Library.ChildById<State, 1, typeof counter> = childById(counter, { ids: (state) => state.ids })
+export const narrowed: Library.ChildById<State, 1, typeof counter> = childById(counter, {
+  ids: (state: State) => state.ids
+})
 
 const first: State = { ids: [1], fulls: 0, opened: Opt.none() }
 
@@ -189,14 +209,14 @@ withChildren(children).make({
 
 // What a declaration tells is an external message of the child, and a child without one is told nothing.
 // @ts-expect-error
-childById(counter, { ids: (state) => state.ids, tell: () => ({ _tag: "Increment" }) })
+childById(counter, { ids: (state: State) => state.ids, tell: () => ({ _tag: "Increment" }) })
 // @ts-expect-error
 child(quiet, { tell: () => ({ _tag: "Increment" }) })
 
 // A program with external messages and none of its own passes them on to its child, in its `external`.
 const relaying = program<{ state: Readonly<{ relayed: number }>; event: Full; external: Reset }>()
 
-export const relay = relaying.withChildren({ Inner: relaying.child(counter) }).make({
+export const relay = relaying.withChildren({ Inner: child(counter) }).make({
   init: { state: { relayed: 0 } },
   external: (reset) => (state) => ({
     state: { relayed: state.relayed + 1 },
@@ -209,7 +229,7 @@ export const relay = relaying.withChildren({ Inner: relaying.child(counter) }).m
 // A parent of parents, which tells its child, a parent, what that child passes on.
 const outerOf = program<{ state: Readonly<{ heard: number }>; message: ResetAll }>()
 
-export const outer = outerOf.withChildren({ Relay: outerOf.child(relay) }).make({
+export const outer = outerOf.withChildren({ Relay: child(relay) }).make({
   init: { state: { heard: 0 } },
   update: () => (state) => ({ state, tell: [{ _tag: "Relay", message: { _tag: "Reset" } }] }),
   onEvent: { Relay: () => (state) => ({ state: { heard: state.heard + 1 } }) },
@@ -231,7 +251,7 @@ type Lighting = Readonly<{ ids: ReadonlyArray<number>; lit: number }>
 const lighting = program<{ state: Lighting; message: ResetAll; output: number }>()
 
 // Children declared apart, and a handler written apart that reads and tells them by their types.
-const lit = { Lamp: lighting.childById(lamp, { ids: (state) => state.ids }), Main: lighting.child(counter) }
+const lit = { Lamp: childById(lamp, { ids: (state: Lighting) => state.ids }), Main: child(counter) }
 
 export const relight =
   (_: ResetAll, children: OutputsOf<typeof lit>) =>
@@ -272,7 +292,7 @@ forwardTo(toLamps, { _tag: "Main", id: 1, instance: 1 })(null as never)
 
 // A parent lists its own keys from its children's outputs too.
 const watching = program<{ state: Readonly<{ ids: ReadonlyArray<number> }>; key: "dark" }>()
-const watched = watching.withChildren({ Lamp: watching.childById(lamp, { ids: (state) => state.ids }) }).make({
+const watched = watching.withChildren({ Lamp: childById(lamp, { ids: (state) => state.ids }) }).make({
   init: { state: { ids: [1] } },
   subscriptions: (state, children) => (Arr.some(state.ids, children.Lamp.output) ? [] : ["dark"]),
   listen: () => Channel.never,
@@ -280,7 +300,7 @@ const watched = watching.withChildren({ Lamp: watching.childById(lamp, { ids: (s
 })
 
 // A parent reads only the output of a child that declares one.
-lighting.withChildren({ Main: lighting.child(counter) }).make({
+lighting.withChildren({ Main: child(counter) }).make({
   init: { state: { ids: [], lit: 0 } },
   // @ts-expect-error
   update: (_, children) => (state) => ({ state: { ...state, lit: children.Main.output() } }),
@@ -292,7 +312,7 @@ lighting.withChildren({ Main: lighting.child(counter) }).make({
 // A parent's own command answers with the parent's own messages, never with a child's: an external message is none.
 export const loading = program<{ state: State; command: "Load"; message: ResetAll }>()
 
-const loadingChildren = { Main: loading.child(counter) }
+const loadingChildren = { Main: child(counter) }
 
 loading.withChildren(loadingChildren).make({
   init: { state: first },
@@ -513,8 +533,8 @@ export const numbered = program<{ state: number; message: "Increment" }>().make(
 })
 const counters = program<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
 export const numberedParent = counters.withChildren({
-  Count: counters.child(numbered),
-  Counts: counters.childById(numbered, { ids: (state) => state.ids })
+  Count: child(numbered),
+  Counts: childById(numbered, { ids: (state) => state.ids })
 }).make({ init: { state: { ids: [] } }, makeModel: (_, children) => children.Count() })
 
 export const fieldless = program<{ state: {} }>().make({ init: { state: {} }, makeModel: () => null })
@@ -536,7 +556,7 @@ export function inDialog<S, M, Msg>(
 }>
 export function inDialog(content: Program<{ state: unknown; model: unknown; message: unknown }>) {
   const dialog = program<{ state: DialogOwn; message: Toggle }>()
-  return dialog.withChildren({ Content: dialog.child(content) }).make({
+  return dialog.withChildren({ Content: child(content) }).make({
     init: { state: { open: false } },
     update: (message) => () => ({ state: { open: message._tag === "Opened" } }),
     makeModel: (state, children) => ({ open: state.open, content: children.Content() })

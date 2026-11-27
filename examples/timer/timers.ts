@@ -1,6 +1,6 @@
 // The tutorial's third step: timers by id, each the timer of the second step as it is. Adding one and removing
 // one are the list's own messages; everything inside a timer is the timer's.
-import { type MessageOf, type ModelOf, program, reject, type StateOf } from "@fgaudo/effect-tea"
+import { childById, type MessageOf, type ModelOf, program, reject, type StateOf } from "@fgaudo/effect-tea"
 import * as Arr from "effect/Array"
 import * as Timer from "./timer.ts"
 
@@ -14,10 +14,10 @@ type RemoveClicked = Readonly<{ _tag: "RemoveClicked"; id: number }>
 // #endregion state
 
 // #region compose
-const { childById, withChildren } = program<{ state: Own; message: AddClicked | RemoveClicked }>()
-
 // A timer is there while its id is listed: a click on a view drawn before its removal is rejected.
-export const timers = withChildren({ Timer: childById(Timer.timer, { ids: (state) => state.ids }) }).make({
+export const timers = program<{ state: Own; message: AddClicked | RemoveClicked }>().withChildren({
+  Timer: childById(Timer.timer, { ids: (state) => state.ids })
+}).make({
   init: { state: { nextId: 2, ids: [1] } },
   update: (message) => (state) => {
     switch (message._tag) {

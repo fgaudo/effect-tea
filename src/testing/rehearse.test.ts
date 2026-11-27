@@ -13,7 +13,7 @@ import * as Opt from "effect/Option"
 import * as Predicate from "effect/Predicate"
 import type * as Scope from "effect/Scope"
 import { prioritizedSchedules, scheduled } from "../../test/scheduled.test_scheduler.ts"
-import { program } from "../compose.ts"
+import { child, childById, program } from "../compose.ts"
 import { ProgramDefect } from "../defect.ts"
 import type { MessageOf, Program } from "../program.ts"
 import type { Subscription } from "../subscription.ts"
@@ -431,7 +431,7 @@ describe("rehearse", () => {
     })
     type Form = Readonly<{ name: string; pings: number }>
     const Form = program<{ state: Form; message: "Pinged" | Typed; key: "ping" }>()
-    const form = Form.withChildren({ Field: Form.child(field) }).make({
+    const form = Form.withChildren({ Field: child(field) }).make({
       init: { state: { name: "", pings: 0 } },
       update: (message) => (state) => ({
         state: message === "Pinged" ? { ...state, pings: state.pings + 1 } : { ...state, name: message.value }
@@ -482,7 +482,7 @@ describe("rehearse", () => {
     })
     type Ids = Readonly<{ ids: ReadonlyArray<number> }>
     const List = program<{ state: Ids; message: "Added" }>()
-    const list = List.withChildren({ Row: List.childById(row, { ids: (state) => state.ids }) }).make({
+    const list = List.withChildren({ Row: childById(row, { ids: (state) => state.ids }) }).make({
       init: { state: { ids: [7] } },
       update: () => ({ ids }) => ({ state: { ids: [...ids, 8] } }),
       makeModel: (state, children) => state.ids.map((id) => ({ id, ticks: children.Row(id) }))
@@ -524,7 +524,7 @@ describe("rehearse", () => {
     type Rounds = Readonly<{ round: number }>
     const App = program<{ state: Rounds; message: "Restarted" }>()
     // Each round starts the clock again, as another instance: `hear` plays the second, `hearNext` the third.
-    const app = App.withChildren({ Clock: App.child(clock, { key: (state) => state.round }) }).make({
+    const app = App.withChildren({ Clock: child(clock, { key: (state) => state.round }) }).make({
       init: { state: { round: 1 } },
       update: () => ({ round }) => ({ state: { round: round + 1 } }),
       makeModel: (state) => state

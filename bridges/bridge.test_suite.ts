@@ -6,6 +6,7 @@
 // that file's name.
 import {
   type App,
+  child,
   type Dispatch,
   type MessageOf,
   type ModelOf,
@@ -188,7 +189,7 @@ export const draft = draftOf.make({
 const deskOf = program<{ state: Desk }>()
 
 // Sent, the draft is started again, by another key: it starts from the state its `init` gives.
-export const desk = deskOf.withChildren({ Draft: deskOf.child(draft, { key: (held) => held.sent.length }) }).make({
+export const desk = deskOf.withChildren({ Draft: child(draft, { key: (held) => held.sent.length }) }).make({
   init: { state: { sent: [] } },
   onEvent: { Draft: (event) => (held) => ({ state: { sent: [...held.sent, event.text] } }) },
   makeModel: (held, children) => ({ draft: children.Draft(), sent: held.sent })

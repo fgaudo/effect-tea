@@ -23,7 +23,7 @@ import type * as Tracer from "effect/Tracer"
 import { gate } from "../test/gate.test_helper.ts"
 import { collectGarbage, objectHeap } from "../test/gc.test_helper.ts"
 import type { Execution, RunCommand } from "./command.ts"
-import { program } from "./compose.ts"
+import { child, childById, childWhen, program } from "./compose.ts"
 import { CompositionDefect, defect, type DefectSite, InvariantDefect, ProgramDefect } from "./defect.ts"
 import { forwardTo } from "./dispatch.ts"
 import type { Applied, Ignored, Origin, RunOptions } from "./engine.ts"
@@ -1168,7 +1168,7 @@ describe("defects", () => {
       () =>
         steppedOnce(
           start(
-            Parent.withChildren({ Child: Parent.childWhen(plain, { there: (state) => once(state) && boom() }) })
+            Parent.withChildren({ Child: childWhen(plain, { there: (state) => once(state) && boom() }) })
               .make({ ...counted, makeModel: () => null })
           )
         )
@@ -1179,7 +1179,7 @@ describe("defects", () => {
       () =>
         steppedOnce(
           start(
-            Parent.withChildren({ Child: Parent.child(plain, { key: (state) => once(state) ? boom() : 0 }) })
+            Parent.withChildren({ Child: child(plain, { key: (state) => once(state) ? boom() : 0 }) })
               .make({ ...counted, makeModel: () => null })
           )
         )
@@ -1190,7 +1190,7 @@ describe("defects", () => {
       () =>
         steppedOnce(
           start(
-            Parent.withChildren({ Rows: Parent.childById(plain, { ids: (state) => once(state) ? boom() : [] }) })
+            Parent.withChildren({ Rows: childById(plain, { ids: (state) => once(state) ? boom() : [] }) })
               .make({ ...counted, makeModel: () => null })
           )
         )
@@ -1201,7 +1201,7 @@ describe("defects", () => {
       () =>
         steppedOnce(
           start(
-            Parent.withChildren({ Child: Parent.child(hearing, { tell: (state) => once(state) ? boom() : "Told" }) })
+            Parent.withChildren({ Child: child(hearing, { tell: (state) => once(state) ? boom() : "Told" }) })
               .make({ ...counted, makeModel: () => null })
           )
         )
@@ -1212,7 +1212,7 @@ describe("defects", () => {
       () =>
         steppedOnce(
           start(
-            Parent.withChildren({ Child: Parent.child(seeded, { flags: (state) => state.count }) })
+            Parent.withChildren({ Child: child(seeded, { flags: (state) => state.count }) })
               .make({ ...counted, makeModel: () => null })
           )
         )
@@ -1222,7 +1222,7 @@ describe("defects", () => {
       "update",
       () =>
         steppedOnce(start(
-          Parent.withChildren({ Child: Parent.child(outputting) }).make({
+          Parent.withChildren({ Child: child(outputting) }).make({
             init: { state: { count: 0 } },
             update: (_, children) => ({ count }) => ({ state: { count: count + children.Child.output() } }),
             makeModel: () => null
@@ -1235,7 +1235,7 @@ describe("defects", () => {
       () =>
         steppedOnce(
           start(
-            Parent.withChildren({ Child: Parent.child(plain, { listening: (state) => !once(state) || boom() }) })
+            Parent.withChildren({ Child: child(plain, { listening: (state) => !once(state) || boom() }) })
               .make({ ...counted, makeModel: () => null })
           )
         )
@@ -1246,7 +1246,7 @@ describe("defects", () => {
       () =>
         steppedOnce(
           start(
-            Parent.withChildren({ Child: Parent.childWhen(listing, { there: once }) })
+            Parent.withChildren({ Child: childWhen(listing, { there: once }) })
               .make({ ...counted, makeModel: () => null })
           )
         )
@@ -1256,7 +1256,7 @@ describe("defects", () => {
       "subscriptions",
       () =>
         steppedOnce(start(
-          Keyed.withChildren({ Child: Keyed.child(outputting) }).make({
+          Keyed.withChildren({ Child: child(outputting) }).make({
             ...counted,
             subscriptions: (state, children) => once(state) ? [children.Child.output()] : [],
             listen: () => Channel.never,
@@ -1270,7 +1270,7 @@ describe("defects", () => {
       () =>
         steppedOnce(
           start(
-            Parent.withChildren({ Child: Parent.childWhen(drawing, { there: once }) })
+            Parent.withChildren({ Child: childWhen(drawing, { there: once }) })
               .make({ ...counted, makeModel: (_, children) => Opt.isSome(children.Child()) })
           )
         )
@@ -1281,7 +1281,7 @@ describe("defects", () => {
       () =>
         steppedOnce(
           start(
-            Parent.withChildren({ Child: Parent.child(outputting) })
+            Parent.withChildren({ Child: child(outputting) })
               .make({ ...counted, makeModel: (state, children) => once(state) ? children.Child.output() : 0 })
           )
         )
@@ -1292,7 +1292,7 @@ describe("defects", () => {
       () =>
         steppedOnce(
           start(
-            Parent.withChildren({ Child: Parent.childWhen(subscribing, { there: once }) })
+            Parent.withChildren({ Child: childWhen(subscribing, { there: once }) })
               .make({ ...counted, makeModel: () => null })
           )
         )
@@ -1303,7 +1303,7 @@ describe("defects", () => {
       () =>
         steppedOnce(
           start(
-            Parent.withChildren({ Child: Parent.childWhen(commanding, { there: once }) })
+            Parent.withChildren({ Child: childWhen(commanding, { there: once }) })
               .make({ ...counted, makeModel: () => null })
           )
         )
@@ -1314,7 +1314,7 @@ describe("defects", () => {
       () =>
         startedAtOne(
           start(
-            Flagged.withChildren({ Child: Flagged.child(seeded, { flags: (state) => state.count }) })
+            Flagged.withChildren({ Child: child(seeded, { flags: (state) => state.count }) })
               .make({ init: (count) => ({ state: { count } }), makeModel: () => null }),
             { flags: 1 }
           )
@@ -1326,7 +1326,7 @@ describe("defects", () => {
       () =>
         startedAtOne(
           start(
-            Flagged.withChildren({ Child: Flagged.childWhen(plain, { there: (state) => once(state) && boom() }) })
+            Flagged.withChildren({ Child: childWhen(plain, { there: (state) => once(state) && boom() }) })
               .make({ init: (count) => ({ state: { count } }), makeModel: () => null }),
             { flags: 1 }
           )
@@ -1338,7 +1338,7 @@ describe("defects", () => {
       () =>
         startedAtOne(
           start(
-            Flagged.withChildren({ Child: Flagged.child(plain, { key: (state) => once(state) ? boom() : 0 }) })
+            Flagged.withChildren({ Child: child(plain, { key: (state) => once(state) ? boom() : 0 }) })
               .make({ init: (count) => ({ state: { count } }), makeModel: () => null }),
             { flags: 1 }
           )
@@ -1350,7 +1350,7 @@ describe("defects", () => {
       () =>
         startedAtOne(
           start(
-            Flagged.withChildren({ Rows: Flagged.childById(plain, { ids: (state) => once(state) ? boom() : [] }) })
+            Flagged.withChildren({ Rows: childById(plain, { ids: (state) => once(state) ? boom() : [] }) })
               .make({ init: (count) => ({ state: { count } }), makeModel: () => null }),
             { flags: 1 }
           )
@@ -1362,7 +1362,7 @@ describe("defects", () => {
       () =>
         startedAtOne(
           start(
-            Flagged.withChildren({ Child: Flagged.child(started, { flags: (state) => once(state) ? boom() : 0 }) })
+            Flagged.withChildren({ Child: child(started, { flags: (state) => once(state) ? boom() : 0 }) })
               .make({ init: (count) => ({ state: { count } }), makeModel: () => null }),
             { flags: 1 }
           )
@@ -1374,7 +1374,7 @@ describe("defects", () => {
       () =>
         startedAtOne(
           start(
-            Flagged.withChildren({ Child: Flagged.child(hearing, { tell: (state) => once(state) ? boom() : "Told" }) })
+            Flagged.withChildren({ Child: child(hearing, { tell: (state) => once(state) ? boom() : "Told" }) })
               .make({ init: (count) => ({ state: { count } }), makeModel: () => null }),
             { flags: 1 }
           )
@@ -1466,7 +1466,7 @@ describe("defects", () => {
       makeModel: () => null
     }
     const Page = program<{ state: object }>()
-    const page = Page.withChildren({ Saver: Page.child(saver) }).make({
+    const page = Page.withChildren({ Saver: child(saver) }).make({
       init: { state: {} },
       onEvent: { Saver: () => () => boom() },
       makeModel: () => null
@@ -1520,7 +1520,7 @@ describe("defects", () => {
         () =>
           diedIn(
             start(
-              Desk.withChildren({ Leaf: Desk.childWhen(quiet, { there: (state) => state.step === 1 ? boom() : true }) })
+              Desk.withChildren({ Leaf: childWhen(quiet, { there: (state) => state.step === 1 ? boom() : true }) })
                 .make({ init: initial, update: next, makeModel: () => null })
             ),
             "Next"
@@ -1532,7 +1532,7 @@ describe("defects", () => {
         () =>
           diedIn(
             start(
-              Desk.withChildren({ Leaf: Desk.child(quiet, { key: (state) => state.step === 1 ? boom() : 0 }) })
+              Desk.withChildren({ Leaf: child(quiet, { key: (state) => state.step === 1 ? boom() : 0 }) })
                 .make({ init: initial, update: next, makeModel: () => null })
             ),
             "Next"
@@ -1545,7 +1545,7 @@ describe("defects", () => {
           diedIn(
             start(
               Desk.withChildren({
-                Leaf: Desk.child(flagged((flags) => ({ state: flags })), {
+                Leaf: child(flagged((flags) => ({ state: flags })), {
                   flags: (state) => state.step === 1 ? boom() : { on: false }
                 })
               }).make({ init: initial, update: next, makeModel: () => null })
@@ -1559,7 +1559,7 @@ describe("defects", () => {
         () =>
           diedIn(
             start(
-              Desk.withChildren({ Leaf: Desk.childById(quiet, { ids: (state) => state.step === 1 ? boom() : [1] }) })
+              Desk.withChildren({ Leaf: childById(quiet, { ids: (state) => state.step === 1 ? boom() : [1] }) })
                 .make({ init: initial, update: next, makeModel: () => null })
             ),
             "Next"
@@ -1572,7 +1572,7 @@ describe("defects", () => {
           diedIn(
             start(
               Desk.withChildren({
-                Leaf: Desk.childWhen(flagged((flags) => flags.on ? boom() : { state: flags }), {
+                Leaf: childWhen(flagged((flags) => flags.on ? boom() : { state: flags }), {
                   there: (state) => Opt.some({ on: state.step === 1 })
                 })
               }).make({ init: initial, update: next, makeModel: () => null })
@@ -1587,7 +1587,7 @@ describe("defects", () => {
           diedIn(
             start(
               Desk.withChildren({
-                Leaf: Desk.child(
+                Leaf: child(
                   program<{ state: Leaf; external: "Told" }>().make({
                     init: { state: { on: false } },
                     external: () => () => boom(),
@@ -1609,7 +1609,7 @@ describe("defects", () => {
         () =>
           diedIn(
             start(
-              Desk.withChildren({ Leaf: Desk.child(reading) }).make({
+              Desk.withChildren({ Leaf: child(reading) }).make({
                 init: initial,
                 update: (_, children) => (state) => ({ state: { ...state, step: children.Leaf.output() ? 1 : 2 } }),
                 makeModel: () => null
@@ -1625,7 +1625,7 @@ describe("defects", () => {
           diedIn(
             start(
               Desk.withChildren({
-                Leaf: Desk.child(quiet, { listening: (state) => state.step === 1 ? boom() : true })
+                Leaf: child(quiet, { listening: (state) => state.step === 1 ? boom() : true })
               }).make({ init: initial, update: next, makeModel: () => null })
             ),
             "Next"
@@ -1638,7 +1638,7 @@ describe("defects", () => {
           diedIn(
             start(
               Desk.withChildren({
-                Leaf: Desk.child(
+                Leaf: child(
                   program<{ state: Leaf; message: "Go"; key: "k" }>().make({
                     init: { state: { on: false } },
                     update: () => () => ({ state: { on: true } }),
@@ -1658,7 +1658,7 @@ describe("defects", () => {
         () =>
           diedIn(
             start(
-              Desk.withChildren({ Leaf: Desk.child(reading) }).make({
+              Desk.withChildren({ Leaf: child(reading) }).make({
                 init: initial,
                 update: next,
                 makeModel: (state, children) => state.step === 1 ? children.Leaf.output() : null
@@ -1674,7 +1674,7 @@ describe("defects", () => {
           diedIn(
             start(
               Desk.withChildren({
-                Leaf: Desk.child(
+                Leaf: child(
                   program<{ state: Leaf }>().make({ init: { state: { on: false } }, makeModel: () => boom() })
                 )
               }).make({
@@ -1704,7 +1704,7 @@ describe("defects", () => {
       })
       const exit = await Effect.runPromiseExit(
         start(
-          Desk.withChildren({ Leaf: Desk.child(listening) }).make({
+          Desk.withChildren({ Leaf: child(listening) }).make({
             init: initial,
             update: next,
             makeModel: () => null
@@ -1744,7 +1744,7 @@ describe("defects", () => {
     type Shelf = Readonly<{ shelf: string }>
     const Rows = program<{ state: object; message: Readonly<{ id: Shelf }> }>()
     // No row is ever there: an external message to one is a defect that names its id.
-    const rows = Rows.withChildren({ Rows: Rows.childById(row, { ids: (): ReadonlyArray<Shelf> => [] }) }).make({
+    const rows = Rows.withChildren({ Rows: childById(row, { ids: (): ReadonlyArray<Shelf> => [] }) }).make({
       init: { state: {} },
       update: ({ id }) => (state) => ({ state, tell: [{ _tag: "Rows", id, message: "Clear" }] }),
       makeModel: () => null
@@ -3344,7 +3344,7 @@ describe("what a run that goes on keeps", () => {
       }),
       () => Effect.sync(() => signal("released"))
     )
-    const { childById, withChildren } = program<{ state: Rounds; message: Own; command: Save; key: Listened }>()
+    const { withChildren } = program<{ state: Rounds; message: Own; command: Save; key: Listened }>()
     const rounds = withChildren({ Rows: childById(row, { ids: (state) => state.rows }) }).make({
       init: { state: { round: -1, payload: {}, showing: false, listening: false, rows: [] } },
       update: ({ _tag, round }) => (state) => {

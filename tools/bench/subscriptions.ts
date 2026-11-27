@@ -13,7 +13,7 @@ import * as Flag from "effect/cli/Flag"
 import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
 import * as Num from "effect/Number"
-import { type MessageOf, type Program, program, reject, type StateOf } from "../../src/index.ts"
+import { childById, type MessageOf, type Program, program, reject, type StateOf } from "../../src/index.ts"
 import { stateOf } from "../../src/testing/index.ts"
 import { main } from "../cli.ts"
 
@@ -33,7 +33,7 @@ const row: Program<{ state: RowState; model: number; message: RowMessage; key: "
 
 type Own = Readonly<{ ids: ReadonlyArray<number> }>
 
-const { childById, withChildren } = program<{ state: Own }>()
+const { withChildren } = program<{ state: Own }>()
 
 const list = withChildren({ Row: childById(row, { ids: (state) => state.ids }) }).make({
   init: { state: { ids: [] } },

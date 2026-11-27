@@ -1,6 +1,6 @@
 // The tutorial's fourth step: a timer with a name the user types. What is typed is a message of this program's, which
 // its `update` stores; the timer of the second step is its child, as it is.
-import { type MessageOf, type ModelOf, program, type StateOf } from "@fgaudo/effect-tea"
+import { child, type MessageOf, type ModelOf, program, type StateOf } from "@fgaudo/effect-tea"
 import * as Timer from "./timer.ts"
 
 // #region state
@@ -12,9 +12,7 @@ export type NameTyped = Readonly<{ _tag: "NameTyped"; value: string }>
 // #endregion state
 
 // #region compose
-const { child, withChildren } = program<{ state: Own; message: NameTyped }>()
-
-export const named = withChildren({ Timer: child(Timer.timer) }).make({
+export const named = program<{ state: Own; message: NameTyped }>().withChildren({ Timer: child(Timer.timer) }).make({
   init: { state: { name: "" } },
   // The text is stored as it is typed, whatever it is: the field on screen already shows it.
   update: ({ value }) => () => ({ state: { name: value } }),

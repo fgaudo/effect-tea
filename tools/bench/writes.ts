@@ -14,7 +14,7 @@ import * as Flag from "effect/cli/Flag"
 import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
 import * as Num from "effect/Number"
-import { type Program, program, reject, start, type Transition, type Update } from "../../src/index.ts"
+import { childById, type Program, program, reject, start, type Transition, type Update } from "../../src/index.ts"
 import { main } from "../cli.ts"
 
 const rows = 1000
@@ -105,7 +105,7 @@ const rowsOf = program<{ state: Rows }>()
 
 // The child, among `rows` children by id, which the library keeps.
 const typedRows = (child: ReturnType<typeof typedProgram>) =>
-  rowsOf.withChildren({ Row: rowsOf.childById(child, { ids: (state) => state.ids }) }).make({
+  rowsOf.withChildren({ Row: childById(child, { ids: (state) => state.ids }) }).make({
     init: { state: { ids: Arr.makeBy(rows, (id) => id) } },
     makeModel: (state) => state.ids.length
   })

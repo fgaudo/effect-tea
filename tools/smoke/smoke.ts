@@ -31,25 +31,20 @@ const readJson = Effect.fnUntraced(function*(path: string) {
 })
 
 // What `program`, its functions and `rehearse` give is named, not spelled out: spelled out, it repeats the state for
-// each of its types.
-const named = [
-  "ProgramMaker",
-  "DeclareChild",
-  "DeclareChildById",
-  "MakeProgram",
-  "Child",
-  "ChildById",
-  "Rehearsal"
-]
+// each of its types. So are the types of `child` and `childById`, which take no type argument: spelled out, they
+// repeat the check of a child, in each export of an object that holds them.
+const named = ["ProgramMaker", "MakeProgram", "Child", "ChildById", "Rehearsal"]
+const namedPlain = ["DeclareChild", "DeclareChildById"]
 
 // How often the consumer's state is spelled out, by a field of its own: once for each place a declaration holds it,
-// 13 with each supported TypeScript: the alias `State`; `children` six times, once for each child; `app` twice, in
+// 12 with each supported TypeScript: the alias `State`; `children` five times, once for each child whose options read
+// it (`Main` reads none, and is a child of an `unknown` state, which every parent takes); `app` twice, in
 // its own state, inside `Kept`, and in its model, which has the field too; `served` once; `copied`, which spells out
 // its program, three times. An equality, not a bound: an export added to `consumer.ts`
 // changes it, and its count is read from the declarations and explained here, never raised to pass. A type of the
 // library that repeats the state inside each of its own multiplies it (80 when `make` was spelled out, 25 when `Child`
 // and `Step` were, 16 with `DeclareChild<State>`, in `docs/rejected.md`).
-const expectedSpellings = 13
+const expectedSpellings = 12
 
 // What TypeScript prints of the errors of `misprint.ts`, at most, in bytes: about 5,700 with each supported TypeScript.
 // A bound, not an equality: how a type prints is the compiler's, and changes with it. The children's programs printed
@@ -84,8 +79,11 @@ const misprintProblemsOf = (printed: string, source: string) => {
 // What is wrong in the declarations a consumer's TypeScript emits, as the lines to print.
 const problemsOf = (declared: string) => {
   const problems: Array<string> = []
-  // At a word's start: `DeclareChild<` is no `Child<`.
-  const unnamed = named.filter((name) => !new RegExp(`\\b${name}<`).test(declared))
+  // At a word's start: `DeclareChild<` is no `Child<`, and `DeclareChildById` no `DeclareChild`.
+  const unnamed = [
+    ...named.filter((name) => !new RegExp(`\\b${name}<`).test(declared)),
+    ...namedPlain.filter((name) => !new RegExp(`\\b${name}\\b`).test(declared))
+  ]
   if (unnamed.length > 0) problems.push(`consumer.d.ts spells out ${unnamed.join(", ")}`)
   const spelled = declared.match(/\bfulls\b/g)?.length ?? 0
   if (spelled !== expectedSpellings) {

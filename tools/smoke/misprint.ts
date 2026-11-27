@@ -4,6 +4,7 @@
 // the options of a child. `smoke.ts` typechecks it with no truncation, and bounds what TypeScript prints: each child's
 // program printed with its parent's types would multiply it at each level of the tree.
 import {
+  child,
   type CommandOf,
   type CommandServicesOf,
   type KeyOf,
@@ -32,10 +33,10 @@ const timed = program<{ state: Readonly<{ at: number }>; command: "Now"; message
 const treeOf = program<{ state: Readonly<{ n: number }> }>()
 
 const tree = treeOf.withChildren({
-  App: treeOf.child(app),
-  Outer: treeOf.child(outer),
-  Served: treeOf.child(served),
-  Timed: treeOf.child(timed)
+  App: child(app),
+  Outer: child(outer),
+  Served: child(served),
+  Timed: child(timed)
 }).make({ init: { state: { n: 0 } }, makeModel: () => null })
 
 declare const pressedUnder: (key: KeyOf<typeof tree>) => Opt.Option<MessageOf<typeof tree>>
@@ -57,7 +58,7 @@ declare const services: CommandServicesOf<typeof tree>
 export const needed: number = services
 
 // Children with external messages and outputs, beside the whole tree.
-const told = { Lamps: treeOf.child(lamps), Relay: treeOf.child(relay), Tree: treeOf.child(tree) }
+const told = { Lamps: child(lamps), Relay: child(relay), Tree: child(tree) }
 
 declare const tell: TellOf<typeof told>
 
@@ -67,6 +68,6 @@ declare const outputs: OutputsOf<typeof told>
 
 export const reading: number = outputs
 
-// A child with flags given an `Option` of them, as a child that may not be there is given them by `there`: `smoke.ts`
-// holds that the error is one, which says the type that `flags` takes.
-export const greeted = treeOf.child(greeter, { flags: (state) => Opt.some(state.n) })
+// A child with flags given an `Option` of them, as a child that may not be there is given them by `there`, in the call
+// of `withChildren`: `smoke.ts` holds that the error is one, which says the type that `flags` takes.
+export const greeted = treeOf.withChildren({ Greeter: child(greeter, { flags: (state) => Opt.some(state.n) }) })

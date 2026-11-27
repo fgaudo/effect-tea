@@ -3,6 +3,7 @@
 // from the page's output, and listens to the button only while the page is there to take the press. The header closes
 // the page only where it shows no edit.
 import {
+  childWhen,
   defect,
   type MessageOf,
   type ModelOf,
@@ -40,8 +41,6 @@ type OwnMessage = Data.TaggedEnum<{
 // Not exported, so that no view calls its constructors, as the guide's "Model" says.
 const OwnMessage = Data.taggedEnum<OwnMessage>()
 
-const { childWhen, withChildren } = program<{ state: Own; message: OwnMessage; key: "back" }>()
-
 const backPressed: Subscription<OwnMessage, BackButton> = Channel.unwrap(
   Effect.map(Effect.service(BackButton), (button) =>
     Stream.toChannel(button.presses).pipe(
@@ -51,7 +50,7 @@ const backPressed: Subscription<OwnMessage, BackButton> = Channel.unwrap(
     ))
 )
 
-export const notes = withChildren({
+export const notes = program<{ state: Own; message: OwnMessage; key: "back" }>().withChildren({
   // There while a note is open, and started from its text: a note opened again starts again.
   Note: childWhen(Note.note, {
     there: (state) => Opt.flatMap(state.open, (index) => Opt.map(Arr.get(state.notes, index), (text) => ({ text })))

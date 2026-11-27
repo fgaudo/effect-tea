@@ -13,7 +13,18 @@ import * as Opt from "effect/Option"
 import * as fc from "fast-check"
 import { collectGarbage } from "../test/gc.test_helper.ts"
 import type { Execution } from "./command.ts"
-import { Child, ChildById, type Instance, type Kept, type OutputsOf, program, type TellOf } from "./compose.ts"
+import {
+  Child,
+  child,
+  ChildById,
+  childById,
+  childWhen,
+  type Instance,
+  type Kept,
+  type OutputsOf,
+  program,
+  type TellOf
+} from "./compose.ts"
 import { CompositionDefect, compositionDefect, defect, InvariantDefect } from "./defect.ts"
 import { type Dispatch, forwardTo } from "./dispatch.ts"
 import type { Ignored } from "./engine.ts"
@@ -154,10 +165,10 @@ type Reset = Readonly<{ _tag: "Reset" }>
 const Parent = program<{ state: ParentState; message: Reset }>()
 
 const app = Parent.withChildren({
-  Left: Parent.child(counter),
-  Right: Parent.childWhen(counter, { there: (state) => state.right }),
+  Left: child(counter),
+  Right: childWhen(counter, { there: (state) => state.right }),
   // Listens only while the right counter is there.
-  Ticker: Parent.child(ticker, { listening: (state) => state.right })
+  Ticker: child(ticker, { listening: (state) => state.right })
 }).make({
   init: { state: { right: false, saves: 0 } },
   // A parent tells a child what to do in its step.
@@ -228,8 +239,8 @@ type ListState = Readonly<{ ids: ReadonlyArray<number> }>
 const List = program<{ state: ListState }>()
 
 const list = List.withChildren({
-  Rows: List.childById(counter, { ids: (state) => state.ids }),
-  Ticker: List.child(ticker, { listening: () => false })
+  Rows: childById(counter, { ids: (state) => state.ids }),
+  Ticker: child(ticker, { listening: () => false })
 }).make({
   init: { state: { ids: [] } },
   onEvent: { Rows: (id) => (state) => ({ state: { ids: state.ids.filter((other) => other !== id) } }) },
@@ -247,7 +258,7 @@ const countsOf = (state: List) =>
 // Lists of counters, by id: a parent whose children by id are parents with children by id.
 const Nested = program<{ state: Readonly<{ ids: ReadonlyArray<string> }> }>()
 
-const lists = Nested.withChildren({ Lists: Nested.childById(list, { ids: (state) => state.ids }) }).make({
+const lists = Nested.withChildren({ Lists: childById(list, { ids: (state) => state.ids }) }).make({
   init: { state: { ids: [] } },
   makeModel: (state, children) => state.ids.map((id) => ({ id, rows: children.Lists(id) }))
 })
@@ -335,7 +346,7 @@ describe("compose", () => {
     type Pinged = Readonly<{ heard: number }>
     const Pings = program<{ state: Pinged }>()
     const pingers = (onPinged: (state: Pinged) => Pinged) =>
-      Pings.withChildren({ Pinger: Pings.child(pinger) }).make({
+      Pings.withChildren({ Pinger: child(pinger) }).make({
         init: { state: { heard: 0 } },
         onEvent: { Pinger: () => (state) => ({ state: onPinged(state) }) },
         makeModel: (_, children) => children.Pinger()
@@ -352,7 +363,7 @@ describe("compose", () => {
 
   test("a handler that answers { state } to the event of a child's step keeps the child's new state, and adds nothing", () => {
     const Quiet = program<{ state: Readonly<{ heard: number }> }>()
-    const quiet = Quiet.withChildren({ Left: Quiet.child(counter) }).make({
+    const quiet = Quiet.withChildren({ Left: child(counter) }).make({
       init: { state: { heard: 0 } },
       onEvent: { Left: () => (state) => ({ state }) },
       makeModel: () => null
@@ -383,7 +394,7 @@ describe("compose", () => {
     type Own = Readonly<{ _tag: "toString" }>
     type OwnCommand = Readonly<{ _tag: "constructor" }>
     const Inherited = program<{ state: Ticks; command: OwnCommand; message: Own }>()
-    const tested = Inherited.withChildren({ Ticker: Inherited.child(ticker) }).make({
+    const tested = Inherited.withChildren({ Ticker: child(ticker) }).make({
       init: { state: noTicks },
       update: () => (state) => ({ state: { ticks: state.ticks + 1 }, commands: [{ _tag: "constructor" }] }),
       runCommand: () => Effect.succeedSome({ _tag: "toString" } as Own),
@@ -395,7 +406,7 @@ describe("compose", () => {
 
   test("a child that the children object inherits is no child: it is not kept, and has no model and no subscriptions", () => {
     const Inherited = program<{ state: Ticks }>()
-    const Ticker = Inherited.child(ticker)
+    const Ticker = child(ticker)
     const children: { Ticker: typeof Ticker } = Object.assign(Object.create({ Ghost: Ticker }), { Ticker })
     let models: ReadonlyArray<string> = []
     const tested = Inherited.withChildren(children).make({
@@ -430,7 +441,7 @@ describe("compose", () => {
 
   test("a child without listening listens whenever it is there", () => {
     const Maybe = program<{ state: Readonly<{ ticking: boolean }> }>()
-    const maybe = Maybe.withChildren({ Ticker: Maybe.childWhen(ticker, { there: (state) => state.ticking }) }).make({
+    const maybe = Maybe.withChildren({ Ticker: childWhen(ticker, { there: (state) => state.ticking }) }).make({
       init: { state: { ticking: false } },
       makeModel: () => null
     })
@@ -463,8 +474,8 @@ describe("compose", () => {
     type Toggle = Readonly<{ _tag: "Toggle" }>
     const Shown = program<{ state: Shown; message: Toggle }>()
     const toggling = Shown.withChildren({
-      Left: Shown.child(counter),
-      Right: Shown.childWhen(counter, { there: (state) => state.right })
+      Left: child(counter),
+      Right: childWhen(counter, { there: (state) => state.right })
     }).make({
       init: { state: { right: true } },
       update: () => (state) => ({ state: { right: !state.right } }),
@@ -490,7 +501,7 @@ describe("compose", () => {
   test("a child started again on the very same state makes its own keys, under its new instance", () => {
     type Shown = Readonly<{ shown: boolean }>
     const Shown = program<{ state: Shown; message: "Toggled" }>()
-    const toggling = Shown.withChildren({ Ticker: Shown.childWhen(ticker, { there: (state) => state.shown }) }).make({
+    const toggling = Shown.withChildren({ Ticker: childWhen(ticker, { there: (state) => state.shown }) }).make({
       init: { state: { shown: true } },
       update: () => (state) => ({ state: { shown: !state.shown } }),
       makeModel: () => null
@@ -612,8 +623,8 @@ describe("children by id", () => {
   test("each child listens under its name, its id and its instance, alone ones under their name and instance", () => {
     const Tickers = program<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
     const tickerList = Tickers.withChildren({
-      Clock: Tickers.child(ticker),
-      Tickers: Tickers.childById(ticker, { ids: (state) => state.ids })
+      Clock: child(ticker),
+      Tickers: childById(ticker, { ids: (state) => state.ids })
     }).make({ init: { state: { ids: [7, 8] } }, makeModel: () => null })
     expect(tickerList.subscriptions(tickerList.init.state).map(keyText).sort()).toEqual([
       keyText({ _tag: "Clock", instance: 1, key: "ticks" }),
@@ -626,7 +637,7 @@ describe("children by id", () => {
     type Listening = Readonly<{ ids: ReadonlyArray<number>; listening: ReadonlyArray<number> }>
     const Tickers = program<{ state: Listening }>()
     const some = Tickers.withChildren({
-      Tickers: Tickers.childById(ticker, {
+      Tickers: childById(ticker, {
         ids: (state) => state.ids,
         listening: (state, id) => state.listening.includes(id)
       })
@@ -636,7 +647,7 @@ describe("children by id", () => {
   })
 
   test("the model of a child at an id that is not there is a defect that names it and its id", () => {
-    const asking = List.withChildren({ Rows: List.childById(counter, { ids: (state) => state.ids }) }).make({
+    const asking = List.withChildren({ Rows: childById(counter, { ids: (state) => state.ids }) }).make({
       init: { state: { ids: [] } },
       onEvent: { Rows: () => (state) => ({ state }) },
       makeModel: (_, children) => children.Rows(3)
@@ -656,7 +667,7 @@ describe("children by id", () => {
     const counted = { calls: 0 }
     const Tickers = program<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
     const tickers = Tickers.withChildren({
-      Tickers: Tickers.childById({
+      Tickers: childById({
         ...ticker,
         subscriptions: () => {
           counted.calls++
@@ -762,7 +773,7 @@ const Rows = program<{ state: Rows; message: RowsMessage; command: RowsCommand }
 
 // What it tells is written as a literal, with no `as const`: the children's external messages type it.
 const rowList = Rows.withChildren({
-  Row: Rows.childById(labelled, {
+  Row: childById(labelled, {
     flags: (state) => state.rows.map(({ id, label }) => [id, label] as const),
     listening: (state) => !state.quiet
   })
@@ -840,7 +851,7 @@ type SingleMessage =
 const Single = program<{ state: Single; message: SingleMessage }>()
 
 const single = Single.withChildren({
-  One: Single.childWhen(loader, { there: (state) => state.open, key: (state) => ({ generation: state.generation }) })
+  One: childWhen(loader, { there: (state) => state.open, key: (state) => ({ generation: state.generation }) })
 }).make({
   init: { state: { open: false, generation: 0, notes: 0 } },
   update: (message) => (state) => {
@@ -921,9 +932,9 @@ describe("the instance of a child", () => {
   type ShownMessage = Readonly<{ _tag: "Toggled" }> | Readonly<{ _tag: "Listed"; ids: ReadonlyArray<number> }>
   const Shown = program<{ state: Shown; message: ShownMessage }>()
   const shown = Shown.withChildren({
-    Always: Shown.child(loader),
-    Maybe: Shown.childWhen(loader, { there: (state) => state.open }),
-    Each: Shown.childById(loader, { ids: (state) => state.ids })
+    Always: child(loader),
+    Maybe: childWhen(loader, { there: (state) => state.open }),
+    Each: childById(loader, { ids: (state) => state.ids })
   }).make({
     init: { state: { open: true, ids: [7] } },
     update: (message) => (state) =>
@@ -1025,7 +1036,7 @@ describe("the instance of a child", () => {
 
   test("the instance of a child at an id that is not there is a defect that names it and its id", () => {
     const Peek = program<{ state: object }>()
-    const peek = Peek.withChildren({ Row: Peek.childById(loader, { ids: () => [1] }) }).make({
+    const peek = Peek.withChildren({ Row: childById(loader, { ids: () => [1] }) }).make({
       init: { state: {} },
       onEvent: { Row: () => (state) => ({ state }) },
       makeModel: (_, children) => children.Row.instance(9)
@@ -1052,13 +1063,13 @@ describe("the children that the library keeps", () => {
   test("init starts each child its first state lists, with its first commands, by the order of the names as JavaScript gives the keys, then of the ids as listed", () => {
     const Started = program<{ state: Readonly<{ ids: ReadonlyArray<number> }>; command: "Boot" }>()
     const started = Started.withChildren({
-      Second: Started.childById(loader, { ids: (state) => state.ids }),
-      "01": Started.child(loader),
-      First: Started.child(loader),
-      "4294967295": Started.child(loader),
-      "7": Started.child(loader),
-      "-1": Started.child(loader),
-      "2": Started.child(loader)
+      Second: childById(loader, { ids: (state) => state.ids }),
+      "01": child(loader),
+      First: child(loader),
+      "4294967295": child(loader),
+      "7": child(loader),
+      "-1": child(loader),
+      "2": child(loader)
     }).make({
       init: { state: { ids: [3, 1] }, commands: ["Boot"] },
       onEvent: {
@@ -1142,7 +1153,7 @@ describe("the children that the library keeps", () => {
     type Seeds = Readonly<{ ids: ReadonlyArray<number>; turn: number }>
     const Seeds = program<{ state: Seeds; message: Readonly<{ _tag: "Turned" }> }>()
     const seeds = Seeds.withChildren({
-      Seeded: Seeds.childById(seeded, { flags: (state) => state.ids.map((id) => [id, { seed: id }] as const) })
+      Seeded: childById(seeded, { flags: (state) => state.ids.map((id) => [id, { seed: id }] as const) })
     }).make({
       init: { state: { ids: [1, 2], turn: 0 } },
       update: () => (state) => ({ state: { ...state, turn: state.turn + 1 } }),
@@ -1164,7 +1175,7 @@ describe("the children that the library keeps", () => {
     type Seeds = Readonly<{ seed: number; turn: number }>
     const Seeds = program<{ state: Seeds; message: "Turned" | "Reseeded" }>()
     const seeds = Seeds.withChildren({
-      Seeded: Seeds.childWhen(seeded, { there: (state) => Opt.some({ seed: state.seed }) })
+      Seeded: childWhen(seeded, { there: (state) => Opt.some({ seed: state.seed }) })
     }).make({
       init: { state: { seed: 1, turn: 0 } },
       update: (message) => (state) =>
@@ -1204,7 +1215,7 @@ describe("the children that the library keeps", () => {
     const twice = compositionDefect({ message: "The children \"Row\" list the same id twice", child: "Row", id: 1 })
     expect(() => after(added(1), added(1))).toThrow(twice)
     const Twice = program<{ state: Readonly<{ ids: ReadonlyArray<number> }>; flags: number }>()
-    const twiceAtStart = Twice.withChildren({ Row: Twice.childById(loader, { ids: (state) => state.ids }) }).make({
+    const twiceAtStart = Twice.withChildren({ Row: childById(loader, { ids: (state) => state.ids }) }).make({
       init: (id) => ({ state: { ids: [id, id] } }),
       onEvent: { Row: () => (state) => ({ state }) },
       makeModel: () => null
@@ -1213,7 +1224,7 @@ describe("the children that the library keeps", () => {
     // A first step that is a value is taken as the parent is made.
     const Once = program<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
     const makeTwice = () =>
-      Once.withChildren({ Row: Once.childById(loader, { ids: (state) => state.ids }) }).make({
+      Once.withChildren({ Row: childById(loader, { ids: (state) => state.ids }) }).make({
         init: { state: { ids: [1, 1] } },
         onEvent: { Row: () => (state) => ({ state }) },
         makeModel: () => null
@@ -1228,7 +1239,7 @@ describe("the children that the library keeps", () => {
   test("children by id whose ids give the very same object are left as they are, and others are reconciled", () => {
     type Short = Readonly<{ ids: ReadonlyArray<number>; notes: number }>
     const Short = program<{ state: Short; message: "Noted" | "Relisted" }>()
-    const short = Short.withChildren({ Row: Short.childById(loader, { ids: (state) => state.ids }) }).make({
+    const short = Short.withChildren({ Row: childById(loader, { ids: (state) => state.ids }) }).make({
       init: { state: { ids: [1], notes: 0 } },
       update: (message) => (state) =>
         message === "Noted"
@@ -1346,7 +1357,7 @@ describe("what a declaration tells its children", () => {
     say: (condition: string) => string = (condition) => condition
   ) =>
     Telling.withChildren({
-      Kid: Telling.childById(hearing, {
+      Kid: childById(hearing, {
         ids: (state) => state.ids,
         // A new object at each call: what was told is compared by value.
         tell: (state) => ({ _tag: "Cond", value: say(state.condition) })
@@ -1416,8 +1427,8 @@ describe("what a declaration tells its children", () => {
     ])
     const Named = program<{ state: Readonly<{ condition: string }>; message: "Set" }>()
     const named = Named.withChildren({
-      Second: Named.child(hearing, { tell: (state) => ({ _tag: "Cond", value: state.condition }) }),
-      First: Named.child(hearing, { tell: (state) => ({ _tag: "Cond", value: state.condition }) })
+      Second: child(hearing, { tell: (state) => ({ _tag: "Cond", value: state.condition }) }),
+      First: child(hearing, { tell: (state) => ({ _tag: "Cond", value: state.condition }) })
     }).make({
       init: { state: { condition: "a" } },
       update: () => () => ({ state: { condition: "x" } }),
@@ -1470,8 +1481,8 @@ describe("what a declaration tells its children", () => {
     const Keyed = program<{ state: Keyed; message: Readonly<{ _tag: "SetAndPoke"; condition: string }> }>()
     // The first child, told "b", bounces, and the parent starts the second, which the step tells, again.
     const app = Keyed.withChildren({
-      Kid: Keyed.child(hearing, { tell: (state) => ({ _tag: "Cond", value: state.condition }) }),
-      Other: Keyed.child(hearing, { key: (state) => state.generation })
+      Kid: child(hearing, { tell: (state) => ({ _tag: "Cond", value: state.condition }) }),
+      Other: child(hearing, { key: (state) => state.generation })
     }).make({
       init: { state: { condition: "a", generation: 0 } },
       update: ({ condition }) => (state) => ({
@@ -1514,7 +1525,7 @@ describe("what a declaration tells its children", () => {
     type Alone = Readonly<{ open: Opt.Option<number>; condition: string }>
     const Alone = program<{ state: Alone; message: "Opened" | "Reopened" }>()
     const app = Alone.withChildren({
-      Kid: Alone.childWhen(hearing, {
+      Kid: childWhen(hearing, {
         there: (state) => Opt.isSome(state.open),
         key: (state) => state.open,
         tell: (state) => ({ _tag: "Cond", value: state.condition })
@@ -1538,7 +1549,7 @@ describe("what a declaration tells its children", () => {
     let calls = 0
     let reads = 0
     const app = Both.withChildren({
-      Kid: Both.childById(hearing, {
+      Kid: childById(hearing, {
         ids: (state) => {
           reads += 1
           return state.ids
@@ -1548,7 +1559,7 @@ describe("what a declaration tells its children", () => {
           return { _tag: "Cond", value: state.condition }
         }
       }),
-      Other: Both.childById(hearing, { ids: (state) => state.others, tell: () => ({ _tag: "Poke" }) })
+      Other: childById(hearing, { ids: (state) => state.others, tell: () => ({ _tag: "Poke" }) })
     }).make({
       init: { state: { condition: "a", ids: [1, 2, 3], others: [] } },
       update: (message) => (state) =>
@@ -1574,7 +1585,7 @@ describe("what a declaration tells its children", () => {
     const Raising = program<{ state: Own; event: "Up"; flags: string }>()
     const raising = (state: Own) =>
       Raising.withChildren({
-        Kid: Raising.childById(hearing, {
+        Kid: childById(hearing, {
           ids: (state) => state.ids,
           tell: (state) => ({ _tag: "Cond", value: state.condition })
         })
@@ -1596,7 +1607,7 @@ describe("what a declaration tells its children", () => {
     // The same, where a step of its own parent starts it: the defect is of that step.
     const Outer = program<{ state: Readonly<{ open: boolean }>; message: "Opened"; event: "Up" }>()
     const outer = Outer.withChildren({
-      Inner: Outer.childWhen(raising(start), { there: (state) => state.open ? Opt.some("b") : Opt.none() })
+      Inner: childWhen(raising(start), { there: (state) => state.open ? Opt.some("b") : Opt.none() })
     }).make({
       init: { state: { open: false } },
       update: () => () => ({ state: { open: true } }),
@@ -1617,7 +1628,7 @@ describe("what a declaration tells its children", () => {
     // A handler that answers what a child is told, by telling it again, reaches the state given.
     const Poking = program<{ state: Own }>()
     const poking = Poking.withChildren({
-      Kid: Poking.childById(hearing, {
+      Kid: childById(hearing, {
         ids: (state) => state.ids,
         tell: (state) => ({ _tag: "Cond", value: state.condition })
       })
@@ -1638,7 +1649,7 @@ describe("what a declaration tells its children", () => {
     // An equal copy is another state too.
     const Copying = program<{ state: Own }>()
     const copying = Copying.withChildren({
-      Kid: Copying.childById(hearing, {
+      Kid: childById(hearing, {
         ids: (state) => state.ids,
         tell: (state) => ({ _tag: "Cond", value: state.condition })
       })
@@ -1652,7 +1663,7 @@ describe("what a declaration tells its children", () => {
     )
     const Raising = program<{ state: Own; event: "Up" }>()
     const raising = Raising.withChildren({
-      Kid: Raising.childById(hearing, {
+      Kid: childById(hearing, {
         ids: (state) => state.ids,
         tell: (state) => ({ _tag: "Cond", value: state.condition })
       })
@@ -1670,7 +1681,7 @@ describe("what a declaration tells its children", () => {
     // No child is there at the start, so nothing reads `tell` of the first state until the step starts one, and the
     // state after the step gives a value.
     const moving = Moving.withChildren({
-      Kid: Moving.childById(hearing, {
+      Kid: childById(hearing, {
         ids: (state) => state.ids,
         tell: (state) => {
           if (state.condition === "boom") throw failure
@@ -1745,11 +1756,11 @@ describe("what a declaration tells its children, over random histories", () => {
   const soloValue = (state: Own) => state.value >= 1 ? "high" : "low"
   const Scripted = program<{ state: Own; message: Message; flags: Own }>()
   const scripted = Scripted.withChildren({
-    Kid: Scripted.childById(hearing, {
+    Kid: childById(hearing, {
       flags: (state) => state.kids,
       tell: (state) => ({ _tag: "Cond", value: kidValue(state) })
     }),
-    Solo: Scripted.childWhen(hearing, {
+    Solo: childWhen(hearing, {
       there: (state) => state.solo,
       tell: (state) => ({ _tag: "Cond", value: soloValue(state) })
     })
@@ -1875,9 +1886,9 @@ describe("what a parent reads of its children", () => {
   type Look = "Looked" | "FlipCeiling"
   const Room = program<{ state: Room; message: Look; external: Look; output: number }>()
   const room = Room.withChildren({
-    Ceiling: Room.child(lamp),
-    Desk: Room.childWhen(lamp, { there: (state) => state.desk }),
-    Wall: Room.childById(lamp, { ids: (state) => state.lamps })
+    Ceiling: child(lamp),
+    Desk: childWhen(lamp, { there: (state) => state.desk }),
+    Wall: childById(lamp, { ids: (state) => state.lamps })
   }).make({
     init: { state: { seen: [], lamps: [1, 2], desk: false } },
     update: (message, children) => (state) => {
@@ -1946,8 +1957,8 @@ describe("what a parent reads of its children", () => {
     type Told = "Kept" | "Restarted" | "AfterBell"
     const Desk = program<{ state: Readonly<{ key: number }>; message: Told }>()
     const desk = Desk.withChildren({
-      Lamp: Desk.child(checked, { key: (state) => state.key }),
-      Bell: Desk.child(bell)
+      Lamp: child(checked, { key: (state) => state.key }),
+      Bell: child(bell)
     }).make({
       init: { state: { key: 0 } },
       update: (message, children) => (state) => {
@@ -1981,7 +1992,7 @@ describe("what a parent reads of its children", () => {
       makeModel: () => null
     })
     const Hall = program<{ state: Readonly<{ seen: ReadonlyArray<boolean> }> }>()
-    const hall = Hall.withChildren({ Lamp: Hall.child(lamp), Toggle: Hall.child(toggle) }).make({
+    const hall = Hall.withChildren({ Lamp: child(lamp), Toggle: child(toggle) }).make({
       init: { state: { seen: [] } },
       onEvent: {
         Lamp: () => (state) => ({ state }),
@@ -2009,7 +2020,7 @@ describe("what a parent reads of its children", () => {
 
   test("a parent's output is read by its own parent", () => {
     const House = program<{ state: object }>()
-    const house = House.withChildren({ Room: House.child(room) }).make({
+    const house = House.withChildren({ Room: child(room) }).make({
       init: { state: {} },
       makeModel: (_, children) => children.Room.output()
     })
@@ -2021,8 +2032,8 @@ describe("what a parent reads of its children", () => {
     type Key = "Dark" | Readonly<{ _tag: "Lit"; id: number }>
     const Hall = program<{ state: Readonly<{ lamps: ReadonlyArray<number> }>; key: Key }>()
     const hall = Hall.withChildren({
-      Ceiling: Hall.child(lamp),
-      Wall: Hall.childById(lamp, { ids: (state) => state.lamps })
+      Ceiling: child(lamp),
+      Wall: childById(lamp, { ids: (state) => state.lamps })
     }).make({
       init: { state: { lamps: [1, 2] } },
       subscriptions: (state, children) => [
@@ -2044,7 +2055,7 @@ describe("what a parent reads of its children", () => {
 
   test("the output of a child at an id that is not there is a defect that names it and its id", () => {
     const Peek = program<{ state: object; message: "Peeked" }>()
-    const peek = Peek.withChildren({ Wall: Peek.childById(lamp, { ids: () => [1] }) }).make({
+    const peek = Peek.withChildren({ Wall: childById(lamp, { ids: () => [1] }) }).make({
       init: { state: {} },
       update: (_, children) => (state) => (children.Wall.output(9) ? { state } : reject),
       onEvent: { Wall: () => (state) => ({ state }) },
@@ -2059,7 +2070,7 @@ describe("what a parent reads of its children", () => {
     // Each function is given the own state alone, which has no `children`.
     type Own = Readonly<{ looks: number }>
     const Reading = program<{ state: Own; message: "Go"; external: "Went"; output: number; key: "Lit" }>()
-    const reading = Reading.withChildren({ Lamp: Reading.child(lamp), Counter: Reading.child(counter) }).make({
+    const reading = Reading.withChildren({ Lamp: child(lamp), Counter: child(counter) }).make({
       init: { state: { looks: 0 } },
       update: (_, children) => (state) => {
         expectTypeOf(children.Lamp.output).toEqualTypeOf<() => boolean>()
@@ -2119,9 +2130,9 @@ describe("what a parent reads of its children", () => {
     const Hall = program<{ state: Hall; message: Go; external: Go; output: number; key: "Lit" }>()
     // Declared apart from `withChildren`, so that the handlers are typed by them.
     const lamps = {
-      Main: Hall.child(lamp),
-      Wall: Hall.childById(lamp, { ids: (state) => state.ids }),
-      Ticker: Hall.child(ticker)
+      Main: child(lamp),
+      Wall: childById(lamp, { ids: (state: Hall) => state.ids }),
+      Ticker: child(ticker)
     }
     expectTypeOf<TellOf<typeof lamps>>().toEqualTypeOf<
       Readonly<{ _tag: "Main"; message: Flip }> | (Readonly<{ _tag: "Wall"; message: Flip }> & Readonly<{ id: number }>)
@@ -2237,7 +2248,7 @@ describe("what a parent reads of its children", () => {
       }
     })
     const Shelf = program<{ state: Readonly<{ lit: boolean }>; message: "Looked" }>()
-    const shelf = Shelf.withChildren({ Bulb: Shelf.childWhen(broken, { there: (state) => state.lit }) }).make({
+    const shelf = Shelf.withChildren({ Bulb: childWhen(broken, { there: (state) => state.lit }) }).make({
       init: { state: { lit: true } },
       update: (_, children) => () => ({ state: { lit: Opt.isSome(children.Bulb.output()) } }),
       makeModel: (_, children) => children.Bulb()
@@ -2268,7 +2279,7 @@ describe("stateOf", () => {
     expect(stateOf(app, app.init.state.own)).toEqual(app.init.state)
     const Started = program<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
     const started = Started.withChildren({
-      Row: Started.childById(labelled, { flags: (state) => state.ids.map((id) => [id, `${id}`] as const) })
+      Row: childById(labelled, { flags: (state) => state.ids.map((id) => [id, `${id}`] as const) })
     }).make({
       init: { state: { ids: [2, 1] } },
       onEvent: { Row: () => (state) => ({ state }) },
@@ -2325,7 +2336,7 @@ describe("what a parent can do with a child", () => {
   }
   type Pages = Readonly<{ page: boolean }>
   const Pages = program<{ state: Pages; message: BackPressed }>()
-  const pages = Pages.withChildren({ Page: Pages.childWhen(page, { there: (state) => state.page }) }).make({
+  const pages = Pages.withChildren({ Page: childWhen(page, { there: (state) => state.page }) }).make({
     init: { state: { page: true } },
     update: (message) => (state) => ({ state, tell: [{ _tag: "Page", message }] }),
     onEvent: { Page: () => () => ({ state: { page: false } }) },
@@ -2343,7 +2354,7 @@ describe("what a parent can do with a child", () => {
 
   test("a parent tells from onEvent too: one child's event clears another, in the same step", () => {
     const Both = program<{ state: object }>()
-    const both = Both.withChildren({ Page: Both.child(page), Left: Both.child(counter) }).make({
+    const both = Both.withChildren({ Page: child(page), Left: child(counter) }).make({
       init: { state: {} },
       onEvent: {
         Page: () => (state) => ({ state, tell: [{ _tag: "Left", message: cleared }] }),
@@ -2375,7 +2386,7 @@ describe("what a parent can do with a child", () => {
     const rejecting = { ...base, external: (_: BackPressed) => (state: Ticks) => state.ticks > 0 ? { state } : reject }
     const saving = { ...base, external: (_: BackPressed) => (state: Ticks) => ({ state, commands: ["Save" as const] }) }
     const leaving = { ...base, external: (_: BackPressed) => (state: Ticks) => ({ state, events: ["Left" as const] }) }
-    const { child, childById, withChildren } = program<{ state: Ticks }>()
+    const { withChildren } = program<{ state: Ticks }>()
     const ids = { ids: (): ReadonlyArray<number> => [] }
     // @ts-expect-error: an external message applies in every state.
     expect(child(rejecting)).toBeDefined()
@@ -2425,7 +2436,7 @@ describe("what a parent can do with a child", () => {
     expect(alone).toMatchObject({ _tag: "CompositionDefect", child: "Page", on: "BackPressed" })
     expect(Object.hasOwn(alone as object, "id")).toBe(false)
     const Clearable = program<{ state: ListState; message: Reset }>()
-    const telling = Clearable.withChildren({ Rows: Clearable.childById(counter, { ids: (state) => state.ids }) }).make({
+    const telling = Clearable.withChildren({ Rows: childById(counter, { ids: (state) => state.ids }) }).make({
       init: { state: { ids: [] } },
       update: () => (state) => ({ state, tell: [{ _tag: "Rows", id: 7, message: cleared }] }),
       onEvent: { Rows: () => (state) => ({ state }) },
@@ -2441,7 +2452,7 @@ describe("what a parent can do with a child", () => {
     }
     const Unheard = program<{ state: Ticks }>()
     // @ts-expect-error: the types ask for an `onEvent` already; this one runs without.
-    const unheard = Unheard.withChildren({ Beeper: Unheard.child(raising) }).make({
+    const unheard = Unheard.withChildren({ Beeper: child(raising) }).make({
       init: { state: noTicks },
       makeModel: () => null
     })
@@ -2459,7 +2470,7 @@ describe("what a parent can do with a child", () => {
     const One = program<{ state: Ticks }>()
     const one = One.withChildren({
       // @ts-expect-error: a child with commands and no `runCommand` does not compile; this one runs without.
-      Saving: One.child(saving)
+      Saving: child(saving)
     }).make({ init: { state: noTicks }, makeModel: () => null })
     expect(one.init.commands).toEqual([{ _tag: "Saving", instance: 1, command: { _tag: "Save" } }])
     expect(thrown(() => one.runCommand(Opt.getOrThrow(Arr.head(one.init.commands ?? [])))))
@@ -2467,7 +2478,7 @@ describe("what a parent can do with a child", () => {
     const List = program<{ state: ListState }>()
     const list = List.withChildren({
       // @ts-expect-error: likewise for children by id.
-      Rows: List.childById(saving, { ids: (state) => state.ids })
+      Rows: childById(saving, { ids: (state) => state.ids })
     }).make({ init: { state: { ids: [0] } }, makeModel: () => null })
     expect(thrown(() => list.runCommand(Opt.getOrThrow(Arr.head(list.init.commands ?? [])))))
       .toMatchObject({ _tag: "CompositionDefect", child: "Rows", id: 0, on: "Save" })
@@ -2483,7 +2494,7 @@ describe("what a parent can do with a child", () => {
     const One = program<{ state: Ticks }>()
     const one = One.withChildren({
       // @ts-expect-error: a child with keys and no `listen` does not compile; this one runs without.
-      Ticker: One.child(deaf)
+      Ticker: child(deaf)
     }).make({ init: { state: noTicks }, makeModel: () => null })
     const keys = one.subscriptions(one.init.state)
     expect(keys).toEqual([{ _tag: "Ticker", instance: 1, key: "ticks" }])
@@ -2494,7 +2505,7 @@ describe("what a parent can do with a child", () => {
     const List = program<{ state: ListState }>()
     const list = List.withChildren({
       // @ts-expect-error: likewise for children by id.
-      Rows: List.childById(deaf, { ids: (state) => state.ids })
+      Rows: childById(deaf, { ids: (state) => state.ids })
     }).make({ init: { state: { ids: [0] } }, makeModel: () => null })
     // The ids of a child that does not compile read back as `never`.
     const rows: ReadonlyArray<unknown> = list.subscriptions(list.init.state)
@@ -2509,7 +2520,7 @@ describe("what a parent can do with a child", () => {
   // A child's key is listed under its name, as its command is: an own key that could take that name is refused.
   test("an own subscription key that may take the name of a child does not compile, never a silent replacement", () => {
     type Clash = Readonly<{ _tag: "Ticker"; instance: number; key: "ticks" }>
-    const { child, withChildren } = program<{ state: Ticks; message: Tick; key: Clash }>()
+    const { withChildren } = program<{ state: Ticks; message: Tick; key: Clash }>()
     // @ts-expect-error: an own key takes the name of a child.
     const clashing = withChildren({ Ticker: child(ticker) }).make({
       init: { state: noTicks },
@@ -2521,7 +2532,7 @@ describe("what a parent can do with a child", () => {
     // A key as wide as a string may be a child's name too.
     const wide = program<{ state: Ticks; message: Tick; key: Readonly<{ _tag: string }> }>()
     // @ts-expect-error: an own key whose tag is any string may take the name of a child.
-    wide.withChildren({ Ticker: wide.child(ticker) }).make({
+    wide.withChildren({ Ticker: child(ticker) }).make({
       init: { state: noTicks },
       update: () => (state) => ({ state }),
       subscriptions: () => [{ _tag: "Clock" }],
@@ -2530,7 +2541,7 @@ describe("what a parent can do with a child", () => {
     })
     // An own key of another name, or a plain string, is the parent's own.
     const own = program<{ state: Ticks; message: Tick; key: "ticks" | Readonly<{ _tag: "Clock" }> }>()
-    const apart = own.withChildren({ Ticker: own.child(ticker) }).make({
+    const apart = own.withChildren({ Ticker: child(ticker) }).make({
       init: { state: noTicks },
       update: () => (state) => ({ state }),
       subscriptions: () => Array.from<"ticks" | Readonly<{ _tag: "Clock" }>>(["ticks", { _tag: "Clock" }]),
@@ -2610,7 +2621,7 @@ describe("steps that add up", () => {
 
   test("a parent that tells each of its children by id the same thing reaches every one", () => {
     const Clearing = program<{ state: ListState; message: Reset }>()
-    const clearing = Clearing.withChildren({ Rows: Clearing.childById(counter, { ids: (state) => state.ids }) }).make({
+    const clearing = Clearing.withChildren({ Rows: childById(counter, { ids: (state) => state.ids }) }).make({
       init: { state: { ids: [] } },
       update: () => (state) => ({ state, tell: state.ids.map((id) => ({ _tag: "Rows", id, message: cleared })) }),
       onEvent: { Rows: () => (state) => ({ state }) },
@@ -2649,7 +2660,7 @@ describe("steps that add up", () => {
     makeModel: () => null
   }
   const Home = program<{ state: object; event: Left; external: Leave }>()
-  const home = Home.withChildren({ Page: Home.child(leaving) }).make({
+  const home = Home.withChildren({ Page: child(leaving) }).make({
     init: { state: {} },
     // A parent passes an external message on, from its own `external`.
     external: (message) => (state) => ({ state, tell: [{ _tag: "Page", message }] }),
@@ -2658,7 +2669,7 @@ describe("steps that add up", () => {
   })
   type App = Readonly<{ heard: ReadonlyArray<number>; resets: number }>
   const App = program<{ state: App; message: Reset }>()
-  const grand = App.withChildren({ Home: App.child(home) }).make({
+  const grand = App.withChildren({ Home: child(home) }).make({
     init: { state: { heard: [], resets: 0 } },
     update: () => (state) =>
       andThen(
@@ -2712,8 +2723,8 @@ describe("flags", () => {
   type Seed = Readonly<{ _tag: "Seed"; count: number }>
   const Seeds = program<{ state: Seeds; message: Seed }>()
   const seeds = Seeds.withChildren({
-    Seeded: Seeds.childWhen(seeded, { there: (state) => state.seed }),
-    Rows: Seeds.childById(seeded, { flags: (state) => state.rows })
+    Seeded: childWhen(seeded, { there: (state) => state.seed }),
+    Rows: childById(seeded, { flags: (state) => state.rows })
   }).make({
     init: { state: { seed: Opt.none(), rows: [] } },
     update: ({ count }) => () => ({ state: { seed: Opt.some(count), rows: [[7, count + 1]] } }),
@@ -2735,7 +2746,7 @@ describe("flags", () => {
 
   // A parent with flags: it starts its counter from twice its own.
   const Relay = program<{ state: Readonly<{ count: number }>; flags: number }>()
-  const relay = Relay.withChildren({ Inner: Relay.child(seeded, { flags: (state) => state.count * 2 }) })
+  const relay = Relay.withChildren({ Inner: child(seeded, { flags: (state) => state.count * 2 }) })
     .make({
       init: (count) => ({ state: { count } }),
       onEvent: { Inner: () => (state) => ({ state }) },
@@ -2758,7 +2769,7 @@ describe("flags", () => {
       makeModel: (state) => state.count
     })
     const Doubled = program<{ state: Count; message: Readonly<{ _tag: "Set"; count: number }> }>()
-    const doubled = Doubled.withChildren({ Inner: Doubled.child(counted, { flags: (state) => state.count * 2 }) })
+    const doubled = Doubled.withChildren({ Inner: child(counted, { flags: (state) => state.count * 2 }) })
       .make({
         init: { state: { count: 1 } },
         update: ({ count }) => () => ({ state: { count } }),
@@ -2780,8 +2791,8 @@ describe("flags", () => {
   test("a parent with flags is started from them by its own parent, alone and by id", () => {
     const Top = program<{ state: object }>()
     const top = Top.withChildren({
-      Relay: Top.child(relay, { flags: () => 1 }),
-      Rows: Top.childById(relay, { flags: (): ReadonlyArray<readonly [number, number]> => [[9, 5]] })
+      Relay: child(relay, { flags: () => 1 }),
+      Rows: childById(relay, { flags: (): ReadonlyArray<readonly [number, number]> => [[9, 5]] })
     }).make({ init: { state: {} }, makeModel: () => null })
     expect(stateAt(top.init.state.children.Relay).own).toEqual({ count: 1 })
     expect(Opt.map(HashMap.get(top.init.state.children.Rows, 9), (kept) => kept.state.own)).toEqual(
@@ -2803,15 +2814,14 @@ describe("flags", () => {
   })
 
   test("a parent with flags returns the function of them, and one without its first step", () => {
-    const inner = { Inner: Relay.child(seeded, { flags: (state) => state.count }) }
-    Relay.withChildren(inner).make({
+    Relay.withChildren({ Inner: child(seeded, { flags: (state) => state.count }) }).make({
       // @ts-expect-error: its first step depends on its flags.
       init: { state: { count: 0 } },
       onEvent: { Inner: () => (state) => ({ state }) },
       makeModel: () => null
     })
     const Pair = program<{ state: Ticks }>()
-    Pair.withChildren({ Ticker: Pair.child(ticker) }).make({
+    Pair.withChildren({ Ticker: child(ticker) }).make({
       // @ts-expect-error: it has no flags to start from.
       init: (ticks: number) => ({ state: { ticks } }),
       makeModel: () => null
@@ -2836,7 +2846,6 @@ describe("flags", () => {
   })
 
   test("a child without flags is declared without them", () => {
-    const { child, childById, childWhen } = program<{ state: Ticks }>()
     // @ts-expect-error: its first step is a value, started from nothing.
     expect(child(ticker, { flags: () => 1 })).toBeDefined()
     // @ts-expect-error: by id too.
@@ -2848,7 +2857,6 @@ describe("flags", () => {
   })
 
   test("a child with flags is declared with them", () => {
-    const { child, childById, childWhen } = program<{ state: Ticks }>()
     // @ts-expect-error: it would start without them.
     expect(child(seeded)).toBeDefined()
     // @ts-expect-error: nor where it may not be there, with a `there` that gives no flags.
@@ -2864,18 +2872,20 @@ describe("flags", () => {
     // @ts-expect-error: nor with options that list neither ids nor flags.
     expect(childById(seeded, { listening: () => true })).toBeDefined()
     const ids = (): ReadonlyArray<number> => [1]
-    const flags = (): ReadonlyArray<readonly [number, number]> => [[1, 1]]
+    const flags = (_: Ticks): ReadonlyArray<readonly [number, number]> => [[1, 1]]
     // @ts-expect-error: nor with both.
     expect(childById(seeded, { ids, flags })).toBeDefined()
     // `listening` takes the id that `ids` gives, inferred from it, and the one that `flags` gives.
-    expectTypeOf(childById(ticker, { ids: (state) => (state.ticks > 0 ? [1] : []), listening: (_, id) => id > 0 }))
+    expectTypeOf(
+      childById(ticker, { ids: (state: Ticks) => (state.ticks > 0 ? [1] : []), listening: (_, id) => id > 0 })
+    )
       .toEqualTypeOf<ChildById<Ticks, number, typeof ticker>>()
     expectTypeOf(childById(seeded, { flags, listening: (_, id) => id > 0 }))
       .toEqualTypeOf<ChildById<Ticks, number, typeof seeded>>()
   })
 
   test("listening takes the id of children by id among the children of withChildren too", () => {
-    const { childById, withChildren } = program<{ state: Ticks }>()
+    const { withChildren } = program<{ state: Ticks }>()
     const parent = withChildren({
       Rows: childById(ticker, {
         ids: (state) => [state.ticks],
@@ -2896,11 +2906,10 @@ describe("flags", () => {
   })
 
   test("a child with flags takes no key beside them, and the tell of children by id takes no id", () => {
-    const { child, childById, childWhen } = program<{ state: Ticks }>()
     // @ts-expect-error: other flags start it again: equal flags under another key would not.
-    expect(childWhen(seeded, { there: () => Opt.some(1), key: (state) => state.ticks })).toBeDefined()
+    expect(childWhen(seeded, { there: () => Opt.some(1), key: (state: Ticks) => state.ticks })).toBeDefined()
     // @ts-expect-error: nor where it is always there.
-    expect(child(seeded, { flags: () => 1, key: (state) => state.ticks })).toBeDefined()
+    expect(child(seeded, { flags: () => 1, key: (state: Ticks) => state.ticks })).toBeDefined()
     // Options that are no literal: their fields are not checked as fields too many.
     const keyedAlways = { flags: () => 1, key: () => 1 }
     const keyedSometimes = { there: () => Opt.some(1), key: () => 1 }
@@ -2916,7 +2925,6 @@ describe("flags", () => {
   })
 
   test("a child is declared in one form, always there or not", () => {
-    const { child, childWhen } = program<{ state: Ticks }>()
     const optionsOf = (open: boolean) => (open ? { there: (state: Ticks) => state.ticks > 0 } : undefined)
     const eitherOf = (open: boolean) => (open ? { there: () => true } : { key: (state: Ticks) => state.ticks })
     const flaggedOf = (open: boolean) => (open ? { there: () => Opt.some(1) } : { flags: () => 1 })
@@ -2932,16 +2940,16 @@ describe("flags", () => {
     // @ts-expect-error: …in options that are not missing…
     expect(childWhen(ticker, optionsOf(true))).toBeDefined()
     // @ts-expect-error: …and that give it.
-    expect(childWhen(ticker, { key: (state) => state.ticks })).toBeDefined()
+    expect(childWhen(ticker, { key: (state: Ticks) => state.ticks })).toBeDefined()
   })
 
   test("an option that a declaration does not take says what to write", () => {
-    const { child, childById, childWhen, make, withChildren } = program<{ state: Ticks }>()
+    const { make, withChildren } = program<{ state: Ticks }>()
     // What the compiler prints where the option is given.
     type Rule<Options, K extends string> = keyof NonNullable<NonNullable<Options>[K & keyof NonNullable<Options>]>
-    type Always<P extends AnyProgram> = Parameters<typeof child<P>>[1]
-    type When<P extends AnyProgram> = Parameters<typeof childWhen<P>>[1]
-    type ById<P extends AnyProgram> = Parameters<typeof childById<unknown, P>>[1]
+    type Always<P extends AnyProgram> = Parameters<typeof child<Ticks, P>>[1]
+    type When<P extends AnyProgram> = Parameters<typeof childWhen<Ticks, P>>[1]
+    type ById<P extends AnyProgram> = Parameters<typeof childById<Ticks, unknown, P>>[1]
     expectTypeOf<Rule<Always<typeof ticker>, "there">>()
       .toEqualTypeOf<"a child that may not be there is declared with childWhen">()
     expectTypeOf<Rule<Always<typeof seeded>, "there">>()
@@ -2979,15 +2987,92 @@ describe("flags", () => {
       .toEqualTypeOf<"a program has a listen only where its types name keys">()
   })
 
-  test("the functions of a child's options take the parent's state, without annotations", () => {
-    type Shown = Readonly<{ open: boolean; generation: number; seed: Opt.Option<number> }>
-    const { child, childWhen } = program<{ state: Shown }>()
-    expectTypeOf(childWhen(ticker, { there: (state) => state.open, key: (state) => state.generation }))
-      .toEqualTypeOf<Child<Shown, typeof ticker, "sometimes">>()
-    expectTypeOf(childWhen(seeded, { there: (state) => state.seed, listening: (state) => state.open }))
-      .toEqualTypeOf<Child<Shown, typeof seeded, "sometimes">>()
-    expectTypeOf(child(seeded, { flags: (state) => state.generation, listening: (state) => state.open }))
-      .toEqualTypeOf<Child<Shown, typeof seeded, "always">>()
+  test("the options of a child declared in the call of withChildren take the parent's state, without annotations", () => {
+    type Shown = Readonly<{ open: boolean; generation: number; seed: Opt.Option<number>; ids: ReadonlyArray<number> }>
+    // In each option, as `toEqualTypeOf` tells `any` from `Shown`, which reading a field does not.
+    const children = program<{ state: Shown }>().withChildren({
+      Always: child(ticker, {
+        key: (state) => {
+          expectTypeOf(state).toEqualTypeOf<Shown>()
+          return state.generation
+        }
+      }),
+      Seeded: child(seeded, {
+        flags: (state) => {
+          expectTypeOf(state).toEqualTypeOf<Shown>()
+          return state.generation
+        },
+        listening: (state) => {
+          expectTypeOf(state).toEqualTypeOf<Shown>()
+          return state.open
+        }
+      }),
+      When: childWhen(ticker, {
+        there: (state) => {
+          expectTypeOf(state).toEqualTypeOf<Shown>()
+          return state.open
+        }
+      }),
+      SeededWhen: childWhen(seeded, {
+        there: (state) => {
+          expectTypeOf(state).toEqualTypeOf<Shown>()
+          return state.seed
+        }
+      }),
+      ById: childById(ticker, {
+        ids: (state) => {
+          expectTypeOf(state).toEqualTypeOf<Shown>()
+          return state.ids
+        },
+        listening: (state, id) => {
+          expectTypeOf(state).toEqualTypeOf<Shown>()
+          expectTypeOf(id).toEqualTypeOf<number>()
+          return true
+        }
+      }),
+      SeededById: childById(seeded, {
+        flags: (state) => {
+          expectTypeOf(state).toEqualTypeOf<Shown>()
+          return state.ids.map((id) => [id, state.generation] as const)
+        },
+        listening: (_, id) => {
+          expectTypeOf(id).toEqualTypeOf<number>()
+          return true
+        }
+      })
+    })
+    expect(children).toBeDefined()
+  })
+
+  test("a child declared apart from withChildren annotates the parent's state", () => {
+    type Shown = Readonly<{ open: boolean; ids: ReadonlyArray<number> }>
+    type Other = Readonly<{ closed: boolean }>
+    const Parent = program<{ state: Shown }>()
+    // @ts-expect-error: apart from `withChildren`, the state is `unknown` without an annotation…
+    expect(child(ticker, { listening: (state) => state.open })).toBeDefined()
+    // @ts-expect-error: …for a child that may not be there…
+    expect(childWhen(ticker, { there: (state) => state.open })).toBeDefined()
+    // @ts-expect-error: …and for children by id.
+    expect(childById(ticker, { ids: (state) => state.ids })).toBeDefined()
+    const apart = {
+      Always: child(ticker, { listening: (state: Shown) => state.open }),
+      When: childWhen(ticker, { there: (state: Shown) => state.open }),
+      ById: childById(ticker, { ids: (state: Shown) => state.ids }),
+      // A child whose options read no state fits every parent.
+      Plain: child(ticker)
+    }
+    expectTypeOf(apart.Always).toEqualTypeOf<Child<Shown, typeof ticker, "always">>()
+    expectTypeOf(apart.When).toEqualTypeOf<Child<Shown, typeof ticker, "sometimes">>()
+    expectTypeOf(apart.ById).toEqualTypeOf<ChildById<Shown, number, typeof ticker>>()
+    expect(Parent.withChildren(apart)).toBeDefined()
+    const Elsewhere = program<{ state: Other }>()
+    // @ts-expect-error: a child declared for another state is refused…
+    Elsewhere.withChildren({ Always: apart.Always })
+    // @ts-expect-error: …that may not be there…
+    Elsewhere.withChildren({ When: apart.When })
+    // @ts-expect-error: …or by id.
+    Elsewhere.withChildren({ ById: apart.ById })
+    expect(Elsewhere.withChildren({ Plain: apart.Plain })).toBeDefined()
   })
 })
 
@@ -3013,7 +3098,7 @@ describe("a child started again while its command waits", () => {
   type Shown = Readonly<{ open: boolean; generation: number }>
   type Toggle = Readonly<{ _tag: "Opened" }> | Readonly<{ _tag: "Closed" }> | Readonly<{ _tag: "Renewed" }>
   const pageOf = (form: ReturnType<typeof formOf>) => {
-    const { childWhen, withChildren } = program<{ state: Shown; message: Toggle }>()
+    const { withChildren } = program<{ state: Shown; message: Toggle }>()
     // There while open, under the generation as its key: another generation, another form, in one step.
     return withChildren({ Form: childWhen(form, { there: (state) => state.open, key: (state) => state.generation }) })
       .make({
@@ -3113,7 +3198,7 @@ describe("a state that is any value", () => {
 
   test("a program whose state is a number runs as a child", async () => {
     const Holder = program<{ state: Readonly<{ label: string }> }>()
-    const holding = Holder.withChildren({ Count: Holder.child(counting) }).make({
+    const holding = Holder.withChildren({ Count: child(counting) }).make({
       init: { state: { label: "count" } },
       makeModel: (state, children) => ({ label: state.label, count: children.Count() })
     })
@@ -3124,7 +3209,7 @@ describe("a state that is any value", () => {
 
   test("a program whose state is a number runs by id", async () => {
     const Holder = program<{ state: Readonly<{ ids: ReadonlyArray<number> }> }>()
-    const holding = Holder.withChildren({ Counts: Holder.childById(counting, { ids: (state) => state.ids }) }).make({
+    const holding = Holder.withChildren({ Counts: childById(counting, { ids: (state) => state.ids }) }).make({
       init: { state: { ids: [1, 2] } },
       makeModel: (state, children) => state.ids.map((id) => children.Counts(id))
     })
@@ -3142,7 +3227,6 @@ describe("a state that is any value", () => {
     }
     const typed: Program<{ state: number; model: number; message: Tick }> = written
     const named = program<{ state: string }>().make({ init: { state: "" }, makeModel: (text) => text })
-    const { child, childById } = program<{ state: Ticks }>()
     expect(child(written)).toBeDefined()
     expect(childById(written, { ids: (): ReadonlyArray<number> => [] })).toBeDefined()
     expect(() => start(written)).toBeDefined()
@@ -3167,9 +3251,8 @@ describe("a state that is any value", () => {
     expect(drive(empty, () => Effect.void)).toBeDefined()
     expect(program<{ state: Empty }>().make({ init: { state: {} }, makeModel: () => null })).toBeDefined()
     const Hollow = program<{ state: Empty }>()
-    const hollowChildren = { Ticker: Hollow.child(ticker) }
+    const hollowChildren = { Ticker: child(ticker) }
     expect(Hollow.withChildren(hollowChildren).make({ init: { state: {} }, makeModel: () => null })).toBeDefined()
-    const { child, childById } = program<{ state: Ticks }>()
     expect(child(empty)).toBeDefined()
     expect(childById(empty, { ids: (): ReadonlyArray<number> => [] })).toBeDefined()
     expect(typed).toBe(empty)
@@ -3213,8 +3296,8 @@ describe("what the types reject", () => {
     })
     const Telling = program<{ state: object; message: "Go" }>()
     const children = {
-      Page: Telling.child(page),
-      Row: Telling.childById(labelled, { flags: (): ReadonlyArray<readonly [number, string]> => [] })
+      Page: child(page),
+      Row: childById(labelled, { flags: (): ReadonlyArray<readonly [number, string]> => [] })
     }
     Telling.withChildren(children).make({
       init: { state: {} },
@@ -3288,12 +3371,12 @@ describe("what the types reject", () => {
     // @ts-expect-error: alone or by id.
     Parent.withChildren({ Rows: keyedById })
     // @ts-expect-error: a child always there is not one that may not be, whose model would be an `Option`.
-    const widened: Child<Own, typeof ticker, "always" | "sometimes"> = Parent.child(ticker)
-    const numbered = Parent.childById(ticker, { ids: (state) => state.ids })
+    const widened: Child<Own, typeof ticker, "always" | "sometimes"> = child(ticker)
+    const numbered = childById(ticker, { ids: (state: Own) => state.ids })
     // @ts-expect-error: nor are children by id typed with fewer ids than theirs, which their messages would carry.
     const narrowed: ChildById<Own, 1 | 2, typeof ticker> = numbered
     // @ts-expect-error: nor is a child that may not be there one always there, whose model would be no `Option`.
-    const assumed: Child<Own, typeof ticker, "always"> = Parent.childWhen(ticker, { there: (state) => state.on })
+    const assumed: Child<Own, typeof ticker, "always"> = childWhen(ticker, { there: (state: Own) => state.on })
     // @ts-expect-error: nor with more ids than theirs, which a parent's functions would read them with.
     const widenedIds: ChildById<Own, number | string, typeof ticker> = numbered
     // @ts-expect-error: nor does a `new` make a child alone.
@@ -3307,16 +3390,6 @@ describe("what the types reject", () => {
     expect([alone, byId, forgedAlone, forgedById, widened, narrowed, assumed, widenedIds, built, builtById])
       .toHaveLength(10)
     expect([Extended, ExtendedById]).toHaveLength(2)
-  })
-
-  test("a child declared for another state is no child of a parent, alone or by id", () => {
-    type Other = Readonly<{ other: string }>
-    const elsewhere = program<{ state: Other }>()
-    const { withChildren } = program<{ state: Ticks }>()
-    // @ts-expect-error: its options read another state than the parent's.
-    expect(withChildren({ Ticker: elsewhere.child(ticker, { key: (state) => state.other }) })).toBeDefined()
-    // @ts-expect-error: by id too.
-    expect(withChildren({ Rows: elsewhere.childById(ticker, { ids: (state) => [state.other] }) })).toBeDefined()
   })
 
   test("a program written as an object has subscriptions, even when it listens to nothing", () => {
@@ -3333,7 +3406,6 @@ describe("what the types reject", () => {
     expect(rehearse(silent, () => Effect.void)).toBeDefined()
     // @ts-expect-error: nor `drive`.
     expect(drive(silent, () => Effect.void)).toBeDefined()
-    const { child, childById } = program<{ state: Ticks }>()
     const ids = { ids: (): ReadonlyArray<string> => [] }
     // @ts-expect-error: nor does `child`, whose parent would call the missing piece.
     expect(child(silent)).toBeDefined()
@@ -3346,7 +3418,7 @@ describe("what the types reject", () => {
   })
 
   test("a child without external takes no external message from its parent", () => {
-    const { child, withChildren } = program<{ state: Ticks; message: Reset }>()
+    const { withChildren } = program<{ state: Ticks; message: Reset }>()
     const tested = withChildren({ Plain: child(plain) }).make({
       init: { state: noTicks },
       update: () => (state) => ({
@@ -3376,7 +3448,6 @@ describe("what the types reject", () => {
       makeModel: (state) => state
     })
     const LOCKED: Locked = { _tag: "LockChanged", locked: true }
-    const { child, childWhen, childById } = program<{ state: Own }>()
     const ids = (state: Own) => state.ids
     // Literals, with no `as const`: of each form of declaration, a branch for each value, and a value made apart.
     const taken = [
@@ -3388,21 +3459,24 @@ describe("what the types reject", () => {
         tell: (state) => state.locked ? { _tag: "LockChanged", locked: true } : { _tag: "LockChanged", locked: false }
       }),
       childById(flagged, {
-        flags: (state) => Arr.map(state.ids, (id) => [id, false] as const),
+        flags: (state: Own) => Arr.map(state.ids, (id) => [id, false] as const),
         tell: (state) => ({ _tag: "LockChanged", locked: state.locked })
       }),
-      child(lockable, { tell: (state) => ({ _tag: "LockChanged", locked: state.locked }) }),
-      child(lockable, { key: (state) => state.ids, tell: (state) => ({ _tag: "LockChanged", locked: state.locked }) }),
+      child(lockable, { tell: (state: Own) => ({ _tag: "LockChanged", locked: state.locked }) }),
+      child(lockable, {
+        key: (state: Own) => state.ids,
+        tell: (state) => ({ _tag: "LockChanged", locked: state.locked })
+      }),
       childWhen(lockable, {
-        there: (state) => state.locked,
+        there: (state: Own) => state.locked,
         tell: (state) => ({ _tag: "LockChanged", locked: state.locked })
       }),
       childWhen(flagged, {
-        there: (state) => state.locked ? Opt.some(true) : Opt.none(),
+        there: (state: Own) => state.locked ? Opt.some(true) : Opt.none(),
         tell: (state) => ({ _tag: "LockChanged", locked: state.locked })
       }),
       child(flagged, {
-        flags: (state) => state.locked,
+        flags: (state: Own) => state.locked,
         tell: (state) => ({ _tag: "LockChanged", locked: state.locked })
       })
     ]
@@ -3435,7 +3509,7 @@ describe("what the types reject", () => {
       subscriptions: () => [],
       makeModel: ({ ticks }) => ticks
     }
-    const { child, withChildren } = program<{ state: Ticks; command: "Load"; message: "Loaded" }>()
+    const { withChildren } = program<{ state: Ticks; command: "Load"; message: "Loaded" }>()
     const children = { Counter: child(resettable) }
     withChildren(children).make({
       init: { state: noTicks },
@@ -3471,7 +3545,7 @@ describe("what the types reject", () => {
       makeModel: ({ ticks }) => ticks
     }
     const idle = <M>(): Subscription<M, never> => Channel.never
-    const { child, withChildren } = program<{ state: Ticks; message: "Loaded"; key: "load" }>()
+    const { withChildren } = program<{ state: Ticks; message: "Loaded"; key: "load" }>()
     const children = { Counter: child(resettable) }
     withChildren(children).make({
       init: { state: noTicks },
@@ -3500,7 +3574,7 @@ describe("what the types reject", () => {
   })
 
   test("an own message cannot take the name of a child, which would receive it", () => {
-    const { child, withChildren } = program<{ state: Ticks; message: Readonly<{ _tag: "Plain" }> }>()
+    const { withChildren } = program<{ state: Ticks; message: Readonly<{ _tag: "Plain" }> }>()
     // @ts-expect-error: `Plain` is a child's name.
     withChildren({ Plain: child(plain) }).make({
       init: { state: noTicks },
@@ -3510,7 +3584,7 @@ describe("what the types reject", () => {
   })
 
   test("an own command cannot take the name of a child, whose interpreter would receive it", () => {
-    const { child, withChildren } = program<{ state: Ticks; command: Readonly<{ _tag: "Plain" }> }>()
+    const { withChildren } = program<{ state: Ticks; command: Readonly<{ _tag: "Plain" }> }>()
     // @ts-expect-error: `Plain` is a child's name.
     withChildren({ Plain: child(plain) }).make({
       init: { state: noTicks },
@@ -3520,7 +3594,6 @@ describe("what the types reject", () => {
   })
 
   test("an own message or command cannot take the name of a child, however wide its type", () => {
-    const { child } = program<{ state: Ticks }>()
     const children = { Plain: child(plain) }
     const parentOf = <T extends { state: Ticks; message?: unknown; command?: unknown }>() => program<T>()
     const init = { state: noTicks }
@@ -3629,13 +3702,13 @@ describe("what the types reject", () => {
       makeModel: ({ ticks }) => ticks
     }
     const Middle = program<{ state: object; external: Reset }>()
-    const middle = Middle.withChildren({ Counter: Middle.child(resettable) }).make({
+    const middle = Middle.withChildren({ Counter: child(resettable) }).make({
       init: { state: {} },
       external: (reset) => (state) => ({ state, tell: [{ _tag: "Counter", message: reset }] }),
       makeModel: () => null
     })
     const Top = program<{ state: object; message: Reset }>()
-    const top = Top.withChildren({ Middle: Top.child(middle) }).make({
+    const top = Top.withChildren({ Middle: child(middle) }).make({
       init: { state: {} },
       update: (reset) => (state) => ({ state, tell: [{ _tag: "Middle", message: reset }] }),
       makeModel: () => null
@@ -3672,7 +3745,6 @@ describe("what the types reject", () => {
       makeModel: ({ ticks }) => ticks
     }
     const thunk = { ...plain, init: () => ({ state: noTicks }) }
-    const { child } = program<{ state: Ticks }>()
     // @ts-expect-error: its first state depends on its flags.
     expect(child(unknowing)).toBeDefined()
     // @ts-expect-error: and so does that of a program written as a plain object.
@@ -3692,13 +3764,13 @@ describe("what the types reject", () => {
       subscriptions: () => [],
       makeModel: ({ ticks }) => ticks
     }
-    const { child, withChildren } = program<{ state: Ticks }>()
+    const { withChildren } = program<{ state: Ticks }>()
     // @ts-expect-error: its events would go unhandled.
     withChildren({ Telling: child(telling) }).make({ init: { state: noTicks }, makeModel: () => null })
   })
 
   test("an onEvent has a handler for each child that has events, and does not compile without one", () => {
-    const { child, withChildren } = program<{ state: Ticks }>()
+    const { withChildren } = program<{ state: Ticks }>()
     withChildren({ Left: child(counter), Right: child(counter) }).make({
       init: { state: noTicks },
       // @ts-expect-error: the events of `Right` would go unhandled.
@@ -3715,7 +3787,7 @@ describe("what the types reject", () => {
       subscriptions: () => [],
       makeModel: ({ ticks }) => ticks
     }
-    const { child, make, withChildren } = program<{ state: Ticks; event: "Up" }>()
+    const { make, withChildren } = program<{ state: Ticks; event: "Up" }>()
     withChildren({ Counter: child(resettable) }).make({
       // @ts-expect-error: a child is given what it starts from by its flags, and told what its declaration gives.
       init: { state: noTicks, tell: [{ _tag: "Counter", message: { _tag: "Reset" } }] },
@@ -3755,7 +3827,7 @@ describe("what the types reject", () => {
     type Rang = Readonly<{ _tag: "Rang" }>
     const bell = program<{ state: Ticks; event: Rang }>().make({ init: { state: noTicks }, makeModel: () => null })
     const event: EventOf<typeof bell> = { _tag: "Rang" }
-    const { child, withChildren } = program<{ state: Ticks }>()
+    const { withChildren } = program<{ state: Ticks }>()
     withChildren({ Bell: child(bell) }).make({
       init: { state: noTicks },
       onEvent: { Bell: (rang) => (state) => ({ state: { ticks: rang._tag.length + state.ticks } }) },
@@ -3773,7 +3845,7 @@ describe("what the types reject", () => {
       subscriptions: () => [],
       makeModel: ({ ticks }: Ticks) => ticks
     }
-    const { child, withChildren } = program<{ state: Ticks }>()
+    const { withChildren } = program<{ state: Ticks }>()
     const tested = withChildren({ Saving: child(saving) }).make({ init: { state: noTicks }, makeModel: () => null })
     const command: CommandOf<typeof tested> = { _tag: "Saving", instance: 1, command: "Save" }
     // @ts-expect-error: the child returns no other command.
@@ -3802,14 +3874,14 @@ describe("what the types reject", () => {
       makeModel: ({ ticks }: Ticks) => ticks
     }
     const Silent = program<{ state: Ticks; event: Readonly<{ _tag: "Other" }> }>()
-    Silent.withChildren({ Gone: Silent.child(gone) }).make({
+    Silent.withChildren({ Gone: child(gone) }).make({
       init: { state: noTicks },
       // @ts-expect-error: `Gone` is no event of this parent's.
       onEvent: { Gone: (event) => (state) => ({ state, events: [event] }) },
       makeModel: () => null
     })
     const Raising = program<{ state: Ticks; event: Gone }>()
-    const raising = Raising.withChildren({ Gone: Raising.child(gone) }).make({
+    const raising = Raising.withChildren({ Gone: child(gone) }).make({
       init: { state: noTicks },
       onEvent: { Gone: (event) => (state) => ({ state, events: [event] }) },
       makeModel: () => null
@@ -3822,7 +3894,7 @@ describe("what the types reject", () => {
   })
 
   test("commands of its own need a runCommand", () => {
-    const { child, make, withChildren } = program<{ state: Ticks; command: Readonly<{ _tag: "Beep" }> }>()
+    const { make, withChildren } = program<{ state: Ticks; command: Readonly<{ _tag: "Beep" }> }>()
     // @ts-expect-error: `Beep` would go uninterpreted.
     withChildren({ Plain: child(plain) }).make({ init: { state: noTicks }, makeModel: () => null })
     // @ts-expect-error: without children too.
@@ -3875,7 +3947,7 @@ describe("what the types reject", () => {
     >()
     // One service for each place they are read from: the two branches of `runCommand`, the three branches of `listen`,
     // and a child's command and subscription.
-    const app = Listening.withChildren({ Ringing: Listening.child(ringing) }).make({
+    const app = Listening.withChildren({ Ringing: child(ringing) }).make({
       init: { state: noTicks },
       update: (_: Tick) => (state) => ({ state }),
       runCommand: (command) => command === "Read" ? fromClock : fromDisk,
@@ -3930,7 +4002,7 @@ describe("what the types reject", () => {
       makeModel: () => null
     }
     const Holder = program<{ state: Ticks }>()
-    const holder = Holder.withChildren({ Literal: Holder.child(written) }).make({
+    const holder = Holder.withChildren({ Literal: child(written) }).make({
       init: { state: noTicks },
       makeModel: () => null
     })
@@ -3974,7 +4046,7 @@ describe("what the types reject", () => {
     const declaredSubscriptions: Exactly<SubscriptionServicesOf<typeof declared>, unknown> = true
     const none: Exactly<SubscriptionServicesOf<typeof base>, never> = true
     const Parent = program<{ state: object }>()
-    const parent = Parent.withChildren({ Left: Parent.child(untyped), Right: Parent.child(unheard) }).make({
+    const parent = Parent.withChildren({ Left: child(untyped), Right: child(unheard) }).make({
       init: { state: {} },
       makeModel: () => null
     })
@@ -4053,7 +4125,7 @@ describe("what the types reject", () => {
     const namedMessages: Exactly<MessageOf<typeof inferred>, Reset> = true
     // A parent's own messages are its own: its child's are added.
     const Parent = program<{ state: object; message: Reset }>()
-    const parent = Parent.withChildren({ Clock: Parent.child(ticker) }).make({
+    const parent = Parent.withChildren({ Clock: child(ticker) }).make({
       init: { state: {} },
       update: () => (state) => ({ state }),
       makeModel: (_, children) => children.Clock()
@@ -4090,7 +4162,7 @@ describe("what the types reject", () => {
       makeModel: () => null
     })
     expectTypeOf(flagged).toEqualTypeOf<Program<{ state: Ticks; model: null; message: never; flags: number }>>()
-    const { child, childById, withChildren } = program<{ state: ListState; key: "own" }>()
+    const { withChildren } = program<{ state: ListState; key: "own" }>()
     const parent = withChildren({
       Clock: child(ticker),
       Tickers: childById(ticker, { ids: (state) => state.ids })
@@ -4170,7 +4242,7 @@ describe("what the types reject", () => {
   })
 
   test("a program needs its init and its makeModel, however it is written", () => {
-    const { make, withChildren, child } = program<{ state: Ticks }>()
+    const { make, withChildren } = program<{ state: Ticks }>()
     // @ts-expect-error: it has nothing to start from.
     expect(make({ makeModel: () => null })).toBeDefined()
     // @ts-expect-error: it has nothing to draw.
@@ -4187,14 +4259,13 @@ describe("what the types reject", () => {
   })
 
   test("children by id list their ids: ids is required", () => {
-    const { childById } = program<{ state: ListState }>()
     // @ts-expect-error: without it, no child would be there.
     expect(childById(counter, { listening: () => true })).toBeDefined()
-    expect(childById(counter, { ids: (state) => state.ids })).toBeDefined()
+    expect(childById(counter, { ids: (state: ListState) => state.ids })).toBeDefined()
   })
 
   test("a handler of onEvent answers with a step, and its type has no reject", () => {
-    const { child, childById, withChildren } = program<{ state: Ticks }>()
+    const { withChildren } = program<{ state: Ticks }>()
     withChildren({ Left: child(counter) }).make({
       init: { state: noTicks },
       onEvent: {
@@ -4246,7 +4317,7 @@ describe("what the types reject", () => {
   })
 
   test("a child whose program is a type parameter does not compile, in child, childById or withChildren", () => {
-    const { child, childById, withChildren } = program<{ state: Ticks }>()
+    const { withChildren } = program<{ state: Ticks }>()
     const wrapping = <P extends AnyProgram>(inner: P) => {
       // @ts-expect-error: the compiler cannot decide that the program is one.
       const Inner = child(inner)
@@ -4280,7 +4351,7 @@ describe("a child's subscriptions in a run", () => {
       listen: () => Channel.fromEffectDone(Effect.sync(() => void (starts += 1)).pipe(Effect.andThen(Effect.never))),
       makeModel: ({ bumps }) => bumps
     }
-    const { child, withChildren } = program<{ state: object }>()
+    const { withChildren } = program<{ state: object }>()
     const holder = withChildren({ Bumping: child(bumping) }).make({
       init: { state: {} },
       makeModel: (_, children) => children.Bumping()
@@ -4324,7 +4395,7 @@ describe("a child's subscriptions in a run", () => {
     type Pair = readonly [string, number]
     type Shelf = Readonly<{ shelf: string }>
     type Store = Readonly<{ pairs: ReadonlyArray<Pair>; shelves: ReadonlyArray<Shelf> }>
-    const { childById, withChildren } = program<{ state: Store }>()
+    const { withChildren } = program<{ state: Store }>()
     const store = withChildren({
       Pairs: childById(bumping, { ids: (state) => state.pairs }),
       Shelves: childById(bumping, { ids: (state) => state.shelves })

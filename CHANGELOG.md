@@ -15,9 +15,17 @@ version, and everything else, features included, the patch version.
 
 ### Changed
 
-- **Breaking**: a child alone that may not be there is declared with `childWhen(program, { there })`, beside `child`
-  in what `program<…>()` returns, and `child` declares one always there, with no `there`.
+- **Breaking**: a child alone that may not be there is declared with `childWhen(program, { there })`, beside `child`,
+  and `child` declares one always there, with no `there`.
   Upgrade: `child(program, { there })` becomes `childWhen(program, { there })`.
+- **Breaking**: `child`, `childWhen` and `childById` are functions of the package, and `program<…>()` returns only
+  `make` and `withChildren`. In the call of `withChildren`, their options take the parent's state with no annotation;
+  a child declared apart from it names that state, `(state: Own) => …`, and `withChildren` refuses a child declared for
+  another state. `DeclareChild`, `DeclareChildWhen` and `DeclareChildById` take no type argument.
+  Upgrade: import `child`, `childWhen` and `childById` from `@fgaudo/effect-tea`, and write
+  `program<{ state: Own }>().withChildren({ Clock: child(clock) })` in place of a line that destructures them; a child
+  declared apart annotates the state in its options; `DeclareChild<T>`, `DeclareChildWhen<T>` and
+  `DeclareChildById<T>` become `DeclareChild`, `DeclareChildWhen` and `DeclareChildById`.
 - The errors of `child`, `childWhen` and `childById`, and of `make`, `start`, `drive` and `rehearse` given a piece or
   `flags` that the program does not name, are at the option, and say what to write or the type it takes, in place of
   that it takes `never` or the error of another form.

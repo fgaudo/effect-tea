@@ -27,13 +27,13 @@ the old timer could reach the new one (see [children by id](../guide/composition
 A parent does not route messages by hand. It declares its children, and the library does the routing (see
 [composition](../guide/composition.md)).
 
-`program<{ … }>()` gives the functions that declare children. `childById` declares children by id, and asks two
-things:
+`childById`, a function of the package, declares children by id, and asks two things:
 
 - which program they are: `Timer.timer`;
 - which of them are there: `ids`, a function of the parent's own state.
 
-`withChildren` takes the children by name, and gives the `make` of the parent:
+`withChildren`, of `program<{ … }>()`, takes the children by name, and gives the `make` of the parent. In its call,
+`ids` is given the parent's state, with no annotation:
 
 {@includeCode ../../examples/timer/timers.ts#compose}
 

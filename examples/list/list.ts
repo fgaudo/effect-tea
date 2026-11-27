@@ -2,7 +2,7 @@
 // adding one, and halting those that run, are the parent's own messages, and it says what a stopwatch's event means.
 // Which ones run it reads from their output, and keeps no copy of it in its own state. Halting is in a module of its
 // own, `halting.ts`, to show a parent split by concern: a program this small would keep it here.
-import { type MessageOf, type ModelOf, program, type StateOf } from "@fgaudo/effect-tea"
+import { childById, type MessageOf, type ModelOf, program, type StateOf } from "@fgaudo/effect-tea"
 import * as Arr from "effect/Array"
 import * as Halting from "./halting.ts"
 import * as Stopwatch from "./stopwatch.ts"
@@ -12,15 +12,16 @@ export type Own = Readonly<{ nextId: number; ids: ReadonlyArray<number> }>
 
 type AddClicked = Readonly<{ _tag: "AddClicked" }>
 
-const { childById, withChildren } = program<{ state: Own; message: AddClicked | Halting.StopAllClicked }>()
+type OwnMessage = AddClicked | Halting.StopAllClicked
 
 /**
- * The stopwatches, declared apart from `withChildren`, so that `halting.ts` types its functions by them. One is there
- * while its id is listed: one removed is not, and its late messages are rejected.
+ * The stopwatches, declared apart from `withChildren`, so that `halting.ts` types its functions by them: apart from it,
+ * `ids` names the parent's state. One is there while its id is listed: one removed is not, and its late messages are
+ * rejected.
  */
-export const stopwatches = { Stopwatch: childById(Stopwatch.stopwatch, { ids: (state) => state.ids }) }
+export const stopwatches = { Stopwatch: childById(Stopwatch.stopwatch, { ids: (state: Own) => state.ids }) }
 
-export const list = withChildren(stopwatches).make({
+export const list = program<{ state: Own; message: OwnMessage }>().withChildren(stopwatches).make({
   init: { state: { nextId: 1, ids: [] } },
   update: (message, children) => (state) => {
     switch (message._tag) {

@@ -93,7 +93,7 @@ const ceilings: Readonly<Record<string, number>> = {
   "Subscriptions": 950,
   "Rejections and defects": 930,
   "Composition": 2300,
-  "Structuring a program": 2200,
+  "Structuring a program": 2210,
   "Events and external messages": 1500,
   "What an element gives": 1350,
   "Running": 1800,

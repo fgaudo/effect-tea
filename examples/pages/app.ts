@@ -1,6 +1,6 @@
 // The parent declares its pages; their messages, commands, subscriptions and models are routed by the library, which
 // keeps the pages too. What is left is what only the parent knows: which pages are there, and what their events mean.
-import { type MessageOf, type ModelOf, program, type StateOf } from "@fgaudo/effect-tea"
+import { child, childWhen, type MessageOf, type ModelOf, program, type StateOf } from "@fgaudo/effect-tea"
 import * as Opt from "effect/Option"
 import * as About from "./about.ts"
 import * as Clock from "./clock.ts"
@@ -8,9 +8,7 @@ import * as Clock from "./clock.ts"
 /** The parent's own state: whether About is open, and what it was opened with. */
 export type Own = Readonly<{ about: Opt.Option<About.Flags> }>
 
-const { child, childWhen, withChildren } = program<{ state: Own }>()
-
-export const app = withChildren({
+export const app = program<{ state: Own }>().withChildren({
   // Always there. Hidden under About, the Clock keeps its state but stops ticking.
   Clock: child(Clock.clock, { listening: (state) => Opt.isNone(state.about) }),
   // There while the state gives its flags, and started from them.

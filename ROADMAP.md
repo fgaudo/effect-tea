@@ -32,9 +32,10 @@ What a task or a review found that no failing test shows and no user met ("How a
 the case of the inference matrix (`bun run inference --filter <case>`). None is a step of its own: they are weighed
 together before a release, and one not taken then goes to `docs/rejected.md`.
 
-- Under `withChildren`, `childById(program, { listening: (_, id) => …, ids })`, with `listening` written before `ids`,
-  types `id` as `any`, with no error; outside `withChildren`, as `unknown`. With TypeScript 5.9, 6.0 and 7.0, and with
-  the one signature of step 114: a test of the types under `withChildren`, with the options in that order, shows it.
+- In the call of `withChildren`, `childById(program, { listening: (_, id) => …, ids })`, with `listening` written
+  before `ids`, types `id` as `any`, with no error; apart from it, with the state annotated in `ids` or in
+  `listening`, as the id. With TypeScript 5.9, 6.0 and 7.0, and with `childById` a function of the package (step 115):
+  a test of the types in the call of `withChildren`, with the options in that order, shows it.
 - Under jest's types, `expect(…).toThrow(InvariantDefect)` does not compile, since the constructor is private: a test
   of `examples/react-native` takes the error with a `try` and `toBeInstanceOf`. Under `bun:test` it compiles. A test
   of the types with `@types/jest` would show it.
@@ -50,7 +51,7 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
 
 ## Next, in order
 
-Steps 115 to 117 come from a review of the API of `program`, which the owner asked of Fable 5.2 on 27 November 2026 and
+Steps 116 and 117 come, as step 115 did, from a review of the API of `program`, which the owner asked of Fable 5.2 on 27 November 2026 and
 decided with it the same day. Its probes were throwaway files, typechecked beside the examples with TypeScript 5.9.3,
 6.0.3 and 7.0.2, with the same result under each: a step that rests on one says what was probed, and what was not.
 The steps run in the order of their numbers, and each decides its points by "Deciding": a step that decides against
@@ -58,81 +59,14 @@ its point writes its entry of [`rejected.md`](docs/rejected.md), and is done. Wi
 the third value of `AGENTS.md`: small is counted in concepts, not in exports. Their changes go out with those of steps
 111 to 114, in 0.11.0.
 
-### 115. `child`, `childWhen` and `childById` as functions of the package
-
-**Model and effort.** Opus 5.5, `high`: the types of three exports, and an inference of TypeScript that their form
-rests on.
-
-**Depends on** no other step.
-
-**Why.** `program<T>()` returns the functions that declare children beside the two ways to make a program. So a program
-without children is handed what only a parent uses, and a parent takes a line that destructures them, bound to a state
-that their calls do not show. They are returned by `program<T>()` only so that their options know the parent's state
-(`rejected.md`, "`child`, `childById`, `input` and `inputById` as free functions"), which was reasoned and not probed.
-The probe found that, in the call of `withChildren`, they read that state from the type that `withChildren` expects.
-
-**How.** By [`change-api`](.agents/skills/change-api/SKILL.md) and
-[`change-engine`](.agents/skills/change-engine/SKILL.md).
-
-- `child`, `childWhen` and `childById` are exports of the package. Each keeps its one signature, with the parent's
-  state as a type parameter in place of `T`: `<State, P>(program, …options) => Child<State, P, 'always'>`, and
-  `<State, Id, P>` for `childById`. `program<T>()` returns `make` and `withChildren`, and nothing else:
-
-  ```ts
-  export const app = program<{ state: Own }>()
-    .withChildren({ Clock: child(Clock.clock, { listening: (state) => Opt.isNone(state.about) }) })
-    .make({ init: { state: { about: Opt.none() } }, makeModel: (_, children) => children.Clock() })
-  ```
-
-- **Probed**, with signatures declared and no body. In the call of `withChildren`, the `state` of an option is the
-  parent's with no annotation, for `child`, `childWhen` and `childById`, of a program with flags and of one without,
-  with the options chosen by a conditional over `P` as they are today. The `id` of a `listening` written after `ids` is
-  the id. The literal of a `tell` keeps its tags where its type is the conditional of `Telling`, and loses them where
-  it is a function type alone.
-- **A child declared apart** from `withChildren`, as `examples/list` declares its stopwatches for `halting.ts`, has a
-  `state` of `unknown` without an annotation, and does not compile: a form refused, never taken wrongly. With
-  `(state: Own)` it compiles, and `withChildren` takes it. The doc comments of the three functions say so, and
-  "Structuring a program" where it shows children declared apart.
-- **Not probed**, and done first, before the rest: `CheckedChild<P>` beside a `State` that is inferred; what a
-  consumer's declarations print (`bun run smoke`, with `misprint.ts`); and the inference matrix, with the three
-  functions as uses of their own.
-- **If the state does not reach an option** in the call of `withChildren`, with one of the three compilers, the
-  functions are not exports. A second function, `parent<T>()`, returns them with `parentProgram`, which takes the
-  children and gives the parent's `make`, and `program<T>()` returns `make` alone: `withChildren`, destructured, does
-  not say what has the children. The step writes what failed in `rejected.md`.
-- The types that only name the three functions (`DeclareChild`, `DeclareChildWhen`, `DeclareChildById`) stay only
-  where a consumer's declarations would spell out a signature without them (`change-api`, "Report it").
-- The lead of a `listening` written before `ids` is read again, in the call of `withChildren` and apart from it, and
-  its line under "Leads" says what is found.
-- **Weighed with the owner, and not taken.** Each gets its entry of `rejected.md`, and the entry of the free functions
-  is rewritten:
-  - A second function beside `program`, `parent<T>()` or `parentProgram<T>()`, while the three functions are exports.
-    It would take the same types by the same signature: a program and a parent differ by the children, and the API
-    forks there.
-  - The functions given to a callback, `withChildren(({ child }) => ({ … }))`. Probed: it holds, with the state, the
-    messages and the model of `examples/pages` the very same and the tags of a `tell` kept, and children declared
-    apart are read from `ParentMaker<T, infer C>`. It is a callback for what an import does.
-  - The children in the call that names the types, `program<T>(children)`. TypeScript infers no type argument once one
-    is given (microsoft/TypeScript#26242), so the children fall to their constraint, and lose their names.
-  - The children and the pieces in one call, as two arguments. Probed: the children fall to their constraint there
-    too.
-  - `program` as the name of `withChildren`, one word for two signatures, which a module that imports `program` cannot
-    destructure; and `children`, the word of what a parent's pieces take last.
-
-**Done when** tests of the types hold, for each of the three functions, and for a program with flags and one without,
-that the state reaches an option in the call of `withChildren`; that a child declared apart compiles with its state
-annotated and not without, and that `withChildren` takes it; and that `withChildren` refuses a child declared for
-another state. `program<T>()` gives no `child`. The examples, the guide, the tutorial, the README and the skill write
-the new form, and the changelog has the breaking entry with its `Upgrade:`. `bun run typecheck`, `lint`, `test`,
-`test:node`, `interleavings`, `inference`, `inference --run`, `comments`, `api --check` and the smoke test, with
-TypeScript 5.9, 6.0 and 7.0, pass.
-
 ### 116. A program without children and a parent, each with types and a `make` of its own
 
 **Model and effort.** Opus 5.5, `high`: `src/compose.ts`, which keeps the invariants of a parent, and the types of
 `make`.
 
-**Depends on** 115, which changes what `program<T>()` returns.
+**Depends on** no open step. Step 115 left `program<T>()` returning `make` and `withChildren` alone, and `child`,
+`childWhen` and `childById` as functions of the package, typed `DeclareChild`, `DeclareChildWhen` and
+`DeclareChildById`, which a consumer's declarations name where they export the functions in an object.
 
 **Why.** One `Config`, of twelve type parameters, types the pieces of a program without children and those of a
 parent, and one `make` runs both. So the `update` of a program without children is typed
@@ -163,7 +97,7 @@ the inference matrix reports no new lead; and `bun run typecheck`, `lint`, `test
 
 **Model and effort.** Opus 5.5, `medium`: one rule, applied to each optional member, with a test for each.
 
-**Depends on** 115 and 116, which write the types it changes.
+**Depends on** 116, which writes the types it changes.
 
 **Why.** Under `exactOptionalPropertyTypes`, `child(clock, { listening: undefined })` and
 `make({ …, update: undefined })` do not compile. Probed: the error is the same for a member that is refused and for

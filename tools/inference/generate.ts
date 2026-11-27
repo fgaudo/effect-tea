@@ -489,7 +489,7 @@ const parentLines = (declare: Declare, program: string, types: Types, assert: bo
     : ""
   const lines = [
     `  const Parent = program<{ state: OuterOwn${external ? `; message: Go; external: ${types.external}` : ""} }>()`,
-    `  const parent = Parent.withChildren({ Inner: Parent.${declare}(${program}${childOptions}) }).make({`,
+    `  const parent = Parent.withChildren({ Inner: ${declare}(${program}${childOptions}) }).make({`,
     "    init: { state: { m: 0 } },"
   ]
   if (external) {
@@ -630,13 +630,10 @@ const madeOf = (c: Case): Readonly<{ lines: ReadonlyArray<string>; expected: Typ
   const ownKey = c.subs === "emits" ? "'own'" : c.subs === "silent" ? "'lock'" : "never"
   if (c.subs !== "none") typeFields.push(`key: ${ownKey}`)
   const T = `{ ${typeFields.join("; ")} }`
-  const functions = kidded ? ["withChildren"] : ["make"]
   // The function that declares the child: `childWhen` for one that may not be there.
   const declare = c.comp === "childById" ? "childById" : sometimes(c) ? "childWhen" : "child"
-  if (kidded) functions.push(declare)
-  if (pair) functions.push("childById")
   const lines: Array<string> = []
-  lines.push(`  const { ${functions.join(", ")} } = program<${T}>()`)
+  lines.push(`  const { ${kidded ? "withChildren" : "make"} } = program<${T}>()`)
   const entries: Array<string> = []
   // init: a step of the parent's own state, from which the library starts the child.
   const flagsHere = v === "flagsStep" ? false : v === "flagsUnnamed" ? true : has("flags")
@@ -883,7 +880,7 @@ const generate = (c: Case): ReadonlyArray<Part> => {
     return [{
       label: "program",
       valid: verdictOf(c),
-      lines: [...lines, `  const used = program<{ state: OuterOwn }>().child(made${flagged})`]
+      lines: [...lines, `  const used = child(made${flagged})`]
     }]
   }
   return [
@@ -1557,7 +1554,7 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
     id: `special.state-without-fields.${type}`,
     valid: true,
     body: `  const made = program<{ state: ${type} }>().make({ init: { state: {} }, makeModel: () => null })
-  const used = program<{ state: OuterOwn }>().child(made)
+  const used = child(made)
   return used`
   })),
   {
@@ -1565,7 +1562,7 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
     valid: true,
     body: `  const made = program<{ state: number }>().make({ init: { state: 0 }, makeModel: (n) => n })
   const state: Exactly<StateOf<typeof made>, number> = true
-  const used = program<{ state: OuterOwn }>().child(made)
+  const used = child(made)
   return [state, used]`
   },
   {
@@ -1573,7 +1570,7 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
     valid: true,
     body: `  const made = program<{ state: object }>().make({ init: { state: {} }, makeModel: () => null })
   const state: Exactly<StateOf<typeof made>, object> = true
-  const used = program<{ state: OuterOwn }>().child(made)
+  const used = child(made)
   return [state, used]`
   },
   // `model: never` named is checked: a model that is drawn is refused, one that is never drawn is true.
@@ -1627,7 +1624,7 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
       id: `special.external-passed-on.${tag === "string" ? "string" : "literal"}.${sent}`,
       valid,
       body: `  const Parent = program<{ state: OuterOwn; external: Readonly<{ _tag: ${tag} }> }>()
-  const parent = Parent.withChildren({ Kid: Parent.child(kid) }).make({
+  const parent = Parent.withChildren({ Kid: child(kid) }).make({
     init: { state: { m: 0 } },
     external: () => (state) => ({ state, tell: [{ _tag: 'Kid', message: { _tag: '${sent}' } }] }),
     onEvent: { Kid: () => (state) => ({ state }) },
@@ -1655,7 +1652,7 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
     id: `special.children-wide-names.${tag}`,
     valid,
     body: `  const Parent = program<{ state: OuterOwn; message: Readonly<{ _tag: '${tag}' }> }>()
-  const handle = Parent.child(kid)
+  const handle = child(kid)
   const children: Readonly<Record<string, typeof handle>> = { Kid: handle }
   const parent = Parent.withChildren(children).make({
     init: { state: { m: 0 } },
@@ -1696,7 +1693,7 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
     id: `special.wide-message-beside-child.${type}`,
     valid,
     body: `  const Parent = program<{ state: OuterOwn; message: ${type} }>()
-  const parent = Parent.withChildren({ Kid: Parent.child(kid) }).make({
+  const parent = Parent.withChildren({ Kid: child(kid) }).make({
     init: { state: { m: 0 } },
     update: () => (state) => ({ state }),
     onEvent: { Kid: () => (state) => ({ state }) },
@@ -1709,7 +1706,7 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
     id: "special.tell-through-andThen",
     valid: true,
     body: `  const Parent = program<{ state: SChildById; message: Own }>()
-  const parent = Parent.withChildren({ Kid: Parent.childById(kid, { ids: (state) => state.ids }) }).make({
+  const parent = Parent.withChildren({ Kid: childById(kid, { ids: (state) => state.ids }) }).make({
     init: { state: { n: 0, ids: [1] } },
     update: () => (state) =>
       andThen({ state: { ...state, n: 0 }, tell: [{ _tag: 'Kid', id: 1, message: { _tag: 'KReset' } }] }, (state) => ({
@@ -1750,7 +1747,7 @@ const specials: ReadonlyArray<Readonly<{ id: string; valid: Verdict; body: strin
     id: "special.generic-program-of-t-as-child",
     valid: "refused",
     body: `  const asChild = <T extends { state: SNone; model: unknown; message: unknown }>(p: Program<T>) =>
-    program<{ state: OuterOwn }>().child(p)
+    child(p)
   return asChild`
   },
   // `T` may name flags or messages, which a step and no `update` would break.
@@ -2054,7 +2051,7 @@ import * as Effect from 'effect/Effect'
 import * as HashMap from 'effect/HashMap'
 import * as Opt from 'effect/Option'
 import {
-  andThen, type CommandOf, forwardTo, type CommandServicesOf, type EventOf, type ExternalOf, type FlagsOf, type Instance, type Kept, type KeyOf,
+  andThen, child, childById, childWhen, type CommandOf, forwardTo, type CommandServicesOf, type EventOf, type ExternalOf, type FlagsOf, type Instance, type Kept, type KeyOf,
   type MessageOf, type ModelOf, type OutputOf, type Program, program, reject, start, type StateOf,
   type SubscriptionServicesOf, type Transition, type Update,
 } from '../src/index.ts'
@@ -2173,12 +2170,12 @@ type Span = Readonly<{
 // A parent with `count` children, each with commands, events, subscriptions and services.
 const scaled = (count: number) => {
   const ids = Array.from({ length: count }, (_, i) => i)
-  return `import { type MessageOf, program } from '../../src/index.ts'
+  return `import { child, type MessageOf, program } from '../../src/index.ts'
 import { type Go, kid } from '../../tools/inference/prelude.ts'
 
 type State = Readonly<{ n: number }>
 
-export const { child, withChildren } = program<{ state: State; message: Go }>()
+export const { withChildren } = program<{ state: State; message: Go }>()
 
 export const parent = withChildren({ ${ids.map((i) => `K${i}: child(kid)`).join(", ")} }).make({
   init: { state: { n: 0 } },

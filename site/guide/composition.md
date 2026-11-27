@@ -10,8 +10,8 @@ This page shows how to make a program out of other programs. A part of a program
 becomes a child (see [splitting a program](./structuring-a-program.md#splitting-a-program)).
 
 - A child is any program.
-- A parent declares its children with `withChildren`, before `make`. For each child, the parent says, from its own
-  state, when the child is there and what it starts from.
+- A parent declares its children with `child`, `childWhen` and `childById`, in the call of `withChildren`, before
+  `make`. For each child, the parent says, from its own state, when the child is there and what it starts from.
 - The library keeps the children. It starts a child when the parent's state lists it, and drops the child when the
   state no longer lists it. The parent's functions are given the parent's own state alone.
 - The library does the routing: the parent's messages, commands and subscriptions include each child's.
@@ -24,9 +24,7 @@ Here is an app of two pages, a clock and an about page. It is [`pages`](../../ex
 ```ts
 type Own = Readonly<{ about: Opt.Option<About.Flags> }>
 
-const { child, childWhen, withChildren } = program<{ state: Own }>()
-
-export const app = withChildren({
+export const app = program<{ state: Own }>().withChildren({
   // Always there. Hidden under About, the Clock keeps its state but stops ticking.
   Clock: child(Clock.clock, { listening: (state) => Opt.isNone(state.about) }),
   // There while the state gives its flags, and started from them.
@@ -55,7 +53,7 @@ kept by the library.
 ## Rules
 
 What the compiler refuses of a parent, and each defect of one, is in the doc comments of the API: of `program` and
-of what it returns, of `forwardTo` and of `CompositionDefect`.
+of what it returns, of `child`, `childWhen` and `childById`, of `forwardTo` and of `CompositionDefect`.
 
 ### When a child is there
 
@@ -216,7 +214,7 @@ export function inDialog<S, M, Msg>(
 ): Program<{ state: Dialog<S>; model: DialogModel<M>; message: InDialog<Msg> }>
 export function inDialog(content: Program<{ state: unknown; model: unknown; message: unknown }>) {
   const dialog = program<{ state: Readonly<{ open: boolean }>; message: Visibility }>()
-  return dialog.withChildren({ Content: dialog.child(content) }).make({
+  return dialog.withChildren({ Content: child(content) }).make({
     init: { state: { open: false } },
     update: (message) => () => ({ state: { open: message._tag === "Opened" } }),
     makeModel: (state, children) => ({

@@ -93,9 +93,15 @@ export class Child<State, P, in out There extends "always" | "sometimes"> {
 }
 
 // @public
+export const child: DeclareChild;
+
+// @public
 export class ChildById<State, in out Id, P> {
     protected readonly "~@fgaudo/effect-tea/Child/declaration": ChildByIdDeclaration<State, Id, P>;
 }
+
+// @public
+export const childById: DeclareChildById;
 
 // @public (undocumented)
 type ChildByIdDeclaration<State, Id, P> = {
@@ -146,6 +152,9 @@ type ChildOf<Message, Name> = Extract<Routed<Message>, Readonly<{
 type Children<State> = Readonly<Record<string, Child<State, any, any> | ChildById<State, any, any> | ChildById<State, never, any>>>;
 
 // @public
+export const childWhen: DeclareChildWhen;
+
+// @public
 export type CommandOf<P> = [Listed<FirstStepOf<P>, "commands"> | Returned<P, "commands">] extends [infer C] ? C : never;
 
 // @public
@@ -177,16 +186,16 @@ type Config<State, C, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, Externa
 }>;
 
 // @public
-export type DeclareChild<T extends DeclaredTypes> = <P extends AnyProgram>(program: CheckedChild<P>, ...options: AlwaysOptions<Field<T, "state">, P>) => Child<Field<T, "state">, P, "always">;
+export type DeclareChild = <State, P extends AnyProgram>(program: CheckedChild<P>, ...options: AlwaysOptions<State, P>) => Child<State, P, "always">;
 
 // @public
-export type DeclareChildById<T extends DeclaredTypes> = <Id, P extends AnyProgram>(program: CheckedChild<P>, options: ByIdOptions<Field<T, "state">, Id, FlagsOf<P>> & ByIdForm<P> & Telling<Field<T, "state">, P>) => ChildById<Field<T, "state">, Id, P>;
+export type DeclareChildById = <State, Id, P extends AnyProgram>(program: CheckedChild<P>, options: ByIdOptions<State, Id, FlagsOf<P>> & ByIdForm<P> & Telling<State, P>) => ChildById<State, Id, P>;
 
 // @public
 export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field<T, "state">>>(children: C) => ParentMaker<T, C>;
 
 // @public
-export type DeclareChildWhen<T extends DeclaredTypes> = <P extends AnyProgram>(program: CheckedChild<P>, options: WhenOptions<Field<T, "state">, P>) => Child<Field<T, "state">, P, "sometimes">;
+export type DeclareChildWhen = <State, P extends AnyProgram>(program: CheckedChild<P>, options: WhenOptions<State, P>) => Child<State, P, "sometimes">;
 
 // @public
 type DeclaredTypes = Readonly<{
@@ -570,9 +579,6 @@ const ProgramDefect_base: new <A extends Record<string, any> = {}>(args: VoidIfE
 
 // @public
 export interface ProgramMaker<T extends DeclaredTypes> {
-    readonly child: DeclareChild<T>;
-    readonly childById: DeclareChildById<T>;
-    readonly childWhen: DeclareChildWhen<T>;
     readonly make: MakeProgram<T>;
     readonly withChildren: DeclareChildren<T>;
 }

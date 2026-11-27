@@ -14,7 +14,10 @@
 // returns names them in its declarations (`tools/api-report.ts`).
 export {
   type Child,
+  child,
   type ChildById,
+  childById,
+  childWhen,
   type DeclareChild,
   type DeclareChildById,
   type DeclareChildren,
