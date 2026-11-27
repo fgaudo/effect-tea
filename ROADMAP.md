@@ -32,7 +32,12 @@ What a task or a review found that no failing test shows and no user met ("How a
 the case of the inference matrix (`bun run inference --filter <case>`). None is a step of its own: they are weighed
 together before a release, and one not taken then goes to `docs/rejected.md`.
 
-None.
+- **A throw that leaves a callback given to Effect, listed nowhere.** `reconcile` in `compose.ts` throws the
+  `CompositionDefect` of an id listed twice inside the callback of `HashMap.mutate`, and `startOf` in
+  `testing/rehearse.ts` lets what `select` throws leave `Arr.filter`: each rests on Effect letting what a callback
+  throws leave the call, a rule that Effect-TS/effect#10683 declined, and `docs/premises.md` lists neither. Found by
+  the review of step 107, read in the source only. A test of each in `test/premises.test.ts` would show it, or the
+  throw moved out of the callback, into a loop of the library's own, which needs no premise.
 
 ## Next, in order
 
@@ -41,31 +46,11 @@ premises closed by step 99 (`git log --grep "the premises reviewed since step 65
 closed by step 100 (`git log --grep "the promises read since step 90"`). The next of each reads the changes since its
 commit. The next review of the premises reads the premise that step 106 added by the model, that the `Fiber` a fork
 returns is the very one its effect sees as its own (`docs/premises.md`, "Code that a fiber runs on the stack"), and
-what `Effect.interruptible` fails with, left a premise of tests alone.
+what `Effect.interruptible` fails with, left a premise of tests alone. It reads nothing of an `Equal` or a `Hash` of
+the program that throws: step 107 dropped the three premises that served that case alone, by the rule it left in
+`docs/premises.md` ("What no program that keeps the guide's rules can see").
 
-### 107. Drop the premises that serve only an `Equal` or a `Hash` that throws
-
-**Model and effort.** Fable 5.2, `high`: premises and an invariant questioned.
-
-**Depends on** no other step. The fact: since 26 November 2026, an `Equal` or a `Hash` that a program writes and that
-throws is undefined ("Guarantees", "What is left to you", commit `9759da7`), so a program that keeps the rule can see
-neither when they are called nor where what they throw goes. Three premises of `docs/premises.md` may serve that case
-alone: that `HashMap` calls a key's `Equal` and `Hash` only during a call of its functions, that it lets what they
-throw leave that call, and that `Equal.equals` and `Hash.hash` let it leave the call. Shown on 27 November 2026: with
-the `FiberMap` of `engine.ts` keyed by `K`, `typecheck`, `test`, `test:node` and `interleavings` pass, and no test of
-the run has a key whose `Equal` throws.
-
-Decided as the lead was weighed, on 27 November 2026: the engine keeps the fibers of its subscriptions by their start.
-Keyed by `K`, no line goes, `Generation` stays for a message's `Source` and for `rehearse`'s ledger, the map alone
-would differ from every other register of a start, and `FiberMap` would call the program's `Equal` and `Hash` at each
-`get` and `run`. The comment of `subscriptionFibers` gives that reason in place of the throw. Each premise is read
-against correct programs before it goes: one that a program keeping the rules can observe stays, said for that
-program.
-
-**Done when** each of the three premises is out of `docs/premises.md` with its tests in `test/premises.test.ts`, or
-stays with the correct program it serves; `docs/invariants.md` ("Keys and their `Equal` and `Hash` are the
-program's") and the comments that cite these premises in `src/` say what holds without them; the checks of
-`change-engine` pass, `bun run mutations` among them. No changelog entry: no consumer can notice it.
+No step is open.
 
 ## For the owner
 

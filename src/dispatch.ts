@@ -103,8 +103,8 @@ const drop = (byId: Made, hash: number, entry: Entry) => {
   if (bucket.length === 0) byId.delete(hash)
 }
 
-// Run in a host job, outside any run, where an id's `Equal` or `Hash` that throws would be no defect of a run: the
-// entry is found by its hash, computed as it was made, and by its identity, so that no id is compared here.
+// The entry is found by its hash, computed as it was made, and by its identity: the entries of a bucket may hold ids
+// equal by `Equal`, which differ by their instance alone.
 const forgotten = new FinalizationRegistry<Readonly<{ byId: Made; hash: number; entry: Entry }>>(
   ({ byId, hash, entry }) => drop(byId, hash, entry)
 )

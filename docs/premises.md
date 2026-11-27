@@ -17,23 +17,6 @@ jobs, its fibers and its end. So each rests on what the engine rests on, and on 
 below by `answering`. `simulate` runs no subscription, so the premise of a subscription's channel (one channel run
 afresh) is none of its own.
 
-- **`HashMap` calls a key's `Equal` and `Hash` only during a call of its functions, never after the call returns, and
-  lets what they throw leave that call**: so `reconcile` compares keys all inside `'subscriptions'`, in the thunk that
-  makes a state, in the run and in the tools, and a key whose `Equal` or `Hash` throws dies there. `FiberMap` compares
-  its keys in a fiber's observer as well, which is why the run keeps its fibers by their start. Both are read only in
-  the source. Its tests are of a key watched across the calls of a map, and of keys whose `Equal` and `Hash` throw;
-  "the watch of that test sees a FiberMap call a key's Equal after the call, in a fiber's observer" is what the watch
-  fails with. When they are called is by the model: a function that returns no `Effect` does its work during the call
-  (Effect-TS/effect#10877 asked it, and Effect-TS/effect#10878 left it out, as the owner then agreed). That a throw
-  leaves the call is open, under a rule for callbacks that throw, which Effect-TS/effect#10683 declined, and holds no
-  promise: the guide leaves an `Equal` or a `Hash` that throws to the program ("Guarantees", "What is left to you").
-- **`Equal.equals` and `Hash.hash` let what a value's `Equal` and `Hash` throw leave the call**, though the JSDoc of
-  `equals` says that it never throws: so what a parent compares by them, what `key` gives, flags, an id and the value
-  of a declared `tell` (`compose.ts`, `forwardTo` in `dispatch.ts`), dies where the parent compares it, and is not
-  taken for another value, which would start a child again at every step of its parent, in silence. Read only in the
-  source. Its test is of values whose `Equal` and `Hash` throw. Open, and not asked, as the throw of a key's is, and it
-  holds no promise, by the same rule of the guide: that JSDoc is what makes not throwing a rule of Effect's for an
-  `Equal`, and for the `Hash` that `equals` reads first.
 - **A fiber that waits on a `Deferred` runs on the stack of whoever completes it, until it waits again**, a fiber or
   plain code. No guarantee rests on it, only killers of mutations: those of "the end of the run may begin inside a
   step" and "drive wakes its waits inside the step", which tell a wake inside the step only where it is resumed there,
@@ -156,6 +139,11 @@ reasoned. A new one is taken only where no design without it is as good (value 5
   its specification (WHATWG). Of a behaviour documented in part, only the part not promised is listed. What Effect says
   on effect.website or in `node_modules/effect/ai-docs` is no promise: a premise it describes stays listed, and names
   what it says.
+- **What changes nothing that the library promises, and that no test, tool or killer of a mutation rests on**: no
+  premise, and not listed, whatever the dependency does of it. An `Equal` or a `Hash` of the program is pure, as each
+  of its functions is ("Deciding" in [`AGENTS.md`](../AGENTS.md)), and does not throw ("Guarantees", "What is left to
+  you"). So when Effect calls one, and where what one throws would go, change nothing for a program that keeps those
+  rules: nothing of the library is built for either, and neither is listed.
 - **Not documented**: a premise, listed here with a test that fails without it, written before the change, and never
   made unneeded by code of the library's written for it alone (an explicit `Effect.interruptible`, a scope closed by
   hand), which would look redundant and let what it stood in for change unseen. For the JavaScript engine, the test
@@ -166,9 +154,9 @@ reasoned. A new one is taken only where no design without it is as good (value 5
     not asked of Effect, whose answer in Effect-TS/effect#10878 left out what follows from the shape of an API.
   - **Open**: Effect could do otherwise and be right, as where it declined a rule (Effect-TS/effect#10683: callbacks
     that throw, `run` on a closed container, when a loser is interrupted, how the failures of cleanups combine). It
-    holds no promise of the guide: only what the guide leaves unspecified or undefined, which the engine keeps as it
-    is, or a test, a tool of development or a killer of a mutation. A promise that would rest on one is kept by another
-    design, or narrowed. A premise whose argument does not fit a sentence is open.
+    holds no promise of the guide: only what the guide leaves unspecified, which the engine keeps as it is, or a test,
+    a tool of development or a killer of a mutation. A promise that would rest on one is kept by another design, or
+    narrowed. A premise whose argument does not fit a sentence is open.
 - **The range of Effect is a caret from the lockfile's version**: no promise rests on what Effect may change within a
   major, and a patch may change what a minor may, so a narrower range kept nothing out. The daily jobs run the tests at
   the newest Effect the range accepts, and at what Effect has merged and not released (`upgrade-effect`, which says
@@ -181,8 +169,7 @@ reasoned. A new one is taken only where no design without it is as good (value 5
   premise by the model, as the defect of a release does. What an open premise holds is kept by the engine and left by
   the guide. Unspecified: the order of the defects; a fiber that interrupts itself as the run stops it, which is a
   defect; and several releases of one command or one subscription that die, each of whose defects is in the cause, two
-  equal by `Equal` too ("Running", "The defects in the cause"). Undefined: an `Equal` or a `Hash` of the program that
-  throws, which is a defect where it is compared ("Guarantees", "What is left to you").
+  equal by `Equal` too ("Running", "The defects in the cause").
   [`premises-and-range.md`](records/premises-and-range.md) sorted what fell with each premise of 23 November 2026.
 - What the dependencies of development do is no premise, but for the bridges' renderers: the bridges are entries of
   the package, each names in its opening comment the versions it was checked with, and a daily job

@@ -122,8 +122,13 @@ the engine and in the testing tools.
     started, and dropped by its start: never skip it in the fiber of effects, which would check from another fiber what
     the thunk changes. `rehearse` never gives the engine such a message: `hear` fails on a key gone from the current
     state, and its ledger forgets a start in the transition that stops it.
-  - Keys and their `Equal` and `Hash` are the program's: the run compares them only in `'subscriptions'`, and keeps its
-    fibers by their start, which compares no keys.
+  - Keys and their `Equal` and `Hash` are the program's: the run compares the keys only as it makes a state
+    (`Core.reconcile`), and from there on knows a start by its generation, in every register of a start: the messages
+    it sends, the fiber the engine keeps for it, and `rehearse`'s ledger. A `FiberMap` keyed by the keys would call the
+    program's `Equal` and `Hash` again at each `get` and `run`, for what the generation says already
+    ([`rejected.md`](rejected.md), "The fibers of the subscriptions kept by their key"). Nothing of the engine is built
+    for an `Equal` or a `Hash` that throws, which the guide leaves undefined, and no premise is held for one
+    (`premises.md`, "The rule").
 - **Commands are data; only `runCommand` runs them.** Never let a command carry its effect, or a description kept in
   step with one: a test and `onApplied` read the command itself.
 - **Commands cannot be cancelled**, a choice of design.
@@ -194,8 +199,8 @@ the engine and in the testing tools.
     closed (`Core.released`) is read only by the register and by a tool's `run`, so that join has no mutation.
   - The order of the defects is the engine's to keep, and no promise: the guide leaves it unspecified, with what else
     rests on a premise that Effect may change (`premises.md`, "The rule"): a self-interruption as the run stops the
-    fiber, and which defects of several releases of one command or one subscription are in the cause. An `Equal` or a
-    `Hash` of the program that throws it leaves undefined. No promise rests on such a premise.
+    fiber, and which defects of several releases of one command or one subscription are in the cause. No promise rests
+    on such a premise.
   - The register is read once, as the run ends: its effects end once a defect is recorded (`died`), or as whoever runs
     it interrupts it, and the run then reads the register, and ends with the defects first, in that order, then what
     else it ended with (`endedWith` in `core.ts`, which the tools end with too). Where `init` threw there is no engine,

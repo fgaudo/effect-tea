@@ -2458,7 +2458,7 @@ export const mutations: ReadonlyArray<Mutation> = [
       ["src/dispatch.test.ts", "keeps nothing for the ids nobody holds"],
       ["src/dispatch.test.ts", "keeps nothing for the instances nobody holds"],
       ["src/dispatch.test.ts", "lets go of what a long list held once the list is no longer drawn"],
-      ["src/dispatch.test.ts", "lets go of collected dispatches without comparing ids again"]
+      ["src/dispatch.test.ts", "lets go of collected dispatches whose ids collide"]
     ]
   },
   {

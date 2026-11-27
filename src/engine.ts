@@ -451,8 +451,8 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
           stepped({ _tag: "Arrived", arrived: step })
           return queue({ gone: [], fresh: [], commands })
         }
-        // The keys are the program's, and so are their `Equal` and `Hash`: compared here, in `subscriptions`, and
-        // nowhere else in the run.
+        // The keys are the program's, and so are their `Equal` and `Hash`: `Core.reconcile` compares them, and nothing
+        // else in the run does.
         const reconciled = attempt("subscriptions", () => Core.reconcile(active, subscriptions(next)))
         // A state whose keys are a defect is never current, as one that `onApplied` died of: no listener is told of it.
         if (Opt.isNone(reconciled)) return
@@ -518,8 +518,8 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
     const queued = yield* Effect.acquireRelease(Queue.unbounded<Job<Command, K>>(), Queue.shutdown)
     // The fiber of effects and the commands.
     const fibers = yield* FiberSet.make<unknown, never>()
-    // Kept by their start, never by their key: `FiberMap` compares its keys, in a fiber's observer too, where nothing
-    // could tell the defect of a key's `Equal` that throws.
+    // Kept by their start, as every register of a start is, never by their key: a `FiberMap` keyed by `K` would call
+    // the program's `Equal` and `Hash` again at each `get` and `run`, for what the start says already.
     const subscriptionFibers = yield* FiberMap.make<Core.Generation, void, never>()
     // Added after the queue and the sets, so run before they close, as a scope runs its finalizers in the reverse order
     // they were added (`Scope.close`): the end of the run stops the fiber of effects, interrupts its other fibers

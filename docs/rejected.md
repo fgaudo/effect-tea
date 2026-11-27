@@ -89,6 +89,12 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   check of what the thunk changes made in another fiber ([`invariants.md`](invariants.md), "one thunk"), for nothing,
   since such a start's messages are dropped by their start. _Reopen if_ such a start is found to cost more than a start
   and a release, as a message of it that reaches `update`.
+- **The fibers of the subscriptions kept by their key**, in a `FiberMap` keyed by `K`, once an `Equal` that throws was
+  left undefined, so that where the map compares its keys no longer mattered. Spiked, 27 November 2026, uncommitted:
+  `typecheck`, `test`, `test:node` and `interleavings` passed. Not taken: no line goes, the generation stays for the
+  source of a message and for `rehearse`'s ledger, the map alone would differ from every other register of a start,
+  and it would call the program's `Equal` and `Hash` again at each `get` and `run`. _Reopen if_ the generation goes
+  from the messages and the ledger, so that its key is all that names a start.
 - **One owner of the run's decisions, in other forms**: a death queued as a message of the loop, no check at all, the
   death interrupting the loop, and the loop calling `runCommand`. Spiked, 13 November 2026, and reasoned
   ([`single-owner.md`](records/single-owner.md), "Alternatives"): each applied messages after a defect, or rested on

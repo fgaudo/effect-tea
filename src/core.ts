@@ -176,9 +176,9 @@ export type Reconciled<K> = Readonly<{
 }>
 
 /**
- * Compares the keys `listed` with those `active`, by their `Equal` and `Hash`, which are the program's: whoever calls
- * it calls it where a defect of theirs dies in `subscriptions`, the only place where the keys are compared. The same
- * keys leave `active` the very same, and a key that stays is kept as the listing that started it gave it.
+ * Compares the keys `listed` with those `active`, by their `Equal` and `Hash`, which are the program's: the only place
+ * where the keys are compared, since a start is known by its generation from here on. The same keys leave `active` the
+ * very same, and a key that stays is kept as the listing that started it gave it.
  */
 export const reconcile = <K>(active: Active<K>, listed: ReadonlyArray<K>): Reconciled<K> => {
   // The starts of the active keys that are listed, and the listed keys that are not active, which may hold a key twice.

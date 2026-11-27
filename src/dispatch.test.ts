@@ -161,19 +161,11 @@ describe("forwardTo", () => {
     expect(entriesOf(dispatch, "Row")).toBe(1)
   })
 
-  // The collector's callback runs in a host job, outside any run, where an id's `Equal` that throws would be no
-  // defect of a run. It compares only pairs already compared while the dispatches were made, in either order of
-  // collection: `Equal` keeps its results by reference.
-  test("lets go of collected dispatches without comparing ids again", async () => {
-    const compared: Array<string> = []
-    let collecting = false
+  // One bucket holds the entries of ids that collide: each is found there by its identity, in either order of
+  // collection.
+  test("lets go of collected dispatches whose ids collide", async () => {
     class Colliding implements Equal.Equal {
-      readonly name: string
-      constructor(name: string) {
-        this.name = name
-      }
       [Equal.symbol](that: Equal.Equal): boolean {
-        if (collecting) compared.push(`${this.name}=${(that as Colliding).name}`)
         return this === that
       }
       [Hash.symbol](): number {
@@ -184,14 +176,12 @@ describe("forwardTo", () => {
     const dispatch: Dispatch<Readonly<{ _tag: "Row"; id: Colliding; message: "Inc" }>> = (message) =>
       void sent.push(message)
     const drawAll = () => {
-      for (const name of ["a", "b", "c", "d"]) forwardTo(dispatch, "Row", new Colliding(name))
+      for (let drawn = 0; drawn < 4; drawn++) forwardTo(dispatch, "Row", new Colliding())
     }
     drawAll()
     expect(entriesOf(dispatch, "Row")).toBe(4)
-    collecting = true
     for (let collection = 0; collection < 10 && entriesOf(dispatch, "Row") > 0; collection++) await collect()
     expect(entriesOf(dispatch, "Row")).toBe(0)
-    expect(compared).toEqual([])
   })
 
   test("tells ids apart by value, as subscription keys are", () => {

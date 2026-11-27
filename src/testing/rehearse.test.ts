@@ -981,20 +981,16 @@ describe("rehearse", () => {
       expect(String(failure)).toContain("No key of the current state matches what the test selects: its keys are none")
     })
 
-    test("fails the test with what select throws, a key's Equal included", async () => {
-      class Key implements Equal.Equal {
-        [Equal.symbol](): boolean {
-          throw new Error("boom")
-        }
-        [Hash.symbol](): number {
-          return 0
-        }
-      }
+    test("fails the test with what select throws, as it is", async () => {
+      const boom = new Error("boom")
       const failure = await failureOf(rehearse(
-        { ...editor, subscriptions: () => [new Key()], listen: () => Channel.never },
-        (rehearsal) => rehearsal.hearNext((key) => Equal.equals(key, new Key()))
+        { ...editor, subscriptions: () => ["ping"], listen: () => Channel.never },
+        (rehearsal) =>
+          rehearsal.hearNext(() => {
+            throw boom
+          })
       ))
-      expect(String(failure)).toBe("Error: boom")
+      expect(failure).toBe(boom)
     })
   })
 
