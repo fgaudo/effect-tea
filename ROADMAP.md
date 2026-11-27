@@ -45,34 +45,12 @@ premises that served that case alone, by the rule it left in `docs/premises.md` 
 guide's rules can see").
 
 The owner's rule of 27 November 2026 says what the library owes, and to whom (`AGENTS.md`, "Deciding"): to a program
-written as the guide teaches, and nothing to a form that no page shows. Steps 122 and 123 take out what the code holds
-for such forms, before the review of step 121 reads the code.
-
-### 122. The checks of the names of children go, with all that says them
-
-Opus 5.5, `medium`. Depends on nothing. By `change-api`. `withChildren` refuses five forms that no page shows, each
-found by a review and none by use (commits `73aeb05`, `a9c9747` and `c074855`): a name that is a number, a symbol or
-`__proto__`, a union of objects of children, and an optional child. They are unspecified, and a check that stays is a
-precedent that the next review makes wider.
-
-- `compose.ts`: `NamedAsMakeReads`, `NamedOnce`, `Several` and `Optional` go, and `withChildren` takes `children: C`.
-  Its doc comment loses its sentences from "A name is a string" on.
-- `compose.test.ts`: the `describe` "a name of a child is refused by the types, or is one child to both the types and
-  make" goes. One case of a plain name stays, only where no other test holds that a child's message, event, command,
-  key and model are routed by its name.
-- `CHANGELOG.md`: the entry of 0.11.0 on a child's name goes whole, since no release held the checks.
-  `api/effect-tea.api.md` is written again.
-- `docs/rejected.md`, "The API": one entry for the five, reasoned, reopened by a user's report of one. It says that
-  the optional child, spread in by a condition (`{ ...(flag ? { b: … } : {}) }`), is the one of the five that a user is
-  likeliest to write: it compiles, and its `makeModel` throws where the flag is off.
-
-Done when the four types and the `describe` are gone, `grep -rn "__proto__" src CHANGELOG.md` finds nothing, and the
-checks of `AGENTS.md` for `compose.ts` and for the API pass (`bun run inference`, `bun run smoke` and
-`bun run api --check` among them).
+written as the guide teaches, and nothing to a form that no page shows. Step 122 took out the checks of the names of
+children; step 123 takes out what else the code holds for such forms, before the review of step 121 reads the code.
 
 ### 123. What else the types, the tests and the comments hold only for a form that no page shows
 
-Opus 5.5, `high`. Depends on 122. By `change-api`. Decided with the rule: a program is made by `make`, and one written
+Opus 5.5, `high`. Depends on nothing. By `change-api`. Decided with the rule: a program is made by `make`, and one written
 by hand as an object is no form of the guide, typed `Program<…>` or not, though the library's own tests write many
 so, and may. Nor is a `Child`, a `ChildById` or a defect made otherwise than by the library's functions. Each item
 below is read. What serves only such a form goes, where taking it out changes nothing for a program of `make`, which
@@ -98,7 +76,7 @@ and for the API pass, and the changelog says what a consumer can notice (`releas
 
 ### 121. The review of the premises names the forms of this bug hunt, and reads all the code
 
-Opus 5.5, `high`. Depends on 122 and 123. The bug hunt of 27 November 2026 found bugs in code that three reviews of
+Opus 5.5, `high`. Depends on 123. The bug hunt of 27 November 2026 found bugs in code that three reviews of
 the premises had in their scope (21, 24 and 26 November): their brief named none of the hunt's forms, and read the
 changes since the last review, of the engine and the testing tools alone.
 

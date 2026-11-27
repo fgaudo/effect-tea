@@ -189,7 +189,7 @@ export type DeclareChild = <State, P extends AnyProgram>(program: CheckedChild<P
 export type DeclareChildById = <State, P extends AnyProgram, Id = Refused<"listening is written after ids or flags, which give its id">>(program: CheckedChild<P>, options: ByIdOptions<State, Id, FlagsOf<P>> & ByIdForm<P> & Telling<State, P>) => ChildById<State, NoInfer<Id>, P>;
 
 // @public
-export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field<T, "state">>>(children: C & NamedAsMakeReads<C>) => ParentMaker<T, C>;
+export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field<T, "state">>>(children: C) => ParentMaker<T, C>;
 
 // @public
 export type DeclareChildWhen = <State, P extends AnyProgram>(program: CheckedChild<P>, options: WhenOptions<State, P>) => Child<State, P, "sometimes">;
@@ -458,12 +458,6 @@ type Named<T, K extends "model", Inferred> = T extends {
 } ? V : Inferred;
 
 // @public
-type NamedAsMakeReads<C> = true extends Several<C> ? Refused<"the children are one object: declare a child that is there by a condition with childWhen"> : [Optional<C>] extends [never] ? NamedOnce<C> : Refused<"a child is not optional: declare one that is there by a condition with childWhen">;
-
-// @public
-type NamedOnce<C> = [Extract<keyof C, number>] extends [never] ? [Extract<keyof C, symbol>] extends [never] ? [Extract<keyof C, "__proto__">] extends [never] ? unknown : Refused<"a child is not named __proto__, which JavaScript makes the prototype"> : Refused<"a child's name is a string"> : Refused<"a child's name is a string: write a number in quotes">;
-
-// @public
 type NameOf<To> = [To] extends [string] ? To : To extends Readonly<{
     _tag: infer Name extends string;
 }> ? Name : never;
@@ -504,11 +498,6 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
 type OnEvents<State, C, Command, Event> = {
     readonly [K in keyof C & string as [EventOf<ProgramOf<C[K]>>] extends [never] ? never : K]: C[K] extends ChildByIdOf<infer Id, infer P> ? (id: Id, event: EventOf<P>, children: OutputsOf<C>) => (state: State) => Step<State, Command, Event, TellOf<C>> : (event: EventOf<ProgramOf<C[K]>>, children: OutputsOf<C>) => (state: State) => Step<State, Command, Event, TellOf<C>>;
 };
-
-// @public
-type Optional<C> = {
-    [K in keyof C]-?: string extends K ? never : {} extends Pick<C, K> ? K : never;
-}[keyof C];
 
 // @public
 export type Origin = {
@@ -670,9 +659,6 @@ export interface RunOptions<State, Message, Command = unknown> {
     readonly onApplied?: (applied: Applied<State, Message, Command>) => undefined;
     readonly onIgnored?: (ignored: Ignored<State, Message>) => undefined;
 }
-
-// @public
-type Several<C, Whole = C> = C extends unknown ? [Whole] extends [C] ? [Exclude<keyof C, keyof Whole>] extends [never] ? false : true : true : never;
 
 // @public (undocumented)
 type Shape<State, Model, Message, Command, CommandServices, SubscriptionServices, Event, External, Flags = never, Output = never, Key = never> = {

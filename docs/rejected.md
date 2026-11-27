@@ -209,6 +209,13 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
 - **A check of the names in `program<{ … }>()` and `Program<{ … }>`.** Added and removed on 17 November 2026
   (`738f49c`): a misspelled name is a name not given, and the check kept none of the three rules of the types, for two
   twin markers. _Reopen if_ a misspelled name can make a broken program compile.
+- **Checks of the names of the children of `withChildren`**: a name written as a number, a symbol or `__proto__`, a
+  union of objects of children, and an optional child, each refused by the types. Added by three reviews
+  (`73aeb05`, `a9c9747`, `c074855`) and removed on 27 November 2026, reasoned, by the owner's rule of that day
+  ("What the library owes, and to whom" in `AGENTS.md`): no page shows any of the five, and none was met by use. Of
+  the five, the optional child spread in by a condition, `{ ...(flag ? { b: … } : {}) }`, is the one a user is
+  likeliest to write: it compiles, and its `makeModel` throws where the flag is off. A child that is there by a
+  condition is declared with `childWhen`. _Reopen if_ a user reports one of the five.
 - **Checks that hold for a type parameter**, so that a function over any program declares it a child. Probed with
   `tsc`, 17 November 2026: a rule "exactly when" over a deferred conditional accepts nothing, and making it hold would
   rework every reader of `Program`. Such a function is an overload over erased types ("Composition"). _Reopen if_ a
