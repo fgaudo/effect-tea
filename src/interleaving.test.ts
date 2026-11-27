@@ -3,6 +3,7 @@ import * as Arr from "effect/Array"
 import * as Cause from "effect/Cause"
 import * as Channel from "effect/Channel"
 import * as Data from "effect/Data"
+import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
@@ -44,11 +45,12 @@ import { reject } from "./update.ts"
 // when ticks arrive and when releases end is all in the hands of the scheduler of the tests
 // (`test/scheduled.test_scheduler.ts`), which may also make any fiber yield between two of its steps; what is drawn
 // beside it (`Fates`) says how many rows the list starts with, which subscriptions end or die, which releases take time
-// or die, which commands die, which steps `onApplied` and `onIgnored` die in, whether the renderer stops listening, and
+// or die, which commands die, which steps `onApplied` and `onIgnored` die in, whether the renderer stops listening,
 // whether it dies: throwing from its listener, or giving what it threw to `die`, as one that draws outside a listener
-// does. To die is to die of a defect, or, for a command or a subscription, to interrupt oneself, which the run takes
-// for one. The run runs in a span of whoever runs it, with debug logs enabled, and the program logs and opens spans of
-// its own.
+// does, and whether whoever runs the program stops the run before the scenario ends, between two acts or in a
+// callback of a step. To die is to die of a defect, or, for a command or a subscription, to interrupt oneself, which
+// the run takes for one. The run runs in a span of whoever runs it, with debug logs enabled, and the program logs and
+// opens spans of its own.
 // Each property sits in a `describe` named by the bold title of the item of "What you can rely on", in the guide's
 // "Guarantees", that it checks, without its final period, and `bun run comments` fails on a `describe` named otherwise.
 // The test of what the scenarios reach checks no item, and sits apart.
@@ -155,7 +157,22 @@ type Fates = Readonly<{
   reads: ReadonlyArray<boolean>
   /** Whether the renderer, once it has read the model, sends a poke of the first row from inside the step. */
   pokes: ReadonlyArray<boolean>
+  /**
+   * Whether whoever runs the program stops the run before the scenario ends (`Stop`). The final stop, once nothing is
+   * under way, comes all the same.
+   */
+  stop: Opt.Option<Stop>
 }>
+
+/**
+ * Where whoever runs the program stops the run, once it has begun: before the act `at`, at a yield of the fiber that
+ * runs the scenario, or in a callback of a step, the notice `at` of the renderer's listener or the hearing `at` of
+ * `onApplied` or `onIgnored`, each counted from 0 among its own. `plain` interrupts the run's fiber there, by plain
+ * code; `woken` completes a `Deferred` that a fiber of whoever runs it awaits, which then interrupts it, as the tests
+ * of the examples `list` and `pages` race the run. A stop whose turn comes before the run has started an effect waits
+ * for the next of its kind once it has: one that comes before the run begins is the sweep's (`contract.test.ts`).
+ */
+type Stop = Readonly<{ where: "act" | "notice" | "onApplied" | "onIgnored"; at: number; how: "plain" | "woken" }>
 
 const fateOf = <A>(fates: ReadonlyArray<A>, index: number): A => fates[index % fates.length] as A
 
@@ -222,6 +239,22 @@ const fates: fc.Arbitrary<Fates> = fc.record({
   pokes: fc.array(
     fc.oneof({ arbitrary: fc.constant(true), weight: 1 }, { arbitrary: fc.constant(false), weight: 5 }),
     { minLength: 1, maxLength: 6 }
+  ),
+  stop: fc.oneof(
+    { arbitrary: fc.constant(Opt.none()), weight: 2 },
+    {
+      arbitrary: fc.record({
+        where: fc.oneof(
+          { arbitrary: fc.constant<Stop["where"]>("act"), weight: 2 },
+          { arbitrary: fc.constant<Stop["where"]>("notice"), weight: 2 },
+          { arbitrary: fc.constant<Stop["where"]>("onApplied"), weight: 2 },
+          { arbitrary: fc.constant<Stop["where"]>("onIgnored"), weight: 1 }
+        ),
+        at: fc.integer({ min: 0, max: 8 }),
+        how: fc.constantFrom<Stop["how"]>("plain", "woken")
+      }).map(Opt.some),
+      weight: 1
+    }
   )
 })
 
@@ -244,8 +277,10 @@ type Event =
   | Readonly<{ _tag: "Took"; holder: Holder }>
   | Readonly<{ _tag: "Gave"; holder: Holder }>
   | Readonly<{ _tag: "Interrupted"; holder: Holder }>
-  // The run about to begin, in the fiber whoever runs it forked.
+  // The run about to begin, in the fiber whoever runs it forked; and its stop, as whoever runs it asks for it early.
   | Readonly<{ _tag: "Running" }>
+  | Readonly<{ _tag: "Stopping"; where: Stop["where"] }>
+  | Readonly<{ _tag: "Interrupting" }>
   // The renderer told of a new state, or stopped; a model read, by the renderer as it starts or is told, or by the
   // element as the user types into it; a poke the renderer sends from inside a step, and what the element sends.
   | Readonly<{ _tag: "Noticed" }>
@@ -725,12 +760,36 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
     }
   }
   const shown: Array<Model> = []
+  // Whoever runs the program stops the run once its turn comes, the run has started an effect, and so begun: plain
+  // code interrupts the run's fiber where it is, and a `Deferred` wakes the fiber that interrupts it. A stop asked in a
+  // callback of a step has the renderer poke in that step's notice, so that a message is sent in the step after it.
+  let fiber: Fiber.Fiber<never> | undefined
+  const asked = Deferred.makeUnsafe<void>()
+  const turns = { act: 0, notice: 0, onApplied: 0, onIgnored: 0 }
+  let stopped = false
+  let pokeOwed = false
+  const stopsHere = (where: Stop["where"]) => {
+    const turn = turns[where]++
+    if (stopped || !Opt.exists(fates.stop, (stop) => stop.where === where && turn >= stop.at)) return
+    if (!events.some(({ _tag }) => _tag === "Acquired" || _tag === "CommandStarted" || _tag === "Searching")) return
+    stopped = true
+    pokeOwed = where !== "act"
+    events.push({ _tag: "Stopping", where })
+    if (Opt.exists(fates.stop, ({ how }) => how === "woken")) {
+      Deferred.doneUnsafe(asked, Exit.void)
+      return
+    }
+    if (fiber === undefined) throw new Error("a stop asked before the run was forked")
+    events.push({ _tag: "Interrupting" })
+    fiber.interruptUnsafe()
+  }
   let heard = 0
   // The options are functions: one hears at once, or throws, which is its death, there and then.
   const hearing = (event: Event): undefined => {
     events.push(event)
     heard += 1
     const where = event._tag === "Applied" ? "onApplied" : "onIgnored"
+    stopsHere(where)
     const fate = fateOf(where === "onApplied" ? fates.hearings : fates.ignorings, heard)
     if (fate === "quick") return
     const name = `${where} ${heard}`
@@ -755,15 +814,18 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
   const stop = app.subscribe(() => {
     notices += 1
     events.push({ _tag: "Noticed" })
+    stopsHere("notice")
     if (Opt.exists(fates.rendererDies, ({ how, at }) => how === "throws" && at + 1 === notices)) {
       events.push({ _tag: "Died", where: "render", how: "defect", defect: thrownByListener, released: false })
       throw thrownByListener
     }
-    if (!fateOf(fates.reads, notices)) return
+    const owed = pokeOwed
+    pokeOwed = false
+    if (!owed && !fateOf(fates.reads, notices)) return
     const model = read("notice")
     latest = model
     const first = model.rows[0]
-    if (first === undefined || !fateOf(fates.pokes, notices)) return
+    if (first === undefined || (!owed && !fateOf(fates.pokes, notices))) return
     events.push({ _tag: "Reentering", message: first.row.poke })
     forwardTo(app.dispatch, "Rows", first.id)(first.row.poke)
   })
@@ -784,7 +846,7 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
       })
   }
   let caller: Tracer.Span | undefined
-  const fiber = yield* Effect.forkChild(
+  const running = yield* Effect.forkChild(
     Effect.gen(function*() {
       caller = yield* Effect.orDie(Effect.currentSpan)
       events.push({ _tag: "Running" })
@@ -796,18 +858,28 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
       Effect.provide(Logger.layer([Logger.tracerLogger]))
     )
   )
+  fiber = running
+  yield* Effect.forkChild(
+    Deferred.await(asked).pipe(
+      Effect.andThen(Effect.sync(() => events.push({ _tag: "Interrupting" }))),
+      Effect.andThen(Fiber.interrupt(running))
+    ),
+    { startImmediately: true }
+  )
   // The user acts on what the renderer read last, from the first model on: before the run has begun, and after it has
   // ended too, when a dispatch applies nothing.
   for (const [nth, act] of acts.entries()) {
     for (let turn = 0; turn < act.pause; turn++) yield* later(undefined)
+    stopsHere("act")
     if (Opt.contains(fates.rendererStops, nth)) {
       stop()
       events.push({ _tag: "Stopped" })
     }
-    // A draw outside a listener that throws, given to `die` by plain code, while nothing has died and the run has not
-    // ended: once it has, `die` throws back what the cause lacks, which `run.test.ts` checks and the search does not.
+    // A draw outside a listener that throws, given to `die` by plain code, while nothing has died and the run is not
+    // stopped: once it has ended, `die` throws back what the cause lacks, which `run.test.ts` checks and the search
+    // does not.
     const gives = Opt.exists(fates.rendererDies, ({ how, at }) => how === "gives" && at === nth)
-    if (gives && fiber.pollUnsafe() === undefined && !events.some(({ _tag }) => _tag === "Died")) {
+    if (gives && !stopped && running.pollUnsafe() === undefined && !events.some(({ _tag }) => _tag === "Died")) {
       events.push({ _tag: "Died", where: "render", how: "defect", defect: thrownByDraw, released: false })
       app.die(thrownByDraw)
     }
@@ -824,9 +896,9 @@ const runScenario = Effect.fnUntraced(function*(fates: Fates, acts: ReadonlyArra
   }
   yield* idle
   const settled = events.length
-  const last = fiber.pollUnsafe() !== undefined ? undefined : app.model()
-  yield* Fiber.interrupt(fiber)
-  const exit = yield* Fiber.await(fiber)
+  const last = running.pollUnsafe() !== undefined ? undefined : app.model()
+  yield* Fiber.interrupt(running)
+  const exit = yield* Fiber.await(running)
   return { exit, events, settled, last, made, stateOf, caller, first: list.init.state }
 })
 
@@ -990,25 +1062,51 @@ const firstDeath = (events: ReadonlyArray<Event>) => {
   return index === -1 ? events.length : index
 }
 
+/**
+ * Whether whoever runs the program stopped the run before the scenario ended: what "once everything has happened"
+ * checks is then cut short, and a dispatch from the stop on may come once the end has stopped applying.
+ */
+const stoppedEarly = (events: ReadonlyArray<Event>) => events.some(({ _tag }) => _tag === "Stopping")
+
+const firstStop = (events: ReadonlyArray<Event>) => {
+  const index = events.findIndex((event) => event._tag === "Stopping")
+  return index === -1 ? events.length : index
+}
+
 const depth = 3
+
+// A search that checks a lead or a change names its seed, its runs and its mode (`change-engine`): each property
+// then runs that seed, at least that many runs, under that mode of the scheduler. Otherwise fast-check draws the seed.
+const chosen = {
+  seed: Opt.map(Opt.fromUndefinedOr(process.env["INTERLEAVINGS_SEED"]), Number),
+  runs: Opt.map(Opt.fromUndefinedOr(process.env["INTERLEAVINGS_RUNS"]), Number),
+  resumptions: process.env["INTERLEAVINGS_RESUMPTIONS"] === "inline" ? "inline" as const : "queued" as const
+}
 
 const property = (
   check: (outcome: Outcome) => void,
-  { schedules = 1, ...options }: Readonly<{ numRuns?: number; seed?: number; schedules?: number }> = {}
+  { schedules = 1, numRuns = 60, seed }: Readonly<{ numRuns?: number; seed?: number; schedules?: number }> = {}
 ) => {
   let scenarios = 0
   fc.assert(
-    fc.property(fates, fc.array(act, { maxLength: 12 }), fc.nat(), (fates, acts, seed) => {
+    fc.property(fates, fc.array(act, { maxLength: 12 }), fc.nat(), (fates, acts, first) => {
       // A property runs in one synchronous job, and Bun leaves the garbage of its scenarios there until the job ends:
       // its heap reached 350 MB in 1500 scenarios, 11 MB once collected. So it is collected as the property goes, or
       // the peak of the process depends on when Bun chooses to collect, and the memory guard ends some runs.
       if (++scenarios % 50 === 0) collectGarbage()
-      prioritizedSchedules(runScenario(fates, acts), { runs: schedules, depth, first: seed }, (exit) => {
+      const runs = { runs: schedules, depth, first, resumptions: chosen.resumptions }
+      prioritizedSchedules(runScenario(fates, acts), runs, (exit) => {
         if (Exit.isFailure(exit)) throw new Error(`the scenario failed: ${Cause.pretty(exit.cause)}`)
         check(exit.value)
       })
     }),
-    { numRuns: 60, ...options }
+    {
+      numRuns: Math.max(numRuns, Opt.getOrElse(chosen.runs, () => 0)),
+      ...Opt.match(Opt.orElse(chosen.seed, () => Opt.fromUndefinedOr(seed)), {
+        onNone: () => ({}),
+        onSome: (seed) => ({ seed })
+      })
+    }
   )
 }
 
@@ -1018,7 +1116,7 @@ const sinceFirstDefect = (events: ReadonlyArray<Event>, tags: ReadonlyArray<Even
 }
 
 test("the scenarios reach every message, every way of dying, and what each property checks", () => {
-  const seed = Math.floor(Math.random() * 2 ** 31)
+  const seed = Opt.getOrElse(chosen.seed, () => Math.floor(Math.random() * 2 ** 31))
   const reached = new Set<string>()
   property(({ events, first, made: models }) => {
     events.forEach((event, index) => {
@@ -1078,6 +1176,22 @@ test("the scenarios reach every message, every way of dying, and what each prope
       if (event.defect === thrownByDraw) reached.add("a defect given to die")
     }
     if (events.some(({ _tag }) => _tag === "Ignored")) reached.add("rejected")
+    const stopping = events.findIndex(({ _tag }) => _tag === "Stopping")
+    const asked = events[stopping]
+    if (asked?._tag === "Stopping") {
+      // What follows the stop in its step: what the listener and the options do, the messages sent meanwhile, and the
+      // interruption, made there by plain code or by the fiber it wakes, where that fiber runs on the stack.
+      const step = ["Noticed", "Read", "Reentering", "Updated", "Applied", "Ignored", "Died", "Interrupting"]
+      const rest = asked.where === "act" ? [] : events.slice(stopping + 1)
+      const end = rest.findIndex(({ _tag }) => !step.includes(_tag))
+      const inStep = end === -1 ? rest : rest.slice(0, end)
+      if (asked.where === "act") reached.add("a stop between two acts")
+      else if (inStep.some(({ _tag }) => _tag === "Interrupting")) reached.add(`a stop in ${asked.where}`)
+      for (const { _tag } of inStep) {
+        if (_tag === "Reentering") reached.add("a message a listener sends after a stop asked in its step")
+        if (_tag === "Died") reached.add("a defect after a stop asked in its step")
+      }
+    }
     const typed = new Set(events.flatMap((event) => event._tag === "Typed" ? [event.message] : []))
     for (const event of events) {
       if (event._tag !== "Ignored") continue
@@ -1143,7 +1257,13 @@ test("the scenarios reach every message, every way of dying, and what each prope
     "a message a listener sends",
     "a message applied while a release is under way",
     "a subscription started once its key had gone",
-    "a message of an earlier start of a key that came back"
+    "a message of an earlier start of a key that came back",
+    "a stop between two acts",
+    "a stop in notice",
+    "a stop in onApplied",
+    "a stop in onIgnored",
+    "a message a listener sends after a stop asked in its step",
+    "a defect after a stop asked in its step"
   ].filter((tag) => !reached.has(tag))
   if (missing.length > 0) throw new Error(`No scenario of seed ${seed} reached ${missing.join(", ")}`)
 }, Infinity)
@@ -1172,7 +1292,7 @@ describe("One message at a time, in the order they were sent", () => {
         if (event._tag !== "Returned") return
         let sending = index
         while (sending > 0 && events[sending]?._tag !== "Sending") sending -= 1
-        if (firstDeath(events) < index) return
+        if (firstDeath(events) < index || firstStop(events) < index) return
         const between = events.slice(sending + 1, index)
         const heard = between.some((later) =>
           Opt.match(heardOf(later), {
@@ -1244,7 +1364,7 @@ describe("One message at a time, in the order they were sent", () => {
 
   test("once everything has happened, no row waits for the answer of its command", () => {
     property(({ events, first }) => {
-      if (deaths(events).length > 0) return
+      if (deaths(events).length > 0 || stoppedEarly(events)) return
       expect(rowsOf(finalState(first, events)).filter((row) => row.working)).toEqual([])
     })
   }, Infinity)
@@ -1326,7 +1446,7 @@ describe("Subscriptions follow their keys", () => {
         if (searches(events, index).includes(event.text)) broken.push(`${event.text} started twice`)
       })
       expect(broken).toEqual([])
-      if (deaths(events).length > 0) return
+      if (deaths(events).length > 0 || stoppedEarly(events)) return
       const { text } = finalState(first, events).own.field
       expect(searches(events, settled)).toEqual(text === "" ? [] : [text])
     })
@@ -1360,7 +1480,7 @@ describe("Subscriptions follow their keys", () => {
 
   test("once everything has happened, the subscriptions holding resources are those of listening rows", () => {
     property(({ events, first, settled }) => {
-      if (deaths(events).length > 0) return
+      if (deaths(events).length > 0 || stoppedEarly(events)) return
       const ended = new Set(events.slice(0, settled).flatMap((event) => event._tag === "Ended" ? [event.listener] : []))
       expect(Array.from(holding(events, settled)).sort()).toEqual(
         listeners(finalState(first, events)).filter((key) => !ended.has(key))
@@ -1448,7 +1568,7 @@ describe("Nothing ends in silence", () => {
 
   test("a subscription that ends while its key stays is heard ending", () => {
     property(({ events, first, settled }) => {
-      if (deaths(events).length > 0) return
+      if (deaths(events).length > 0 || stoppedEarly(events)) return
       const heard = new Set(
         applied(events).flatMap(({ message }) =>
           message._tag === "Rows" && message.message._tag === "Finished"
@@ -1493,7 +1613,7 @@ describe("A model is made only when it is read", () => {
 
   test("once everything has happened, a model read is of the last state", () => {
     property(({ events, last, stateOf }) => {
-      if (deaths(events).length > 0) return
+      if (deaths(events).length > 0 || stoppedEarly(events)) return
       expect(last === undefined ? undefined : stateOf.get(last)).toBe(sameStateAfter(events, stateOf))
     })
   }, Infinity)

@@ -82,7 +82,7 @@ type Place<Model> = Readonly<{
 // the step, wherever Effect resumes it, and a `send` it makes is applied before it returns. A model that throws is
 // recorded once, in `'render'`, where it is read (`readEach`, as `rehearse` reads them).
 const driven = <Model, Message, R>(
-  starting: (deaths: Deaths, began: () => void, settled: () => void) => Started<Model, Message, R>
+  starting: (deaths: Deaths, began: () => void, settled: () => void, heard: Heard) => Started<Model, Message, R>
 ) => {
   // What the program's fibers die of, the defects of `makeModel` a read meets included, as `drive` ends with it.
   const deaths = makeDeaths(() => true)
@@ -120,18 +120,43 @@ const driven = <Model, Message, R>(
   let changed = Deferred.makeUnsafe<void>()
   // Whether a state was made since the waits were last woken.
   let told = false
+  // How many options of the test's are being called, each in a step: a call of the scenario made there, on the stack of
+  // a fiber that an option woke, waits for the outermost call to return (`outside`), and then does what it does right
+  // after it, as an end made during a step waits in the engine.
+  let hearing = 0
+  let returned: Deferred.Deferred<void> | undefined
+  const heard: Heard = (option) => (value) => {
+    hearing += 1
+    try {
+      return option(value)
+    } finally {
+      hearing -= 1
+    }
+  }
+  const outside: Effect.Effect<void> = Effect.suspend(() =>
+    hearing === 0 ? Effect.void : Deferred.await(returned ??= Deferred.makeUnsafe<void>())
+  )
   const settled = () => {
-    if (!told) return
-    told = false
-    const woken = changed
-    changed = Deferred.makeUnsafe<void>()
-    Deferred.doneUnsafe(woken, Effect.void)
+    const waits = returned
+    returned = undefined
+    if (told) {
+      told = false
+      const woken = changed
+      changed = Deferred.makeUnsafe<void>()
+      Deferred.doneUnsafe(woken, Effect.void)
+    }
+    if (waits !== undefined) Deferred.doneUnsafe(waits, Effect.void)
   }
   // Said once the run has started the effects of the first state, unless the program has died by then: of `init`, of
   // its first keys, of its first model, or of what the first state started. The check and the notice are one thunk.
-  const { app, run } = starting(deaths, () => {
-    if (!deaths.dead()) Deferred.doneUnsafe(running, Effect.void)
-  }, settled)
+  const { app, run } = starting(
+    deaths,
+    () => {
+      if (!deaths.dead()) Deferred.doneUnsafe(running, Effect.void)
+    },
+    settled,
+    heard
+  )
   const { first, unsubscribe } = readEach(app, (model) => {
     models.push(model)
     told = true
@@ -144,8 +169,11 @@ const driven = <Model, Message, R>(
     place,
     changed: () => changed
   }
-  return { deaths, began: Deferred.await(running), now, run, unsubscribe }
+  return { deaths, began: Deferred.await(running), now, outside, run, unsubscribe }
 }
+
+// An option of the test's, called so that `drive` knows that a step is under way.
+type Heard = <A>(option: (heard: A) => undefined) => (heard: A) => undefined
 
 // The services that the run `startWith` gives needs, as `run.ts` says where it writes them.
 type Needed<Command, CommandServices, Key, SubscriptionServices> = Exclude<
@@ -227,24 +255,30 @@ export const drive = Effect.fnUntraced(function*<
     ? [options?: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>]
     : [options: DriveOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
 ): Effect.fn.Return<A, E, Needed<Command, CommandServices, Key, SubscriptionServices> | R> {
-  const { deaths, began, now, run, unsubscribe } = driven<
+  const { deaths, began, now, outside, run, unsubscribe } = driven<
     Model,
     Message,
     Needed<Command, CommandServices, Key, SubscriptionServices>
   >((
     deaths,
     began,
-    settled
-  ) =>
-    startWith(
+    settled,
+    heard
+  ) => {
+    // The rest of the options keeps the flags the parameter's type requires.
+    const { onApplied, onIgnored, ...rest } = options as RunOptions<State, Message, Command>
+    return startWith(
       program,
-      // The rest of the options keeps the flags the parameter's type requires.
-      options as RunOptions<State, Message, Command>,
+      {
+        ...rest,
+        ...(onApplied === undefined ? {} : { onApplied: heard(onApplied) }),
+        ...(onIgnored === undefined ? {} : { onIgnored: heard(onIgnored) })
+      },
       deaths,
       began,
       settled
     )
-  )
+  })
   // The first model `select` maps to `Some`, the current one or a later one, each read in order from the wait's place:
   // what the waits wait on is taken before the models are read, in one step, so that no state made in between is
   // missed. The place is taken where nothing interrupts, so that a wait that runs out of patience at once still lets
@@ -278,16 +312,19 @@ export const drive = Effect.fnUntraced(function*<
     )
   }
   const driverOf = (now: Shown<Model, Message>): Driver<Model, Message> => ({
-    waitFor: (select) => first(now, select),
+    waitFor: (select) => Effect.andThen(outside, first(now, select)),
     // Selected and sent in one step, in the thunk that looks at the model, as a handler drawn from that model sends it:
     // sent once the wait has returned, past its race with the patience, it could find a later state.
-    send: (select) => first(now, (model) => Opt.map(select(model), now.app.dispatch)),
-    model: Effect.suspend(() => {
-      const dies = deaths.all()
-      return Arr.isReadonlyArrayNonEmpty(dies)
-        ? Effect.failCause(Cause.fromReasons<never>(dies))
-        : Effect.succeed(now.latest())
-    }),
+    send: (select) => Effect.andThen(outside, first(now, (model) => Opt.map(select(model), now.app.dispatch))),
+    model: Effect.andThen(
+      outside,
+      Effect.suspend(() => {
+        const dies = deaths.all()
+        return Arr.isReadonlyArrayNonEmpty(dies)
+          ? Effect.failCause(Cause.fromReasons<never>(dies))
+          : Effect.succeed(now.latest())
+      })
+    ),
     dispatch: now.app.dispatch
   })
   // Stopped and awaited however `drive` ends, interrupted by whoever runs it too: its exit holds what the program

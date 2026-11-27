@@ -77,6 +77,10 @@ version, and everything else, features included, the patch version.
   message an earlier listener sent in that step was not applied.
 - The comment of the `dispatch` of an `App` said only that it applies its message before it returns: one sent while
   another is being applied, as a listener sends one, is applied right after that one, as "Guarantees" says.
+- A scenario of `drive` that an option woke inside a step, as a test does that awaits a `Deferred` its `onApplied`
+  completes, acted on the state of before that step: its `send` selected on the model of before, and returned before
+  `update` had seen its message, against the comment of `Driver`, and `waitFor` and `model` read that model too. Each
+  call made there now waits for the step, and does what it does once the step is done.
 
 ## 0.10.0 (2026-11-27)
 

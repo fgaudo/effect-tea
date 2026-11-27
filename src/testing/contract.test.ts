@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test"
 import * as Cause from "effect/Cause"
 import * as Channel from "effect/Channel"
+import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
@@ -19,7 +20,7 @@ import type { Program } from "../program.ts"
 import { start } from "../run.ts"
 import { reject, type Update } from "../update.ts"
 import { applyAll } from "./apply-all.ts"
-import { drive } from "./drive.ts"
+import { drive, type Driver } from "./drive.ts"
 import { type Rehearsal, rehearse } from "./rehearse.ts"
 import { simulate } from "./simulate.ts"
 
@@ -2165,6 +2166,185 @@ describe("a message heard while the job of its own start is under way", () => {
   test("hearNext waiting for the job that opens its call fails as soon as another fiber of the test's dies", async () => {
     expect(await waitingPastBoom((rehearsal) => rehearsal.hearNext((key) => key === "b"))).toEqual(Opt.some("command"))
   })
+})
+
+// The cells of the table of the actors that no search reaches (`docs/invariants.md`, "Who may act, and when"), each
+// checked by the property of a step: an entry made there does what the same entry does right after the outermost call.
+
+// A `stop` of the guide's "Running" called twice interrupts the run twice: the second comes while the end waits for a
+// release that the test holds.
+describe("whoever runs the program, during the end of the run", () => {
+  type Held = Program<{ state: number; model: number; message: "Go"; key: "held" }>
+  const holding = (
+    started: Deferred.Deferred<void>,
+    releasing: Deferred.Deferred<void>,
+    free: Deferred.Deferred<void>
+  ) =>
+    Effect.acquireUseRelease(
+      Deferred.done(started, Exit.void),
+      () => Effect.never,
+      () =>
+        Deferred.done(releasing, Exit.void).pipe(
+          Effect.andThen(Deferred.await(free)),
+          Effect.andThen(Effect.die("released"))
+        )
+    )
+  test("a second interruption of the run as it ends ends with the first, once the run has ended", async () => {
+    const [started, releasing, free] = [
+      Deferred.makeUnsafe<void>(),
+      Deferred.makeUnsafe<void>(),
+      Deferred.makeUnsafe<void>()
+    ]
+    const held: Held = {
+      init: { state: 0 },
+      update: () => (count) => ({ state: count + 1 }),
+      subscriptions: () => ["held"],
+      listen: () => Channel.fromEffectDone(holding(started, releasing, free)),
+      makeModel: (count) => count
+    }
+    const { app, run } = start(held)
+    const fiber = Effect.runFork(run)
+    const log: Array<string> = []
+    const stop = (name: string) =>
+      Effect.runPromise(
+        Fiber.interrupt(fiber).pipe(
+          Effect.andThen(Fiber.await(fiber)),
+          Effect.tap(() => Effect.sync(() => log.push(name)))
+        )
+      )
+    await Effect.runPromise(Deferred.await(started))
+    const first = stop("first")
+    await Effect.runPromise(Deferred.await(releasing))
+    const second = stop("second")
+    app.dispatch("Go")
+    log.push("freed")
+    Deferred.doneUnsafe(free, Exit.void)
+    const [once, again] = await Promise.all([first, second])
+    const defects = Exit.isFailure(once)
+      ? once.cause.reasons.filter(Cause.isDieReason).map(({ defect }) =>
+        defect instanceof ProgramDefect ? `${defect.where}: ${String(defect.cause)}` : String(defect)
+      )
+      : []
+    expect({ same: again === once, defects, log: [...log].sort(), first: log[0], count: app.model() }).toEqual({
+      same: true,
+      defects: ["subscription: released"],
+      log: ["first", "freed", "second"],
+      first: "freed",
+      count: 0
+    })
+  })
+})
+
+// A command that a service of the test's holds, as "Testing tools" holds one, freed by a wait of the scenario that
+// `settled` wakes, as the call that applied a poke returns, or by the scenario once the dispatch of the poke has
+// returned: its answer is applied in an outermost call of its own either way, and wakes the waits of its state.
+describe("the program's effects, in a wake of the finally, under drive", () => {
+  class Disk extends Context.Service<Disk, { readonly store: Effect.Effect<void> }>()("Disk") {}
+  type Saving = Readonly<{ saving: boolean; saved: number; pokes: number }>
+  const saving: Program<
+    { state: Saving; model: Saving; message: "Save" | "Saved" | "Poke"; command: "Store"; commandServices: Disk }
+  > = {
+    init: { state: { saving: false, saved: 0, pokes: 0 } },
+    update: (message) => (state) => {
+      switch (message) {
+        case "Save":
+          return { state: { ...state, saving: true }, commands: ["Store"] }
+        case "Saved":
+          return { state: { ...state, saving: false, saved: state.saved + 1 } }
+        case "Poke":
+          return { state: { ...state, pokes: state.pokes + 1 } }
+      }
+    },
+    runCommand: () =>
+      Effect.service(Disk).pipe(Effect.flatMap(({ store }) => store), Effect.as(Opt.some<"Saved">("Saved"))),
+    subscriptions: () => [],
+    makeModel: (state) => state
+  }
+  const played = (woken: boolean) => {
+    const [started, free] = [Deferred.makeUnsafe<void>(), Deferred.makeUnsafe<void>()]
+    const order: Array<string> = []
+    return drive(
+      saving,
+      Effect.fnUntraced(function*(driver) {
+        yield* driver.send(() => Opt.some<"Save">("Save"))
+        yield* Deferred.await(started)
+        // Waits on the state of the poke: woken as the call that applied it returns, it frees the command there.
+        const freeing = yield* Effect.forkChild(
+          driver.waitFor(({ pokes }) => pokes === 1 ? Opt.some(pokes) : Opt.none()).pipe(
+            Effect.andThen(Effect.sync(() => woken && Deferred.doneUnsafe(free, Exit.void)))
+          ),
+          { startImmediately: true }
+        )
+        const saved = yield* Effect.forkChild(
+          driver.waitFor((model) => model.saved === 1 ? Opt.some(model) : Opt.none()),
+          { startImmediately: true }
+        )
+        yield* Effect.sync(() => driver.dispatch("Poke"))
+        if (!woken) Deferred.doneUnsafe(free, Exit.void)
+        yield* Fiber.join(freeing)
+        return { saved: yield* Fiber.join(saved), now: yield* driver.model, order }
+      }),
+      { onApplied: ({ message }) => void order.push(message) }
+    ).pipe(
+      Effect.provideService(Disk, {
+        store: Deferred.done(started, Exit.void).pipe(Effect.andThen(Deferred.await(free)))
+      })
+    )
+  }
+  test("a command freed by a wait that a step wakes answers as one freed right after the call returns", async () => {
+    const [inWake, after] = [await Effect.runPromise(played(true)), await Effect.runPromise(played(false))]
+    expect(inWake).toEqual(after)
+    expect(after.order).toEqual(["Save", "Poke", "Saved"])
+  })
+})
+
+// A scenario of `drive` that an option of the test's wakes inside a step, as `examples/bounce/bounce.test.ts` awaits a
+// `Deferred` that its `onApplied` completes, and one woken once the dispatch that made the step has returned: each call
+// of the driver gives the same.
+describe("the scenario of drive, in a callback of a step", () => {
+  type Row = Readonly<{ count: number; went: boolean }>
+  type Message = "Up" | "Go"
+  const row: Program<{ state: Row; model: Row; message: Message }> = {
+    init: { state: { count: 0, went: false } },
+    update: (message) => (state) =>
+      message === "Up" ? { state: { ...state, count: state.count + 1 } } : { state: { ...state, went: true } },
+    subscriptions: () => [],
+    makeModel: (state) => state
+  }
+  type Call = (driver: Driver<Row, Message>, selected: Array<Row>) => Effect.Effect<unknown>
+  const calls: ReadonlyArray<readonly [string, Call]> = [
+    [
+      "send",
+      (driver, selected) =>
+        driver.send((model) => {
+          selected.push(model)
+          return Opt.some<Message>("Go")
+        }).pipe(Effect.andThen(driver.model))
+    ],
+    ["waitFor", (driver) => driver.waitFor((model) => Opt.some(model))],
+    ["model", (driver) => driver.model]
+  ]
+  const played = (call: Call, inStep: boolean) => {
+    const heard = Deferred.makeUnsafe<void>()
+    const selected: Array<Row> = []
+    return drive(
+      row,
+      Effect.fnUntraced(function*(driver) {
+        const waiting = yield* Effect.forkChild(Effect.andThen(Deferred.await(heard), call(driver, selected)), {
+          startImmediately: true
+        })
+        yield* Effect.sync(() => driver.dispatch("Up"))
+        if (!inStep) Deferred.doneUnsafe(heard, Exit.void)
+        return { gave: yield* Fiber.join(waiting), selected }
+      }),
+      { onApplied: ({ message }) => void (inStep && message === "Up" && Deferred.doneUnsafe(heard, Exit.void)) }
+    )
+  }
+  for (const [name, call] of calls) {
+    test(`${name}, made during the step, does what it does right after the outermost call`, async () => {
+      expect(await Effect.runPromise(played(call, true))).toEqual(await Effect.runPromise(played(call, false)))
+    })
+  }
 })
 
 // Whoever runs the program may interrupt it at any yield of the scheduler: the run, and each tool, holds its start and

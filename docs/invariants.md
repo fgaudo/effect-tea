@@ -276,7 +276,8 @@ Three entries act at once instead:
 
 A tool that plays a program owes the same of its own entries: a call of a scenario made during a step does what it
 does right after the outermost call. `rehearse` and `simulate` give a scenario no way into a step. `drive` does,
-through the options it takes, and does not keep the property there yet (`ROADMAP.md`, "Open problems").
+through the options it takes, which it calls knowing that a step is under way (`heard` in `drive.ts`): a call of its
+driver made while one is called waits for the outermost call to return, as an end does (`outside`), and then acts.
 
 ### Who may act, and when
 
@@ -299,12 +300,12 @@ list below names. "None yet" is a cell that a page shows and no test reaches: it
 a row of `contract.test.ts` (`ROADMAP.md`). "Unspecified" is a cell that no page shows ("Deciding" in
 [`AGENTS.md`](../AGENTS.md)), and "no entry" one where the actor cannot call the engine.
 
-|                                | Between two tasks              | At a yield                        | In a job                            | In a callback of a step             | In a wake of the `finally`                         | During the end                                |
-| ------------------------------ | ------------------------------ | --------------------------------- | ----------------------------------- | ----------------------------------- | -------------------------------------------------- | --------------------------------------------- |
-| The program's effects          | the search                     | the search                        | `contract.test.ts`                  | unspecified: no page shows it       | `start.test.ts`; none yet under `drive`            | the search, `run.test.ts`, `contract.test.ts` |
-| The renderer                   | the search, the bridges' suite | the search                        | no entry                            | the search, `engine.test.ts`        | no entry                                           | the search, `engine.test.ts`, `run.test.ts`   |
-| Whoever runs the program       | the search, `start.test.ts`    | the sweep, as the run begins only | `engine.test.ts`                    | `start.test.ts`; none in the search | `engine.test.ts`, `start.test.ts`, `drive.test.ts` | none yet                                      |
-| The scenario of a testing tool | each tool's tests              | `rehearse.test.ts`, the sweep     | `rehearse.test.ts`, `drive.test.ts` | none yet under `drive`              | `drive.test.ts`, `rehearse.test.ts`                | `contract.test.ts`, `rehearse.test.ts`        |
+|                                | Between two tasks              | At a yield                                      | In a job                            | In a callback of a step       | In a wake of the `finally`                         | During the end                                |
+| ------------------------------ | ------------------------------ | ----------------------------------------------- | ----------------------------------- | ----------------------------- | -------------------------------------------------- | --------------------------------------------- |
+| The program's effects          | the search                     | the search                                      | `contract.test.ts`                  | unspecified: no page shows it | `start.test.ts`, `contract.test.ts`                | the search, `run.test.ts`, `contract.test.ts` |
+| The renderer                   | the search, the bridges' suite | the search                                      | no entry                            | the search, `engine.test.ts`  | no entry                                           | the search, `engine.test.ts`, `run.test.ts`   |
+| Whoever runs the program       | the search, `start.test.ts`    | the sweep as the run begins, the search past it | `engine.test.ts`                    | the search, `start.test.ts`   | `engine.test.ts`, `start.test.ts`, `drive.test.ts` | `contract.test.ts`                            |
+| The scenario of a testing tool | each tool's tests              | `rehearse.test.ts`, the sweep                   | `rehearse.test.ts`, `drive.test.ts` | `contract.test.ts`            | `drive.test.ts`, `rehearse.test.ts`                | `contract.test.ts`, `rehearse.test.ts`        |
 
 - **The program's effects** are a command, a subscription and what they release: they send an answer, a message or an
   end value, die, interrupt themselves, and end.
@@ -317,7 +318,8 @@ a row of `contract.test.ts` (`ROADMAP.md`). "Unspecified" is a cell that no page
     that it would send there waits in `pending`, as any does.
   - In a wake of the `finally`, an end that a defect begins stops them on the stack of the dispatch (`start.test.ts`,
     "the end of a run"). A command that a service of the test's holds, freed by a scenario of `drive` that `settled`
-    woke, answers there, in an outermost call of its own: none yet.
+    woke, answers there, in an outermost call of its own, as one freed right after the call does (`contract.test.ts`,
+    "the program's effects, in a wake of the finally, under drive").
   - During the end, one sends, dies or interrupts itself as it is stopped, or waits for the release of another
     (`run.test.ts`; `contract.test.ts`, "an end where the release of a fiber waits for the release of another"; the
     search, "once the run has ended, the subscriptions and the commands have released all").
@@ -334,23 +336,28 @@ a row of `contract.test.ts` (`ROADMAP.md`). "Unspecified" is a cell that no page
   - During the end, and after it, a dispatch applies nothing, a model read is still made, and `die` throws back what
     the cause lacks (`engine.test.ts`, "the end of the engine"; `run.test.ts`, "die").
 - **Whoever runs the program** starts it, forks `run` and interrupts it, and gives the options, which hear each step.
-  - Between two tasks, the search interrupts the run once, when the program is quiet, and `start.test.ts` runs a
-    program twice, late, or never.
+  - Between two tasks, the search interrupts the run when the program is quiet, a second time where it stopped the run
+    before, and `start.test.ts` runs a program twice, late, or never.
   - At a yield, the sweep interrupts the run at each yield of its beginning, of a program that holds a command and a
-    subscription from its first state. Past the beginning, while a message is applied, a job done or a release
-    awaited: none yet.
+    subscription from its first state. Past the beginning, the search stops the run before an act, once it has started
+    an effect, while the user goes on acting, jobs are under way and releases are awaited (`Stop` in
+    `src/interleaving.test.ts`).
   - In a job, the end begins where a command or a subscription that the job starts makes whoever runs the program stop
     it (`engine.test.ts`, "a command whose runCommand begins the end of the engine as it is called is interrupted by
     that end", and the same of a subscription).
   - In a callback of a step, the options hear and throw in the search. Whoever runs the program stops it there through
     a fiber that awaits a `Deferred` that a notice, or `onApplied`, completes, as the tests of the examples `list` and
-    `pages` race the run (`start.test.ts`, "the end of a run"): in the search, none yet. From `onIgnored`, and by plain
-    code that interrupts the fiber in the callback itself, no page shows it: unspecified.
+    `pages` race the run (`start.test.ts`, "the end of a run"), and the search draws such a stop, with a message that
+    the listener sends after it in the step: under `'inline'` alone, the stop runs inside the step, since `'queued'`
+    resumes a fiber woken or interrupted there in a task of its own. From `onIgnored`, and by plain code that interrupts
+    the fiber in the callback itself, no page shows it: unspecified, and the search draws them at the price of the same
+    generator, so a failure that only they meet is no finding.
   - In a wake of the `finally`, the run ends itself as `died` wakes it (`engine.test.ts`, "died wakes no fiber inside a
     step: a defect a listener throws completes it once every listener is told"; `start.test.ts`, "the end of a run"),
     and `drive`, which runs the run, interrupts it as its scenario returns from a wait that `settled` woke
     (`drive.test.ts`, "drive's send, made by a wait that a step wakes").
-  - During the end, a second interruption of the run: none yet.
+  - During the end, a second interruption of the run, as a `stop` of "Running" called twice makes, ends with the first
+    once the run has ended (`contract.test.ts`, "whoever runs the program, during the end of the run").
 - **The scenario of a testing tool** is the calls of a `Driver` or of a `Rehearsal`, from one fiber of the test's or
   from several, and whoever runs the tool, who may interrupt it.
   - Between two tasks, each tool's tests and `contract.test.ts` make their calls one after another.
@@ -362,7 +369,8 @@ a row of `contract.test.ts` (`ROADMAP.md`). "Unspecified" is a cell that no page
     (`drive.test.ts`, "a wait that ends once a model shows a step does not wait for the step's commands, which start
     after it").
   - In a callback of a step, a scenario of `drive` acts where an option of the test's wakes it, as
-    `examples/bounce/bounce.test.ts` awaits a `Deferred` that its `onApplied` completes: none yet, and an open problem.
+    `examples/bounce/bounce.test.ts` awaits a `Deferred` that its `onApplied` completes: each call of its driver does
+    what it does right after the outermost call (`contract.test.ts`, "the scenario of drive, in a callback of a step").
     `rehearse` and `simulate` take no option, and tell a scenario nothing in a step: no entry.
   - In a wake of the `finally`, the waits of `drive` go on as `settled` wakes them (`drive.test.ts`, "drive's send,
     made by a wait that a step wakes"), and a `run` of `rehearse` that waits for its command fails as `died` wakes it

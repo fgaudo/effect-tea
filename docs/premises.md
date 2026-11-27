@@ -18,16 +18,16 @@ below by `answering`. `simulate` runs no subscription, so the premise of a subsc
 afresh) is none of its own.
 
 - **A fiber that waits on a `Deferred` runs on the stack of whoever completes it, until it waits again**, a fiber or
-  plain code. No guarantee rests on it, only killers of mutations: those of "died wakes a fiber inside a step" and
-  "drive wakes its waits inside the step", which tell a wake inside the step only where it is resumed there; those of
-  "an end that whoever runs the program makes during a step begins inside it", where whoever runs it, so resumed by a
-  listener, interrupts the run, whose end then runs on the same stack (`Fiber.interrupt` runs a fiber that waits where
-  it is interrupted, read in the source, `interruptUnsafe`); and those of `rehearse` refusing a command's answer and a
-  subscription's message once it has ended. Should it fall, `bun run mutations` reports those mutations as survivors,
-  and the library stays correct. Read in the source (`Deferred.doneUnsafe` resumes each waiter on the caller's stack,
-  `internal/effect.ts`). Its test fails with the `Deferred` completed by a fiber of its own. Open, and not asked: when a
-  waiter resumes is a turn of the scheduler, and the JSDoc promises none, as it says of a fork ("without promising a
-  scheduler turn").
+  plain code. No guarantee rests on it, only killers of mutations: those of "died wakes a fiber inside a step", "drive
+  wakes its waits inside the step" and "a call of drive's scenario made during a step acts inside it", which tell a wake
+  inside the step only where it is resumed there; those of "an end that whoever runs the program makes during a step
+  begins inside it", where whoever runs it, so resumed by a listener, interrupts the run, whose end then runs on the
+  same stack (`Fiber.interrupt` runs a fiber that waits where it is interrupted, read in the source, `interruptUnsafe`);
+  and those of `rehearse` refusing a command's answer and a subscription's message once it has ended. Should it fall,
+  `bun run mutations` reports those mutations as survivors, and the library stays correct. Read in the source
+  (`Deferred.doneUnsafe` resumes each waiter on the caller's stack, `internal/effect.ts`). Its test fails with the
+  `Deferred` completed by a fiber of its own. Open, and not asked: when a waiter resumes is a turn of the scheduler, and
+  the JSDoc promises none, as it says of a fork ("without promising a scheduler turn").
 - **Code that a fiber runs on the stack of the fiber that forks it sees the forked fiber as its own**, through
   `Effect.withFiber`, `Fiber.getCurrent` and `Effect.fiber` alike, from its first step on, and it is the very `Fiber`
   that the fork returns and that a `FiberSet` or a `FiberMap` keeps; and no stable API gives a fiber the one that

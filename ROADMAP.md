@@ -25,12 +25,7 @@ A lead of the search (`bun run interleavings`) goes here with its seed and path,
 test of it. A finding of a review goes here with its `test.failing`, until its fix removes the mark and the item. A
 problem whose fix is due before a step of "Next, in order" leaves this list for a step of its own there.
 
-- **A scenario of `drive` that an option wakes inside a step acts on the state of before**, against the doc comment of
-  `Driver` ("when it returns, `update` has seen the message") and the property of a step (`docs/invariants.md`, "A
-  step, and who may enter it"): its `send` selects on the model of before the step, and returns before `update` has
-  seen its message, and `waitFor` and `model` read that model too. `examples/bounce/bounce.test.ts` wakes its scenario
-  so, by a `Deferred` that its `onApplied` completes. `src/testing/drive.test.ts`, "drive's send, made by a scenario
-  that onApplied wakes", is its `test.failing`. Fixed in step 126, with the row of its cell.
+None open.
 
 ## Leads
 
@@ -44,71 +39,43 @@ Those found before 0.11.0 were weighed on 27 November 2026. Open:
 
 - **One list of what the outermost call owes as it returns**, in place of its four defenses in the `finally` of `apply`
   in `engine.ts` (the offer of the jobs, `hold` and `release` of `died`, `settled` of `drive`, `returned` of the end),
-  with the end marked in that flush itself. Fewer mechanisms, by value 5. Shown by a wake that step 126 finds and no
+  with the end marked in that flush itself. Fewer mechanisms, by value 5. Shown by a wake that the search finds and no
   defense covers, or a change that needs a fifth line in that `finally`.
 
 ## Next, in order
 
 0.11.0 is not released: the readings made for it, in commit `5f13b2b`, are made again before it, over what came after
 them. Step 121 made the review of the premises again, over all of the code; the reading of the promises is step 124,
-after steps 126 and 127, so that it is not made a third time. A review of the premises reads nothing of an `Equal` or a
-`Hash` of the program that throws: step 107 dropped the three premises that served that case alone, by the rule it left
-in `docs/premises.md` ("What no program that keeps the guide's rules can see").
+after step 127, so that it is not made a third time. A review of the premises reads nothing of an `Equal` or a `Hash` of
+the program that throws: step 107 dropped the three premises that served that case alone, by the rule it left in
+`docs/premises.md` ("What no program that keeps the guide's rules can see").
 
 The owner's rule of 27 November 2026 says what the library owes, and to whom (`AGENTS.md`, "Deciding"): to a program
 written as the guide teaches, and nothing to a form that no page shows. Steps 122 and 123 took out what the code held
 for such forms. The inference matrix still writes programs as objects, valid ones alone: the library's own tests write
 programs so, and the matrix checks that each tool takes them.
 
-A second opinion on step 121 (Fable 5.2, 27 November 2026) read the bugs of the week: latent since the design of 20
-and 21 November but one, made by a fix and caught before its commit, and each an act made whole only against the actor
-its author had in mind. Two actors went unlisted: whoever runs the program, interrupting at a yield between two
-operations (`begun`, the window of `Stage.play`), and code that runs on the stack of a callback the engine makes inside
-a step (the end of step 121, the `hearNext` of commit `5f13b2b`). The search of `src/interleaving.test.ts` has neither:
-it interrupts the run once, when the program is quiet, and its listeners never stop the run nor wake a fiber. The
+A second opinion on step 121 (Fable 5.2, 27 November 2026) read the bugs of the week: latent since the design of 20 and
+21 November but one, made by a fix and caught before its commit, and each an act made whole only against the actor its
+author had in mind. Two actors went unlisted: whoever runs the program, interrupting at a yield between two operations
+(`begun`, the window of `Stage.play`), and code that runs on the stack of a callback the engine makes inside a step (the
+end of step 121, the `hearNext` of commit `5f13b2b`). The search of `src/interleaving.test.ts` had neither: it
+interrupted the run once, when the program was quiet, and its listeners never stopped the run nor woke a fiber. The
 mutations prove that each check is needed, never that one is missing, and every bug of the week was a check missing.
 Step 125 wrote the actors down, with the property of a step that each entry keeps (`docs/invariants.md`, "A step, and
-who may enter it"), and step 126 gives the search the actor it lacks. The same opinion weighed what the library
-promises: the bugs of the week broke promises that users build on ("Nothing ends in silence"), so fewer promises would
-not have kept them out; but each promise of an order across fibers costs a sentence, a test, a mutation, and a
-constraint on every later fix. Step 125 weighed those alone, and its commit lists each sentence with its verdict: four
-made unspecified, which step 127 follows into the code.
-
-### 126. Whoever runs the program is an actor of the search
-
-Opus 5.5, `high`. Depends on nothing.
-
-- The fates of `src/interleaving.test.ts` let whoever runs the program stop the run between any two acts, on the stack
-  of a notice to a listener and on that of `onApplied` and `onIgnored`, directly and through a fiber that awaits a
-  `Deferred` the callback completes, as the tests of the examples `list` and `pages` do.
-- `src/testing/contract.test.ts` gets a row for each cell of the table of `docs/invariants.md` ("Who may act, and
-  when") that says "none yet", checked by the property of a step: what the entry did is what it does right after the
-  outermost call. The fates above take two of them: whoever runs the program at a yield past the beginning of the
-  run, and in a callback of a step, which the search lacks. They draw a stop from `onIgnored`, and one by plain code
-  in the callback itself, at the price of the same generator, though no page shows either: a failure that only those
-  two meet is no finding ("Deciding" in `AGENTS.md`). The rows take the others:
-  - Whoever runs the program, during the end: a second interruption of the run while it ends, as a `stop` of
-    "Running" called twice makes.
-  - The program's effects, in a wake of the `finally`, under `drive`: a command that a service of the test's holds,
-    freed by a scenario that `settled` woke, answers there, in an outermost call of its own ("Testing tools", "Hold a
-    command of `drive` with a service of the test's").
-  - The scenario of `drive`, in a callback of a step: the open problem above, for `send`, `waitFor` and `model`. Its
-    fix makes a call of a scenario made during a step do what it does right after the outermost call, and removes
-    the `test.failing` mark and the item.
-- Each cell that gets a generator or a row says so in the table, in place of "none yet".
-
-Done when the properties pass over a thousand runs at least, in both modes of `test/scheduled.test_scheduler.ts`, their
-seeds named; when the search fails with the fix of step 121 taken out (the mutation "an end that whoever runs the
-program makes during a step begins inside it"), with how many seeds it failed on, and with the region of `startWith`
-taken out, or the commit says why only the sweep reaches it; when the test of what the scenarios reach meets an end
-inside a notice and inside `onApplied` on every seed; when no cell of the table says "none yet"; and each finding is an
-open problem with its seed, fixed by the rule of fixes (`docs/premises.md`).
+who may enter it"), and step 126 gave the search the actor it lacked: whoever runs the program stops the run between two
+acts and in a callback of a step, and finds the bug that step 121 fixed under `'inline'` alone, since `'queued'` resumes
+a woken fiber in a task of its own. The same opinion weighed what the library promises: the bugs of the week broke
+promises that users build on ("Nothing ends in silence"), so fewer promises would not have kept them out; but each
+promise of an order across fibers costs a sentence, a test, a mutation, and a constraint on every later fix. Step 125
+weighed those alone, and its commit lists each sentence with its verdict: four made unspecified, which step 127 follows
+into the code.
 
 ### 127. What served only a promise cut goes
 
-Opus 5.5, `high`. Depends on 126. The tests, the mutations and the mechanisms that served only a promise that step 125
-made unspecified are taken out, under the search of step 126: the engine and the tools change only once the search has
-its new actor. Step 125 listed them, by the promise cut:
+Opus 5.5, `high`. Depends on nothing. The tests, the mutations and the mechanisms that served only a promise that step
+125 made unspecified are taken out, under the search in which whoever runs the program now stops the run (step 126).
+Step 125 listed them, by the promise cut:
 
 - **Whether a call of `rehearse` that has applied its message as a fiber of the program dies fails or returns**
   (`Rehearsal`). The rehearsal fails with the defect either way, and a call that waits before it has applied anything

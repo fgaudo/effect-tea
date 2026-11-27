@@ -3670,6 +3670,26 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
+    name: "a call of drive's scenario made during a step acts inside it",
+    file: "src/testing/drive.ts",
+    from: "    hearing === 0 ? Effect.void : Deferred.await(",
+    to: "    true ? Effect.void : Deferred.await(",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "send, made during the step, does what it does right after the outermost call"
+      ],
+      [
+        "src/testing/contract.test.ts",
+        "waitFor, made during the step, does what it does right after the outermost call"
+      ],
+      [
+        "src/testing/contract.test.ts",
+        "model, made during the step, does what it does right after the outermost call"
+      ]
+    ]
+  },
+  {
     name: "the engine never tells whoever runs it that a call has applied its messages",
     file: "src/engine.ts",
     from: "      deaths.release()\n      settled()\n",
