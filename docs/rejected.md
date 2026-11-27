@@ -197,6 +197,12 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   may change what a minor may. The promises that rested on what Effect may change were narrowed instead, and the last
   one was given another design in step 106 ([`premises.md`](premises.md), "The rule"). _Reopen if_ a promise comes to
   rest on an open premise that no design avoids.
+- **A check of the version of Effect by the library**, as it loads or as a program is made. Reasoned, 27 November 2026
+  ([`application-report-0.10.md`](records/application-report-0.10.md), point 3): bun installs an Effect below the peer
+  range with no warning, and two upgrades by coding agents ran so. The range is what a package manager enforces, as
+  npm does, and the check would read Effect's version as the program runs, one more premise, to refuse an Effect on
+  which the library's tests pass (4.1.5, in step 109). The changelog puts the entry of a peer range first instead.
+  _Reopen if_ a program is found to misbehave, with no error, on an Effect below the range.
 
 ## The API
 
@@ -250,6 +256,14 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   `tell` that `update` may reject ends in silence, or `reject` comes to mean a defect there (values 1 and 2), where
   `external` costs a second function for the message that a view and a parent both send. _Reopen if_ a program must
   refuse what its parent tells it, and neither its state nor an event can say so.
+- **A message that a declaration routes down a chain of children, and an external message that a child refuses**: a
+  `reject` in `external`, or a defect of the library's where a child is told what its output did not ask for. Asked by
+  an application on 27 November 2026 ([`application-report-0.10.md`](records/application-report-0.10.md), point 6),
+  whose back button goes down two levels. Reasoned. Which child takes a message, and before which other, is the logic
+  of each parent, in one line of its `external` and one of its `output`, and the library knows no tie between an
+  output and an external message. A `reject` would take back the step of the parent that told, as the entry above
+  says, and would make silent what only a bug brings, where the child's `defect` is loud. _Reopen if_ a child must
+  refuse what it is told in a state that its parent could not read from its output.
 - **A child's subscriptions paused by an external message, in place of `listening`.** Reasoned, 24 November 2026, in
   step 61: the two would do one job, but a parent says from its own state when a child listens, as it says when the
   child is there, and each child that can be hidden would keep a state and an external message for it. _Reopen if_ a
@@ -359,7 +373,10 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   for that element, where its program's tests pass.
 - **The wrapping of a child's message as a public, or an internal, function.** Reasoned with a probe of `tsc`, 15
   November 2026 ([`boundary.md`](records/boundary.md), "A question"): the compiler already refuses a wrong name, id or
-  message in a literal; the one check it adds is a stray `id` on a literal that is not fresh. _Reopen if_ a tool must
+  message in a literal; the one check it adds is a stray `id` on a literal that is not fresh. Asked again on 27
+  November 2026, for a test's messages that name an instance
+  ([`application-report-0.10.md`](records/application-report-0.10.md), point 7), with no new fact: the literal is
+  `{ _tag, instance, message }`, and a message for a child that is not there names no instance. _Reopen if_ a tool must
   lift a child's message with no type to lean on, or the stray `id` is found in an application's tests.
 - **Every message of a child's view bound to its instance**, so that `forwardTo` always takes the number, a message
   has one form, and the rule of ids that are never reused goes. Reasoned, 26 November 2026, in step 92
@@ -379,6 +396,15 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   number, the name and the id together, where a view needs the number alone as a key. A step that read the number
   would make two states that differ in their numbers alone behave apart. _Reopen if_ a view is found to pair a
   child's model with another child's name, which an address would refuse, or a step must tell one start from another.
+- **A reading of a child that may not be there which throws where it is not**, a `CompositionDefect` as for an id that
+  is not listed, **and one reading of its model, its output and its instance**. Asked by an application on 27 November
+  2026 ([`application-report-0.10.md`](records/application-report-0.10.md), point 5). Reasoned. The first would give
+  the three kinds of children one form of reading, and take from a parent the defect that it writes where a case of
+  its state goes with the child. But it would compile and then die where the `Option` refuses, against the second
+  rule of the types of a program (`AGENTS.md`, "What belongs here"): a child by id throws only because no type lists
+  its ids. The second is `Opt.all`, and would be a name over Effect's combinator. _Reopen if_ TypeScript comes to
+  narrow what `children` gives by the case of the state that `there` reads, or parents are found to write that defect
+  at most of their readings.
 - **Following a string in a child's wrapping, in the default description of a message.** Reasoned, 15 November 2026:
   `describeByTag` meets a program's own values, and would name its text, where only tags are named. _Reopen if_ a
   wrapping the describer can tell from a program's own value comes for another reason.
@@ -627,6 +653,12 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   owner on 25 November 2026: a paragraph that offers to help weigh the two and then compares nothing is of no use to
   the reader. Reasoned. _Reopen if_ the README can say something of the two that helps a reader choose, true of each,
   with no reading of Foldkit deciding anything here.
+- **The compiler's error beside each `Upgrade:` of the changelog**, so that an upgrade finds its entry by the error.
+  Asked by an application on 27 November 2026
+  ([`application-report-0.10.md`](records/application-report-0.10.md), point 11). Reasoned: the code and the text of an
+  error are TypeScript's, and change with its version and with how the call is written, as a literal or a variable.
+  The one error that did not say its fix is for the types to say (step 111), and an entry says where the old spelling
+  still compiles (step 113). _Reopen if_ an upgrade is found to miss its entry where the error names what is wrong.
 
 ## Parked, not rejected
 

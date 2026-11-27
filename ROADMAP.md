@@ -36,13 +36,125 @@ None open.
 
 ## Next, in order
 
-None open. The next review of the premises reads the changes since the commit that closed step 99 (`git log --grep
+Steps 111 to 113 come from the report of an application moved to 0.10.0, weighed on 27 November 2026
+([`application-report-0.10.md`](docs/records/application-report-0.10.md)), and run in the order of their numbers. Each
+decides its point by "Deciding": a step that decides against its point writes its entry of
+[`rejected.md`](docs/rejected.md), and is done. Their changes go out together, in the release after 0.10.0.
+
+The next review of the premises reads the changes since the commit that closed step 99 (`git log --grep
 "the premises reviewed since step 65"`), and the next reading of the promises those since the commit that closed step
 100 (`git log --grep "the promises read since step 90"`). The review of the premises reads the premise that step 106
 added by the model, that the `Fiber` a fork returns is the very one its effect sees as its own (`docs/premises.md`,
 "Code that a fiber runs on the stack"), and what `Effect.interruptible` fails with, left a premise of tests alone. It
 reads nothing of an `Equal` or a `Hash` of the program that throws: step 107 dropped the three premises that served
 that case alone, by the rule it left in `docs/premises.md` ("What no program that keeps the guide's rules can see").
+
+### 111. An error of `child` that names the option that is wrong
+
+**Model and effort.** Opus 5.5, `high`: the types of an export.
+
+**Depends on** no other step.
+
+**Why.** `child(program, { flags })`, where `flags` gives an `Option` of the child's flags, prints `TS2769`, "The last
+overload gave the following error", and that the function "is not assignable to type 'never'"
+([`application-report-0.10.md`](docs/records/application-report-0.10.md), point 1). `DeclareChild` has two overloads,
+and the compiler reports the last one, which takes no `flags`: nothing in the error says that the flags are of the
+wrong type, nor that a child that may not be there is declared with `there`. An agent that upgraded found the fix in
+the changelog alone, and whoever writes `flags` for a child that may not be there meets the same error.
+
+**How.** A spike first, on a branch ([`change-api`](.agents/skills/change-api/SKILL.md)). Forms to weigh, none
+decided:
+
+- one signature for `child`, whose `There` is read from the options that it is given, as `forwardTo` reads its result
+  from what it is given, so that the compiler has no other overload to report;
+- the two overloads kept, with a property whose type says what to write in place of `flags?: never` and of
+  `there?: never`, as `FlagsChecked` says it for `childById`.
+
+Another order of the overloads only moves the fault to `there`. Weigh with each form: the state that
+`(state) => …` is given, with no annotation; the tags of a literal that `tell` returns (the comment of `Telling` in
+`src/compose.ts`); a function over any program, written as an overload over erased types ("Composition"); what a
+hover and the declarations print (`bun run api`); and `childById`, whose two overloads are read in the same way. Read
+first `rejected.md`: "`forwardTo` dual", "Checks that hold for a type parameter", "`DeclareChild<State>` in place of
+`DeclareChild<T>`" and "A parent's children declared in the call of `make`".
+
+**Done when** a test of the types holds that `flags` which give an `Option` of the child's flags do not compile, nor a
+`there` that gives a boolean for a child with flags; what the compiler prints of the first names `flags` or says what
+to write, and is held where the smoke test holds what `tools/smoke/misprint.ts` prints, with its bound; and the
+checks of `change-api` pass, with a changelog entry where the declarations change. If no form prints better: an entry
+of `rejected.md`, with what each form printed.
+
+### 112. A parent on React Native, whose page comes and goes
+
+**Model and effort.** Opus 5.5, `medium`.
+
+**Depends on** no other step.
+
+**Why.** No example reads `children.X.instance()`: the advice of "Composition", a dispatch that names its instance
+and the number as the key of the child's view, has no code, and its form in React is in no page
+([`application-report-0.10.md`](docs/records/application-report-0.10.md), point 10). An application followed it from
+the text alone. Step 92 reasoned the advice and ran none of it
+([`instance-in-view.md`](docs/records/instance-in-view.md), 5), and the example waited under "Any time" for such a
+report. The same example shows two things that the report's agent worked out alone (points 5 and 6): a child declared
+with `there`, read as one `Option`, and a back button.
+
+**How.** By [`add-example`](.agents/skills/add-example/SKILL.md), in
+[`examples/react-native`](examples/react-native), which draws no parent today.
+
+- A parent with a page declared with `there`, which each visit starts again.
+- Its `makeModel` reads the page once, with `Opt.all` of its instance and its model.
+- Its view gives the page's view `forwardTo(dispatch, { _tag, instance })`, and the number as its `key`.
+- React Native's `BackHandler` is a subscription of the parent, listed only while something takes the press: the
+  parent's `subscriptions` reads the page's `output`, and its `update` tells the press to the page.
+
+Weigh whether a second level of children earns its place: each level repeats the lines of the first. Advice of one
+program is a comment in its code, and the example brings no rule. Under jest, a message of a view drawn for an earlier
+visit is rejected: the test keeps the dispatch of the earlier draw. What a tap does on a device stays for an
+application's report: the report's application ran on none.
+
+**Done when** `bun run test:react-native` passes, with the tests of the parent among those it runs; "Composition",
+"Advice", names the example; the row of the example in the README says what it shows; and `bun run comments` passes.
+
+### 113. What the report asks of the guide, of the doc comments and of the changelog
+
+**Model and effort.** Opus 5.5, `medium`.
+
+**Depends on** step 112, for the example that the advice names.
+
+**Why.** Four things that the code does and no page says, or that a page says in a way that was read wrongly, and the
+order of a changelog's section ([`application-report-0.10.md`](docs/records/application-report-0.10.md), points 3 to
+8).
+
+**How.** Each sentence is judged by the test of "What belongs here" in `AGENTS.md`, and goes to a doc comment first.
+
+- **The candidates of a child that is not there.** "Testing", "The reader", says that where the view's dispatch names
+  the instance of a child, "the `candidates` of that child name it too". A test read it as a number for every
+  candidate, and made up one for a child that is not there. Such a candidate names no instance, or is left out: either
+  way `update` rejects it.
+- **`applyAll` takes `external`**, as it takes `update`: both are a function of a message, then of a state, and it
+  gives the commands and the events as lists that are always there. It compiles today, and its doc comment speaks of
+  `update` alone. Its doc comment, and "Testing", "How a program is tested". As a promise, its test is named, or
+  written. Weigh the name of its first parameter.
+- **What a parent tells in the step that read an output.** "Rejections and defects", "What 'cannot arrive' rests on",
+  says that nothing else makes that promise. But `update` and `external` read the outputs as they were before the
+  step, and what the step tells arrives once the step is taken ("Events and external messages"). So where the step
+  keeps the child, and tells it before anything else changes it, the child is in the state whose output the parent
+  read, and its `external` may answer with `defect` what that output rules out. Say when it holds, and when it does
+  not: a step that starts the child again, and a child told after another one whose event its parent handled. As a
+  promise, its test is named, or written.
+- **A child that goes with a case of its parent's state.** "Composition", "Advice". A parent reads a child declared
+  with `there` once, as one `Option`, and makes its model from it where that the child is there is all it reads, as
+  [`pages`](examples/pages/app.ts) does. Where a case of its state holds more, the case and the child go together by
+  the parent's own `there`, and "Guarantees" promises that a parent's children are those its state lists: a `None`
+  there is a `defect`. The example of step 112 is the code.
+- **The changelog** ([`release`](.agents/skills/release/SKILL.md)). An entry that changes what is installed with the
+  package, as a peer range, is the first under "Changed": two upgrades by agents ran on an Effect below the range,
+  which bun installs with no warning. And `Upgrade:` says, where the old spelling still compiles, how to find its
+  places. Both are written into the sentences of the skill on a breaking entry, with no rule added beside them. The
+  section of 0.10.0 is put in that order too.
+
+**Done when** `bun run comments` passes with each page under its ceiling, or with a ceiling raised and the reason in
+the commit; each promise added has a test that the commit names, and a changelog entry; and `bun run typecheck`,
+`bun run lint` and `bun run test` pass.
 
 ## For the owner
 
@@ -68,12 +180,6 @@ owner left them here on 25 November 2026, while the steps of "Next, in order" ar
   bridges' tests at React 19.3.0, which step 83 made the start of the peer range and the lockfile's version. An IME is
   driven in Chromium alone, through its protocol: Playwright drives none in Firefox or WebKit, so a composition there
   is not run.
-- **The advice of "Composition" for a screen that shows an older draw, on a device.** Step 92 reasoned it, and ran
-  none of it on a device ([`instance-in-view.md`](docs/records/instance-in-view.md), 5): a dispatch that names its
-  instance, and the number as the key of the child's view. `examples/react-native` draws no parent. A parent there,
-  whose child starts again, would show the advice in an example
-  ([`add-example`](.agents/skills/add-example/SKILL.md)), and `bun run test:react-native` would run what jest reaches
-  of it. What a tap does on a device is for an application's report.
 - **A benchmark that runs in the CI.** Many children, many messages per second, to keep what a message costs the event
   that sends it, and a model made only when it is read, from regressing. `bun run bench`
   (`tools/bench/subscriptions.ts`) measures a parent's subscriptions only, and `tools/bench/writes.ts`, run by hand,
