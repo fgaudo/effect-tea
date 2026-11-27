@@ -34,13 +34,11 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
 
 ## Next, in order
 
-The next review of the premises reads the changes since the commit that closed step 99 (`git log --grep
-"the premises reviewed since step 65"`), and the next reading of the promises those since the commit that closed step
-100 (`git log --grep "the promises read since step 90"`). The review of the premises reads the premise that step 106
-added by the model, that the `Fiber` a fork returns is the very one its effect sees as its own (`docs/premises.md`,
-"Code that a fiber runs on the stack"), and what `Effect.interruptible` fails with, left a premise of tests alone. It
-reads nothing of an `Equal` or a `Hash` of the program that throws: step 107 dropped the three premises that served
-that case alone, by the rule it left in `docs/premises.md` ("What no program that keeps the guide's rules can see").
+The next review of the premises, and the next reading of the promises, read the changes since the commit that did
+both before 0.11.0 (`git log --grep "the promises read for 0.11.0"`), and are due before the release after it. The
+review of the premises reads nothing of an `Equal` or a `Hash` of the program that throws: step 107 dropped the three
+premises that served that case alone, by the rule it left in `docs/premises.md` ("What no program that keeps the
+guide's rules can see").
 
 ## For the owner
 
@@ -49,6 +47,8 @@ owner does it.
 
 - **0.10.0** is committed and tagged `v0.10.0`, locally, on 27 November 2026, after the checks of point 2 of
   "Releasing" passed on it: the owner pushes the commit and the tag, which deploys the site, and publishes the package.
+- **0.11.0** is committed and tagged `v0.11.0`, locally, on 27 November 2026, after the readings of point 1 and the
+  checks of point 2 of "Releasing" passed on it: the owner pushes it, and publishes it, after 0.10.0.
 - **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
   decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API, after a
   reading of the promises and a review of the premises over everything. Until then, releases stay at 0.x.

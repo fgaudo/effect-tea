@@ -17,7 +17,14 @@ import { counter, type Message as CounterMessage, type Model as CounterModel } f
 import { Draft, form, type Message as FormMessage, type Model as FormModel } from "../form/form.ts"
 import { Storage, type StorageError } from "../form/storage.ts"
 import * as Note from "./note.ts"
-import { BackButton, type Message as NotesMessage, type Model as NotesModel, notes, type State } from "./notes.ts"
+import {
+  BackButton,
+  type Message as NotesMessage,
+  type Model as NotesModel,
+  notes,
+  saved,
+  type State
+} from "./notes.ts"
 import { counterView, formView, notesView } from "./views.tsx"
 
 const count = () => screen.getByTestId("count").props.children
@@ -213,6 +220,22 @@ describe("notes", () => {
     expect(state.children.Note).toEqual(Opt.none())
   })
 
+  test("a note is opened only from a list, and only at a place the list has", () => {
+    const { state } = applyAll(notes.update, [opened(1)], list)
+    expect(state.own).toEqual({ ...list.own, open: Opt.some(1) })
+    expect(pageOf(state)).toEqual(Opt.some(Note.State.Reading({ text: "Call the plumber" })))
+    expect(notes.update(opened(0))(state)).toBe(reject)
+    for (const index of [-1, 3, 0.5]) expect(notes.update(opened(index))(list)).toBe(reject)
+  })
+
+  test("the header closes a page that shows no edit, and is rejected during an edit", () => {
+    const { state } = applyAll(notes.update, [{ _tag: "CloseClicked" }], reading)
+    expect(state.own).toEqual(list.own)
+    expect(state.children.Note).toEqual(Opt.none())
+    expect(notes.update({ _tag: "CloseClicked" })(editing)).toBe(reject)
+    expect(notes.update({ _tag: "CloseClicked" })(list)).toBe(reject)
+  })
+
   test("back cancels an edit, then closes the page", () => {
     const cancelled = applyAll(notes.update, [opened(0), edit, backPressed], list).state
     expect(pageOf(cancelled)).toEqual(Opt.some(Note.State.Reading({ text: "Milk" })))
@@ -238,8 +261,52 @@ describe("notes", () => {
   })
 
   // The key of the button is listed only while a note is open, and the run drops what the button sent once it is not.
-  test("dies on a press of back while no note is open", () => {
+  // A page is there only while a note is open, and only a page saves.
+  test("dies on a press of back, and on a save, while no note is open", () => {
     expect(() => notes.update(backPressed)(list)).toThrow(InvariantDefect)
+    expect(() => saved({ _tag: "Saved", text: "Oat milk" })(list.own)).toThrow(InvariantDefect)
+  })
+
+  describe("the page", () => {
+    const shown = Note.State.Reading({ text: "Milk" })
+    const drafted = Note.State.Editing({ text: "Milk", draft: "Mil" })
+    const nothing = { commands: [], events: [] }
+
+    test("Edit begins an edit from the text, and is rejected during one", () => {
+      expect(applyAll(Note.update, [{ _tag: "EditClicked" }], shown)).toEqual({
+        state: Note.State.Editing({ text: "Milk", draft: "Milk" }),
+        ...nothing
+      })
+      expect(Note.update({ _tag: "EditClicked" })(drafted)).toBe(reject)
+    })
+
+    test("what is typed becomes the draft, and is rejected outside an edit", () => {
+      expect(applyAll(Note.update, [{ _tag: "DraftTyped", value: "Oat milk" }], drafted)).toEqual({
+        state: Note.State.Editing({ text: "Milk", draft: "Oat milk" }),
+        ...nothing
+      })
+      expect(Note.update({ _tag: "DraftTyped", value: "Oat milk" })(shown)).toBe(reject)
+    })
+
+    test("Save shows the draft and raises it, and is rejected outside an edit", () => {
+      expect(applyAll(Note.update, [{ _tag: "SaveClicked" }], drafted)).toEqual({
+        state: Note.State.Reading({ text: "Mil" }),
+        commands: [],
+        events: [{ _tag: "Saved", text: "Mil" }]
+      })
+      expect(Note.update({ _tag: "SaveClicked" })(shown)).toBe(reject)
+    })
+
+    test("Cancel shows the text again, and is rejected outside an edit", () => {
+      expect(applyAll(Note.update, [{ _tag: "CancelClicked" }], drafted)).toEqual({ state: shown, ...nothing })
+      expect(Note.update({ _tag: "CancelClicked" })(shown)).toBe(reject)
+    })
+
+    test("a press of back that its parent tells it cancels an edit, and leaves a note shown as it was", () => {
+      const back: Note.External = { _tag: "BackPressed" }
+      expect(applyAll(Note.note.external, [back], drafted)).toEqual({ state: shown, ...nothing })
+      expect(applyAll(Note.note.external, [back], shown)).toEqual({ state: shown, ...nothing })
+    })
   })
 
   // What the model holds, in the order the test acts: the header's Close, then the page's controls, what is typed
@@ -265,16 +332,20 @@ describe("notes", () => {
     } satisfies { [Tag in Note.Message["_tag"]]: ReadonlyArray<Extract<Note.Message, { _tag: Tag }>> }
   ).flat()
 
-  // What a user could ask of the notes, with the page's messages naming the instance of the states below.
-  const userMessages: ReadonlyArray<NotesMessage> = Object.values(
-    {
-      NoteOpened: [opened(0), opened(1), opened(2)],
-      CloseClicked: [{ _tag: "CloseClicked" }],
-      // Only the device's button sends it, through the subscription.
-      BackPressed: [],
-      Note: noteClicks.map((message) => ({ _tag: "Note", instance: 1, message }))
-    } satisfies { [Tag in NotesMessage["_tag"]]: ReadonlyArray<Extract<NotesMessage, { _tag: Tag }>> }
-  ).flat()
+  // What a user could ask of the notes shown by a model, a place past the list's end among them. The page's messages
+  // name the instance that the model gives, and none is there where the model shows no page, which has no number.
+  const userMessages = (model: NotesModel): ReadonlyArray<NotesMessage> =>
+    Object.values(
+      {
+        NoteOpened: [opened(0), opened(1), opened(2), opened(3)],
+        CloseClicked: [{ _tag: "CloseClicked" }],
+        // Only the device's button sends it, through the subscription.
+        BackPressed: [],
+        Note: model._tag === "Note"
+          ? noteClicks.map((message) => ({ _tag: "Note", instance: model.instance, message }))
+          : []
+      } satisfies { [Tag in NotesMessage["_tag"]]: ReadonlyArray<Extract<NotesMessage, { _tag: Tag }>> }
+    ).flat()
 
   const states = [["the list", list], ["a note", reading], ["an edit", editing]] as const
 
@@ -282,10 +353,11 @@ describe("notes", () => {
     _,
     state
   ) => {
+    const model = notes.makeModel(state)
     expect(dispatchViolations(notes.update, {
       state,
-      held: notesMessagesOf(notes.makeModel(state), "Oat milk"),
-      candidates: userMessages
+      held: notesMessagesOf(model, "Oat milk"),
+      candidates: userMessages(model)
     })).toEqual([])
   })
 

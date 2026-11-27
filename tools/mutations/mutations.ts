@@ -3306,7 +3306,15 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
-        "a hearNext whose message's model throws returns the message, as a send does"
+        "a hearNext whose message's model throws returns the message, and the rehearsal fails"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a run whose answer's model throws returns its command once the job of the answer is done"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a runAll whose answer's model throws fails with the defect once the job of the answer is done"
       ]
     ]
   },
@@ -3318,7 +3326,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
-        "a hearNext whose message's model throws returns the message, as a send does"
+        "a hearNext whose message's model throws returns the message, and the rehearsal fails"
       ]
     ]
   },
@@ -3332,7 +3340,63 @@ export const mutations: ReadonlyArray<Mutation> = [
     killedBy: [
       [
         "src/testing/rehearse.test.ts",
-        "a hearNext whose message's model throws returns the message, as a send does"
+        "a hearNext whose message's model throws returns the message, and the rehearsal fails"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a run whose answer's model throws returns its command once the job of the answer is done"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a runAll whose answer's model throws fails with the defect once the job of the answer is done"
+      ]
+    ]
+  },
+  {
+    name: "a run of rehearse fails at a death that comes once its answer is applied",
+    file: "src/testing/stage.ts",
+    from: "orDead(answered(taking), () => Deferred.isDoneUnsafe(taking.answer))",
+    to: "orDead(answered(taking))",
+    killedBy: [
+      [
+        "src/testing/rehearse.test.ts",
+        "a run whose answer's model throws returns its command once the job of the answer is done"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a runAll whose answer's model throws fails with the defect once the job of the answer is done"
+      ]
+    ]
+  },
+  {
+    name: "a run of rehearse is told what its command left once the answer is applied",
+    file: "src/testing/stage.ts",
+    from: "applyFor(fromCommand, message, (applied) => Deferred.doneUnsafe(answer, Exit.succeed(applied)))",
+    to: "Deferred.doneUnsafe(answer, Exit.succeed(apply(fromCommand, message)))",
+    killedBy: [
+      [
+        "src/testing/rehearse.test.ts",
+        "a run whose answer's model throws returns its command once the job of the answer is done"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a runAll whose answer's model throws fails with the defect once the job of the answer is done"
+      ]
+    ]
+  },
+  {
+    name: "rehearse tells the calls waiting on a start that it has ended before its end value is applied",
+    file: "src/testing/rehearse.ts",
+    from: "        Deferred.doneUnsafe(call.heard, Exit.succeed({ _tag: \"Heard\", message, applied }))\n"
+      + "      })\n"
+      + "      for (const { heard } of told) Deferred.doneUnsafe(heard, Exit.succeed(ended))\n",
+    to: "        for (const { heard } of told) Deferred.doneUnsafe(heard, Exit.succeed(ended))\n"
+      + "        Deferred.doneUnsafe(call.heard, Exit.succeed({ _tag: \"Heard\", message, applied }))\n"
+      + "      })\n",
+    killedBy: [
+      [
+        "src/testing/rehearse.test.ts",
+        "a call told that the subscription has ended sends after its end value is applied"
       ]
     ]
   },

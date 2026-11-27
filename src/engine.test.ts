@@ -1326,13 +1326,15 @@ describe("the end of the engine", () => {
     Effect.exit(Effect.interruptible(Effect.void)),
     (exit) => Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isInterruptReason).length : 0
   )
-  // The gate is the fiber's own: it waits until it has received `count` interruptions, or gives up after a while.
+  // The gate is the fiber's own: it waits until it has received `count` interruptions. One that gives up dies, so that
+  // the test fails rather than go on in an order a count of yields made.
   const untilReceived = (count: number, tries = 10_000): Effect.Effect<void> =>
-    Effect.flatMap(
-      received,
-      (seen) =>
-        seen >= count || tries === 0 ? Effect.void : Effect.andThen(Effect.yieldNow, untilReceived(count, tries - 1))
-    )
+    Effect.flatMap(received, (seen) =>
+      seen >= count
+        ? Effect.void
+        : tries === 0
+        ? Effect.die(new Error(`The gate gave up before the fiber received ${count} interruptions`))
+        : Effect.andThen(Effect.yieldNow, untilReceived(count, tries - 1)))
 
   // The end of the engine stops its fiber of effects in a job that was waiting for the release of a key that went
   // away. It reads the fibers that still run, never the keys of a state, so it stops that subscription too: one that

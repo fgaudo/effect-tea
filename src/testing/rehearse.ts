@@ -35,7 +35,8 @@ import * as Stage from "./stage.ts"
  *   lost.
  * - A fiber detached from the scenario (`Effect.forkDetach`) is beyond the rehearsal's reach: what it asks for once
  *   the rehearsal has ended is interrupted, and a defect it meets then is lost.
- * - After a defect of the program, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail with the defect.
+ * - After a defect of the program, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail with the defect. One
+ *   that has applied its message, or its command's answer, waits for the job of that message first.
  *   `state`, `pending`, `events` and `ignored` stay readable.
  *
  * @example
@@ -83,6 +84,8 @@ export type Rehearsal<
    * - An answer that `update` rejects is listed in `ignored`.
    * - The test fails when this `run` is interrupted before the command answers: a command cannot be cancelled.
    * - After a defect of the program, `run` fails with the defect, also when it was already waiting for its command.
+   *   One whose answer is applied returns the command once the job of the answer is done, though a fiber of the
+   *   program dies meanwhile, its answer's model among them: the rehearsal then fails with the defect.
    *
    * @see The guide, "Testing tools".
    */
@@ -138,7 +141,8 @@ export type Rehearsal<
    *   not seen is dropped, as the run drops it, and a `hearNext` still waiting for it, or for its start, fails the
    *   test.
    * - After a defect of the program, `hearNext` fails with the defect, also when it was already waiting for its
-   *   message.
+   *   message. One whose message is applied returns it once the job of the message is done, though a fiber of the
+   *   program dies meanwhile, its message's model among them: the rehearsal then fails with the defect.
    * - Under a `TestClock`, move the clock while `hearNext` waits: race the call against `TestClock.adjust` in a loop.
    *   Time moved before the subscription starts to sleep does not count.
    *
@@ -275,7 +279,9 @@ const rehearsing = Effect.fnUntraced(function*<
   // In a thunk that has checked the end: while a call waits on the start and a message it sent is not heard, the
   // first call hears the first message, applied as `hear` would apply it, and is told so with how it waits for the job
   // of the message, whole; its last one tells the calls still waiting that it has ended. A call interrupted once it is
-  // told is told all the same: what the message applies, it applies whole.
+  // told is told all the same: what the message applies, it applies whole. The call that hears is told before its
+  // message is applied, and waits on it; those told of the end, once it is applied, so that none of them sends before
+  // the end value is applied.
   const hearHeld = (key: Key, generation: Generation) => {
     while (true) {
       const found = Ledger.hear(stage.ledger, generation)
@@ -283,9 +289,9 @@ const rehearsing = Effect.fnUntraced(function*<
       const { call, sent: { message }, ended: told } = found.value
       stage.ledger = found.value.ledger
       stage.applyFor({ _tag: "Subscription", key, generation }, message, (applied) => {
-        for (const { heard } of told) Deferred.doneUnsafe(heard, Exit.succeed(ended))
         Deferred.doneUnsafe(call.heard, Exit.succeed({ _tag: "Heard", message, applied }))
       })
+      for (const { heard } of told) Deferred.doneUnsafe(heard, Exit.succeed(ended))
     }
   }
   // The subscription's fiber gives what it sends, applied in its thunk at once when a call waits for it, as the run's

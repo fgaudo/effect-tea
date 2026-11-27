@@ -172,7 +172,7 @@ describe("the testing tools and the run, on the same program and inputs", () => 
     expect(simulation.ignored).toEqual([])
   })
 
-  test("rehearse and the run apply and ignore the same messages, a late answer and a tick included", async () => {
+  test("rehearse and the run end in the same state and ignore the same messages, a late answer and a tick included", async () => {
     const program = draftProgram(Effect.void, true)
     const rehearsed = await Effect.runPromise(rehearse(
       program,

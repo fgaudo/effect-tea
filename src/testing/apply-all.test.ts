@@ -83,6 +83,13 @@ describe("applyAll", () => {
     const halted = applyAll(stopwatch.external, ["Halted", "Halted"], true)
     expect(halted).toEqual({ state: false, commands: [], events: ["Stopped"] })
     expectTypeOf(halted).toEqualTypeOf<Folded<boolean, "Tick", "Stopped">>()
+    const never = () => [
+      // @ts-expect-error: a message that is no external message of the program's.
+      applyAll(stopwatch.external, ["Started"], true),
+      // @ts-expect-error: a state that is not the program's.
+      applyAll(stopwatch.external, ["Halted"], 0)
+    ]
+    expect(never).toBeDefined()
   })
 
   test("a rejection fails, naming the message", () => {

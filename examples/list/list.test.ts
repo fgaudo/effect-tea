@@ -131,6 +131,22 @@ describe("list", () => {
       expect(list.makeModel(running).stopAll).toEqual(Opt.some(stoppedAll))
     })
 
+    test("a halt stops a running stopwatch, and leaves a stopped one as it was", () => {
+      const halted: Stopwatch.External = { _tag: "Halted" }
+      const running = { seconds: 3, watch: Stopwatch.Watch.Running() }
+      const stopped = { seconds: 3, watch: Stopwatch.Watch.Stopped() }
+      expect(applyAll(Stopwatch.stopwatch.external, [halted], running)).toEqual({
+        state: stopped,
+        commands: [],
+        events: []
+      })
+      expect(applyAll(Stopwatch.stopwatch.external, [halted], stopped)).toEqual({
+        state: stopped,
+        commands: [],
+        events: []
+      })
+    })
+
     // Stopping a stopwatch stops its subscription, and the run drops what it sent: a tick while stopped is a bug.
     test("dies on a tick of a stopwatch that is stopped", () => {
       const { state } = applyAll(list.update, [added], list.init.state)

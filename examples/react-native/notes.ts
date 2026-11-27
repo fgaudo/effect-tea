@@ -50,6 +50,20 @@ const backPressed: Subscription<OwnMessage, BackButton> = Channel.unwrap(
     ))
 )
 
+// Whether the page closes, at a tap on the header or at a press of back: where it shows no edit. Where it shows one,
+// back cancels the edit, and the header shows no Close.
+const closes = ({ editing }: Note.Output) => !editing
+
+/**
+ * How the parent takes what its page saved: into the note open, which the page was started from. A page is there only
+ * while a note is open, since a parent's children are those its state lists.
+ */
+export const saved = (event: Note.Event) => (state: Own) =>
+  Opt.match(Opt.flatMap(state.open, (index) => Arr.replace(state.notes, index, event.text)), {
+    onNone: () => defect("A note was saved while none was open"),
+    onSome: (notes) => ({ state: { notes, open: Opt.none<number>() } })
+  })
+
 export const notes = program<{ state: Own; message: OwnMessage; key: "back" }>().withChildren({
   // There while a note is open, and started from its text: a note opened again starts again.
   Note: childWhen(Note.note, {
@@ -59,48 +73,43 @@ export const notes = program<{ state: Own; message: OwnMessage; key: "back" }>()
   init: { state: { notes: ["Milk", "Call the plumber", "Return the books"], open: Opt.none() } },
   update: (message, children) => (state) => {
     switch (message._tag) {
-      // A second tap, from the list still on screen as the page opens, changes nothing.
+      // A second tap, from the list still on screen as the page opens, changes nothing, and neither does a place that
+      // the list does not have: the state holds the index of a note only.
       case "NoteOpened":
-        return Opt.isSome(state.open) ? reject : { state: { ...state, open: Opt.some(message.index) } }
+        return Opt.isNone(state.open) && Number.isInteger(message.index) &&
+            Opt.isSome(Arr.get(state.notes, message.index))
+          ? { state: { ...state, open: Opt.some(message.index) } }
+          : reject
       // A tap on the header drawn before an edit began, or before the page closed, changes nothing.
       case "CloseClicked":
-        return Opt.exists(children.Note.output(), ({ editing }) => !editing)
-          ? { state: { ...state, open: Opt.none() } }
-          : reject
+        return Opt.exists(children.Note.output(), closes) ? { state: { ...state, open: Opt.none() } } : reject
       // A press arrives only while the page is there: the key is listed only then, and the run drops what the
       // button sent once it is not.
       case "BackPressed":
         return Opt.match(children.Note.output(), {
           onNone: () => defect("A press of back while no note was open"),
-          onSome: ({ editing }) =>
-            editing
-              ? { state, tell: [{ _tag: "Note", message: { _tag: "BackPressed" } }] }
-              : { state: { ...state, open: Opt.none() } }
+          onSome: (page) =>
+            closes(page)
+              ? { state: { ...state, open: Opt.none() } }
+              : { state, tell: [{ _tag: "Note", message: { _tag: "BackPressed" } }] }
         })
     }
   },
-  onEvent: {
-    // A page is there only while a note is open: a parent's children are those its state lists.
-    Note: (event) => (state) =>
-      Opt.match(Opt.flatMap(state.open, (index) => Arr.replace(state.notes, index, event.text)), {
-        onNone: () => defect("A note was saved while none was open"),
-        onSome: (notes) => ({ state: { notes, open: Opt.none() } })
-      })
-  },
+  onEvent: { Note: saved },
   subscriptions: (_, children) => Opt.isSome(children.Note.output()) ? ["back"] : [],
   listen: () => backPressed,
   // The page is read once, with the number of its instance, which its view's dispatch and key are given.
   makeModel: (state, children) =>
-    Opt.match(Opt.all({ instance: children.Note.instance(), model: children.Note() }), {
+    Opt.match(Opt.all({ instance: children.Note.instance(), model: children.Note(), output: children.Note.output() }), {
       onNone: () => ({
         _tag: "List" as const,
         notes: Arr.map(state.notes, (text, index) => ({ text, open: OwnMessage.NoteOpened({ index }) }))
       }),
-      onSome: ({ instance, model }) => ({
+      onSome: ({ instance, model, output }) => ({
         _tag: "Note" as const,
         instance,
         model,
-        close: model._tag === "Reading" ? Opt.some(OwnMessage.CloseClicked()) : Opt.none()
+        close: closes(output) ? Opt.some(OwnMessage.CloseClicked()) : Opt.none()
       })
     })
 })

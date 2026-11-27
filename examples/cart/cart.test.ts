@@ -186,6 +186,21 @@ describe("cart", () => {
       expect(Row.update({ _tag: "PriceFetched", quantity: 1, amount: 4 })(fetching)).toBe(reject)
     })
 
+    test("a row told the lock takes it, and keeps its quantity and its price", () => {
+      const unlocked = { quantity: 2, price: Row.Price.Fetched({ amount: 8 }), locked: false }
+      const locked = { ...unlocked, locked: true }
+      expect(applyAll(Row.row.external, [{ _tag: "LockChanged", locked: true }], unlocked)).toEqual({
+        state: locked,
+        commands: [],
+        events: []
+      })
+      expect(applyAll(Row.row.external, [{ _tag: "LockChanged", locked: false }], locked)).toEqual({
+        state: unlocked,
+        commands: [],
+        events: []
+      })
+    })
+
     // Each answer is waited for in a state that only it leaves: one outside that state is a bug.
     test("dies on an answer that nothing waits for", () => {
       const fetched = { quantity: 2, price: Row.Price.Fetched({ amount: 8 }), locked: false }

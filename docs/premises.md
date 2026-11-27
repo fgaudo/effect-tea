@@ -36,7 +36,8 @@ afresh) is none of its own.
   November 2026. That `Fiber.getCurrent` gives the fiber that runs is documented; that it is the forked one on its
   forker's stack, and the object the fork returned, is read in the source. Its tests, for `Effect.forkChild` with
   `startImmediately`, `FiberSet.run` and `FiberMap.run`, fail where it sees the forker, or a `Fiber` that is not the
-  one the fork returned and the container gives, read and iterated. By the model, and not asked: the JSDoc says that
+  one the fork returned and the container gives, read and iterated, in its first steps or once it resumes on a stack
+  of its own. By the model, and not asked: the JSDoc says that
   `Effect.fiber` gives "the fiber currently executing the effect", that a fork "returns its handle", and that a fiber
   forked so "runs synchronously" before the fork returns, so the fiber that executes the forked effect is the forked
   one, on whoever's stack, and Effect has one value for a fiber, its `Fiber`, which it compares by identity itself. A
@@ -70,8 +71,11 @@ afresh) is none of its own.
 - **`Effect.interruptible`, entered by an interrupted fiber where it is uninterruptible, fails each time with those it
   received.** No guarantee rests on it, and no code of the library: only gates of tests, by which a fiber of a test's
   program waits, uninterruptible, until it has received an interruption, or two, or reads who stopped it
-  (`untilReceived` in `engine.test.ts` and `testing/rehearse.test.ts`, `receivedFrom` in `run.test.ts`). Should it
-  fall, those tests fail, and the library stays correct. Until step 106, of 26 November 2026, the engine asked each
+  (`untilReceived` in `engine.test.ts` and `testing/rehearse.test.ts`, `receivedFrom` in `run.test.ts`), or enters
+  `Effect.interruptible` again once `untilInterrupted` caught one (`run.test.ts`, `testing/contract.test.ts`). Should it
+  fall, those tests fail, and the library stays correct: `untilReceived` dies once it has given up, so that no test
+  goes on in an order that a count of yields made, and the other gates, which have no bound, wait until the test's
+  timeout. Until step 106, of 26 November 2026, the engine asked each
   fiber the same question, and a promise rested on the answer ([`rejected.md`](rejected.md), "Asking a fiber which
   interruptions it received"). That a pending interruption takes effect as the fiber enters `Effect.interruptible` is
   documented; that one already caught makes it fail again, and with which reasons, is read in the source. Its test

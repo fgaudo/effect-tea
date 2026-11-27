@@ -453,6 +453,29 @@ describe("compose", () => {
     }])
   })
 
+  test("a child that may not be there listens where it is there and listening holds, and keeps its state where it does not listen", () => {
+    type Own = Readonly<{ ticking: boolean; listening: boolean }>
+    const Maybe = program<{ state: Own; message: "Muted" | "Unmuted" }>()
+    const maybe = Maybe.withChildren({
+      Ticker: childWhen(ticker, { there: (state) => state.ticking, listening: (state) => state.listening })
+    }).make({
+      init: { state: { ticking: true, listening: true } },
+      update: (message) => (state) => ({ state: { ...state, listening: message === "Unmuted" } }),
+      makeModel: () => null
+    })
+    const listed = [{ _tag: "Ticker", instance: 1, key: "ticks" }] as const
+    expect(maybe.subscriptions(maybe.init.state)).toEqual(listed)
+    expect(maybe.subscriptions(stateOf(maybe, { ticking: false, listening: true }))).toEqual([])
+    const { state: ticked } = applyAll(maybe.update, [{ _tag: "Ticker", message: { _tag: "Tick" } }], maybe.init.state)
+    const { state: muted } = applyAll(maybe.update, ["Muted"], ticked)
+    expect(maybe.subscriptions(muted)).toEqual([])
+    expect(Opt.map(muted.children.Ticker, ({ instance, state }) => ({ instance, state })))
+      .toEqual(Opt.some({ instance: 1, state: { ticks: 1 } }))
+    const { state: unmuted } = applyAll(maybe.update, ["Unmuted"], muted)
+    expect(maybe.subscriptions(unmuted)).toEqual(listed)
+    expect(stateAt(unmuted.children.Ticker)).toEqual({ ticks: 1 })
+  })
+
   test("a child's model is kept while its state is the same object", () => {
     const first = app.makeModel(withRight)
     expect(app.makeModel({ ...withRight, own: { ...withRight.own, saves: 1 } }).left).toBe(first.left)
@@ -1099,6 +1122,27 @@ describe("the children that the library keeps", () => {
     expect(started.init.state.starts).toBe(8)
   })
 
+  test("a step that lists several children anew starts them by the order of the names, then of the ids as listed, each with the next number", () => {
+    type Desk = Readonly<{ rows: ReadonlyArray<number>; open: boolean; cells: ReadonlyArray<number> }>
+    const Desk = program<{ state: Desk; message: "Opened" }>()
+    const desk = Desk.withChildren({
+      Rows: childById(ticker, { ids: (state) => state.rows }),
+      Alone: childWhen(ticker, { there: (state) => state.open }),
+      Cells: childById(ticker, { ids: (state) => state.cells })
+    }).make({
+      init: { state: { rows: [], open: false, cells: [] } },
+      update: () => () => ({ state: { rows: [5, 2], open: true, cells: [9] } }),
+      makeModel: () => null
+    })
+    const { state } = applyAll(desk.update, ["Opened"], desk.init.state)
+    expect({
+      rows: state.own.rows.map((id) => Opt.map(HashMap.get(state.children.Rows, id), (row) => row.instance)),
+      alone: Opt.map(state.children.Alone, (alone) => alone.instance),
+      cells: Opt.map(HashMap.get(state.children.Cells, 9), (cell) => cell.instance),
+      starts: state.starts
+    }).toEqual({ rows: [Opt.some(1), Opt.some(2)], alone: Opt.some(3), cells: Opt.some(4), starts: 4 })
+  })
+
   test("a child that a step lists anew is started, with its first commands lifted with its number", () => {
     const before = after(added(1, "a")).state
     const { state, commands } = applyAll(rowList.update, [added(2, "b")], before)
@@ -1200,6 +1244,25 @@ describe("the children that the library keeps", () => {
     const renewed = accepted(single.update({ _tag: "Renewed" })(opened))
     expect(instanceOf(renewed.state)).toEqual(Opt.some(2))
     expect(renewed.commands).toEqual([{ _tag: "One", instance: 2, command: { _tag: "Load", label: "one" } }])
+  })
+
+  describe("a key that gives a function made anew", () => {
+    // "Copied" makes the own state anew, equal to the one before.
+    const Restless = program<{ state: Ticks; message: "Copied" }>()
+    const restless = Restless.withChildren({ Ticker: child(ticker, { key: () => () => undefined }) }).make({
+      init: { state: noTicks },
+      update: () => (state) => ({ state: { ...state } }),
+      makeModel: () => null
+    })
+    const ticked = applyAll(restless.update, [{ _tag: "Ticker", message: { _tag: "Tick" } }], restless.init.state).state
+    const tickerOf = (state: StateOf<typeof restless>) =>
+      Opt.map(state.children.Ticker, ({ instance, state }) => ({ instance, state }))
+
+    test("starts the child again at a step that makes the own state anew, from its init, with no error", () => {
+      expect(tickerOf(ticked)).toEqual(Opt.some({ instance: 1, state: { ticks: 1 } }))
+      const { state } = applyAll(restless.update, ["Copied"], ticked)
+      expect(tickerOf(state)).toEqual(Opt.some({ instance: 2, state: noTicks }))
+    })
   })
 
   test("a step that removes an id and lists it again keeps the child, as its flags are the same", () => {
@@ -1954,26 +2017,35 @@ describe("what a parent reads of its children", () => {
       external: () => (state) => ({ state, events: ["Rang"] }),
       makeModel: () => null
     })
-    type Told = "Kept" | "Restarted" | "AfterBell"
-    const Desk = program<{ state: Readonly<{ key: number }>; message: Told }>()
+    type Told = "Kept" | "KeptById" | "Restarted" | "AfterBell"
+    const Desk = program<
+      { state: Readonly<{ key: number; ids: ReadonlyArray<number> }>; message: Told; external: "Kept" }
+    >()
     const desk = Desk.withChildren({
       Lamp: child(checked, { key: (state) => state.key }),
+      Lamps: childById(checked, { ids: (state) => state.ids }),
       Bell: child(bell)
     }).make({
-      init: { state: { key: 0 } },
+      init: { state: { key: 0, ids: [] } },
       update: (message, children) => (state) => {
         const read = { _tag: "Lamp", message: children.Lamp.output() } as const
         return message === "Kept"
           ? { state, tell: [read] }
+          : message === "KeptById"
+          ? { state, tell: [{ _tag: "Lamps", id: 1, message: children.Lamps.output(1) }] }
           : message === "Restarted"
-          ? { state: { key: state.key + 1 }, tell: [read] }
+          ? { state: { ...state, key: state.key + 1 }, tell: [read] }
           : { state, tell: [{ _tag: "Bell", message: "Ring" }, read] }
       },
+      external: (_, children) => (state) => ({ state, tell: [{ _tag: "Lamp", message: children.Lamp.output() }] }),
       onEvent: { Bell: () => (state) => ({ state, tell: [{ _tag: "Lamp", message: flip }] }) },
       makeModel: () => null
     })
-    const on = stateOf(desk, { key: 0 }, { Lamp: { on: true } })
+    const on = stateOf(desk, { key: 0, ids: [1] }, { Lamp: { on: true }, Lamps: [[1, { on: true }]] })
     expect(stateAt(accepted(desk.update("Kept")(on)).state.children.Lamp)).toEqual({ on: true })
+    expect(stateAt(desk.external("Kept")(on).state.children.Lamp)).toEqual({ on: true })
+    const byId = accepted(desk.update("KeptById")(on)).state.children.Lamps
+    expect(Opt.map(HashMap.get(byId, 1), (row) => row.state)).toEqual(Opt.some({ on: true }))
     expect(thrown(() => desk.update("Restarted")(on))).toBeInstanceOf(InvariantDefect)
     expect(thrown(() => desk.update("AfterBell")(on))).toBeInstanceOf(InvariantDefect)
   })
@@ -2395,10 +2467,14 @@ describe("what a parent can do with a child", () => {
     const ids = { ids: (): ReadonlyArray<number> => [] }
     // @ts-expect-error: an external message applies in every state.
     expect(child(rejecting)).toBeDefined()
+    // @ts-expect-error: for a child that may not be there too.
+    expect(childWhen(rejecting, { there: () => true })).toBeDefined()
     // @ts-expect-error: for children by id too.
     expect(childById(rejecting, ids)).toBeDefined()
     // @ts-expect-error: the commands of its external need a `runCommand`, as those of its update do.
     expect(child(saving)).toBeDefined()
+    // @ts-expect-error: for a child that may not be there too.
+    expect(childWhen(saving, { there: () => true })).toBeDefined()
     // @ts-expect-error: for children by id too.
     expect(childById(saving, ids)).toBeDefined()
     // @ts-expect-error: and the events of its external need an `onEvent` of its parent.
@@ -2480,6 +2556,12 @@ describe("what a parent can do with a child", () => {
     expect(one.init.commands).toEqual([{ _tag: "Saving", instance: 1, command: { _tag: "Save" } }])
     expect(thrown(() => one.runCommand(Opt.getOrThrow(Arr.head(one.init.commands ?? [])))))
       .toMatchObject({ _tag: "CompositionDefect", child: "Saving", on: "Save" })
+    const when = One.withChildren({
+      // @ts-expect-error: likewise for a child that may not be there.
+      Saving: childWhen(saving, { there: () => true })
+    }).make({ init: { state: noTicks }, makeModel: () => null })
+    expect(thrown(() => when.runCommand(Opt.getOrThrow(Arr.head(when.init.commands ?? [])))))
+      .toMatchObject({ _tag: "CompositionDefect", child: "Saving", on: "Save" })
     const List = program<{ state: ListState }>()
     const list = List.withChildren({
       // @ts-expect-error: likewise for children by id.
@@ -2504,6 +2586,16 @@ describe("what a parent can do with a child", () => {
     const keys = one.subscriptions(one.init.state)
     expect(keys).toEqual([{ _tag: "Ticker", instance: 1, key: "ticks" }])
     expect(thrown(() => one.listen(Opt.getOrThrow(Arr.head(keys))))).toMatchObject({
+      _tag: "CompositionDefect",
+      child: "Ticker"
+    })
+    const when = One.withChildren({
+      // @ts-expect-error: likewise for a child that may not be there.
+      Ticker: childWhen(deaf, { there: () => true })
+    }).make({ init: { state: noTicks }, makeModel: () => null })
+    const whenKeys = when.subscriptions(when.init.state)
+    expect(whenKeys).toEqual([{ _tag: "Ticker", instance: 1, key: "ticks" }])
+    expect(thrown(() => when.listen(Opt.getOrThrow(Arr.head(whenKeys))))).toMatchObject({
       _tag: "CompositionDefect",
       child: "Ticker"
     })
@@ -3407,6 +3499,8 @@ describe("what the types reject", () => {
     Parent.withChildren({ Rows: keyedById })
     // @ts-expect-error: a child always there is not one that may not be, whose model would be an `Option`.
     const widened: Child<Own, typeof ticker, "always" | "sometimes"> = child(ticker)
+    // @ts-expect-error: nor is it one that may not be, alone.
+    const sometimes: Child<Own, typeof ticker, "sometimes"> = child(ticker)
     const numbered = childById(ticker, { ids: (state: Own) => state.ids })
     // @ts-expect-error: nor are children by id typed with fewer ids than theirs, which their messages would carry.
     const narrowed: ChildById<Own, 1 | 2, typeof ticker> = numbered
@@ -3422,8 +3516,8 @@ describe("what the types reject", () => {
     class Extended extends Child<Own, typeof ticker, "always"> {}
     // @ts-expect-error: nor one that extends children by id.
     class ExtendedById extends ChildById<Own, number, typeof labelled> {}
-    expect([alone, byId, forgedAlone, forgedById, widened, narrowed, assumed, widenedIds, built, builtById])
-      .toHaveLength(10)
+    expect([alone, byId, forgedAlone, forgedById, widened, sometimes, narrowed, assumed, widenedIds, built, builtById])
+      .toHaveLength(11)
     expect([Extended, ExtendedById]).toHaveLength(2)
   })
 
@@ -4351,19 +4445,84 @@ describe("what the types reject", () => {
     })
   })
 
-  test("a child whose program is a type parameter does not compile, in child, childById or withChildren", () => {
+  test("a parent's make takes exactly the pieces its types name, and its external never rejects", () => {
+    const children = { Plain: child(plain) }
+    const own = { init: { state: noTicks }, makeModel: () => null }
+    program<{ state: Ticks }>().withChildren(children).make({
+      ...own,
+      // @ts-expect-error: it names no messages, so it has none to update on.
+      update: (_: Tick) => (state) => ({ state })
+    })
+    // @ts-expect-error: it names messages, and nothing updates on them.
+    program<{ state: Ticks; message: Tick }>().withChildren(children).make(own)
+    program<{ state: Ticks }>().withChildren(children).make({
+      ...own,
+      // @ts-expect-error: it names no external messages, so it has no `external`.
+      external: () => (state) => ({ state })
+    })
+    // @ts-expect-error: its parent may send it a `Reset`, which nothing answers.
+    program<{ state: Ticks; external: Reset }>().withChildren(children).make(own)
+    program<{ state: Ticks; external: Reset }>().withChildren(children).make({
+      ...own,
+      // @ts-expect-error: an external message applies in every state.
+      external: () => () => reject
+    })
+    // @ts-expect-error: an output named is given.
+    program<{ state: Ticks; output: number }>().withChildren(children).make(own)
+    program<{ state: Ticks }>().withChildren(children).make({
+      ...own,
+      // @ts-expect-error: an output not named is not given.
+      output: (state) => state.ticks
+    })
+    program<{ state: Ticks }>().withChildren(children).make({
+      ...own,
+      // @ts-expect-error: it names no commands, so it has none to run.
+      runCommand: () => Effect.succeedNone
+    })
+    program<{ state: Ticks }>().withChildren(children).make({
+      ...own,
+      // @ts-expect-error: it names no keys, so it listens to nothing of its own.
+      subscriptions: () => ["ticks"]
+    })
+    program<{ state: Ticks }>().withChildren(children).make({
+      ...own,
+      // @ts-expect-error: nor makes a subscription.
+      listen: (): Subscription<Tick> => Channel.end({ _tag: "Tick" })
+    })
+    // @ts-expect-error: it names keys, and nothing lists them.
+    program<{ state: Ticks; key: "ticks" }>().withChildren(children).make({
+      ...own,
+      listen: (): Subscription<never> => Channel.never
+    })
+    // @ts-expect-error: nor makes their subscriptions.
+    program<{ state: Ticks; key: "ticks" }>().withChildren(children).make({
+      ...own,
+      subscriptions: () => ["ticks" as const]
+    })
+  })
+
+  test("a child whose program is a type parameter does not compile, in child, childWhen, childById or withChildren", () => {
     const { withChildren } = program<{ state: Ticks }>()
     const wrapping = <P extends AnyProgram>(inner: P) => {
       // @ts-expect-error: the compiler cannot decide that the program is one.
       const Inner = child(inner)
+      // @ts-expect-error: nor for a child that may not be there.
+      const Maybe = childWhen(inner, { there: () => true })
       // @ts-expect-error: nor for children by id.
       const Rows = childById(inner, { ids: (): ReadonlyArray<number> => [] })
-      return [Inner, Rows]
+      return [Inner, Maybe, Rows]
     }
     // Children declared apart, whose types compile: only `make` refuses them.
-    const parentOf = <P extends AnyProgram>(Inner: Child<Ticks, P, "always">, Rows: ChildById<Ticks, number, P>) =>
+    const parentOf = <P extends AnyProgram>(
+      Inner: Child<Ticks, P, "always">,
+      Maybe: Child<Ticks, P, "sometimes">,
+      Rows: ChildById<Ticks, number, P>
+    ) => [
       // @ts-expect-error: nor what the children need, such as an `onEvent` for their events.
-      withChildren({ Inner, Rows }).make({ init: { state: noTicks }, makeModel: () => null })
+      withChildren({ Inner, Rows }).make({ init: { state: noTicks }, makeModel: () => null }),
+      // @ts-expect-error: for a child that may not be there too.
+      withChildren({ Maybe }).make({ init: { state: noTicks }, makeModel: () => null })
+    ]
     expect([wrapping, parentOf]).toHaveLength(2)
   })
 })

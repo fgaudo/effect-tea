@@ -165,7 +165,9 @@ type ChildDeclaration<State, P, There> = {
  *
  * @example
  * ```ts
- * export const rows: ChildById<State, number, typeof Row.row> = childById(Row.row, { ids: (state) => state.ids })
+ * export const rows: ChildById<State, number, typeof Row.row> = childById(Row.row, {
+ *   ids: (state: State) => state.ids
+ * })
  * ```
  *
  * @see The guide, "Composition".
@@ -220,7 +222,7 @@ type IsAlways<C> = C extends Child<any, any, "always"> ? true : false
  *
  * @example
  * ```ts
- * export const stopwatches = { Stopwatch: childById(Stopwatch.stopwatch, { ids: (state) => state.ids }) }
+ * export const stopwatches = { Stopwatch: childById(Stopwatch.stopwatch, { ids: (state: Own) => state.ids }) }
  *
  * const halt = (state: Own, ids: ReadonlyArray<number>): Step<Own, never, never, TellOf<typeof stopwatches>> => ({
  *   state,
@@ -294,7 +296,7 @@ type ReadOutput<C> = C extends ChildByIdOf<infer Id, infer P> ? (id: Id) => Outp
  *
  * @example
  * ```ts
- * export const stopwatches = { Stopwatch: childById(Stopwatch.stopwatch, { ids: (state) => state.ids }) }
+ * export const stopwatches = { Stopwatch: childById(Stopwatch.stopwatch, { ids: (state: Own) => state.ids }) }
  *
  * const running = (state: Own, children: OutputsOf<typeof stopwatches>) =>
  *   state.ids.filter((id) => children.Stopwatch.output(id).running)
@@ -1243,8 +1245,8 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * the services of its `runCommand`, and its subscriptions the services of its `listen`. Nothing names these
    * services: they are inferred.
    *
-   * @param config - Its `init` and `makeModel`, and its `update`, `external`, `runCommand`, `subscriptions` and
-   * `listen` where it has them.
+   * @param config - Its `init` and `makeModel`, and its `update`, `external`, `output`, `runCommand`, `subscriptions`
+   * and `listen` where it has them.
    * @returns The program, which runs alone or as a child of another.
    *
    * @example
@@ -1585,8 +1587,8 @@ export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T
    * - The parent's commands need the services of its `runCommand` and of its children's commands, and its
    *   subscriptions those of its `listen` and of its children's subscriptions. Nothing names them: they are inferred.
    *
-   * @param config - Its `init` and `makeModel`, and its `update`, `external`, `runCommand`, `subscriptions`, `listen`
-   * and `onEvent` where it has them.
+   * @param config - Its `init` and `makeModel`, and its `update`, `external`, `output`, `runCommand`,
+   * `subscriptions`, `listen` and `onEvent` where it has them.
    * @returns The parent, which runs alone or as a child of another.
    *
    * @example

@@ -38,6 +38,9 @@ version, and everything else, features included, the patch version.
   `DeclareChildById` takes its type parameters as `State`, `P`, then `Id`.
   Upgrade: write `ids` or `flags` before a `listening` that takes the id; give literal ids with `as const`,
   `ids: () => [1, 2] as const`.
+- **Breaking**: `run` and `runAll` of `rehearse` whose answer is applied wait for the job of the answer, as `send` does,
+  though a fiber of the program dies meanwhile, the answer's model among them. `run` failed with the defect at once.
+  Upgrade: a test that expects such a `run` to fail with the defect expects the rehearsal to fail with it.
 - The errors of `child`, `childWhen` and `childById`, and of `make`, `start`, `drive` and `rehearse` given a piece or
   `flags` that the program does not name, are at the option, and say what to write or the type it takes, in place of
   that it takes `never` or the error of another form.
@@ -46,6 +49,9 @@ version, and everything else, features included, the patch version.
 
 ### Fixed
 
+- `rehearse` applies a subscription's end value before a `hearNext` that waited beside the one that heard it fails.
+- "Composition" said that a child whose `flags` or `key` make a function anew starts again at each step: it does at
+  each step that makes the parent's own state anew, and a step that leaves that state the very same keeps the child.
 - `InvariantDefect`, `ProgramDefect` and `CompositionDefect` can be passed where a class is asked for: to jest's
   `toThrow`, as "Testing" writes it, and to Effect's `Match.instanceOf` and `Schema.instanceOf`.
 

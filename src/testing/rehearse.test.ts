@@ -2172,8 +2172,9 @@ describe("rehearse, as a call is interrupted between what it took and its job", 
     })
   }, Infinity)
 
-  // `runCommand` has been called, and its effect has not begun when the interruption reaches the call: the fiber
-  // that would run it ends before `Effect.onInterrupt` is entered, so nothing cancels the command.
+  // `runCommand` has been called, and its effect has not begun when the interruption reaches the call: the release of
+  // the call cancels the command before it stops the fiber that would run it, so the command is never left
+  // unanswered and uncancelled.
   test("a run interrupted before the effect of its command begins fails the rehearsal", () => {
     prioritizedSchedules(interrupted, { ...runs, pinned: [8, 17, 29, 44] }, (exit) => {
       if (Exit.isFailure(exit)) throw new Error(Cause.pretty(exit.cause))
@@ -2515,13 +2516,15 @@ const received = Effect.map(
   Effect.exit(Effect.interruptible(Effect.void)),
   (exit) => Exit.isFailure(exit) ? exit.cause.reasons.filter(Cause.isInterruptReason).length : 0
 )
-// The gate is the fiber's own: it waits until it has received `count` interruptions, or gives up after a while.
+// The gate is the fiber's own: it waits until it has received `count` interruptions. One that gives up dies, so that
+// the test fails rather than go on in an order a count of yields made.
 const untilReceived = (count: number, tries = 10_000): Effect.Effect<void> =>
-  Effect.flatMap(
-    received,
-    (seen) =>
-      seen >= count || tries === 0 ? Effect.void : Effect.andThen(Effect.yieldNow, untilReceived(count, tries - 1))
-  )
+  Effect.flatMap(received, (seen) =>
+    seen >= count
+      ? Effect.void
+      : tries === 0
+      ? Effect.die(new Error(`The gate gave up before the fiber received ${count} interruptions`))
+      : Effect.andThen(Effect.yieldNow, untilReceived(count, tries - 1)))
 
 describe("rehearse, as a run is interrupted while its command runs", () => {
   type Count = Readonly<{ count: number }>
@@ -3248,7 +3251,7 @@ describe("rehearse, as a call that has applied its message meets a defect", () =
     }
   }
 
-  test("a hearNext whose message's model throws returns the message, as a send does", async () => {
+  test("a hearNext whose message's model throws returns the message, and the rehearsal fails", async () => {
     let heard: Opt.Option<Exit.Exit<"Tick">> = Opt.none()
     const exit = await Effect.runPromiseExit(rehearse(
       program,
@@ -3258,5 +3261,116 @@ describe("rehearse, as a call that has applied its message meets a defect", () =
     ))
     expect(heard).toEqual(Opt.some(Exit.succeed("Tick")))
     expect(Exit.isFailure(exit)).toBe(true)
+  })
+
+  // Found by the review of the testing tools of 27 November 2026. `Fetch` answers `Done` once `answer` is done, and
+  // `Done` makes a state whose model throws, starts `Note` and takes `ticks` away. The run waits for its command in a
+  // race with a death (`runFirst` in `stage.ts`), until the thunk of the answer has told it what it left to do: so the
+  // defect recorded in that thunk leaves the call to the job of its answer, which releases `ticks` and owes `Note`.
+  const answered = (
+    answer: Deferred.Deferred<void>,
+    released: Array<boolean>
+  ): Program<{ state: Count; model: Count; message: "Tick" | "Done"; command: "Fetch" | "Note"; key: "ticks" }> => ({
+    init: { state: { count: 0 }, commands: ["Fetch"] },
+    update: (message) => (state) =>
+      message === "Done" ? { state: { count: state.count + 1 }, commands: ["Note"] } : { state },
+    runCommand: (command) =>
+      command === "Fetch" ? Effect.as(Deferred.await(answer), Opt.some("Done" as const)) : Effect.succeedNone,
+    subscriptions: ({ count }) => count === 0 ? ["ticks" as const] : [],
+    listen: () =>
+      Channel.succeed<"Tick" | "Done">("Tick").pipe(
+        Channel.concatWith(() => Channel.never),
+        Channel.onExit(() => Effect.sync(() => released.push(true)))
+      ),
+    makeModel: (state) => {
+      if (state.count === 1) throw new Error("model")
+      return state
+    }
+  })
+
+  test("a run whose answer's model throws returns its command once the job of the answer is done", async () => {
+    const released: Array<boolean> = []
+    const seen: Array<unknown> = []
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const answer = yield* Deferred.make<void>()
+      return yield* rehearse(
+        answered(answer, released),
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.hearNext((key) => key === "ticks")
+          // Started on this stack, the call waits for its command's fiber before the command answers.
+          const running = yield* Effect.forkChild(Effect.exit(rehearsal.run((command) => command === "Fetch")), {
+            startImmediately: true
+          })
+          yield* Deferred.succeed(answer, undefined)
+          const ran = yield* Fiber.join(running)
+          seen.push(ran, [...released], yield* rehearsal.state, yield* rehearsal.pending)
+        })
+      )
+    }))
+    expect(seen).toEqual([Exit.succeed("Fetch"), [true], { count: 1 }, ["Note"]])
+    expect(Exit.isFailure(exit)).toBe(true)
+  })
+
+  test("a runAll whose answer's model throws fails with the defect once the job of the answer is done", async () => {
+    const released: Array<boolean> = []
+    const seen: Array<unknown> = []
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const answer = yield* Deferred.make<void>()
+      return yield* rehearse(
+        answered(answer, released),
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* rehearsal.hearNext((key) => key === "ticks")
+          // Started on this stack, the call waits for its command's fiber before the command answers.
+          const running = yield* Effect.forkChild(Effect.exit(rehearsal.runAll), { startImmediately: true })
+          yield* Deferred.succeed(answer, undefined)
+          const ran = yield* Fiber.join(running)
+          const defect = Exit.isFailure(ran) ? ran.cause.reasons.find(Cause.isDieReason)?.defect : undefined
+          seen.push(defect instanceof ProgramDefect && defect.where, [...released], yield* rehearsal.pending)
+        })
+      )
+    }))
+    expect(seen).toEqual(["render", [true], ["Note"]])
+    expect(Exit.isFailure(exit)).toBe(true)
+  })
+})
+
+describe("rehearse, as a subscription that two calls of hearNext wait on ends", () => {
+  type Log = Readonly<{ heard: ReadonlyArray<string> }>
+  type Said = "Last" | "Mine" | "Noop"
+  // Ends with `Last` once `gate` is done; `update` writes down each message in the order it is applied.
+  const ending = (gate: Deferred.Deferred<void>): Program<{ state: Log; model: Log; message: Said; key: "k" }> => ({
+    init: { state: { heard: [] } },
+    update: (message) => ({ heard }) => ({ state: { heard: [...heard, message] } }),
+    subscriptions: () => ["k" as const],
+    listen: () => Channel.fromEffectDone(Effect.as(Deferred.await(gate), "Last" as const)),
+    makeModel: (log) => log
+  })
+
+  // Found by the review of the testing tools of 27 November 2026. The thunk that applies the end value tells the calls
+  // still waiting that the start has ended once it has given the message to the engine (`hearHeld`): the second call,
+  // resumed on that stack, sends its message after the end value it was told of.
+  test("a call told that the subscription has ended sends after its end value is applied", async () => {
+    const heard = await Effect.runPromise(Effect.gen(function*() {
+      const gate = yield* Deferred.make<void>()
+      return yield* rehearse(
+        ending(gate),
+        Effect.fnUntraced(function*(rehearsal) {
+          const first = yield* Effect.forkChild(rehearsal.hearNext((key) => key === "k"), { startImmediately: true })
+          const second = yield* Effect.forkChild(
+            Effect.exit(rehearsal.hearNext((key) => key === "k")).pipe(
+              Effect.andThen(rehearsal.send(() => Opt.some<Said>("Mine")))
+            ),
+            { startImmediately: true }
+          )
+          // Its call waits for the jobs of both calls: both wait on the start once it returns.
+          yield* rehearsal.send(() => Opt.some<Said>("Noop"))
+          yield* Deferred.succeed(gate, undefined)
+          yield* Fiber.join(first)
+          yield* Fiber.join(second)
+          return (yield* rehearsal.state).heard
+        })
+      )
+    }))
+    expect(heard).toEqual(["Noop", "Last", "Mine"])
   })
 })

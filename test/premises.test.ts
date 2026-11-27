@@ -80,8 +80,8 @@ describe("code that a fiber runs on the stack of the fiber that forks it sees th
 
   /**
    * Forks, with `fork`, an effect that says which fiber it sees in each of its first steps, on the stack of the fiber
-   * that forks it, and then waits: the fibers it saw, beside the forked fiber, the one that forked it, and those that
-   * `held` reads of the container while the forked one waits.
+   * that forks it, waits, and says it again once it resumes on a stack of its own: the fibers it saw, beside the forked
+   * fiber, the one that forked it, and those that `held` reads of the container while the forked one waits.
    */
   const seen = <C>(
     make: Effect.Effect<C, never, Scope.Scope>,
@@ -99,7 +99,11 @@ describe("code that a fiber runs on the stack of the fiber that forks it sees th
       }).pipe(
         Effect.andThen(Effect.fiber),
         Effect.map((fiber) => void fibers.push(fiber)),
-        Effect.andThen(Deferred.await(gate))
+        Effect.andThen(Deferred.await(gate)),
+        Effect.andThen(Effect.withFiber((fiber) => {
+          fibers.push(fiber, Fiber.getCurrent())
+          return Effect.void
+        }))
       )
       const forked = yield* fork(container, looking)
       const kept = yield* held(container)
@@ -110,7 +114,7 @@ describe("code that a fiber runs on the stack of the fiber that forks it sees th
 
   // By identity: the very `Fiber` that the fork returned, never one that only has its id.
   const ownOnly = ({ fibers, kept, forked, forker }: Seen, keeps: number) => {
-    expect(fibers.map((fiber) => fiber === forked)).toEqual([true, true, true])
+    expect(fibers.map((fiber) => fiber === forked)).toEqual([true, true, true, true, true])
     expect(fibers.some((fiber) => fiber === forker)).toBe(false)
     expect(kept.map((fiber) => fiber === forked)).toEqual(Array.from({ length: keeps }, () => true))
   }

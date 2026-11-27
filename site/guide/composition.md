@@ -60,16 +60,17 @@ of what it returns, of `child`, `childWhen` and `childById`, of `forwardTo` and 
 A parent declares each child by name, in `withChildren`, with functions of the parent's own state.
 
 - **`child(program)` is always there.**
-- **`childWhen(program, { there })`** is there in the states where `there` holds. Its model is an `Option`.
+- **`childWhen(program, { there })`** is there where `there` holds. Its model is an `Option`.
 - **A program that has flags starts from them.** `child(program, { flags })` is always there, and `flags` gives its
-  flags in each state. `childWhen(program, { there })` is there in the states where `there` gives `Some` of them.
-- **`key`** gives a value from the parent's state, for a child without flags: `child(program, { key })`.
+  flags in each state. `childWhen(program, { there })` is there where `there` gives `Some` of them.
+- **`key`** gives a value, for a child without flags: `child(program, { key })` or
+  `childWhen(program, { there, key })`.
 - **A child that the state no longer lists is dropped.** Its state is gone, its subscriptions stop, and a message for
   it is rejected. A child that a later state lists again starts again, from its `init`.
-- **Other flags, or another value of `key`, are another child**, which starts again. They are compared by value, with
-  `Equal`. So make them of what `Equal` compares by value: strings, numbers, and arrays and plain objects of them. A
-  function made anew in `flags` or `key` is another value at each step, and the child starts again each time, with no
-  error (see [what is left to you](./guarantees.md#what-is-left-to-you)).
+- **Other flags, or another value of `key`, are another child**, which starts again. They are compared with `Equal`, so
+  make them of what it compares by value: strings, numbers, and arrays and plain objects of them. A function made anew
+  there is another value each time: the child starts again at each step that makes the parent's own state anew, with
+  no error (see [what is left to you](./guarantees.md#what-is-left-to-you)).
 - **`listening`** says in which states the child's subscriptions run. Without it, they run whenever the child is
   there. In the example above, `listening` stops the clock's ticks while About is open, and the clock keeps its state.
 - **`tell`** gives, from the parent's state, an external message that the child is told:

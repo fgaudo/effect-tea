@@ -23,7 +23,10 @@ the engine and in the testing tools.
     once the outermost `apply` returns, to one fiber of effects, which takes them from an unbounded queue one at a
     time, in the order of the states (`perform`). A step that stops, starts and commands nothing makes no job
     (`queue`). A message sent before the effects start is applied all the same, and its job waits for them (`effects`).
-    Never apply a message from the fiber of effects, nor start a step's commands apart from its job.
+    The engine's fiber of effects applies no message of its own, and starts a step's commands only in its job. A
+    message is still applied on its stack by a fiber that a job starts or resumes there, as a subscription that sends
+    as it starts, and by a job that only tells (`after`), which a tool gives: `rehearse` applies there the messages
+    held for a `hearNext` (`openFor`). Such a message is applied whole, and its job offered after the one under way.
   - The listeners are told last, once the state is current, over a copy of the listeners, each only while it is still
     among them (`tell`): one stopped during a notice is not told of it, and one added is told from the next, so a
     listener that adds another on every notice cannot loop. That they are told after the job is made and the keys
@@ -294,10 +297,13 @@ the engine and in the testing tools.
   `drive` reads each model in order, from a place of its own among the models `drive` read (`place` in `drive.ts`),
   never only the latest; the models are kept from the oldest place a wait holds, and a wait lets go of its place however
   it ends. Each thunk of `rehearse` writes the ledger before it completes a `Deferred`, gives a fiber its effect or asks
-  a start for a message: that order has no mutation, since no deterministic test reaches it. That the effects of a step
-  start only once its call has returned rests on the queue resuming the fiber of effects in a task, which the guide
-  leaves unspecified. The release of the snabbdom bridge's subscription to the handle has no killer: its stop sets
-  `stopped` first.
+  a start for a message: that order has no mutation, since no deterministic test reaches it. A thunk that applies a
+  message tells a call before it only where the call then waits on that message (`applyFor`): the `hearNext` that hears
+  it, and the `run` whose command answers, which awaits nothing of it before the command's fiber has ended. The calls
+  told that a start has ended are told once its end value is applied, so that none sends before it (`hearHeld`). Each
+  of these orders has a mutation. That the effects of a step start only once its call has returned rests on the queue
+  resuming the fiber of effects in a task, which the guide leaves unspecified. The release of the snabbdom bridge's
+  subscription to the handle has no killer: its stop sets `stopped` first.
 
   A region nothing may interrupt holds no code of the program, so no gate reaches it, and it has no mutation. It is one
   of two forms: a transition of the ledger made in the thunk that checks the end (`submit` in `testing/stage.ts`), which
@@ -337,15 +343,15 @@ the engine and in the testing tools.
     (`after`), so each call is whole for the test. A call waits in two ways only, both given by `testing/stage.ts`, and
     the lint keeps `rehearse.ts` and `simulate.ts` from awaiting a `Deferred` of their own. Before it has applied
     anything (a start, a subscription's message, a command, the job that opens a `hearNext`), it fails as soon as any
-    fiber dies, as the run dies at once (`waiting`, `afterJobs`), but where it was told what it heard: a `hearNext` is
-    told before its message is applied (`applyFor`), so that a death that the message meets, as a defect of its
-    model, leaves it to its message. Once it has applied its message, it waits for the job whole, though another fiber
-    dies (what `apply`, `applyFor` and `dispatch` give): the job of a step applied before the first defect goes on
-    whole, its commands owed and its starts opened, for as long as a release holds it. The fiber of effects dies of
-    nothing: what it and the end tell a call is data, which the call makes its error of in its own fiber, and a tool
-    names a value in its errors by one function (`failure` in `testing/failure.ts`), which throws nothing. What a value
-    throws as it is named is a failure of the test, no defect: the tool's error comes first, with
-    what was thrown as its `cause`.
+    fiber dies, as the run dies at once (`waiting`, `afterJobs`, `runFirst`), but where it was told what it heard: a
+    `hearNext`, and a `run` whose command answers, are told before the message is applied (`applyFor`), so that a
+    death that the message meets, as a defect of its model, leaves each to its message. Once it has applied its
+    message, it waits for the job whole, though another fiber dies (what `apply`, `applyFor` and `dispatch` give, and
+    `runFirst` once told): the job of a step applied before the first defect goes on whole, its commands owed and its
+    starts opened, for as long as a release holds it. The fiber of effects dies of nothing: what it and the end tell a
+    call is data, which the call makes its error of in its own fiber, and a tool names a value in its errors by one
+    function (`failure` in `testing/failure.ts`), which throws nothing. What a value throws as it is named is a failure
+    of the test, no defect: the tool's error comes first, with what was thrown as its `cause`.
   - A command's fiber (`answering`) is pending once its step's stops are released, and waits for a `run` to give it the
     effect `runCommand` returned in the `run`'s thunk, run in `commandFiber` with the services of that call. It is
     interruptible as the engine's is, by the engine's end, by an interrupted `run` and by the program alike: an

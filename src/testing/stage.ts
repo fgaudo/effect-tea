@@ -4,8 +4,9 @@
 // told what the stage gives it (`Staging`), and given to the stage once made (`on`): `rehearse` makes it through the
 // handle the run makes, with the fibers of its starts, and `simulate` with starts that run nothing
 // (`docs/records/tools-on-the-engine.md`). A call of a tool waits in two ways only, both given here: before it has
-// applied anything, raced with a death (`waiting`, `afterJobs`), and once it has applied its message, for the job whole
-// (what `apply` and `dispatch` return). The lint holds the tools to them: they await no `Deferred` themselves.
+// applied anything, raced with a death (`waiting`, `afterJobs`, a `run` until its command answers), and once it has
+// applied its message, for the job whole (what `apply` and `dispatch` return, and a `run` once its command answers).
+// The lint holds the tools to them: they await no `Deferred` themselves.
 import * as Arr from "effect/Array"
 import * as Cause from "effect/Cause"
 import type * as Context from "effect/Context"
@@ -211,7 +212,8 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
   }
   // A death that comes once the call is told what it heard, in the thunk that applies its message (`applyFor`), as a
   // defect of the model of its state, leaves the call to what it was told: its message is applied, and it waits for
-  // its job. That thunk may run inside the job the call waits for, which wakes a subscription on its stack.
+  // its job. That thunk may run inside the job the call waits for, which wakes a subscription on its stack: the fiber
+  // of effects then applies the message, as a job that only tells may (`docs/invariants.md`).
   const waiting = <A, T = A>(deferred: Deferred.Deferred<A>, told?: Deferred.Deferred<T>) =>
     orDead(
       Deferred.await(deferred),
@@ -271,11 +273,14 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
   // the step stops has released what it held: the command is pending from here on. Its fiber says what it is in its
   // first step, for a `run` interrupted to stop it, waits until a `run` gives it the effect of the command, and runs it
   // as the engine's fiber does (`commandFiber`), interruptible throughout: an interruption that lands before the thunk
-  // of the answer leaves it unapplied, and the root makes one without the run's mark a defect. The thunk applies the
-  // answer and leaves what its `run` does last, the wait for the job of the answer, and the command is no longer under
-  // way from that thunk on. Refused, as the stage has ended, or as its run was interrupted before it and cancelled it
-  // (`Ledger.settle`), the answer is applied by nobody: its fiber ends with nothing to do, since one that interrupts
-  // itself is a defect. However the fiber ends, the command is no longer under way.
+  // of the answer leaves it unapplied, and the root makes one without the run's mark a defect. The thunk leaves what
+  // its `run` does last, the wait for the job of the answer, and then applies the answer, as `applyFor` tells a call
+  // before its message: so a death that the answer meets, as a defect of its model, finds the `run` told, and the
+  // `run` waits for the job of the answer. Nobody awaits `answer` before the fiber has ended, so nothing resumes on
+  // the stack before the answer is applied. The command is no longer under way from that thunk on. Refused, as the
+  // stage has ended, or as its run was interrupted before it and cancelled it (`Ledger.settle`), the answer is applied
+  // by nobody: its fiber ends with nothing to do, since one that interrupts itself is a defect. However the fiber
+  // ends, the command is no longer under way.
   const answering = (command: Command): Effect.Effect<void> => {
     const parked: Parked<Message, CommandServices> = { fiber: Deferred.makeUnsafe(), given: Deferred.makeUnsafe() }
     stage.ledger = Ledger.owe(stage.ledger, [{ command, handle: parked }])
@@ -293,7 +298,7 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
               const settled = Ledger.settle(stage.ledger, ticket)
               if (Opt.isNone(settled)) return Effect.void
               stage.ledger = settled.value
-              Deferred.doneUnsafe(answer, Exit.succeed(apply(fromCommand, message)))
+              applyFor(fromCommand, message, (applied) => Deferred.doneUnsafe(answer, Exit.succeed(applied)))
               return Effect.void
             }, Effect.void)
         ).pipe(
@@ -308,7 +313,8 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
     })
   }
   // What a `run` waits for once it has given its command: the fiber's end, its root and its record included, and then
-  // what it left to do last, the wait for the job of its answer.
+  // what it left to do last, the wait for the job of its answer. Raced with a death until the fiber has told the call
+  // what it left (`answer`): from then on, the call waits for the job of its answer whole, as `apply` waits.
   const answered = (
     { parked, answer }: Readonly<
       { parked: Parked<Message, CommandServices>; answer: Deferred.Deferred<Effect.Effect<void>> }
@@ -352,7 +358,7 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
         (taking): Effect.Effect<Ran<Command>> =>
           taking._tag === "None"
             ? Effect.succeed(taking)
-            : Effect.map(orDead(answered(taking)), (answer) => ({
+            : Effect.map(orDead(answered(taking), () => Deferred.isDoneUnsafe(taking.answer)), (answer) => ({
               _tag: "Ran",
               command: taking.command,
               answer
