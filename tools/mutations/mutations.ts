@@ -3024,6 +3024,18 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
+    name: "a call of rehearse reads what the message given last came to",
+    file: "src/testing/stage.ts",
+    from: "    const { arrived } = own\n",
+    to: "    const { arrived } = arrival\n",
+    killedBy: [
+      [
+        "src/testing/rehearse.test.ts",
+        "a send whose message's model throws waits for its job, though an answer is applied on its stack"
+      ]
+    ]
+  },
+  {
     name: "rehearse reads the model after the first defect",
     file: "src/testing/rehearse.ts",
     from: "model: deadOr(Effect.sync(() => app.model())),",

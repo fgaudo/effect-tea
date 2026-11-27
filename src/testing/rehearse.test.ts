@@ -3287,6 +3287,29 @@ describe("rehearse, as a call that has applied its message meets a defect", () =
     expect(seen).toEqual(["render", [true], ["Note"]])
     expect(Exit.isFailure(exit)).toBe(true)
   })
+
+  // The death that the model of `Done` records completes as the thunk returns, inside `send`, and wakes there the
+  // `run` that waits on `Fetch`: it fails, and lets `Fetch` answer on that stack, an answer that the dead run drops.
+  test("a send whose message's model throws waits for its job, though an answer is applied on its stack", async () => {
+    const seen: Array<unknown> = []
+    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
+      const answer = yield* Deferred.make<void>()
+      return yield* rehearse(
+        answered(answer, []),
+        Effect.fnUntraced(function*(rehearsal) {
+          yield* Effect.forkChild(
+            Effect.exit(rehearsal.run((command) => command === "Fetch")).pipe(
+              Effect.andThen(Deferred.succeed(answer, undefined))
+            ),
+            { startImmediately: true }
+          )
+          seen.push(yield* Effect.exit(rehearsal.send(() => Opt.some("Done" as const))), yield* rehearsal.pending)
+        })
+      )
+    }))
+    expect(seen).toEqual([Exit.void, ["Note"]])
+    expect(Exit.isFailure(exit)).toBe(true)
+  })
 })
 
 describe("rehearse, as a subscription that two calls of hearNext wait on ends", () => {

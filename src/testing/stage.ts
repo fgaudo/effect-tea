@@ -191,11 +191,13 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
   // before it is done does not tell.
   const undelivered = new Set<Deferred.Deferred<void>>()
   // What the engine's thunk tells of the message `apply` gives it, read by `apply` as `send` returns: what it came to,
-  // told only once its state is current, with its keys. Written only by `stepped`, on this stack.
-  let arrived: Opt.Option<Arrived<State, Command, Event>> = Opt.none()
+  // told only once its state is current, with its keys. Written only by `stepped`, on this stack, into the box of the
+  // call that gave the message last: each call reads its own, since the release that ends `send` may wake, on this
+  // stack, a fiber that applies another message, as a command's answer, before `send` returns.
+  let arrival: { arrived: Opt.Option<Arrived<State, Command, Event>> } = { arrived: Opt.none() }
   const stepped = (step: Engine.Stepped<State, Command, Key, Event>) => {
     if (step._tag === "Arrived") {
-      arrived = Opt.some(step.arrived)
+      arrival.arrived = Opt.some(step.arrived)
       if (step.arrived._tag === "Applied") events.push(...step.arrived.events)
       return
     }
@@ -229,8 +231,10 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
     message: Message,
     rejected: Opt.Option<() => Effect.Effect<void>>
   ): Effect.Effect<void> => {
-    arrived = Opt.none()
+    const own: typeof arrival = { arrived: Opt.none() }
+    arrival = own
     engine.send(message, source)
+    const { arrived } = own
     if (Opt.isNone(arrived)) return failedOr(Effect.never)
     const step = arrived.value
     switch (step._tag) {

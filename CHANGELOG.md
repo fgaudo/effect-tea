@@ -54,6 +54,9 @@ version, and everything else, features included, the patch version.
 ### Fixed
 
 - `rehearse` applies a subscription's end value before a `hearNext` that waited beside the one that heard it fails.
+- A call of `rehearse` that applied a message whose model throws could fail at once, before the job of its message,
+  when the defect woke a `run` and its command answered on the same stack: it waits for that job, as its doc comment
+  says.
 - "Composition" said that a child whose `flags` or `key` make a function anew starts again at each step: it does at
   each step that makes the parent's own state anew, and a step that leaves that state the very same keeps the child.
 - `InvariantDefect`, `ProgramDefect` and `CompositionDefect` can be passed where a class is asked for: to jest's
