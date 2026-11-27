@@ -32,13 +32,7 @@ What a task or a review found that no failing test shows and no user met ("How a
 the case of the inference matrix (`bun run inference --filter <case>`). None is a step of its own: they are weighed
 together before a release, and one not taken then goes to `docs/rejected.md`.
 
-- `Host`, shown again by `<Activity>`, draws the ended run's last model until the new run gives its own, and a handler
-  of that frame sends to a stopped engine, which drops it; the old run's release may overlap the new run's start.
-  Shown by a test of that frame, or a user's report of a lost click; the guide says nothing of it.
-- A union of children objects passes `NamedAsMakeReads` (`compose.ts`): `keyof ({ 1: c } | { a: c })` is `never`, so a
-  name written as a number, or `__proto__`, compiles there, and the types and `make` disagree again; a fix distributes
-  over the union. A symbol key is refused with the message of numbers. Shown by a test of the types with such a union;
-  no page teaches the form.
+None is open: those found before 0.11.0 were weighed on 27 November 2026.
 
 ## Next, in order
 

@@ -1222,7 +1222,9 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * The options of a child declared in this call are typed by the parent's own state. A child declared for another
    * state does not compile here, nor does the `make` it gives for a child whose program is a type parameter, as
    * `child` does not. A name is a string: one written as a number, `{ 1: … }`, does not compile, and `{ "1": … }` does.
-   * Nor does a child named `__proto__`, which JavaScript makes the prototype of the object.
+   * Nor does a symbol, nor a child named `__proto__`, which JavaScript makes the prototype of the object. The children
+   * are one object, with no optional child: a union of objects does not compile, and a child that is there by a
+   * condition is declared with `childWhen`.
    *
    * @param children - The children, by name: `{ Clock: child(…), Row: childById(…) }`.
    * @returns `make`, which makes the parent.
@@ -1567,13 +1569,34 @@ export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field
 /**
  * A name that `make` would not read as the types do does not compile. One written as a number: TypeScript keys it by a
  * number and JavaScript by a string, so the types of the parent, which read the names as strings, would not see a child
- * that `make` routes to. And `__proto__`: JavaScript makes `{ __proto__: … }` the prototype of the object, so `make`
- * would see no child where the types see one.
+ * that `make` routes to. A symbol, which `make` does not read. And `__proto__`: JavaScript makes `{ __proto__: … }` the
+ * prototype of the object, so `make` would see no child where the types see one. The children are one object: of a
+ * union, `keyof` gives only the names that every member has, so the checks above would not see the others, and the
+ * parent's types would read no child. And none is optional, which the types would read as there where `make` sees
+ * none.
  */
-type NamedAsMakeReads<C> = [Exclude<keyof C, string>] extends [never]
-  ? [Extract<keyof C, "__proto__">] extends [never] ? unknown
-  : Refused<"a child is not named __proto__, which JavaScript makes the prototype">
+type NamedAsMakeReads<C> = true extends Several<C>
+  ? Refused<"the children are one object: declare a child that is there by a condition with childWhen">
+  : [Optional<C>] extends [never] ? NamedOnce<C>
+  : Refused<"a child is not optional: declare one that is there by a condition with childWhen">
+
+/** The check of each name, of children that are one object: a number, a symbol and `__proto__` are refused. */
+type NamedOnce<C> = [Extract<keyof C, number>] extends [never]
+  ? [Extract<keyof C, symbol>] extends [never] ? [Extract<keyof C, "__proto__">] extends [never] ? unknown
+    : Refused<"a child is not named __proto__, which JavaScript makes the prototype">
+  : Refused<"a child's name is a string">
   : Refused<"a child's name is a string: write a number in quotes">
+
+/**
+ * Whether the children are a union of objects: `true` for a member that the union is not assignable to, or that has a
+ * name the union lacks, as `{ a } | { a; b? }`, whose members are assignable to each other.
+ */
+type Several<C, Whole = C> = C extends unknown
+  ? [Whole] extends [C] ? [Exclude<keyof C, keyof Whole>] extends [never] ? false : true : true
+  : never
+
+/** The names of the children that are optional, of an object whose names are known. */
+type Optional<C> = { [K in keyof C]-?: string extends K ? never : {} extends Pick<C, K> ? K : never }[keyof C]
 
 /**
  * What `withChildren` returns: the `make` of a parent of these children.

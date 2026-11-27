@@ -637,6 +637,17 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   weighed again in step 61: the premise holds no promise, and its fall costs what the microtask saves each day, the
   commands of `init` twice in development and a program started anew. _Reopen if_ a first effect must start in the
   task of `Host`'s effect, or React says when StrictMode runs a cleanup.
+- **`Host` starting its program anew before `<Activity>` shows it again**, so that the frame that shows it draws the
+  new run's first model, and a handler of that frame reaches it. Weighed with the leads before 0.11.0, on 27 November
+  2026, reasoned and not run. Shown again, `Host` draws the ended run's last model until React renders the program
+  that its effect starts anew, and a click meanwhile is a dispatch after the run has ended, which applies nothing and
+  throws nothing (`src/run.test.ts`), as an outdated click. The ended run may still release what it holds as the new
+  one starts, as with a remount by `key`, and a `fork` of the application's can wait for the last run to end before it
+  runs the next. A program begun in the cleanup that hides `Host` would be drawn while hidden, on a premise of when
+  React renders a hidden tree before it shows it again. One begun in a layout effect, and drawn before the paint, is a
+  second effect and a second place where `Host` begins its program, for a behaviour that is defined and that no user
+  has met. _Reopen if_ a user reports a click lost, or the last state shown again, as `<Activity>` shows `Host`, or a
+  test of that frame fails.
 - **A frame of the very same model taken at once.** Rejected on 20 November 2026, and superseded the same day: there are
   no frames ([`synchronous-dispatch.md`](records/synchronous-dispatch.md), R1), and the bridge to snabbdom draws in a
   microtask after each notice ([`write-without-was.md`](records/write-without-was.md)).

@@ -3759,6 +3759,47 @@ describe("what the types reject", () => {
       Named.withChildren(wide)
     })
 
+    test("a symbol does not compile, which make does not read", () => {
+      const name = Symbol("echo")
+      expect(Object.keys({ [name]: child(echo) })).toEqual([])
+      // @ts-expect-error: a child's name is a string.
+      Named.withChildren({ [name]: child(echo) })
+    })
+
+    test("a union of objects of children does not compile, whose names the types would not all see", () => {
+      type Echo = Child<Readonly<{ heard: number }>, typeof echo, "always">
+      const one: Echo = child(echo)
+      const either = (flip: boolean) => {
+        // @ts-expect-error: the children are one object.
+        Named.withChildren(flip ? { a: one } : { b: one })
+        const named: { 1: Echo } | { a: Echo } = flip ? { 1: one } : { a: one }
+        // @ts-expect-error: nor with a name that a member alone has, which `keyof` of the union does not give.
+        Named.withChildren(named)
+        const proto: { "__proto__": Echo } | { a: Echo } = flip ? { "__proto__": one } : { a: one }
+        // @ts-expect-error: nor `__proto__`.
+        Named.withChildren(proto)
+        const more: { a: Echo } | { a: Echo; 1: Echo } = flip ? { a: one, 1: one } : { a: one }
+        // @ts-expect-error: nor where a member has the names of another, and more.
+        Named.withChildren(more)
+        const maybe: { a: Echo } | { a: Echo; b?: Echo } = flip ? { a: one, b: one } : { a: one }
+        // @ts-expect-error: nor where the members are assignable to each other.
+        Named.withChildren(maybe)
+      }
+      either(true)
+    })
+
+    test("an optional child does not compile, which the types would read as there where make sees none", () => {
+      const one: Child<Readonly<{ heard: number }>, typeof echo, "always"> = child(echo)
+      const some = (flip: boolean) => {
+        // @ts-expect-error: a child is not optional.
+        Named.withChildren({ a: one, ...(flip ? { b: one } : {}) })
+        const partial: Partial<Readonly<Record<"a" | "b", typeof one>>> = { a: one }
+        // @ts-expect-error: nor partial.
+        Named.withChildren(partial)
+      }
+      some(true)
+    })
+
     test("a number in quotes is one child", () => {
       const parent = Named.withChildren({ "1": child(echo) }).make({
         init,
