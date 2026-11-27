@@ -26,6 +26,11 @@ version, and everything else, features included, the patch version.
   `program<{ state: Own }>().withChildren({ Clock: child(clock) })` in place of a line that destructures them; a child
   declared apart annotates the state in its options; `DeclareChild<T>`, `DeclareChildWhen<T>` and
   `DeclareChildById<T>` become `DeclareChild`, `DeclareChildWhen` and `DeclareChildById`.
+- **Breaking**: the `makeModel` of a program without children takes its state alone, as its other pieces do: one
+  written with a second parameter, which was `{}`, does not compile, nor does an empty `onEvent`, which only a parent
+  takes.
+  Upgrade: drop the second parameter of the `makeModel` of a program made with `make`, not `withChildren`, and its
+  `onEvent: {}`.
 - The errors of `child`, `childWhen` and `childById`, and of `make`, `start`, `drive` and `rehearse` given a piece or
   `flags` that the program does not name, are at the option, and say what to write or the type it takes, in place of
   that it takes `never` or the error of another form.

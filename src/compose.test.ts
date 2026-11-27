@@ -2232,6 +2232,11 @@ describe("what a parent reads of its children", () => {
       listen: () => Channel.never,
       makeModel: () => null
     })
+    program<{ state: Lamp }>().make({
+      init: { state: { on: false } },
+      // @ts-expect-error: nor in its `makeModel`, which has no children's models either.
+      makeModel: (state, children) => (children === undefined ? state.on : state.on)
+    })
     expect(unread.makeModel(unread.init.state)).toBeNull()
   })
 

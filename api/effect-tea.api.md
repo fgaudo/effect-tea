@@ -179,12 +179,6 @@ type CompositionFields = Readonly<{
     on?: unknown;
 }>;
 
-// @public (undocumented)
-type Config<State, C, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, External, Flags, Output> = OnEventOf<State, C, OwnCommand, Event> & ListenOf<State, C, OwnKey, Own, Heard> & NoKeyClash<OwnKey, C> & RunCommandOf<OwnCommand, Own, Ran> & UpdateOf<State, C, Own, OwnCommand, Event> & ExternalHandlerOf<State, C, External, OwnCommand, Event> & OutputHandlerOf<State, C, Output> & NoClash<Own, OwnCommand, C> & Readonly<{
-    init: Init<State, OwnCommand, Flags>;
-    makeModel: (state: State, children: Models<C>) => Model;
-}>;
-
 // @public
 export type DeclareChild = <State, P extends AnyProgram>(program: CheckedChild<P>, ...options: AlwaysOptions<State, P>) => Child<State, P, "always">;
 
@@ -228,10 +222,10 @@ export type EventOf<P> = Returned<P, "events">;
 export type Execution<Message, R = never> = Effect.Effect<Opt.Option<Message>, never, R>;
 
 // @public
-type ExternalHandlerOf<State, C, External, Command, Event> = [External] extends [never] ? Readonly<{
+type ExternalHandlerOf<External, Piece> = [External] extends [never] ? Readonly<{
     external?: Refused<"a program has an external only where its types name external messages">;
 }> : Readonly<{
-    external: (message: External, ...children: Reading<C>) => (state: State) => Step<State, Command, Event, TellOf<C>>;
+    external: Piece;
 }>;
 
 // @public
@@ -371,16 +365,16 @@ type Listening<State> = Readonly<{
 }>;
 
 // @public
-type ListenOf<State, C, OwnKey, Message, Heard> = [OwnKey] extends [never] ? Readonly<{
+type ListenOf<OwnKey, Piece, Message, Heard> = [OwnKey] extends [never] ? Readonly<{
     subscriptions?: Refused<"a program has subscriptions only where its types name keys">;
     listen?: Refused<"a program has a listen only where its types name keys">;
 }> : Readonly<{
-    subscriptions: (state: State, ...children: Reading<C>) => ReadonlyArray<OwnKey>;
+    subscriptions: Piece;
     listen: (key: OwnKey) => Heard & Subscription<Message, any>;
 }>;
 
 // @public
-export type MakeParent<T extends DeclaredTypes, C extends Children<Field<T, "state">>> = <Model, Ran = never, Heard = never>(config: Config<Field<T, "state">, C, Field<T, "message">, Field<T, "command">, Field<T, "event">, Named<T, "model", Model>, Ran, Heard, Field<T, "key">, Field<T, "external">, Field<T, "flags">, Field<T, "output">>) => Program<Present<{
+export type MakeParent<T extends DeclaredTypes, C extends Children<Field<T, "state">>> = <Model, Ran = never, Heard = never>(config: ParentConfig<Field<T, "state">, C, Field<T, "message">, Field<T, "command">, Field<T, "event">, Named<T, "model", Model>, Ran, Heard, Field<T, "key">, Field<T, "external">, Field<T, "flags">, Field<T, "output">>) => Program<Present<{
     state: Kept<Field<T, "state">, {
         readonly [K in keyof C & string]: C[K] extends ChildByIdOf<infer Id, infer P> ? HashMap.HashMap<Id, Instance<StateOf<P>>> : Opt.Option<Instance<StateOf<ProgramOf<C[K]>>>>;
     }>;
@@ -419,7 +413,7 @@ export type MakeParent<T extends DeclaredTypes, C extends Children<Field<T, "sta
 }>>;
 
 // @public
-export type MakeProgram<T extends DeclaredTypes> = <Model, Ran = never, Heard = never>(config: Config<Field<T, "state">, None, Field<T, "message">, Field<T, "command">, Field<T, "event">, Named<T, "model", Model>, Ran, Heard, Field<T, "key">, Field<T, "external">, Field<T, "flags">, Field<T, "output">>) => Program<Present<{
+export type MakeProgram<T extends DeclaredTypes> = <Model, Ran = never, Heard = never>(config: ProgramConfig<Field<T, "state">, Field<T, "message">, Field<T, "command">, Field<T, "event">, Named<T, "model", Model>, Ran, Heard, Field<T, "key">, Field<T, "external">, Field<T, "flags">, Field<T, "output">>) => Program<Present<{
     state: Field<T, "state">;
     model: Named<T, "model", Model>;
     message: Field<T, "message">;
@@ -481,9 +475,6 @@ type NoKeyClash<OwnKey, C> = [TagsTaken<OwnKey, keyof C & string>] extends [neve
 };
 
 // @public
-type None = Readonly<Record<never, never>>;
-
-// @public
 type OfInstance = Readonly<{
     _tag: string;
     instance: number;
@@ -499,7 +490,7 @@ type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Ev
 
 // @public (undocumented)
 type OnEvents<State, C, Command, Event> = {
-    readonly [K in keyof C & string as [EventOf<ProgramOf<C[K]>>] extends [never] ? never : K]: C[K] extends ChildByIdOf<infer Id, infer P> ? (id: Id, event: EventOf<P>, ...children: Reading<C>) => (state: State) => Step<State, Command, Event, TellOf<C>> : (event: EventOf<ProgramOf<C[K]>>, ...children: Reading<C>) => (state: State) => Step<State, Command, Event, TellOf<C>>;
+    readonly [K in keyof C & string as [EventOf<ProgramOf<C[K]>>] extends [never] ? never : K]: C[K] extends ChildByIdOf<infer Id, infer P> ? (id: Id, event: EventOf<P>, children: OutputsOf<C>) => (state: State) => Step<State, Command, Event, TellOf<C>> : (event: EventOf<ProgramOf<C[K]>>, children: OutputsOf<C>) => (state: State) => Step<State, Command, Event, TellOf<C>>;
 };
 
 // @public
@@ -513,10 +504,10 @@ export type Origin = {
 };
 
 // @public
-type OutputHandlerOf<State, C, Output> = [Output] extends [never] ? Readonly<{
+type OutputHandlerOf<Output, Piece> = [Output] extends [never] ? Readonly<{
     output?: Refused<"a program has an output only where its types name one">;
 }> : Readonly<{
-    output: (state: State, ...children: Reading<C>) => Output;
+    output: Piece;
 }>;
 
 // @public
@@ -530,6 +521,12 @@ export type OutputsOf<C> = C extends unknown ? {
         output: ReadOutput<C[K]>;
     }>;
 } : never;
+
+// @public
+type ParentConfig<State, C, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, External, Flags, Output> = OnEventOf<State, C, OwnCommand, Event> & ListenOf<OwnKey, (state: State, children: OutputsOf<C>) => ReadonlyArray<OwnKey>, Own, Heard> & NoKeyClash<OwnKey, C> & RunCommandOf<OwnCommand, Own, Ran> & UpdateOf<Own, (message: Own, children: OutputsOf<C>) => (state: State) => Transition<State, OwnCommand, Event, TellOf<C>>> & ExternalHandlerOf<External, (message: External, children: OutputsOf<C>) => (state: State) => Step<State, OwnCommand, Event, TellOf<C>>> & OutputHandlerOf<Output, (state: State, children: OutputsOf<C>) => Output> & NoClash<Own, OwnCommand, C> & Readonly<{
+    init: Init<State, OwnCommand, Flags>;
+    makeModel: (state: State, children: Models<C>) => Model;
+}>;
 
 // @public
 export interface ParentMaker<T extends DeclaredTypes, C extends Children<Field<T, "state">>> {
@@ -564,6 +561,12 @@ type ProgramChecked<P> = Program<{
     flags: FlagsOf<P>;
     output: OutputOf<P>;
     key: KeyOf<P>;
+}>;
+
+// @public
+type ProgramConfig<State, Message, Command, Event, Model, Ran, Heard, Key, External, Flags, Output> = ListenOf<Key, Subscriptions<State, Key>, Message, Heard> & RunCommandOf<Command, Message, Ran> & UpdateOf<Message, Update<State, Message, Command, Event>> & ExternalHandlerOf<External, (message: External) => (state: State) => Step<State, Command, Event>> & OutputHandlerOf<Output, (state: State) => Output> & Readonly<{
+    init: Init<State, Command, Flags>;
+    makeModel: (state: State) => Model;
 }>;
 
 // @public
@@ -603,9 +606,6 @@ type ProgramTypes = Readonly<{
 
 // @public (undocumented)
 type RanServices<Ran> = Ran extends Execution<any, infer R> ? R : never;
-
-// @public
-type Reading<C> = [keyof C] extends [never] ? [] : [children: OutputsOf<C>];
 
 // @public
 type ReadInstance<C> = C extends ChildByIdOf<infer Id, any> ? (id: Id) => number : IsAlways<C> extends true ? () => number : () => Opt.Option<number>;
@@ -726,10 +726,10 @@ export type Transition<State, Command = never, Event = never, Tell = never> = St
 export type Update<State, Message, Command = never, Event = never> = (message: Message) => (state: State) => Transition<State, Command, Event>;
 
 // @public
-type UpdateOf<State, C, Own, Command, Event> = [Own] extends [never] ? Readonly<{
+type UpdateOf<Own, Piece> = [Own] extends [never] ? Readonly<{
     update?: Refused<"a program has an update only where its types name messages">;
 }> : Readonly<{
-    update: (message: Own, ...children: Reading<C>) => (state: State) => Transition<State, Command, Event, TellOf<C>>;
+    update: Piece;
 }>;
 
 // @public

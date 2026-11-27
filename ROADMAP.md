@@ -51,53 +51,21 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
 
 ## Next, in order
 
-Steps 116 and 117 come, as step 115 did, from a review of the API of `program`, which the owner asked of Fable 5.2 on 27 November 2026 and
-decided with it the same day. Its probes were throwaway files, typechecked beside the examples with TypeScript 5.9.3,
-6.0.3 and 7.0.2, with the same result under each: a step that rests on one says what was probed, and what was not.
-The steps run in the order of their numbers, and each decides its points by "Deciding": a step that decides against
-its point writes its entry of [`rejected.md`](docs/rejected.md), and is done. With them the owner added a sentence to
-the third value of `AGENTS.md`: small is counted in concepts, not in exports. Their changes go out with those of steps
-111 to 114, in 0.11.0.
-
-### 116. A program without children and a parent, each with types and a `make` of its own
-
-**Model and effort.** Opus 5.5, `high`: `src/compose.ts`, which keeps the invariants of a parent, and the types of
-`make`.
-
-**Depends on** no open step. Step 115 left `program<T>()` returning `make` and `withChildren` alone, and `child`,
-`childWhen` and `childById` as functions of the package, typed `DeclareChild`, `DeclareChildWhen` and
-`DeclareChildById`, which a consumer's declarations name where they export the functions in an object.
-
-**Why.** One `Config`, of twelve type parameters, types the pieces of a program without children and those of a
-parent, and one `make` runs both. So the `update` of a program without children is typed
-`(message, ...children: Reading<None>) => (state) => Transition<…, TellOf<None>>`, its `makeModel` is given a second
-argument, `{}`, and the run asks whether the program is composed at eight places. The two differ by what a user
-writes, so by the third value they are two, each plain: it is one mechanism fewer (value 5), and the errors and hovers
-of a program without children name its own pieces alone.
-
-**How.** By [`change-engine`](.agents/skills/change-engine/SKILL.md) and
-[`change-api`](.agents/skills/change-api/SKILL.md).
-
-- A program without children: its pieces are those of `Program` (`Shape`, in `src/program.ts`), each required exactly
-  when its type is named, as today. No `Reading`, no `TellOf`, and no `children` in `makeModel`. Its `make` is a
-  function of its own, which fills in what the config leaves out.
-- A parent: its pieces take `children: OutputsOf<C>` as a plain last parameter, with no rest tuple, and `onEvent`,
-  `NoClash` and `NoKeyClash` are its alone. Its `make` no longer asks whether it is composed.
-- What makes a piece required exactly when its type is named, and refused otherwise, is written once, for both.
-- Nothing that the guide or a doc comment promises changes. What a consumer can notice is read in the diff of
-  `api/*.api.md`, and gets its changelog entry: a hover or an error that prints another type is not one.
-- Not a goal: a lower count of the smoke test (`change-api`, "No new type for how a consumer's types print").
-
-**Done when** `Reading` is gone, and no branch of the run asks whether a program has children; the tests pass as they
-are, but for those that read a printed type; each mutation of `src/compose.ts` is still killed (`bun run mutations`);
-the inference matrix reports no new lead; and `bun run typecheck`, `lint`, `test`, `test:node`, `interleavings`,
-`inference`, `inference --run`, `comments`, `api --check` and the smoke test, with TypeScript 5.9, 6.0 and 7.0, pass.
+Step 117 comes, as steps 115 and 116 did, from a review of the API of `program`, which the owner asked of Fable 5.2
+on 27 November 2026 and decided with it the same day. Its probes were throwaway files, typechecked beside the examples
+with TypeScript 5.9.3, 6.0.3 and 7.0.2, with the same result under each: the step says what was probed, and what was
+not. It decides its points by "Deciding": where it decides against a point, it writes its entry of
+[`rejected.md`](docs/rejected.md), and is done. With them the owner added a sentence to the third value of
+`AGENTS.md`: small is counted in concepts, not in exports. Its changes go out with those of steps 111 to 116, in 0.11.0.
 
 ### 117. An option or a piece given as `undefined` is one not given
 
 **Model and effort.** Opus 5.5, `medium`: one rule, applied to each optional member, with a test for each.
 
-**Depends on** 116, which writes the types it changes.
+**Depends on** no open step. Step 116 left two configs in `src/compose.ts`: `ProgramConfig`, the pieces of a
+program without children, made by `makeProgram`, and `ParentConfig`, made by `makeParent`. Each optional piece is typed
+once, for both, by `UpdateOf`, `ExternalHandlerOf`, `OutputHandlerOf`, `RunCommandOf` and `ListenOf`, which take the
+function the piece is. `makeProgram` already reads a piece given as `undefined` as one not given.
 
 **Why.** Under `exactOptionalPropertyTypes`, `child(clock, { listening: undefined })` and
 `make({ …, update: undefined })` do not compile. Probed: the error is the same for a member that is refused and for
