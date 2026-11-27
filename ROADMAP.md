@@ -32,10 +32,7 @@ What a task or a review found that no failing test shows and no user met ("How a
 the case of the inference matrix (`bun run inference --filter <case>`). None is a step of its own: they are weighed
 together before a release, and one not taken then goes to `docs/rejected.md`.
 
-- The killer of the mutation "a description follows a wrapping that comes back to a value on its way" (`log.test.ts`,
-  "one whose wrapping comes back to a value on its way…") ran away once under `bun run mutations --jobs=4`, in step
-  108, and failed alone under `--discover`: under the mutation `describedAs` recurses with no end, and the memory guard
-  may end it before the stack does. Shown by a run of the mutations that prints "runs away under it" for it again.
+None open.
 
 ## Next, in order
 

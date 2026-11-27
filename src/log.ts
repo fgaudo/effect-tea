@@ -15,10 +15,10 @@ const wrappedOf = (value: unknown): unknown =>
 
 // A description is made in the handler of a defect too, where one that threw would take the defect's place: a
 // wrapping that comes back to a value on its way ends there.
-const tagsOf = (value: unknown, tag: string, way: ReadonlyArray<unknown>): string => {
+const tagsOf = (value: unknown, tag: string, on: Array<unknown>): string => {
   const wrapped = wrappedOf(value)
   if (wrapped === undefined) return tag
-  const on = [...way, value]
+  on.push(value)
   return `${tag} › ${on.includes(wrapped) ? "…" : tagsOf(wrapped, tagOf(wrapped) ?? "", on)}`
 }
 
