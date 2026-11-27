@@ -153,10 +153,16 @@ November 2026, after an opinion of Fable 5.2, which probed the forms below with 
   holds with the three compilers, its overloads stay.
 - The three entries of `rejected.md` of step 111 become one, and the glossary of the guide and "Composition" name the
   new function.
+- The same members, in place of the `?: never` that `make` (`update`, `external`, `output`, `runCommand`,
+  `subscriptions`, `listen`), `run`, `drive` and `rehearse` read from the program's declared types, so that one way
+  says what not to write: today their errors are at the option, and say that it takes `never`. Each stays `never`
+  where a member breaks an inference, as `never` broke the `Id` of `childById`, or where the inference matrix or the
+  smoke test changes.
 
 **Done when** the refusals of "a child with flags is declared with them", and the four of "a child is declared in one
 form, always there or not", are tests at the call; a test under `withChildren` holds the `Id` that `listening` takes;
-what `misprint.ts` prints of `greeted` is one error with no overload; the changelog has the breaking entry with its
+what `misprint.ts` prints of `greeted` is one error with no overload; a test of the types holds the message of each
+member that replaced a `never`; the changelog has the breaking entry with its
 `Upgrade:`; and `bun run typecheck`, `lint`, `test`, `test:node`, `interleavings`, `inference`, `inference --run`,
 `comments` and the smoke test, with TypeScript 5.9, 6.0 and 7.0, pass.
 
