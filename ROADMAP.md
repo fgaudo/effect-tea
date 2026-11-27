@@ -48,22 +48,10 @@ that keeps the guide's rules can see").
 The steps below make 0.10.0, in this order. Step 108 took the one lead left: no function that may throw is called, and
 no iterable of a user's is iterated, by a function of Effect's over data (`docs/premises.md`, "Open").
 
-### 109. A check of the upgrade to 0.10.0
-
-Sonnet 5.5, `medium`, for the agent that upgrades; Opus 5.5, `medium`, for the session that reads its report.
-`guide-reader`, "A check of an upgrade". Depends on nothing.
-
-The section 0.10.0 of `CHANGELOG.md` has `**Breaking**` entries, and earlier checks' projects are kept in
-`D:/Project/effect-tea-readers/` (`booking-react`, `locker-react-native` with `locker-examiner`): point 1 of
-"Releasing" in `release` asks for the check. Take the project that uses most of the names the breaking entries change,
-as point 1 of the check says; one that uses none runs its tests on the new version and starts no agent.
-
-Done when: the upgraded copy compiles and passes its tests and its acceptance tests, or each gap the agent met is fixed
-in the changelog or a doc comment, or is a line of this file; the skill's entry for the application says the check.
-
 ### 110. Release 0.10.0
 
-Opus 5.5, `medium`; `release`, points 2 to 4 of "Releasing". Depends on 109.
+Opus 5.5, `medium`; `release`, points 2 to 4 of "Releasing". Depends on nothing: the check of the upgrade (point 1)
+was done on 2026-11-27, with the locker of `D:/Project/effect-tea-readers/`.
 
 Done when: the checks of point 2 pass, every mutation killed, `bun run interleavings` run and the site built with no
 warning; `CHANGELOG.md` dates the section; the commit `release 0.10.0` is tagged `v0.10.0`, locally; "For the owner"

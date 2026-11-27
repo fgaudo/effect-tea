@@ -88,7 +88,11 @@ version.
    - a locker pickup screen: a part of an application in React Native whose header counts the pickups, a code typed
      and checked, a `Switch`, an unlock that may fail, a door feed that ends and is listened to anew on a reconnect,
      and a next pickup that starts over, under React Native's jest preset (2026-11-26, package, one program; 41 of 41
-     acceptance tests passed at the first run).
+     acceptance tests passed at the first run; the project is kept at
+     `D:/Project/effect-tea-readers/locker-react-native`, with its acceptance tests; upgraded from 0.9.0 to 0.10.0 on
+     2026-11-27 from the changelog alone, the one entry it used, of `hear`, applied from its text, it passed its 34
+     tests and the 41 acceptance tests; the agent left `effect` below the new peer range, whose entry was then marked
+     breaking).
 4. Make the project, from the repository's root, with the versions the repository is developed with:
 
    ```bash
