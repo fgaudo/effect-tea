@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import * as Opt from "effect/Option"
+import * as Scheduler from "effect/Scheduler"
 import { child, childWhen, program } from "./compose.ts"
 import { defect, InvariantDefect, ProgramDefect } from "./defect.ts"
 import type { Program } from "./program.ts"
@@ -232,6 +233,42 @@ describe("a program started", () => {
       wheres: ["update: Error: broke"],
       log: ["command started", "command started"]
     })
+  })
+
+  test("whose run is interrupted at any yield of the scheduler as it begins, is as one never run or stopped, never applying a message with no run to report its defect", () => {
+    const outcomes: Array<string> = []
+    for (let budget = 1; budget <= 60; budget++) {
+      let applied = 0
+      const program: Program<{ state: number; model: number; message: "Break" }> = {
+        init: { state: 0 },
+        update: () => () => (applied++, defect("a rule of the program broken")),
+        subscriptions: () => [],
+        makeModel: (state) => state
+      }
+      const { app, run } = start(program)
+      // The scheduler yields once the budget of operations is spent, and its tasks run only when this test runs them.
+      const tasks: Array<() => void> = []
+      const scheduler = new Scheduler.MixedScheduler("async", (task) => (tasks.push(task), () => undefined))
+      const fiber = Effect.runFork(Effect.provideService(run, Scheduler.MaxOpsBeforeYield, budget), { scheduler })
+      tasks.shift()?.()
+      if (fiber.pollUnsafe() !== undefined) continue
+      fiber.interruptUnsafe()
+      while (tasks.length > 0) tasks.shift()?.()
+      app.dispatch("Break")
+      const second = Effect.runSyncExit(run)
+      const defects = Exit.isFailure(second) ? Cause.prettyErrors(second.cause).map(({ message }) => message) : []
+      const runOnce = defects.some((message) => message.includes("run once"))
+      const reported = defects.some((message) => message.includes("a rule of the program broken"))
+      outcomes.push(
+        applied === 0 && runOnce
+          ? "stopped"
+          : applied === 1 && reported
+          ? "never run"
+          : `budget ${budget}: applied ${applied}, then ${defects.join(", ")}`
+      )
+    }
+    expect(outcomes.filter((outcome) => outcome !== "stopped" && outcome !== "never run")).toEqual([])
+    expect(outcomes).toContain("stopped")
   })
 })
 

@@ -2849,10 +2849,37 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a program started is run twice",
     file: "src/run.ts",
-    from: "    if (begun) return Effect.die(",
-    to: "    if (begun && false) return Effect.die(",
+    from: "      if (begun) return Effect.die(",
+    to: "      if (begun && false) return Effect.die(",
     killedBy: [
       ["src/start.test.ts", "is run once: a second run dies, and the first goes on"]
+    ]
+  },
+  {
+    name: "the run marks its start, and ends, outside a region nothing interrupts",
+    guarantees: ["Nothing ends in silence"],
+    file: "src/run.ts",
+    from: "  const run = Effect.uninterruptibleMask((restore) =>\n",
+    to: "  const run = ((region) => Effect.suspend(() => region((effect) => effect)))("
+      + "(restore: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>) =>\n",
+    killedBy: [
+      [
+        "src/start.test.ts",
+        "whose run is interrupted at any yield of the scheduler as it begins, is as one never run or stopped, never applying a message with no run to report its defect"
+      ]
+    ]
+  },
+  {
+    name: "the run ends without stopping the engine, though its scope closed without its stop",
+    guarantees: ["Nothing ends in silence"],
+    file: "src/run.ts",
+    from: "        engine?.end()\n",
+    to: "",
+    killedBy: [
+      [
+        "src/start.test.ts",
+        "whose run is interrupted at any yield of the scheduler as it begins, is as one never run or stopped, never applying a message with no run to report its defect"
+      ]
     ]
   },
   // The testing tools (`docs/records/synchronous-dispatch.md`, stage 2).
@@ -4022,13 +4049,24 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "messagesSentBy does not draw a thunk",
     file: "bridges/snabbdom-testing.ts",
-    from: "      visit(fn(...args))\n"
-      + "      return\n",
-    to: "",
+    from: "    const node = drawn(vnode)\n",
+    to: "    const node = vnode\n",
     killedBy: [
       [
         "bridges/snabbdom-testing.test.ts",
         "draws each thunk, and records the message of a child as the root of the program receives it"
+      ]
+    ]
+  },
+  {
+    name: "messagesSentBy calls a listener drawn by a thunk with the node the thunk's function gave",
+    file: "bridges/snabbdom-testing.ts",
+    from: "    return { ...node, data: { ...inner.data, fn, args }, children: inner.children, text: inner.text }\n",
+    to: "    return inner\n",
+    killedBy: [
+      [
+        "bridges/snabbdom-testing.test.ts",
+        "calls a listener drawn by a thunk as snabbdom does, with the thunk's node, its key and its data"
       ]
     ]
   }

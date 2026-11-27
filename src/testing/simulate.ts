@@ -80,14 +80,15 @@ export const simulate = Effect.fnUntraced(function*<State, Message, Command = ne
   const runCommand = runCommandOf(program)
   // The register of the run, as `rehearse` keeps it: the simulation fails with what is recorded at its end.
   const register = makeDeaths(() => true)
-  let accepted: ReadonlyArray<Message> = []
-  let commands: ReadonlyArray<Command> = from.commands ?? []
+  // Added to in place, as `Stage` keeps its lists, and copied once, as the simulation returns.
+  const accepted: Array<Message> = []
+  const commands: Array<Command> = [...(from.commands ?? [])]
   const staging = Stage.make<State, Message, Command, Event, R, unknown>({
     register,
     runCommand,
     accepted: (message, arrived) => {
-      accepted = [...accepted, message]
-      commands = [...commands, ...arrived.commands]
+      accepted.push(message)
+      commands.push(...arrived.commands)
     }
   })
   // Its subscriptions are read and reconciled on each new state by the engine, as in the run, and never run: the fiber
@@ -111,5 +112,5 @@ export const simulate = Effect.fnUntraced(function*<State, Message, Command = ne
     }
     return stage.engine.current()
   }))
-  return { state, applied: accepted, commands, events: stage.events(), ignored: stage.ignored() }
+  return { state, applied: [...accepted], commands: [...commands], events: stage.events(), ignored: stage.ignored() }
 })

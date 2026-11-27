@@ -1221,7 +1221,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    *
    * The options of a child declared in this call are typed by the parent's own state. A child declared for another
    * state does not compile here, nor does the `make` it gives for a child whose program is a type parameter, as
-   * `child` does not.
+   * `child` does not. A name is a string: one written as a number, `{ 1: … }`, does not compile, and `{ "1": … }` does.
    *
    * @param children - The children, by name: `{ Clock: child(…), Row: childById(…) }`.
    * @returns `make`, which makes the parent.
@@ -1560,8 +1560,15 @@ export const childById: DeclareChildById = ((
  * @see The guide, "Composition".
  */
 export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field<T, "state">>>(
-  children: C
+  children: C & NamedByStrings<C>
 ) => ParentMaker<T, C>
+
+/**
+ * A child's name written as a number does not compile: TypeScript keys it by a number and JavaScript by a string, so
+ * the types of the parent, which read the names as strings, would not see a child that `make` routes to.
+ */
+type NamedByStrings<C> = [Exclude<keyof C, string>] extends [never] ? unknown
+  : Refused<"a child's name is a string: write a number in quotes">
 
 /**
  * What `withChildren` returns: the `make` of a parent of these children.

@@ -179,8 +179,8 @@ const report = (error: unknown): void => {
  *   `<Activity>` hides it, or that ends so after, is given to `reportError`, and is not thrown again. Where the
  *   platform has no `reportError`, as React Native, it is reported as React reports an error itself.
  *   Whatever `fork` handles around the run is not thrown or reported again.
- * - A `makeModel` that throws is such a defect, thrown once: until the run has ended, `Host` draws the model it drew
- *   last. A first model that throws reaches the boundary as `Host` first renders, and the run never starts.
+ * - A `makeModel` that throws is such a defect, thrown once: until the run has ended, `Host` draws the last model that
+ *   did not throw, which it may not have drawn yet. A first model that throws reaches the boundary as `Host` first renders, and the run never starts.
  *
  * @example
  * ```tsx
@@ -262,10 +262,10 @@ export const Host = <
 }
 
 // The program `Host` runs, and the handle `Draw` reads of it. The run reports each defect once, as it ends, and `Host`
-// throws it then: so a model read for `Draw` that throws, past the first, gives the model drawn last, the defect being
-// recorded where it was read, and the run dying of it. The first has no model before it: it throws, for the boundary,
-// and `Host`, which never mounted, never runs the program. The model drawn last stays the same: a program that died
-// applies no message.
+// throws it then: so a model read for `Draw` that throws, past the first, gives the last one read, which React may have
+// read in a notice without drawing it, the defect being recorded where it was read, and the run dying of it. The first
+// has no model before it: it throws, for the boundary, and `Host`, which never mounted, never runs the program. The
+// last model read stays the same: a program that died applies no message.
 const hosted = <Model, Message>(started: Started<Model, Message>) => {
   const { app } = started
   let last: { readonly model: Model } | undefined

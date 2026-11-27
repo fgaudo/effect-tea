@@ -3,6 +3,24 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
+## 0.11.1 (unreleased)
+
+### Fixed
+
+- A `run` interrupted as it began, at a yield of Effect's scheduler, could leave a program that had begun and was never
+  stopped: it went on applying messages, a defect of a later one was reported nowhere, and a second `run` died as one
+  run twice. A run that has begun now always stops the program as it ends.
+- A child named by a number, `withChildren({ 1: … })`, was in none of the parent's types, though `make` routed to it:
+  an own message tagged `"1"` compiled and went to the child, and the child's events needed no `onEvent`, then died.
+  Such a name does not compile: write it in quotes, `{ "1": … }`.
+- `applyAll`, `simulate` and `rehearse` copied the lists they return at each message, so a test of many messages took
+  time quadratic in their number: they now take linear time.
+- `messagesSentBy`, of `./snabbdom/testing`, called a listener drawn by a `thunk` with the node the thunk's function
+  gave, where snabbdom calls it with the thunk's node: a handler that read the node's key or data sent one message in
+  the test and another in the browser. It calls it with the thunk's node, as snabbdom does.
+- The comment of `Host`, of `./react`, said that once a `makeModel` throws it draws the model it drew last: it draws the
+  last model that did not throw, which it may not have drawn yet, as two messages in one task make two models.
+
 ## 0.11.0 (2026-11-27)
 
 ### Added

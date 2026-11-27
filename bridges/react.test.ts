@@ -961,7 +961,7 @@ describe("Host", () => {
     // React reads the model in the notice and as it renders. Found by the review of the bridges before 0.8.0: the
     // defect `model()` threw reached the boundary from React's render, which unmounted `Host`, and the run, whose end
     // waits for a release, died of that very defect once `Host` had unmounted, which gave it to `reportError` too. Now
-    // `Host` draws the model it drew last until the run has ended, and throws the defect then, once.
+    // `Host` draws the last model that did not throw until the run has ended, and throws the defect then, once.
     test("a makeModel that throws reaches the nearest error boundary, and is not reported again", async () => {
       const thrown = new Error("A model that cannot be made")
       const gate = Deferred.makeUnsafe<void>()

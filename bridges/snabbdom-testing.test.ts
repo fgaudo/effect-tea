@@ -38,6 +38,20 @@ describe("messagesSentBy", () => {
     expect(messagesSentBy(seen, null)).toEqual(["button#tap button#tap true"])
   })
 
+  test("calls a listener drawn by a thunk as snabbdom does, with the thunk's node, its key and its data", () => {
+    const button = (label: string, dispatch: Dispatch<string>) =>
+      h("button", {
+        key: "inner",
+        on: {
+          click: function(this: VNode, _event: Event, node: VNode) {
+            dispatch(`${String(node.key)} ${typeof node.data?.["fn"]} ${node.children?.length} ${this === node}`)
+          }
+        }
+      }, [h("span", label)])
+    const seen: View<null, string> = (_, dispatch) => h("main", [thunk("button", "outer", button, ["x", dispatch])])
+    expect(messagesSentBy(seen, null)).toEqual(["outer function 1 true"])
+  })
+
   test("draws each thunk, and records the message of a child as the root of the program receives it", () => {
     expect(messagesSentBy(view, [1, 2]).slice(2)).toEqual([
       { _tag: "Row", id: 1, message: "Tapped" },

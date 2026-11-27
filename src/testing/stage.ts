@@ -184,8 +184,9 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
     )
   const submit = <A, E, R>(decide: () => Effect.Effect<A, E, R>, refused: Effect.Effect<A, E, R> = Effect.interrupt) =>
     Effect.suspend(() => engine.ended() ? refused : decide())
-  let events: ReadonlyArray<Event> = []
-  let ignored: ReadonlyArray<Message> = []
+  // Added to in place, and copied as they are read: a copy at each message would make a long test quadratic.
+  const events: Array<Event> = []
+  const ignored: Array<Message> = []
   // The completions of the jobs that only tell that are not done yet: the end interrupts them, since a job it stops
   // before it is done does not tell.
   const undelivered = new Set<Deferred.Deferred<void>>()
@@ -195,7 +196,7 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
   const stepped = (step: Engine.Stepped<State, Command, Key, Event>) => {
     if (step._tag === "Arrived") {
       arrived = Opt.some(step.arrived)
-      if (step.arrived._tag === "Applied") events = [...events, ...step.arrived.events]
+      if (step.arrived._tag === "Applied") events.push(...step.arrived.events)
       return
     }
     stage.ledger = listenedTo(stage.ledger, step.gone, step.fresh)
@@ -242,7 +243,7 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
         return Effect.void
       case "Ignored":
         if (Opt.isSome(rejected)) return rejected.value()
-        ignored = [...ignored, message]
+        ignored.push(message)
         break
       case "Applied":
         accepted(message, step)
@@ -439,8 +440,8 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
       return engine
     },
     ledger: Ledger.start(),
-    events: () => events,
-    ignored: () => ignored,
+    events: () => [...events],
+    ignored: () => [...ignored],
     deadOr: failedOr,
     waiting,
     submit,

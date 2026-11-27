@@ -1,4 +1,4 @@
-import { appendStep, type Folded, reject, type Update } from "../update.ts"
+import { type Folded, reject, type Update } from "../update.ts"
 import { unexpectedRejection } from "./failure.ts"
 
 /**
@@ -25,12 +25,17 @@ export const applyAll = <State, Message, Command, Event>(
   update: Update<State, Message, Command, Event>,
   messages: ReadonlyArray<NoInfer<Message>>,
   from: NoInfer<State>
-): Folded<State, Command, Event> =>
-  messages.reduce(
-    (folded, message, index) => {
-      const result = update(message)(folded.state)
-      if (result === reject) throw unexpectedRejection(index, message)
-      return appendStep(folded, result)
-    },
-    { state: from, commands: [], events: [] } as Folded<State, Command, Event>
-  )
+): Folded<State, Command, Event> => {
+  // Added to in place: `appendStep` copies the lists at each step, which a long test would pay for quadratically.
+  let state = from
+  const commands: Array<Command> = []
+  const events: Array<Event> = []
+  for (const [index, message] of messages.entries()) {
+    const result = update(message)(state)
+    if (result === reject) throw unexpectedRejection(index, message)
+    state = result.state
+    if (result.commands !== undefined) commands.push(...result.commands)
+    if (result.events !== undefined) events.push(...result.events)
+  }
+  return { state, commands, events }
+}

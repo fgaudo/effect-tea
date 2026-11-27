@@ -234,21 +234,24 @@ export const startWith = <State, Model, Message, Command, CommandServices, Subsc
       : engine.effects.pipe(Effect.andThen(Effect.sync(began)), Effect.andThen(engine.died), Effect.scoped)
   let begun = false
   // Not an `Effect.fn`: a span of its own would be the one the run's fibers log into (see `Shell.withExternalSpan`).
-  const run = Effect.suspend(() => {
-    // One thunk with the first operation of the run: a fiber interrupted before it leaves the handle as it was.
-    if (begun) return Effect.die(new Error("A program that was started is run once: start it again to run it again"))
-    begun = true
-    // The fiber of the run, the engine's fibers and its thunk record what they die of in one place: the defects come
-    // first in the cause, in the order they died, then the rest of what the run ended with (an interruption by
-    // whoever runs it), but for the defects already among them, by their identity. The read is the end of the run.
-    return Effect.uninterruptibleMask((restore) =>
-      Effect.exit(restore(effects)).pipe(Effect.flatMap((exit) => {
+  // The region nothing interrupts is the first operation of the run, and holds the check of `begun`, its mark, and the
+  // end: a fiber interrupted before it leaves the handle as it was, and one that has marked it always stops the engine,
+  // though interrupted at a yield of the scheduler before the scope of the effects has added the engine's own stop.
+  const run = Effect.uninterruptibleMask((restore) =>
+    Effect.suspend(() => {
+      if (begun) return Effect.die(new Error("A program that was started is run once: start it again to run it again"))
+      begun = true
+      // The fiber of the run, the engine's fibers and its thunk record what they die of in one place: the defects come
+      // first in the cause, in the order they died, then the rest of what the run ended with (an interruption by
+      // whoever runs it), but for the defects already among them, by their identity. The read is the end of the run.
+      return Effect.exit(restore(effects)).pipe(Effect.flatMap((exit) => {
+        engine?.end()
         const read = deaths.all()
         end(read)
         return Core.endedWith(read, exit)
       }))
-    )
-  })
+    })
+  )
   // What `Needed` leaves out is never asked: a program without commands calls no `runCommand`, one without keys no
   // `listen`. And the run never succeeds: its effects succeed only once the register holds a defect, which the read
   // puts in what it fails with.

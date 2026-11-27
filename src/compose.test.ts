@@ -3712,6 +3712,15 @@ describe("what the types reject", () => {
     })
   })
 
+  test("a child's name written as a number does not compile, which the types of the parent would not see", () => {
+    const { withChildren } = program<{ state: Ticks; message: Readonly<{ _tag: "1" }> }>()
+    // @ts-expect-error: a child's name is a string.
+    withChildren({ 1: child(plain) })
+    const quoted = withChildren({ "1": child(plain) })
+    // @ts-expect-error: `1` is a child's name, in quotes.
+    quoted.make({ init: { state: noTicks }, update: () => (state) => ({ state }), makeModel: () => null })
+  })
+
   test("an own command cannot take the name of a child, whose interpreter would receive it", () => {
     const { withChildren } = program<{ state: Ticks; command: Readonly<{ _tag: "Plain" }> }>()
     // @ts-expect-error: `Plain` is a child's name.

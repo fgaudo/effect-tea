@@ -225,10 +225,12 @@ the engine and in the testing tools.
     reads: `model()` checks no register.
   - Never report a defect only through a `join` or a fiber that races: once nothing awaits it, it is lost, and
     `FiberSet` and `FiberMap` discard the exits of the fibers they interrupt as they close.
-  - A program started is run once: the run's first operation reads and sets `begun` in one thunk (`startWith` in
-    `run.ts`), and a second `run` dies with a plain `Error`, while the first goes on. A program whose `run` was
-    interrupted before that operation, or never forked, is never stopped: its state can still change, and no effect
-    follows.
+  - A program started is run once: the run's first operation is a region nothing interrupts, whose thunk reads and
+    sets `begun` (`startWith` in `run.ts`), and a second `run` dies with a plain `Error`, while the first goes on. A
+    program whose `run` was interrupted before that operation, or never forked, is never stopped: its state can still
+    change, and no effect follows. One that has set `begun` is stopped by that region as the effects end, by
+    `engine.end()` before the read: the scope's own stop is added after steps that can be interrupted, at a yield of
+    the scheduler, and a scope interrupted before it closes without it.
   - `drive` starts the program by plain code (`startWith`), subscribes before its first read, forks its run, stops and
     awaits it however it ends, and begins its scenario once the run has started the effects of the first state
     (`began`), unless the program has died. It reads each model in its listener (`readEach`), so a defect of `makeModel`

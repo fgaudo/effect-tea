@@ -71,13 +71,17 @@ export const messagesSentBy = <Model, Message>(
       listener.call(node, eventOf(node, type), node)
     }
   }
-  const visit = (node: VNode | string): void => {
-    if (typeof node === "string") return
-    const { fn, args } = (node.data ?? {}) as Readonly<{ fn?: unknown; args?: unknown }>
-    if (typeof fn === "function" && Array.isArray(args)) {
-      visit(fn(...args))
-      return
-    }
+  // A thunk is drawn as snabbdom draws it: the node its function gives lends the thunk its data, with the thunk's `fn`
+  // and `args`, its children and its text, and the thunk keeps its own selector and key. Its listeners get the thunk.
+  const drawn = (node: VNode): VNode => {
+    const { fn, args } = node.data ?? {}
+    if (typeof fn !== "function" || !Array.isArray(args)) return node
+    const inner: VNode = (fn as (...args: ReadonlyArray<unknown>) => VNode)(...args)
+    return { ...node, data: { ...inner.data, fn, args }, children: inner.children, text: inner.text }
+  }
+  const visit = (vnode: VNode | string): void => {
+    if (typeof vnode === "string") return
+    const node = drawn(vnode)
     for (const [type, listeners] of Object.entries(node.data?.on ?? {})) listen(node, type, listeners)
     for (const child of node.children ?? []) visit(child)
   }
