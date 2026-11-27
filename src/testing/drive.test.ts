@@ -152,16 +152,6 @@ describe("drive", () => {
     expect(saved).toBe("milk")
   })
 
-  test("a program written as a plain object, without commands, needs no runCommand", async () => {
-    const plain = {
-      init: { state: { count: 0 } },
-      update: () => ({ count }: Readonly<{ count: number }>) => ({ state: { count: count + 1 } }),
-      subscriptions: () => [],
-      makeModel: ({ count }: Readonly<{ count: number }>) => count
-    }
-    expect(await Effect.runPromise(drive(plain, (driver) => driver.waitFor(Opt.some)))).toBe(0)
-  })
-
   test("a program a parent could hold is driven too: its external and its output are checked, and never called", async () => {
     type Count = Readonly<{ count: number }>
     const calls = { external: 0, output: 0 }
@@ -182,11 +172,6 @@ describe("drive", () => {
     )
     expect(await Effect.runPromise(counted)).toBe(1)
     expect(calls).toEqual({ external: 0, output: 0 })
-    expect(() =>
-      // @ts-expect-error: an external message applies in every state.
-      drive({ ...held, external: (_: "Reset") => (state: Count) => state.count > 0 ? { state } : reject }, () =>
-        Effect.void)
-    ).toBeDefined()
   })
 
   test("only a program without events is driven: no parent would handle them", () => {

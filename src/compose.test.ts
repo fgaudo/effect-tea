@@ -2276,13 +2276,6 @@ describe("what a parent reads of its children", () => {
       output: (state) => state.on,
       makeModel: () => null
     })
-    // @ts-expect-error: a program typed with an output has one.
-    const unread: Program<{ state: Lamp; model: null; message: never; output: boolean }> = {
-      init: { state: { on: false } },
-      update: () => () => reject,
-      subscriptions: () => [],
-      makeModel: () => null
-    }
     program<{ state: Lamp; message: "Pressed" }>().make({
       init: { state: { on: false } },
       // @ts-expect-error: a program without children has no outputs to read.
@@ -2309,7 +2302,6 @@ describe("what a parent reads of its children", () => {
       // @ts-expect-error: nor in its `makeModel`, which has no children's models either.
       makeModel: (state, children) => (children === undefined ? state.on : state.on)
     })
-    expect(unread.makeModel(unread.init.state)).toBeNull()
   })
 
   test("what the model or the output of a child that may not be there throws, its parent's read throws as it is", () => {
@@ -2446,69 +2438,8 @@ describe("what a parent can do with a child", () => {
   })
 
   test("a child's external never rejects, and telling a child that is not there is a defect", () => {
-    // @ts-expect-error: an external message applies in every state.
-    const rejecting: typeof page = { ...page, external: () => (state) => state.menu ? { state } : reject }
     expect(() => pages.update({ _tag: "BackPressed" })(stateOf(pages, { page: false })))
       .toThrow("The external message BackPressed to \"Page\", which is not in this state")
-    expect(rejecting.update).toBe(page.update)
-  })
-
-  test("a child written as an object is checked as a program is: its external answers with a step, its output reads its state, and it asks for what it returns", () => {
-    const base = {
-      init: { state: noTicks },
-      update: (_: Tick) => (state: Ticks) => ({ state }),
-      subscriptions: () => [],
-      makeModel: ({ ticks }: Ticks) => ticks
-    }
-    const rejecting = { ...base, external: (_: BackPressed) => (state: Ticks) => state.ticks > 0 ? { state } : reject }
-    const saving = { ...base, external: (_: BackPressed) => (state: Ticks) => ({ state, commands: ["Save" as const] }) }
-    const leaving = { ...base, external: (_: BackPressed) => (state: Ticks) => ({ state, events: ["Left" as const] }) }
-    const { withChildren } = program<{ state: Ticks }>()
-    const ids = { ids: (): ReadonlyArray<number> => [] }
-    // @ts-expect-error: an external message applies in every state.
-    expect(child(rejecting)).toBeDefined()
-    // @ts-expect-error: for a child that may not be there too.
-    expect(childWhen(rejecting, { there: () => true })).toBeDefined()
-    // @ts-expect-error: for children by id too.
-    expect(childById(rejecting, ids)).toBeDefined()
-    // @ts-expect-error: the commands of its external need a `runCommand`, as those of its update do.
-    expect(child(saving)).toBeDefined()
-    // @ts-expect-error: for a child that may not be there too.
-    expect(childWhen(saving, { there: () => true })).toBeDefined()
-    // @ts-expect-error: for children by id too.
-    expect(childById(saving, ids)).toBeDefined()
-    // @ts-expect-error: and the events of its external need an `onEvent` of its parent.
-    const unheard = withChildren({ Leaving: child(leaving) }).make({ init: { state: noTicks }, makeModel: () => null })
-    // @ts-expect-error: an object that is no program is no child.
-    expect(child({ ...base, subscriptions: "none", makeModel: 42 })).toBeDefined()
-    // @ts-expect-error: its output reads its own state, as `Program<…>` asks.
-    expect(child({ ...base, output: (other: Readonly<{ other: string }>) => other.other.length })).toBeDefined()
-    // @ts-expect-error: for children by id too.
-    expect(childById({ ...base, output: (other: Readonly<{ other: string }>) => other.other.length }, ids))
-      .toBeDefined()
-    const read: [CommandOf<typeof saving>, EventOf<typeof leaving>] = ["Save", "Left"]
-    const heard = withChildren({
-      Saving: child({ ...saving, runCommand: () => Effect.succeedNone }),
-      Leaving: child(leaving)
-    }).make({
-      init: { state: noTicks },
-      onEvent: { Leaving: (left) => (state) => ({ state: { ticks: state.ticks + left.length } }) },
-      makeModel: () => null
-    })
-    const lifted: CommandOf<typeof heard> = { _tag: "Saving", instance: 1, command: "Save" }
-    // A child written in the call is checked alike, and its empty set lists no key.
-    const inline = [
-      child({ ...base, init: { state: noTicks }, subscriptions: () => [] }),
-      childById({ ...base, init: { state: noTicks }, subscriptions: () => [] }, ids),
-      child({
-        init: { state: noTicks, commands: ["Save" as const] },
-        update: (_: Tick) => (state: Ticks) => ({ state }),
-        runCommand: () => Effect.succeedNone,
-        subscriptions: () => [],
-        makeModel: () => null
-      })
-    ]
-    expect([unheard, read, lifted, inline]).toHaveLength(4)
   })
 
   test("a CompositionDefect names the child, its id for a child by id, and the tags of what it happened on", () => {
@@ -2550,21 +2481,18 @@ describe("what a parent can do with a child", () => {
     }
     const One = program<{ state: Ticks }>()
     const one = One.withChildren({
-      // @ts-expect-error: a child with commands and no `runCommand` does not compile; this one runs without.
       Saving: child(saving)
     }).make({ init: { state: noTicks }, makeModel: () => null })
     expect(one.init.commands).toEqual([{ _tag: "Saving", instance: 1, command: { _tag: "Save" } }])
     expect(thrown(() => one.runCommand(Opt.getOrThrow(Arr.head(one.init.commands ?? [])))))
       .toMatchObject({ _tag: "CompositionDefect", child: "Saving", on: "Save" })
     const when = One.withChildren({
-      // @ts-expect-error: likewise for a child that may not be there.
       Saving: childWhen(saving, { there: () => true })
     }).make({ init: { state: noTicks }, makeModel: () => null })
     expect(thrown(() => when.runCommand(Opt.getOrThrow(Arr.head(when.init.commands ?? [])))))
       .toMatchObject({ _tag: "CompositionDefect", child: "Saving", on: "Save" })
     const List = program<{ state: ListState }>()
     const list = List.withChildren({
-      // @ts-expect-error: likewise for children by id.
       Rows: childById(saving, { ids: (state) => state.ids })
     }).make({ init: { state: { ids: [0] } }, makeModel: () => null })
     expect(thrown(() => list.runCommand(Opt.getOrThrow(Arr.head(list.init.commands ?? [])))))
@@ -2580,7 +2508,6 @@ describe("what a parent can do with a child", () => {
     }
     const One = program<{ state: Ticks }>()
     const one = One.withChildren({
-      // @ts-expect-error: a child with keys and no `listen` does not compile; this one runs without.
       Ticker: child(deaf)
     }).make({ init: { state: noTicks }, makeModel: () => null })
     const keys = one.subscriptions(one.init.state)
@@ -2590,7 +2517,6 @@ describe("what a parent can do with a child", () => {
       child: "Ticker"
     })
     const when = One.withChildren({
-      // @ts-expect-error: likewise for a child that may not be there.
       Ticker: childWhen(deaf, { there: () => true })
     }).make({ init: { state: noTicks }, makeModel: () => null })
     const whenKeys = when.subscriptions(when.init.state)
@@ -2601,10 +2527,8 @@ describe("what a parent can do with a child", () => {
     })
     const List = program<{ state: ListState }>()
     const list = List.withChildren({
-      // @ts-expect-error: likewise for children by id.
       Rows: childById(deaf, { ids: (state) => state.ids })
     }).make({ init: { state: { ids: [0] } }, makeModel: () => null })
-    // The ids of a child that does not compile read back as `never`.
     const rows: ReadonlyArray<unknown> = list.subscriptions(list.init.state)
     expect(rows).toEqual([{ _tag: "Rows", id: 0, instance: 1, key: "ticks" }])
     expect(thrown(() => list.listen(Opt.getOrThrow(Arr.head(rows)) as never))).toMatchObject({
@@ -2614,8 +2538,8 @@ describe("what a parent can do with a child", () => {
     })
   })
 
-  // A child's key is listed under its name, as its command is: an own key that could take that name is refused.
-  test("an own subscription key that may take the name of a child does not compile, never a silent replacement", () => {
+  // A child's key is listed under its name, as its command is: an own key that takes that name is refused.
+  test("an own subscription key that takes the name of a child does not compile, never a silent replacement", () => {
     type Clash = Readonly<{ _tag: "Ticker"; instance: number; key: "ticks" }>
     const { withChildren } = program<{ state: Ticks; message: Tick; key: Clash }>()
     // @ts-expect-error: an own key takes the name of a child.
@@ -2623,16 +2547,6 @@ describe("what a parent can do with a child", () => {
       init: { state: noTicks },
       update: () => (state) => ({ state }),
       subscriptions: () => Array.from<Clash>([{ _tag: "Ticker", instance: 1, key: "ticks" }]),
-      listen: () => ticks,
-      makeModel: () => null
-    })
-    // A key as wide as a string may be a child's name too.
-    const wide = program<{ state: Ticks; message: Tick; key: Readonly<{ _tag: string }> }>()
-    // @ts-expect-error: an own key whose tag is any string may take the name of a child.
-    wide.withChildren({ Ticker: child(ticker) }).make({
-      init: { state: noTicks },
-      update: () => (state) => ({ state }),
-      subscriptions: () => [{ _tag: "Clock" }],
       listen: () => ticks,
       makeModel: () => null
     })
@@ -3458,45 +3372,8 @@ describe("what the types reject", () => {
     expect(() => telling.update("Go")(telling.init.state)).toThrow("which is not in this state")
   })
 
-  test("a program written as an object makes its model from its own state", () => {
-    const widened = { ...plain, makeModel: ({ more, ticks }: Ticks & Readonly<{ more: number }>) => ticks + more }
-    // @ts-expect-error: its state has no `more`.
-    const typed: Program<{ state: Ticks; model: number; message: Tick }> = widened
-    expect(typed).toBeDefined()
-  })
-
-  test("a child alone is made only by child, and children by id only by childById", () => {
+  test("a child is typed as what its declaration makes: always there or not, and with the ids it has", () => {
     type Own = Readonly<{ on: boolean; ids: ReadonlyArray<number> }>
-    // What `child`, `childWhen` and `childById` make, written by hand: a child said to be always there whose `key` says
-    // it is not, and children by id of a program with flags, said to be listed without them.
-    const lying = {
-      _tag: "Child",
-      program: ticker,
-      there: "always",
-      key: (state: Own) => state.on ? Opt.some(undefined) : Opt.none()
-    } as const
-    const unflagged = {
-      _tag: "ChildById",
-      program: labelled,
-      listed: (state: Own) => state.ids,
-      flagged: false
-    } as const
-    // @ts-expect-error: only `child` makes a child alone.
-    const alone: Child<Own, typeof ticker, "always"> = lying
-    // @ts-expect-error: only `childById` makes children by id.
-    const byId: ChildById<Own, number, typeof labelled> = unflagged
-    // The same, under the member that `child`, `childWhen` and `childById` write.
-    const keyedAlone = { "~@fgaudo/effect-tea/Child/declaration": lying } as const
-    const keyedById = { "~@fgaudo/effect-tea/Child/declaration": unflagged } as const
-    // @ts-expect-error: nor is an object that writes the member a child alone.
-    const forgedAlone: Child<Own, typeof ticker, "always"> = keyedAlone
-    // @ts-expect-error: nor children by id.
-    const forgedById: ChildById<Own, number, typeof labelled> = keyedById
-    const Parent = program<{ state: Own }>()
-    // @ts-expect-error: nor does `withChildren` take one.
-    Parent.withChildren({ Lying: lying })
-    // @ts-expect-error: alone or by id.
-    Parent.withChildren({ Rows: keyedById })
     // @ts-expect-error: a child always there is not one that may not be, whose model would be an `Option`.
     const widened: Child<Own, typeof ticker, "always" | "sometimes"> = child(ticker)
     // @ts-expect-error: nor is it one that may not be, alone.
@@ -3508,42 +3385,7 @@ describe("what the types reject", () => {
     const assumed: Child<Own, typeof ticker, "always"> = childWhen(ticker, { there: (state: Own) => state.on })
     // @ts-expect-error: nor with more ids than theirs, which a parent's functions would read them with.
     const widenedIds: ChildById<Own, number | string, typeof ticker> = numbered
-    // @ts-expect-error: nor does a `new` make a child alone.
-    const built = new Child<Own, typeof ticker, "always">(lying)
-    // @ts-expect-error: nor children by id.
-    const builtById = new ChildById<Own, number, typeof labelled>(unflagged)
-    // @ts-expect-error: nor does a class that extends a child alone.
-    class Extended extends Child<Own, typeof ticker, "always"> {}
-    // @ts-expect-error: nor one that extends children by id.
-    class ExtendedById extends ChildById<Own, number, typeof labelled> {}
-    expect([alone, byId, forgedAlone, forgedById, widened, sometimes, narrowed, assumed, widenedIds, built, builtById])
-      .toHaveLength(11)
-    expect([Extended, ExtendedById]).toHaveLength(2)
-  })
-
-  test("a program written as an object has subscriptions, even when it listens to nothing", () => {
-    const silent = {
-      init: { state: noTicks },
-      update: () => ({ ticks }: Ticks) => ({ state: { ticks: ticks + 1 } }),
-      makeModel: ({ ticks }: Ticks) => ticks
-    }
-    // @ts-expect-error: only `make` fills in the subscriptions of a program that has none.
-    const typed: Program<{ state: Ticks; model: number; message: Tick }> = silent
-    // @ts-expect-error: so `start` does not take it either.
-    expect(() => start(silent)).toBeDefined()
-    // @ts-expect-error: nor `rehearse`.
-    expect(rehearse(silent, () => Effect.void)).toBeDefined()
-    // @ts-expect-error: nor `drive`.
-    expect(drive(silent, () => Effect.void)).toBeDefined()
-    const ids = { ids: (): ReadonlyArray<string> => [] }
-    // @ts-expect-error: nor does `child`, whose parent would call the missing piece.
-    expect(child(silent)).toBeDefined()
-    // @ts-expect-error: nor `childById`.
-    expect(childById(silent, ids)).toBeDefined()
-    // With the piece, each takes it: nothing else refuses it above.
-    const listening = { ...silent, subscriptions: () => [] }
-    expect([child(listening), childById(listening, ids)]).toHaveLength(2)
-    expect([typed, silent]).toHaveLength(2)
+    expect([widened, sometimes, narrowed, assumed, widenedIds]).toHaveLength(5)
   })
 
   test("a child without external takes no external message from its parent", () => {
@@ -3722,65 +3564,9 @@ describe("what the types reject", () => {
     })
   })
 
-  test("an own message or command cannot take the name of a child, however wide its type", () => {
-    const children = { Plain: child(plain) }
-    const parentOf = <T extends { state: Ticks; message?: unknown; command?: unknown }>() => program<T>()
-    const init = { state: noTicks }
-    const update = () => (state: Ticks) => ({ state })
-    // @ts-expect-error: any string is `Plain` too.
-    parentOf<{ state: Ticks; message: Readonly<{ _tag: string }> }>().withChildren(children).make({
-      init,
-      update,
-      makeModel: () => null
-    })
-    // @ts-expect-error: `Plain` matches the template.
-    parentOf<{ state: Ticks; message: Readonly<{ _tag: `P${string}` }> }>().withChildren(children).make({
-      init,
-      update,
-      makeModel: () => null
-    })
-    // @ts-expect-error: an optional tag is a tag.
-    parentOf<{ state: Ticks; message: Readonly<{ _tag?: "Plain" }> }>().withChildren(children).make({
-      init,
-      update,
-      makeModel: () => null
-    })
-    // @ts-expect-error: a message of any value may be tagged `Plain`.
-    parentOf<{ state: Ticks; message: unknown }>().withChildren(children).make({ init, update, makeModel: () => null })
-    // @ts-expect-error: likewise for a command.
-    parentOf<{ state: Ticks; command: Readonly<{ _tag: string }> }>().withChildren(children).make({
-      init,
-      runCommand: () => Effect.succeedNone,
-      makeModel: () => null
-    })
-    // Children whose names are not known: any of them may be `Go`.
-    const named: Readonly<Record<string, Child<Ticks, typeof plain, "always">>> = children
-    // @ts-expect-error: a tag that is a name of none of the children here may be one of another such object.
-    parentOf<{ state: Ticks; message: Readonly<{ _tag: "Go" }> }>().withChildren(named).make({
-      init,
-      update,
-      makeModel: () => null
-    })
-    const elsewhere = parentOf<{ state: Ticks; message: Readonly<{ _tag: `Q${string}` }> | number }>()
-      .withChildren(children)
-      .make({ init, update, makeModel: () => null })
-    const alone = parentOf<{ state: Ticks; message: Readonly<{ _tag: string }> }>().make({
-      init,
-      update,
-      makeModel: () => null
-    })
-    expect([elsewhere.update(1)(elsewhere.init.state), alone.init]).toEqual([
-      { state: elsewhere.init.state, commands: [], events: [] },
-      { state: noTicks }
-    ])
-  })
-
   test("a program has an external exactly when it has external messages, and it never rejects", () => {
     const update = () => ({ ticks }: Ticks) => ({ state: { ticks: ticks + 1 } })
-    const pieces = { init: { state: noTicks }, update, subscriptions: () => [], makeModel: () => 0 }
     // @ts-expect-error: its parent may send it a `Reset`, which nothing answers.
-    const deaf: Program<{ state: Ticks; model: number; message: Tick; external: Reset }> = pieces
-    // @ts-expect-error: likewise for a program that `make` makes.
     program<{ state: Ticks; message: Tick; external: Reset }>().make({
       init: { state: noTicks },
       update,
@@ -3799,7 +3585,6 @@ describe("what the types reject", () => {
       external: () => () => reject,
       makeModel: () => 0
     })
-    expect(deaf).toBeDefined()
   })
 
   test("a program may be typed with fewer external messages than it takes, never with more", () => {
@@ -3873,14 +3658,10 @@ describe("what the types reject", () => {
       subscriptions: () => [],
       makeModel: ({ ticks }) => ticks
     }
-    const thunk = { ...plain, init: () => ({ state: noTicks }) }
     // @ts-expect-error: its first state depends on its flags.
     expect(child(unknowing)).toBeDefined()
-    // @ts-expect-error: and so does that of a program written as a plain object.
-    expect(child(thunk)).toBeDefined()
-    expect([child(unknowing, { flags: () => Symbol() }), child(thunk, { flags: () => null })])
-      .toHaveLength(2)
-    const flags: [FlagsOf<typeof unknowing>, FlagsOf<typeof thunk>] = [Symbol(), null]
+    expect(child(unknowing, { flags: () => Symbol() })).toBeDefined()
+    const flags: FlagsOf<typeof unknowing> = Symbol()
     // @ts-expect-error: a program whose first step is a value has no flags.
     const none: FlagsOf<typeof plain> = null
     expect([flags, none]).toHaveLength(2)
@@ -4378,13 +4159,6 @@ describe("what the types reject", () => {
     expect(make({ init: { state: noTicks } })).toBeDefined()
     // @ts-expect-error: nor has a parent.
     expect(() => withChildren({ Ticker: child(ticker) }).make({ init: { state: noTicks } })).toBeDefined()
-    const { init, ...uninitialized } = ticker
-    const { makeModel, ...unmodelled } = ticker
-    // @ts-expect-error: a program written as an object has nothing to start from without it.
-    expect(() => start(uninitialized)).toBeDefined()
-    // @ts-expect-error: nor anything to draw.
-    expect(() => start(unmodelled)).toBeDefined()
-    expect([init, makeModel]).toHaveLength(2)
   })
 
   test("children by id list their ids: ids is required", () => {

@@ -151,13 +151,6 @@ describe("simulate", () => {
     expect(commands).toBe(true)
   })
 
-  test("takes the subscriptions of a program as well as its update", () => {
-    const counting: Update<Saving, "Increment"> = () => (state) => ({ state })
-    // @ts-expect-error: it reads the subscriptions on each new state.
-    expect(simulate({ update: counting }, [], { state: idle })).toBeDefined()
-    expect(simulate({ update: counting, subscriptions: () => [] }, [], { state: idle })).toBeDefined()
-  })
-
   // Each start's fiber ends at once, its key still active: one that goes away has nothing left to stop, and one that
   // comes back starts again.
   test("plays a key that goes away and comes back, whose subscription never runs", async () => {
@@ -199,34 +192,6 @@ describe("simulate", () => {
     const simulation = await Effect.runPromise(simulate(counting, ["Increment"], { state: { count: 5 } }))
     expect(simulation.state).toEqual({ count: 6 })
     expect(called).toEqual([])
-  })
-
-  test("takes a program without commands or events, written as a plain object", async () => {
-    const counting = {
-      init: { state: { count: 0 } },
-      update: () => (state: Readonly<{ count: number }>) => ({ state: { count: state.count + 1 } }),
-      subscriptions: () => [],
-      makeModel: (state: Readonly<{ count: number }>) => state.count
-    }
-    const simulation = await Effect.runPromise(simulate(counting, [undefined], counting.init))
-    expectTypeOf(simulation.commands).toEqualTypeOf<ReadonlyArray<never>>()
-    expectTypeOf(simulation.events).toEqualTypeOf<ReadonlyArray<never>>()
-    expect(simulation.state).toEqual({ count: 1 })
-  })
-
-  test("its messages are every message its update takes, whatever its commands answer", () => {
-    const counting = {
-      update: (message: "Increment" | "Decrement") => (state: Readonly<{ count: number }>) => ({
-        state: { count: state.count + (message === "Increment" ? 1 : -1) },
-        commands: ["Ping" as const]
-      }),
-      runCommand: () => Effect.succeedSome("Increment" as const),
-      subscriptions: () => []
-    }
-    const simulating = simulate(counting, [], { state: { count: 0 } })
-    expectTypeOf<Effect.Success<typeof simulating>["applied"]>().toEqualTypeOf<
-      ReadonlyArray<"Increment" | "Decrement">
-    >()
   })
 
   test("its state is the one its init names, not the literal its update returns", () => {

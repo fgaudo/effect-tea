@@ -216,6 +216,12 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   the five, the optional child spread in by a condition, `{ ...(flag ? { b: … } : {}) }`, is the one a user is
   likeliest to write: it compiles, and its `makeModel` throws where the flag is off. A child that is there by a
   condition is declared with `childWhen`. _Reopen if_ a user reports one of the five.
+- **Checks of a program that `make` does not make, and of a wide tag**: a child written as an object, checked as a
+  program of the types read back from it (`CheckedChild`); an own message, command or key whose tag is `string`, a
+  template or `unknown`, refused beside a child; and the sentences that said that the types refuse a `new`,
+  an `extends` or an object written as a `Child`, a `ChildById` or a defect. Removed on 27 November 2026 by the same
+  rule: a program is made by `make`, and each check served only a form that no page shows. The classes stay opaque, as
+  their shape makes them. _Reopen if_ a user reports one of these forms.
 - **Checks that hold for a type parameter**, so that a function over any program declares it a child. Probed with
   `tsc`, 17 November 2026: a rule "exactly when" over a deferred conditional accepts nothing, and making it hold would
   rework every reader of `Program`. Such a function is an overload over erased types ("Composition"). _Reopen if_ a

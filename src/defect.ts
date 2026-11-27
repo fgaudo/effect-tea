@@ -73,7 +73,7 @@ type Fields = Readonly<{
  * - `key` is the subscription's key as it is. Like `cause`, it may hold the program's data.
  * - The run does not log the defect and does not recover from it. Report it, and choose what the user sees next.
  * - Only the library makes one: the run, and the testing tools that fail as the run dies. Read it, as a crash report
- *   or a test does: the types refuse a `new` of it, and of a class that extends it.
+ *   or a test does.
  * - What throws outside the functions of the program, in the run's own code or as the run reads a message's tags for
  *   `on`, is in the run's cause as it is, with no `where`, and ends the run as a defect does.
  *
@@ -85,7 +85,7 @@ type Fields = Readonly<{
  * @see The guide, "Running".
  */
 export class ProgramDefect extends Data.TaggedError("ProgramDefect")<Fields & Readonly<{ message: string }>> {
-  /** Not for a program: only the run makes one, and the types refuse a `new` of it. */
+  /** Not for a program: only the run makes one. */
   constructor(fields: Fields & { readonly "only the run makes a ProgramDefect": never }) {
     super({
       ...fields,
@@ -119,8 +119,8 @@ type CompositionFields = Readonly<{
  *   too.
  *
  * `on` names the message by its tags. `id` is the child's id as it is, and may hold the program's data. Only
- * `program` makes one: a test reads it, and the types refuse a `new` of it, and of a class that extends it. What a
- * parent does once a cast, or an `any`, has let through what the types refuse is unspecified.
+ * `program` makes one: a test reads it. What a parent does once a cast, or an `any`, has let through what the types
+ * refuse is unspecified.
  *
  * @example
  * ```ts
@@ -132,7 +132,7 @@ type CompositionFields = Readonly<{
  * @see The guide, "Running".
  */
 export class CompositionDefect extends Data.TaggedError("CompositionDefect")<CompositionFields> {
-  /** Not for a program: only `program` makes one, and the types refuse a `new` of it. */
+  /** Not for a program: only `program` makes one. */
   constructor(fields: CompositionFields & { readonly "only program makes a CompositionDefect": never }) {
     super(fields)
   }
@@ -142,8 +142,7 @@ export class CompositionDefect extends Data.TaggedError("CompositionDefect")<Com
  * A rule of the program broken, such as a message that cannot arrive or a state that cannot be: what `defect` throws.
  *
  * The run dies with it as with any other defect, and it is the `cause` of the `ProgramDefect`. It lets a crash report
- * tell a broken rule of the program from any other error. Only `defect` makes one: a test or a crash report reads it,
- * and the types refuse a `new` of it, and of a class that extends it.
+ * tell a broken rule of the program from any other error. Only `defect` makes one: a test or a crash report reads it.
  *
  * @example
  * ```ts
@@ -161,7 +160,7 @@ export class InvariantDefect extends Data.TaggedError("InvariantDefect")<
     message: string
   }>
 > {
-  /** Not for a program: only `defect` makes one, and the types refuse a `new` of it. */
+  /** Not for a program: only `defect` makes one. */
   constructor(reason: string & { readonly "only defect makes an InvariantDefect": never }) {
     super({ reason, message: reason })
   }

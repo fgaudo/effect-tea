@@ -45,38 +45,13 @@ premises that served that case alone, by the rule it left in `docs/premises.md` 
 guide's rules can see").
 
 The owner's rule of 27 November 2026 says what the library owes, and to whom (`AGENTS.md`, "Deciding"): to a program
-written as the guide teaches, and nothing to a form that no page shows. Step 122 took out the checks of the names of
-children; step 123 takes out what else the code holds for such forms, before the review of step 121 reads the code.
-
-### 123. What else the types, the tests and the comments hold only for a form that no page shows
-
-Opus 5.5, `high`. Depends on nothing. By `change-api`. Decided with the rule: a program is made by `make`, and one written
-by hand as an object is no form of the guide, typed `Program<…>` or not, though the library's own tests write many
-so, and may. Nor is a `Child`, a `ChildById` or a defect made otherwise than by the library's functions. Each item
-below is read. What serves only such a form goes, where taking it out changes nothing for a program of `make`, which
-`bun run inference` and the counts of the smoke test say. What also serves a form of the guide, or how a consumer's
-types print, stays, and the commit says which and why.
-
-- The check of a child written as an object: `ProgramChecked`, `Lacking` and the intersection of `CheckedChild`
-  (`compose.ts`), its sentence in the doc comment of `child`, and its tests. `CheckedChild` also keeps the name
-  `Program<…>` in a consumer's declarations (`change-api`, "No new type for how a consumer's types print").
-- `TagsTaken` for a tag that is `string`, a template or `any`, or that the type lacks. An own message, command or key
-  whose literal tag is the name of a child is a mistake, and stays refused.
-- The sentences and the tests that say that the types refuse a `new`, an `extends` or an object written as a `Child`,
-  a `ChildById` or a defect class (`compose.ts`, `defect.ts`). The classes stay as they are: they are how the types
-  are opaque.
-- The tests named "a program written as a plain object…" of `run`, `drive`, `rehearse` and `simulate`, and the sentence
-  of the doc comment of `Program` on one written as an object without `subscriptions`: each stays only where no test
-  of a program of `make` holds the same.
-- Then every other `Refused<…>`, `@ts-expect-error` and "does not compile" of `src/`, read once against the rule: the
-  commit lists each that goes. A refusal of a mistake stays.
-
-Done when each item is taken out, or kept with its reason in the commit, the checks of `AGENTS.md` for `compose.ts`
-and for the API pass, and the changelog says what a consumer can notice (`release`).
+written as the guide teaches, and nothing to a form that no page shows. Steps 122 and 123 took out what the code held
+for such forms, before the review of step 121 reads the code. The inference matrix still writes programs as objects,
+valid ones alone: the library's own tests write programs so, and the matrix checks that each tool takes them.
 
 ### 121. The review of the premises names the forms of this bug hunt, and reads all the code
 
-Opus 5.5, `high`. Depends on 123. The bug hunt of 27 November 2026 found bugs in code that three reviews of
+Opus 5.5, `high`. Depends on nothing. The bug hunt of 27 November 2026 found bugs in code that three reviews of
 the premises had in their scope (21, 24 and 26 November): their brief named none of the hunt's forms, and read the
 changes since the last review, of the engine and the testing tools alone.
 

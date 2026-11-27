@@ -277,16 +277,6 @@ describe("rehearse", () => {
     expect(listening.every((parent) => parent === caller.spanId)).toBe(true)
   })
 
-  test("a editor written as a plain object, without commands, needs no runCommand", async () => {
-    const plain = {
-      init: { state: { count: 0 } },
-      update: () => ({ count }: Readonly<{ count: number }>) => ({ state: { count: count + 1 } }),
-      subscriptions: () => [],
-      makeModel: ({ count }: Readonly<{ count: number }>) => count
-    }
-    expect(await Effect.runPromise(rehearse(plain, (rehearsal) => rehearsal.state))).toEqual({ count: 0 })
-  })
-
   test("calls no output of the program, which has no parent", async () => {
     type Count = Readonly<{ count: number }>
     let outputs = 0

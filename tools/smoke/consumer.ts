@@ -440,27 +440,6 @@ program<{ state: State; message: Readonly<{ _tag: "Main" }> }>().withChildren(ch
   makeModel: () => null
 })
 
-// A program with external messages has an `external`, which answers them.
-// @ts-expect-error
-const deaf: Program<{ state: CounterState; model: null; message: Full; external: Reset }> = {
-  init: { state: { count: 0 } },
-  update: () => (state) => ({ state }),
-  subscriptions: () => [],
-  makeModel: () => null
-}
-
-// A program written as an object has `subscriptions`, even one that listens to nothing: only `make` fills them in.
-// @ts-expect-error
-const unlistening: Program<{ state: CounterState; model: null; message: Full }> = {
-  init: { state: { count: 0 } },
-  update: () => (state) => ({ state }),
-  makeModel: () => null
-}
-
-// And so do the pieces of a program that `simulate` takes.
-// @ts-expect-error
-simulate({ update: counterUpdate }, [], counter.init)
-
 // A program may be typed with fewer external messages than it takes, never with more.
 export const sealed: Program<{ state: CounterState; model: CounterState; message: CounterMessage; event: Full }> =
   counter
@@ -474,42 +453,13 @@ const opened: Program<{
   external: CounterMessage
 }> = counter
 
-// A child with commands has a `runCommand`, even when written without `Program<…>`.
-child(
-  // @ts-expect-error
-  {
-    init: { state: { count: 0 }, commands: ["Save" as const] },
-    update: counterUpdate,
-    subscriptions: () => [],
-    makeModel: () => null
-  }
-)
-
-// So does one whose `external` alone returns commands, and an `external` answers with a step, never `reject`.
-const resetting = {
-  init: { state: { count: 0 } },
-  update: counterUpdate,
-  subscriptions: () => [],
-  makeModel: () => null
-}
-const saving = {
-  ...resetting,
-  external: (_: Reset) => (state: CounterState) => ({ state, commands: ["Save" as const] })
-}
-const refusing = { ...resetting, external: (_: Reset) => (state: CounterState) => state.count > 0 ? { state } : reject }
-// @ts-expect-error
-child(saving)
-// @ts-expect-error
-child(refusing)
-// `start` checks them too, and starts a program a parent could hold: its `external` and its `output` are never called.
+// `start` starts a program a parent could hold: its `external` and its `output` are never called.
 const steady = {
   init: { state: { count: 0 } },
   update: (_: "Pressed") => (state: CounterState) => ({ state }),
   subscriptions: () => [],
   makeModel: () => null
 }
-// @ts-expect-error
-start({ ...steady, external: (_: Reset) => (state: CounterState) => state.count > 0 ? { state } : reject })
 export const steadyStarted = start({ ...steady, external: (_: Reset) => () => ({ state: { count: 0 } }) })
 export const lampStarted = start(lamp)
 
@@ -532,16 +482,6 @@ export const where = Match.type<unknown>().pipe(
   Match.when(Match.instanceOf(ProgramDefect), (died) => died.where),
   Match.orElse(() => undefined)
 )
-export const built = () => [
-  // @ts-expect-error
-  new InvariantDefect("A save completed while nothing was saving"),
-  // @ts-expect-error
-  new ProgramDefect({ where: "update", cause: "boom" }),
-  // @ts-expect-error
-  new CompositionDefect({ message: "Broken", child: "Page" }),
-  // @ts-expect-error
-  new (class extends InvariantDefect {})("A save completed while nothing was saving")
-]
 
 // A state is any value: a number, alone, as a child and by id, a state without fields, and a type parameter.
 export const numbered = program<{ state: number; message: "Increment" }>().make({
@@ -637,8 +577,6 @@ assert(relayed.state.own.heard === 0, "a parent of parents tells its child, whic
 const told = dialogOfQuiet.update({ _tag: "Content", message: { _tag: "Increment" } })(dialogOfQuiet.init.state)
 assert(told !== reject && countOf(told.state.children.Content) === 1, "a parent made over any program routes to it")
 
-assert(deaf.update({ _tag: "Full" })(deaf.init.state) !== reject, "a program typed past its types runs")
-assert(!("subscriptions" in unlistening), "a program typed past its types has only the pieces written")
 assert(opened === sealed, "a program typed with other external messages is the same program")
 
 // An option of the run is a function that returns nothing: an effect it returned would never run.

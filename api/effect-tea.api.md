@@ -84,9 +84,6 @@ type ByIdOptions<State, Id, Flags> = Readonly<{
     listening?: (state: State, id: Id) => boolean;
 }>;
 
-// @public (undocumented)
-type CheckedChild<P> = unknown extends Lacking<P> ? P : P & Lacking<P>;
-
 // @public
 export class Child<State, P, in out There extends "always" | "sometimes"> {
     protected readonly "~@fgaudo/effect-tea/Child/declaration": ChildDeclaration<State, P, There>;
@@ -183,16 +180,16 @@ type CompositionFields = Readonly<{
 }>;
 
 // @public
-export type DeclareChild = <State, P extends AnyProgram>(program: CheckedChild<P>, ...options: AlwaysOptions<State, P>) => Child<State, P, "always">;
+export type DeclareChild = <State, P extends AnyProgram>(program: P, ...options: AlwaysOptions<State, P>) => Child<State, P, "always">;
 
 // @public
-export type DeclareChildById = <State, P extends AnyProgram, Id = Refused<"listening is written after ids or flags, which give its id">>(program: CheckedChild<P>, options: ByIdOptions<State, Id, FlagsOf<P>> & ByIdForm<P> & Telling<State, P>) => ChildById<State, NoInfer<Id>, P>;
+export type DeclareChildById = <State, P extends AnyProgram, Id = Refused<"listening is written after ids or flags, which give its id">>(program: P, options: ByIdOptions<State, Id, FlagsOf<P>> & ByIdForm<P> & Telling<State, P>) => ChildById<State, NoInfer<Id>, P>;
 
 // @public
 export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field<T, "state">>>(children: C) => ParentMaker<T, C>;
 
 // @public
-export type DeclareChildWhen = <State, P extends AnyProgram>(program: CheckedChild<P>, options: WhenOptions<State, P>) => Child<State, P, "sometimes">;
+export type DeclareChildWhen = <State, P extends AnyProgram>(program: P, options: WhenOptions<State, P>) => Child<State, P, "sometimes">;
 
 // @public
 type DeclaredTypes = Readonly<{
@@ -351,11 +348,6 @@ export type Kept<Own, Children> = {
 export type KeyOf<P> = P extends {
     readonly subscriptions: (state: never) => ReadonlyArray<infer K>;
 } ? K : never;
-
-// @public (undocumented)
-type Lacking<P> = P extends ProgramChecked<P> ? unknown : ([CommandOf<P>] extends [never] ? unknown : WithRunCommand<CommandOf<P>, unknown, unknown>) & ([KeyOf<P>] extends [never] ? unknown : WithListen<KeyOf<P>, unknown, unknown>) & {
-    readonly "a child is a program of the types read back from it": ProgramChecked<P>;
-};
 
 // @public
 type Listed<T, Key extends "commands" | "events"> = T extends {
@@ -554,21 +546,6 @@ export type Program<T extends ProgramTypes> = Shape<Field<T, "state">, Field<T, 
 // @public
 export const program: <T extends DeclaredTypes>() => ProgramMaker<T>;
 
-// @public (undocumented)
-type ProgramChecked<P> = Program<{
-    state: StateOf<P>;
-    model: ModelOf<P>;
-    message: MessageOf<P>;
-    command: CommandOf<P>;
-    commandServices: CommandServicesOf<P>;
-    subscriptionServices: SubscriptionServicesOf<P>;
-    event: EventOf<P>;
-    external: ExternalOf<P>;
-    flags: FlagsOf<P>;
-    output: OutputOf<P>;
-    key: KeyOf<P>;
-}>;
-
 // @public
 type ProgramConfig<State, Message, Command, Event, Model, Ran, Heard, Key, External, Flags, Output> = ListenOf<Key, Subscriptions<State, Key>, Message, Heard> & RunCommandOf<Command, Message, Ran> & UpdateOf<Message, Update<State, Message, Command, Event>> & ExternalHandlerOf<External, (message: External) => (state: State) => Step<State, Command, Event>> & OutputHandlerOf<Output, (state: State) => Output> & Readonly<{
     init: Init<State, Command, Flags>;
@@ -711,9 +688,7 @@ export type SubscriptionServicesOf<P> = P extends {
 } ? R : never;
 
 // @public
-type TagsTaken<M, Names> = 0 extends 1 & M ? Names : M extends unknown ? "_tag" extends keyof M ? Extract<Names, M[keyof M & "_tag"]> | Extract<M[keyof M & "_tag"], Names> : Names extends unknown ? Readonly<{
-    _tag: Names;
-}> extends M ? Names : never : never : never;
+type TagsTaken<M, Names> = M extends unknown ? "_tag" extends keyof M ? Extract<M[keyof M & "_tag"], Names> : never : never;
 
 // @public
 type Telling<State, P> = Readonly<{

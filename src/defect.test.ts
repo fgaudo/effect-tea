@@ -27,26 +27,6 @@ describe("defect", () => {
 })
 
 describe("the defect classes", () => {
-  // Never called: what a constructor takes is a rule of the types alone.
-  test("are built by the library alone: the types refuse a new of one, and of a class that extends it", () => {
-    const constructed = () => [
-      // @ts-expect-error: only `defect` builds an InvariantDefect.
-      new InvariantDefect("A save completed while nothing was saving"),
-      // @ts-expect-error: only the run builds a ProgramDefect.
-      new ProgramDefect({ where: "update", cause: "boom" }),
-      // @ts-expect-error: only `program` builds a CompositionDefect.
-      new CompositionDefect({ message: "Broken", child: "Page" })
-    ]
-    const extended = () => [
-      // @ts-expect-error: nor a class that extends one.
-      new (class extends InvariantDefect {})("A save completed while nothing was saving"),
-      // @ts-expect-error: likewise.
-      new (class extends ProgramDefect {})({ where: "update", cause: "boom" }),
-      // @ts-expect-error: likewise.
-      new (class extends CompositionDefect {})({ message: "Broken", child: "Page" })
-    ]
-    expect([constructed, extended]).toHaveLength(2)
-  })
   // A private constructor fails both checks: the `toThrow` of jest's types asks for the first.
   test("are taken where a class is asked for, by a public construct signature and by Match.instanceOf", () => {
     type Constructable = new(...args: Array<any>) => any

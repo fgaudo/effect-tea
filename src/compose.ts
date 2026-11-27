@@ -27,48 +27,10 @@ import {
   type Program,
   startOf,
   type StateOf,
-  type SubscriptionServicesOf,
-  type WithListen,
-  type WithRunCommand
+  type SubscriptionServicesOf
 } from "./program.ts"
 import type { Listen, Subscription, Subscriptions } from "./subscription.ts"
 import { reject, type Rejected, type Step, type Transition, type Update } from "./update.ts"
-
-// A child is checked as a program of the types read back from it: a child written as an object, and not typed
-// `Program<…>`, is checked by nothing else. So its `external` answers with a step, never `reject`, its `output` reads
-// its own state, and its `runCommand` is there when its steps list commands, `external`'s included. Kept to this
-// module, as the `Shape` of `Program` is to its own: a consumer's declarations spell it out.
-type ProgramChecked<P> = Program<{
-  state: StateOf<P>
-  model: ModelOf<P>
-  message: MessageOf<P>
-  command: CommandOf<P>
-  commandServices: CommandServicesOf<P>
-  subscriptionServices: SubscriptionServicesOf<P>
-  event: EventOf<P>
-  external: ExternalOf<P>
-  flags: FlagsOf<P>
-  output: OutputOf<P>
-  key: KeyOf<P>
-}>
-
-// What a child lacks for that check, `unknown` where it lacks nothing. A child that runs commands has a `runCommand`, a
-// member, for the error that names it; `WithRunCommand` is `object` for one that runs none, and `unknown` is needed
-// instead: see `CheckedChild`. The rest of the check is held under a key no program has: as members, its types, read
-// from a `P` not inferred yet, would type the functions of a child written in the call, and its `listen` would make
-// subscriptions of `unknown` messages.
-type Lacking<P> = P extends ProgramChecked<P> ? unknown
-  :
-    & ([CommandOf<P>] extends [never] ? unknown : WithRunCommand<CommandOf<P>, unknown, unknown>)
-    & ([KeyOf<P>] extends [never] ? unknown : WithListen<KeyOf<P>, unknown, unknown>)
-    & { readonly "a child is a program of the types read back from it": ProgramChecked<P> }
-
-// The child's program, with what it lacks for the check above. Inferred from `P & …`, `P` would be the program less
-// the members TypeScript matches with the check, which loses the name `Program<…>` in a consumer's declarations:
-// inferred from `P` alone, it keeps it, and the intersection is written only where the check fails. Without it, the
-// declarations of the smoke test's consumer spell out four programs, not one. The check is not on `P`, whose branch
-// would then see `P` as `P & ProgramChecked<P>`, the contextual type of a child written in the call.
-type CheckedChild<P> = unknown extends Lacking<P> ? P : P & Lacking<P>
 
 // An option or a piece that a declaration or a program does not take, typed by the rule that says what to write: the
 // compiler prints the rule where it is given. No value has the type, so the run never reads one. Each site writes
@@ -126,8 +88,8 @@ type Declared = { readonly [declaration]: UntypedChild }
  * - A child declared with `childWhen` is there in the states its declaration says, and its model is an `Option`.
  * - Another value of `key`, or other flags, start the child again, as another instance.
  *
- * Only `child` and `childWhen` make one: the types refuse an object written as one, a `new` of it, a class that extends
- * it, and a child always there typed as one that may not be, or the reverse.
+ * Only `child` and `childWhen` make one. The types refuse a child always there typed as one that may not be, or the
+ * reverse.
  *
  * @example
  * ```ts
@@ -160,8 +122,7 @@ type ChildDeclaration<State, P, There> = {
  * - The children that are there are those whose ids the parent's state lists.
  * - Ids are compared by value, with `Equal`.
  *
- * Only `childById` makes one: the types refuse an object written as one, a `new` of it, a class that extends it, and
- * children typed with another id than theirs.
+ * Only `childById` makes one. The types refuse children typed with another id than theirs.
  *
  * @example
  * ```ts
@@ -434,25 +395,18 @@ type RunCommandOf<OwnCommand, Message, Ran> = [OwnCommand] extends [never]
     runCommand: (command: OwnCommand) => Ran & Execution<Message, any>
   }>
 
-// Each way round, so that a wide tag (`string`, a template, `any`) takes every name it admits, and a wide name every
-// tag it admits; an optional tag is a tag. A message with no tag in its type takes a name exactly when a message that
-// has only that tag is one of its type, as one of `unknown` or `object` is.
-/** The names among `Names` that a message or command of type `M` may carry as its tag, by which `make` routes it. */
-type TagsTaken<M, Names> = 0 extends 1 & M ? Names
-  : M extends unknown ?
-    "_tag" extends keyof M ? Extract<Names, M[keyof M & "_tag"]> | Extract<M[keyof M & "_tag"], Names>
-    : Names extends unknown ? Readonly<{ _tag: Names }> extends M ? Names : never
-    : never
+/** The names among `Names` that a message or command of type `M` carries as its tag, by which `make` routes it. */
+type TagsTaken<M, Names> = M extends unknown ? "_tag" extends keyof M ? Extract<M[keyof M & "_tag"], Names> : never
   : never
 
-/** An own message or command that can take the name of a child would be routed to it: it does not compile. */
+/** An own message or command whose tag is the name of a child would be routed to it: it does not compile. */
 type NoClash<Own, OwnCommand, C> =
   & ([TagsTaken<Own, keyof C & string>] extends [never] ? unknown
     : { readonly "an own message takes the name of a child": TagsTaken<Own, keyof C & string> })
   & ([TagsTaken<OwnCommand, keyof C & string>] extends [never] ? unknown
     : { readonly "an own command takes the name of a child": TagsTaken<OwnCommand, keyof C & string> })
 
-/** An own key that can take the name of a child would be listened to as the child's: it does not compile. */
+/** An own key whose tag is the name of a child would be listened to as the child's: it does not compile. */
 type NoKeyClash<OwnKey, C> = [TagsTaken<OwnKey, keyof C & string>] extends [never] ? unknown
   : { readonly "an own key takes the name of a child": TagsTaken<OwnKey, keyof C & string> }
 
@@ -1166,8 +1120,8 @@ type Inferred = Readonly<{ "the services are inferred, never named": never }>
  *   `instance` too;
  * - a key as `{ _tag: <child>, instance, key }`, whose subscription the child's `listen` makes.
  *
- * For children by id, each of these also carries the `id`. A message, a command or a key of the parent's own that can
- * take the name of a child does not compile, as one tagged `string` can.
+ * For children by id, each of these also carries the `id`. A message, a command or a key of the parent's own whose
+ * tag is the name of a child does not compile.
  *
  * @returns `withChildren`, which takes the children of a parent, and `make`, which makes a program without children.
  *
@@ -1281,8 +1235,9 @@ type Telling<State, P> = Readonly<{
 }>
 
 // A child with flags is declared with them. In the options, and not on the program: inferred from `P & …`, `P` would
-// lose the name `Program<…>`, as `CheckedChild` says. Their flags are given by an option of its own in each form, and
-// not by the type of what one option returns: flags may be an `Option` themselves.
+// be the program less the members TypeScript matches, which loses the name `Program<…>` in a consumer's declarations.
+// Their flags are given by an option of its own in each form, and not by the type of what one option returns: flags
+// may be an `Option` themselves.
 type AlwaysOptions<State, P> = [FlagsOf<P>] extends [never] ? [
     options?:
       & Readonly<{
@@ -1347,7 +1302,7 @@ type ByIdForm<P> = [FlagsOf<P>] extends [never]
 // The parent's state is a parameter of each function, which TypeScript infers from the children that `withChildren`
 // expects, where a child is declared in its call, and from the annotation of an option, where it is declared apart.
 // Each function has a type of its own: a package that exports the functions in an object names it in its declarations,
-// where they would spell out the check of `CheckedChild`. The smoke test's `library` holds it.
+// where they would spell out the types of its options. The smoke test's `library` holds it.
 
 /**
  * The type of `child`.
@@ -1356,7 +1311,7 @@ type ByIdForm<P> = [FlagsOf<P>] extends [never]
  * @see The guide, "Composition".
  */
 export type DeclareChild = <State, P extends AnyProgram>(
-  program: CheckedChild<P>,
+  program: P,
   ...options: AlwaysOptions<State, P>
 ) => Child<State, P, "always">
 
@@ -1367,7 +1322,7 @@ export type DeclareChild = <State, P extends AnyProgram>(
  * @see The guide, "Composition".
  */
 export type DeclareChildWhen = <State, P extends AnyProgram>(
-  program: CheckedChild<P>,
+  program: P,
   options: WhenOptions<State, P>
 ) => Child<State, P, "sometimes">
 
@@ -1387,7 +1342,7 @@ export type DeclareChildById = <
   P extends AnyProgram,
   Id = Refused<"listening is written after ids or flags, which give its id">
 >(
-  program: CheckedChild<P>,
+  program: P,
   options: ByIdOptions<State, Id, FlagsOf<P>> & ByIdForm<P> & Telling<State, P>
 ) => ChildById<State, NoInfer<Id>, P>
 
@@ -1408,12 +1363,10 @@ export type DeclareChildById = <
  * in its call. A child declared apart from it annotates that state, `(state: Own) => …`: without it, the state is
  * `unknown`, and an option that reads it does not compile. `withChildren` refuses a child declared for another state.
  *
- * A program with flags is declared with `flags`, and one without flags is declared without them. A child that may
- * not be there is declared with `childWhen`: `child` does not compile with `there`. A child written as an object, and
- * not typed `Program<…>`, is checked as a program is: one whose steps list commands has a `runCommand`, and one whose
- * subscriptions list keys has a `listen`. Each of these does not compile otherwise. Nor does `child` for a type
- * parameter, as `P` in `<P extends AnyProgram>(p: P) => …`: a function over any program is an overload, whose body
- * declares a program of `unknown` types.
+ * A program with flags is declared with `flags`, and one without flags is declared without them: `child` does not
+ * compile otherwise. A child that may not be there is declared with `childWhen`: `child` does not compile with
+ * `there`. Nor does it compile for a type parameter, as `P` in `<P extends AnyProgram>(p: P) => …`: a function over
+ * any program is an overload, whose body declares a program of `unknown` types.
  *
  * @param program - The child.
  * @param options - What it starts from, when it listens and what it is told: functions of the parent's own state.

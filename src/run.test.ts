@@ -697,39 +697,6 @@ describe("the run", () => {
       .toEqualTypeOf<"a program is given flags only where its types name them">()
   })
 
-  test("a program written as a plain object needs a runCommand only for commands it has", async () => {
-    const plain = {
-      init: { state: { count: 0 } },
-      update: () => ({ count }: Count) => ({ state: { count: count + 1 } }),
-      subscriptions: () => [],
-      makeModel: ({ count }: Count) => count
-    }
-    const { app, run } = start(plain)
-    expect(app.model()).toBe(0)
-    expect(wheres(await interrupted(Effect.runFork(run)))).toEqual([])
-    const pinging = { ...plain, update: () => (state: Count) => ({ state, commands: ["Ping" as const] }) }
-    // @ts-expect-error: its `Ping` would go uninterpreted.
-    expect(() => start(pinging)).toBeDefined()
-  })
-
-  test("a program written as a plain object takes every message its update takes, whatever its commands answer", () => {
-    type Step = "Increment" | "Decrement"
-    const plain = {
-      init: { state: { count: 0 }, commands: ["Ping" as const] },
-      update: (message: Step) => ({ count }: Count) => ({
-        state: { count: count + (message === "Increment" ? 1 : -1) }
-      }),
-      runCommand: () => Effect.succeedSome("Increment" as const),
-      subscriptions: () => ["ticks" as const],
-      listen: () => Channel.succeed("Increment" as const).pipe(Channel.concatWith(() => Channel.never)),
-      makeModel: ({ count }: Count) => count
-    }
-    const { app } = start(plain)
-    expectTypeOf<Parameters<typeof app.dispatch>[0]>().toEqualTypeOf<Step>()
-    // @ts-expect-error: an answer is a message its update takes.
-    expect(() => start({ ...plain, runCommand: () => Effect.succeedSome("Reset" as const) })).toBeDefined()
-  })
-
   test("only a program without events starts: no parent would handle them", () => {
     const telling: Program<{ state: Count; model: Model; message: Message; command: Command; event: "Told" }> = counter
     // @ts-expect-error: its events would go unhandled.
@@ -750,12 +717,6 @@ describe("the run", () => {
     expect(app.model()).toBe(1)
     expect(wheres(await interrupted(Effect.runFork(run)))).toEqual([])
     expect(calls).toEqual({ external: 0, output: 0 })
-    expect(() =>
-      // @ts-expect-error: an external message applies in every state.
-      start({ ...held, external: (_: "Reset") => (state: Count) => state.count > 0 ? { state } : reject })
-    ).toBeDefined()
-    // @ts-expect-error: its output reads its own state.
-    expect(() => start({ ...held, output: (other: Readonly<{ other: string }>) => other.other.length })).toBeDefined()
   })
 
   test("a run needs the services of the effects the program has, not those its type names for effects it lacks", () => {
@@ -781,33 +742,14 @@ describe("the run", () => {
   })
 
   test("runCommand takes the command alone: it does not see the state", () => {
-    const seeing: Counter = {
-      ...counter,
-      // @ts-expect-error: a command carries everything it needs.
-      runCommand: (_: Command, state: Count) => Effect.succeedSome<Message>(state.count > 0 ? "Increment" : "Same")
-    }
-    expect(seeing).toBeDefined()
-  })
-
-  test("a program has a runCommand exactly when it has commands, and a listen exactly when it has keys", () => {
-    // @ts-expect-error: its `Ping` would go uninterpreted.
-    const uninterpreted: Counter = {
+    const seeing = program<{ state: Count; model: Model; message: Message; command: Command }>().make({
       init: counter.init,
       update: counter.update,
-      subscriptions: () => [],
+      // @ts-expect-error: a command carries everything it needs.
+      runCommand: (_: Command, state: Count) => Effect.succeedSome<Message>(state.count > 0 ? "Increment" : "Same"),
       makeModel: counter.makeModel
-    }
-    // @ts-expect-error: its keys would go without their subscription.
-    const deaf: Keyed = { ...counter, subscriptions: () => ["k"] }
-    const plain = {
-      init: { state: { count: 0 } },
-      update: () => ({ count }: Count) => ({ state: { count: count + 1 } }),
-      subscriptions: () => ["ticks" as const],
-      makeModel: ({ count }: Count) => count
-    }
-    // @ts-expect-error: written as a plain object, its keys would go without their subscription too.
-    expect(() => start(plain)).toBeDefined()
-    expect([uninterpreted, deaf]).toHaveLength(2)
+    })
+    expect(seeing).toBeDefined()
   })
 
   test("what a command acquires is its own: no scope to provide, released after it stops", async () => {

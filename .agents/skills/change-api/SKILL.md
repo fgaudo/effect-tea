@@ -67,7 +67,7 @@ fails on one that a module exports and the package does not, on an interface or 
 declarations use, as `ProgramMaker` for what `program` returns.
 
 **No new type for how a consumer's types print.** Some types exist only for how TypeScript prints a consumer's types
-(`ProgramMaker` and its functions, `CheckedChild`, `Present`), and rest on behaviour of the compiler that no
+(`ProgramMaker` and its functions, `Present`), and rest on behaviour of the compiler that no
 documentation states. Those stay, each with a check of the smoke test that fails without it and a comment at the type
 that says what would print without it; one whose check fails with a new TypeScript is removed, not repaired with a
 second trick. No other is added, and no change is made only to lower a count of the smoke test. How a type prints

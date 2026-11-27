@@ -95,9 +95,8 @@ export type Field<T, K extends string> = T extends { readonly [P in K]: infer V 
  *   exactly when it has external messages.
  * - The run makes the model of a state with `makeModel(state)`. A test can call `makeModel` the same way, on any state,
  *   and `output(state)` for its output: no tool reads the output of a program that has no parent.
- * - Every program has `subscriptions`: one written as an object without them does not compile. One that `make` makes
- *   without them listens to nothing. A test calls `subscriptions(state)` as the run does, on any state, and
- *   `listen(key)` for the subscription of a key.
+ * - Every program has `subscriptions`: one that `make` makes without them listens to nothing. A test calls
+ *   `subscriptions(state)` as the run does, on any state, and `listen(key)` for the subscription of a key.
  * - `update`, `external`, `makeModel`, `subscriptions` and `output` are pure, and so is an `init` that takes flags.
  *   No value given to the library, or taken from it, is mutated once made, nested objects included. The library
  *   reuses a child's model, and the keys of its subscriptions, while the child keeps the very same state: a child
