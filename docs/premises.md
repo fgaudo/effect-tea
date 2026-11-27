@@ -202,12 +202,14 @@ over the changes of the engine, the tools and the bridges since the last one, an
 library is made known and before 1.0, by a session that wrote none of them. It reports a finding only once a test
 reproduces it, or the rule rules it out: a reading of the code, or of a dependency's source, is a lead.
 
-The rule of fixes: a finding is fixed by its form, not only by the sequence that found it. The fix names the form (a
-cleanup skipped, or an exit discarded, as a scope closes; a step applied by two actors at once; a window between two
-fibers that nobody watches; an interruption at a yield between two operations that must be one; a cost that grows
-with the messages; a tool that does otherwise than what it imitates), looks for it in every place of the engine, of
-the tools and of the bridges that ends a run, applies a message or releases what a fiber holds, and leaves a test at
-each place the form can reach.
+The rule of fixes: a bug that escaped is a bug of the search first. Its fix names the cell it was in, an actor at a
+moment, of the table of [`invariants.md`](invariants.md), "Who may act, and when", and adds what would have found it:
+the generator that the search lacked for that cell, or the row of `src/testing/contract.test.ts`, checked by the
+property of a step, and not only the test of its sequence. An actor or a moment that the table lacks is added to it,
+with every cell it opens. The fix then looks for the same entry in every place of the engine, of the tools and of the
+bridges that ends a run, applies a message or releases what a fiber holds, and leaves a test at each place it can
+reach. Two kinds of bug are of no cell, and are fixed by their form: a cost in memory or in time that grows with the
+messages, and a tool that does otherwise than what it imitates.
 
 ## Premises that no test reaches yet
 

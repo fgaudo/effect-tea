@@ -7,8 +7,8 @@ What the invariants rest on of Effect and of the JavaScript engine is in [`premi
 change is made in [`change-engine`](../.agents/skills/change-engine/SKILL.md). Why a dispatch applies its message at
 once is [`synchronous-dispatch.md`](records/synchronous-dispatch.md).
 
-The page has three parts: what a program may rely on, what the engine keeps for itself, and how a check is built, in
-the engine and in the testing tools.
+The page has four parts: what a program may rely on, what a step promises those who enter it, what the engine keeps
+for itself, and how a check is built, in the engine and in the testing tools.
 
 ## What a program may rely on
 
@@ -16,9 +16,9 @@ the engine and in the testing tools.
   one twice): never assume it runs once per message.
 - **Messages are applied one at a time, in the order they were sent, each in the call that sends it.** One synchronous
   thunk applies each (`applyOne` in `engine.ts`): the check of a death and of the message's start, `update`, the option
-  that hears it, the new state and its keys. A message sent during it waits in `pending` until it is done (`apply`). By
-  ECMAScript's run to completion no other code runs inside the thunk, so its checks and its act are one thunk by
-  construction.
+  that hears it, the new state and its keys. A message sent during it waits in `pending` until it is done (`apply`).
+  The thunk calls code that is not the engine's, which may call the engine back: what makes the step whole is that
+  `applying` keeps every other writer of `current` and of `active` out ("A step, and who may enter it").
   - The subscriptions a step stops and starts, and the commands it starts, are a job. The jobs of a call are offered
     once the outermost `apply` returns, to one fiber of effects, which takes them from an unbounded queue one at a
     time, in the order of the states (`perform`). A step that stops, starts and commands nothing makes no job
@@ -115,8 +115,9 @@ the engine and in the testing tools.
   - The keys are reconciled in the thunk that makes the state (`Core.reconcile` in `applyOne`), so the engine's keys
     are the current state's, while the fibers that run are those the fiber of effects has reached: the two diverge by
     design. The gone keys of a job are interrupted together, and awaited before any start of that job or a later one
-    (`perform`). `reconcile` counts the starts of the active keys it finds, not the keys listed, so a key listed twice
-    starts once and hides no key that went away.
+    (`perform`). That they are interrupted together is no promise, and the engine's to keep: the stops of a job cost
+    its longest release, not the sum of them. `reconcile` counts the starts of the active keys it finds, not the keys
+    listed, so a key listed twice starts once and hides no key that went away.
   - A subscription is made from its key alone, by `listen`, which the fiber of its start calls: a defect of `listen` is
     the subscription's, with its key. A parent lifts its children's keys under their names, and its `listen` lifts a
     child's subscription once for each start.
@@ -149,12 +150,14 @@ the engine and in the testing tools.
   - `rehearse` and `drive` read the model of each new state in a listener, and the first whatever the first keys did,
     by one function (`readEach` in `run.ts`), so a defect of `makeModel` ends each as it ends the run, and a later
     model's defect never cuts its step short.
-- **`onApplied` and `onIgnored` are given no dispatch, and return nothing**: functions called in the thunk as `update`
-  is (`attempt` in `applyOne`), whose types refuse a value, an effect or a promise among them. They hear each accepted,
-  or rejected, message in order, with where it came from, before the new state is current; they send nothing and change
-  nothing. So only functions of the program run in the thunk, and nothing holds a step: a release holds the fiber of
-  effects alone, as `gate` in `test/gate.test_helper.ts` does in a test. A defect in one stops the step, and one of
-  `onApplied` leaves the state as it was. Neither hears a message dropped before `update`: that is the engine's.
+- **`onApplied` and `onIgnored` are given no dispatch, and return nothing**: functions of whoever runs the program,
+  called in the thunk as `update` is (`attempt` in `applyOne`), whose types refuse a value, an effect or a promise
+  among them. They hear each accepted, or rejected, message in order, with where it came from, before the new state is
+  current. They return nothing, so nothing holds a step: a release holds the fiber of effects alone, as `gate` in
+  `test/gate.test_helper.ts` does in a test. They are no functions of the program, and nothing keeps one pure: what it
+  does as it hears, as the guide's offers a step to a queue and a test's completes a `Deferred`, it does as a callback
+  of a step ("A step, and who may enter it"). A defect in one stops the step, and one of `onApplied` leaves the state
+  as it was. Neither hears a message dropped before `update`: that is the engine's.
 - **The run writes no log of its own.** What the program logs is its own. Where the library names a message, in the
   `on` of a defect and in what the tools say, it names it by its tags alone (`describeByTag` in `log.ts`): a wrapped
   `message` or `command` is followed only when it is itself tagged, since a program's own field may hold data.
@@ -185,8 +188,8 @@ the engine and in the testing tools.
     once its scope had closed; a cause with a defect is none, so the root leaves a death the scope recorded as it is.
     Nothing interrupts such a fiber unmarked before the run stops it: the engine forks it with `FiberSet.run` or
     `FiberMap.run`, as no child of its forker, and the sets close only after the end has stopped their fibers. The
-    fiber of whoever runs the program has no root, since only functions of the program run there, and the guide leaves
-    that to the program; nor has the fiber of effects, where none runs.
+    fiber of whoever runs the program has no root, since only what a thunk calls runs there, and the guide leaves that
+    to the program; nor has the fiber of effects, where none runs.
   - Each fiber of the run records what it dies of in one register (`makeDeaths` in `shell.ts`: the run's, made by
     `start` or `drive` and given through `startWith`; `rehearse`'s, through `partsOf`; one per simulation), in a cleanup
     nothing interrupts (`Effect.onExit`), and a fiber with a scope as it dies, before its scope releases (`scopedIn`,
@@ -238,6 +241,136 @@ the engine and in the testing tools.
     (`began`), unless the program has died. It reads each model in its listener (`readEach`), so a defect of `makeModel`
     is the run's, and the scenario races only the end of the run. A call of `rehearse` races with a death only its waits
     before it has applied anything ("The testing tools behave like the engine").
+
+## A step, and who may enter it
+
+A step is what one message comes to: the check of a death and of the message's start, `update`, the option that hears
+it, the new state with its keys, and the notice of each listener (`applyOne` in `engine.ts`). The outermost call of
+`apply` does the step of its message, then that of each message sent meanwhile, and gives out in its `finally` what
+they left: the jobs, the death, the wakes.
+
+A step calls code that is not the engine's: `update` and `subscriptions`, the options, a tool's `stepped`, and the
+listeners. That code may call the engine back, and may wake a fiber that does, on the same stack, since a fiber that
+waits on a `Deferred` runs where it is completed (`premises.md`). So a step is not whole because nothing else runs
+inside it. It is whole because `applying` keeps every other writer of `current` and of `active` out, and because the
+engine wakes nobody before the outermost call returns. Every entry of the engine keeps one property, but `effects`,
+which `run` begins once: a run begun inside a step is a form that no page shows.
+
+**An entry made during a step has the effect of the same entry made right after the outermost call returns.**
+
+- A message (`dispatch`, `send`, an answer, a subscription's message) waits in `pending` behind the step, and is
+  applied before the call returns, in the order sent.
+- The end (`end`, and so `stop`, the engine's finalizer, the run's own end and that of `Stage.play`) waits for
+  `returned`.
+- A job that only tells (`after`) is offered with the jobs of the call.
+- The jobs, `died`, `settled` and `returned` go out in the `finally` alone, in that order, once `applying` is reset.
+
+Three entries act at once instead:
+
+- A read (`current`, `active`, `model()`) gives the state that is current then: the one of before the step in an
+  option, and the new one in a notice.
+- A listener stopped is told no more, of the notice under way either, and one added is told from the next (`tell`).
+- A defect recorded (a throw of the code that a step calls, `die`, a fiber that dies there) is in the register at once:
+  no message applies from it on, those that wait in `pending` included (`arrive`). Its end waits, as every end does
+  (`hold`, `release`).
+
+A tool that plays a program owes the same of its own entries: a call of a scenario made during a step does what it
+does right after the outermost call. `rehearse` and `simulate` give a scenario no way into a step. `drive` does,
+through the options it takes, and does not keep the property there yet (`ROADMAP.md`, "Open problems").
+
+### Who may act, and when
+
+Four actors enter the engine, each at six moments:
+
+- **Between two tasks**: nothing of the engine is on the stack, and no step is under way.
+- **At a yield of the scheduler**: between two operations of a fiber of the run or of a tool, where Effect's scheduler
+  may run another fiber, or a task.
+- **In a job**: on the stack of the fiber of effects as it does a job (`perform`), where it starts a subscription or a
+  command, and where a tool is told (`released`, the `done` of a job that only tells). A message sent there is the
+  outermost call of its own, and its job is offered after the one under way.
+- **In a callback of a step**: on the stack of an option, of a notice, or of a fiber that one of them wakes.
+- **In a wake of the `finally`**: on the stack of what `died`, `settled` or `returned` resume as the outermost call
+  returns, its steps done. A message sent there is the outermost call of its own.
+- **During the end**: from the mark of the end (`stopped`) until the run, or the tool, has ended.
+
+Each cell names what reaches it: the search (`src/interleaving.test.ts`), the sweep (`src/testing/contract.test.ts`,
+"the run and each tool, interrupted by whoever runs it at any yield of the scheduler"), or a test file, whose tests the
+list below names. "None yet" is a cell that a page shows and no test reaches: it is owed a generator of the search, or
+a row of `contract.test.ts` (`ROADMAP.md`). "Unspecified" is a cell that no page shows ("Deciding" in
+[`AGENTS.md`](../AGENTS.md)), and "no entry" one where the actor cannot call the engine.
+
+|                                | Between two tasks              | At a yield                        | In a job                            | In a callback of a step             | In a wake of the `finally`                         | During the end                                |
+| ------------------------------ | ------------------------------ | --------------------------------- | ----------------------------------- | ----------------------------------- | -------------------------------------------------- | --------------------------------------------- |
+| The program's effects          | the search                     | the search                        | `contract.test.ts`                  | unspecified: no page shows it       | `start.test.ts`; none yet under `drive`            | the search, `run.test.ts`, `contract.test.ts` |
+| The renderer                   | the search, the bridges' suite | the search                        | no entry                            | the search, `engine.test.ts`        | no entry                                           | the search, `engine.test.ts`, `run.test.ts`   |
+| Whoever runs the program       | the search, `start.test.ts`    | the sweep, as the run begins only | `engine.test.ts`                    | `start.test.ts`; none in the search | `engine.test.ts`, `start.test.ts`, `drive.test.ts` | none yet                                      |
+| The scenario of a testing tool | each tool's tests              | `rehearse.test.ts`, the sweep     | `rehearse.test.ts`, `drive.test.ts` | none yet under `drive`              | `drive.test.ts`, `rehearse.test.ts`                | `contract.test.ts`, `rehearse.test.ts`        |
+
+- **The program's effects** are a command, a subscription and what they release: they send an answer, a message or an
+  end value, die, interrupt themselves, and end.
+  - Between two tasks and at a yield, the search draws each of them (`Fates`), under the scheduler of the tests in both
+    its modes, which makes any fiber yield between two of its steps.
+  - In a job, a subscription sends as it starts, and the job of its message comes after the one under way
+    (`contract.test.ts`, "a message heard while the job of its own start is under way"). The subscriptions of the
+    search wait a turn before they send.
+  - In a callback of a step, an effect acts only where a listener or an option wakes it: no page shows one. A message
+    that it would send there waits in `pending`, as any does.
+  - In a wake of the `finally`, an end that a defect begins stops them on the stack of the dispatch (`start.test.ts`,
+    "the end of a run"). A command that a service of the test's holds, freed by a scenario of `drive` that `settled`
+    woke, answers there, in an outermost call of its own: none yet.
+  - During the end, one sends, dies or interrupts itself as it is stopped, or waits for the release of another
+    (`run.test.ts`; `contract.test.ts`, "an end where the release of a fiber waits for the release of another"; the
+    search, "once the run has ended, the subscriptions and the commands have released all").
+- **The renderer** is a listener of the `App`, a handler of a view and a draw: it reads the model, sends, stops or adds
+  a listener, throws, and gives `die` what a draw threw.
+  - Between two tasks and at a yield, the user of the search acts on a model read before, from before the run begins
+    until after it has ended, each act at the turn that the scheduler gives it; the bridges' suite
+    (`bridges/bridge.test_suite.ts`) does so in a DOM.
+  - In a job it has no entry: a notice of a message sent there is a callback of its step.
+  - In a callback of a step, the listener of the search reads the model, sends and throws. One that stops, or adds
+    another, in a notice is in `engine.test.ts` ("a listener stopped during a notice is not told of it, and one added
+    during a notice is told from the next").
+  - In a wake of the `finally` it has no entry: the engine tells no listener there.
+  - During the end, and after it, a dispatch applies nothing, a model read is still made, and `die` throws back what
+    the cause lacks (`engine.test.ts`, "the end of the engine"; `run.test.ts`, "die").
+- **Whoever runs the program** starts it, forks `run` and interrupts it, and gives the options, which hear each step.
+  - Between two tasks, the search interrupts the run once, when the program is quiet, and `start.test.ts` runs a
+    program twice, late, or never.
+  - At a yield, the sweep interrupts the run at each yield of its beginning, of a program that holds a command and a
+    subscription from its first state. Past the beginning, while a message is applied, a job done or a release
+    awaited: none yet.
+  - In a job, the end begins where a command or a subscription that the job starts makes whoever runs the program stop
+    it (`engine.test.ts`, "a command whose runCommand begins the end of the engine as it is called is interrupted by
+    that end", and the same of a subscription).
+  - In a callback of a step, the options hear and throw in the search. Whoever runs the program stops it there through
+    a fiber that awaits a `Deferred` that a notice, or `onApplied`, completes, as the tests of the examples `list` and
+    `pages` race the run (`start.test.ts`, "the end of a run"): in the search, none yet. From `onIgnored`, and by plain
+    code that interrupts the fiber in the callback itself, no page shows it: unspecified.
+  - In a wake of the `finally`, the run ends itself as `died` wakes it (`engine.test.ts`, "died wakes no fiber inside a
+    step: a defect a listener throws completes it once every listener is told"; `start.test.ts`, "the end of a run"),
+    and `drive`, which runs the run, interrupts it as its scenario returns from a wait that `settled` woke
+    (`drive.test.ts`, "drive's send, made by a wait that a step wakes").
+  - During the end, a second interruption of the run: none yet.
+- **The scenario of a testing tool** is the calls of a `Driver` or of a `Rehearsal`, from one fiber of the test's or
+  from several, and whoever runs the tool, who may interrupt it.
+  - Between two tasks, each tool's tests and `contract.test.ts` make their calls one after another.
+  - At a yield, `rehearse.test.ts` makes calls from several fibers, and interrupts a call, under the scheduler of the
+    tests ("rehearse, as a call is interrupted between what it took and its job", "rehearse, as its end is marked while
+    a command left under way answers"), and the sweep interrupts `drive`, `rehearse` and `simulate` as they begin.
+  - In a job, a call of `rehearse` goes on as the job tells it (`rehearse.test.ts`, "rehearse's send, made by a
+    hearNext that a job wakes"), and a scenario of `drive` as a subscription that starts completes what it waits for
+    (`drive.test.ts`, "a wait that ends once a model shows a step does not wait for the step's commands, which start
+    after it").
+  - In a callback of a step, a scenario of `drive` acts where an option of the test's wakes it, as
+    `examples/bounce/bounce.test.ts` awaits a `Deferred` that its `onApplied` completes: none yet, and an open problem.
+    `rehearse` and `simulate` take no option, and tell a scenario nothing in a step: no entry.
+  - In a wake of the `finally`, the waits of `drive` go on as `settled` wakes them (`drive.test.ts`, "drive's send,
+    made by a wait that a step wakes"), and a `run` of `rehearse` that waits for its command fails as `died` wakes it
+    (`rehearse.test.ts`, "a send whose message's model throws waits for its job, though an answer is applied on its
+    stack").
+  - During the end, a fiber of the test's calls once the tool has ended (`contract.test.ts`, "a fiber of the test's
+    that sends once the tool has ended"), and a command answers as the end is marked (`rehearse.test.ts`, "rehearse, as
+    its end is marked while a command left under way answers").
 
 ## What the engine keeps for itself
 
@@ -297,7 +430,8 @@ the engine and in the testing tools.
 
   A thunk writes first and offers or completes last. In the engine, the jobs are offered and `died` completed in one
   place, the `finally` of the outermost `apply`, once every step of the call is written and every listener told, and
-  `drive` wakes its waits there too (`settled`), so no fiber is woken inside a step. Each has a mutation, whose killers
+  `drive` wakes its waits there too (`settled`), so the engine and the tools wake no fiber inside a step: one that a
+  callback of the step wakes enters as "A step, and who may enter it" says. Each has a mutation, whose killers
   rest on a fiber resumed on the stack of whoever completes its `Deferred`, a premise of the tests alone. A wait of
   `drive` reads each model in order, from a place of its own among the models `drive` read (`place` in `drive.ts`),
   never only the latest; the models are kept from the oldest place a wait holds, and a wait lets go of its place however
@@ -362,6 +496,8 @@ the engine and in the testing tools.
     its model, leaves each to its message. Once it has applied its message, it waits for the job whole, though another
     fiber dies (what `apply`, `applyFor` and `dispatch` give, and `runFirst` once told): the job of a step applied
     before the first defect goes on whole, its commands owed and its starts opened, for as long as a release holds it.
+    Whether such a call fails with the defect or returns first is no promise: the doc comment of `Rehearsal` leaves it
+    unspecified, and the rehearsal fails with the defect either way.
     The fiber of effects dies of nothing: what it and the end tell a call is data, which the call makes its error of in
     its own fiber, and a tool names a value in its errors by one function (`failure` in `testing/failure.ts`), which
     throws nothing. What a value throws as it is named is a failure of the test, no defect: the tool's error comes

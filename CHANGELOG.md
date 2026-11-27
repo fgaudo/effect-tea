@@ -38,9 +38,14 @@ version, and everything else, features included, the patch version.
   `DeclareChildById` takes its type parameters as `State`, `P`, then `Id`.
   Upgrade: write `ids` or `flags` before a `listening` that takes the id; give literal ids with `as const`,
   `ids: () => [1, 2] as const`.
-- **Breaking**: `run` and `runAll` of `rehearse` whose answer is applied wait for the job of the answer, as `send` does,
-  though a fiber of the program dies meanwhile, the answer's model among them. `run` failed with the defect at once.
-  Upgrade: a test that expects such a `run` to fail with the defect expects the rehearsal to fail with it.
+- **Breaking**: unspecified, and no longer promised: whether a call of `rehearse` that has applied its message, or its
+  command's answer, as a fiber of the program dies fails with the defect or returns. `run` and `runAll`, which failed
+  at once, now wait for the job of the answer, as `hearNext` did; the rehearsal fails with the defect, as before.
+  Upgrade: a test that expects such a call to fail with the defect expects the rehearsal to fail with it.
+- **Breaking**: unspecified, and no longer promised: that the subscriptions that one state stops release what they
+  hold together ("Guarantees"); that the end of a run never begins inside a step ("Running"); and that a program whose
+  `run` was interrupted before it began may still be run (`Started`).
+  Upgrade: nothing to change in a program; start a program again to run it again.
 - The errors of `child`, `childWhen` and `childById`, and of `make`, `start`, `drive` and `rehearse` given a piece or
   `flags` that the program does not name, are at the option, and say what to write or the type it takes, in place of
   that it takes `never` or the error of another form.
@@ -51,9 +56,6 @@ version, and everything else, features included, the patch version.
 ### Fixed
 
 - `rehearse` applies a subscription's end value before a `hearNext` that waited beside the one that heard it fails.
-- A call of `rehearse` that applied a message whose model throws could fail at once, before the job of its message,
-  when the defect woke a `run` and its command answered on the same stack: it waits for that job, as its doc comment
-  says.
 - What the commands and subscriptions of `rehearse` log no longer piles up as events of the test's span, which stays
   the parent of the spans they open, as in the run.
 - "Composition" said that a child whose `flags` or `key` make a function anew starts again at each step: it does at
@@ -71,8 +73,10 @@ version, and everything else, features included, the patch version.
 - The comment of `Host`, of `./react`, said that once a `makeModel` throws it draws the model it drew last: it draws the
   last model that did not throw, which it may not have drawn yet, as two messages in one task make two models.
 - A run that whoever runs it stopped from a listener, as a test does that awaits a `Deferred` the listener completes,
-  could end inside the step, against "Running": a later listener's defect was reported nowhere, and a message an
-  earlier listener sent in that step was not applied. The end now waits for the step to return.
+  could lose what the step still owed, against "Guarantees": a later listener's defect was reported nowhere, and a
+  message an earlier listener sent in that step was not applied.
+- The comment of the `dispatch` of an `App` said only that it applies its message before it returns: one sent while
+  another is being applied, as a listener sends one, is applied right after that one, as "Guarantees" says.
 
 ## 0.10.0 (2026-11-27)
 

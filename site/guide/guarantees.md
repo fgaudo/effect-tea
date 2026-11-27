@@ -41,7 +41,6 @@ each bridge's to promise (see [view](./view.md#rules)).
   of each key it takes away, by the rules of [subscriptions](./subscriptions.md#rules).
   - Both happen once that state is current, and before any start of a later state. A later message may be applied
     first.
-  - The subscriptions that one state stops release what they hold together, not one after the other.
   - From the moment the key is gone, nothing the subscription sent reaches `update`, even before it has been stopped,
     and even if the same key comes back later.
 - **Nothing outlives what acquired it.** Each command and each subscription has a scope of its own. What one of them

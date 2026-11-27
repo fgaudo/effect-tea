@@ -35,9 +35,10 @@ import * as Stage from "./stage.ts"
  *   lost.
  * - A fiber detached from the scenario (`Effect.forkDetach`) is beyond the rehearsal's reach: what it asks for once
  *   the rehearsal has ended is interrupted, and a defect it meets then is lost.
- * - After a defect of the program, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail with the defect. One
- *   that has applied its message, or its command's answer, waits for the job of that message first.
- *   `state`, `pending`, `events` and `ignored` stay readable.
+ * - After a defect of the program, `send`, `run`, `runAll`, `hear`, `hearNext` and `model` fail with the defect, and
+ *   so does a `run` that was waiting for its command, or a `hearNext` for its message. Whether a call that had applied
+ *   its message, or its command's answer, as the defect came fails with it or returns is unspecified: the rehearsal
+ *   fails with the defect. `state`, `pending`, `events` and `ignored` stay readable.
  *
  * @example
  * ```ts
@@ -83,9 +84,6 @@ export type Rehearsal<
    * - The command runs through the program's `runCommand`, with the services provided, in a scope of its own.
    * - An answer that `update` rejects is listed in `ignored`.
    * - The test fails when this `run` is interrupted before the command answers: a command cannot be cancelled.
-   * - After a defect of the program, `run` fails with the defect, also when it was already waiting for its command.
-   *   One whose answer is applied returns the command once the job of the answer is done, though a fiber of the
-   *   program dies meanwhile, its answer's model among them: the rehearsal then fails with the defect.
    *
    * @see The guide, "Testing tools".
    */
@@ -140,9 +138,6 @@ export type Rehearsal<
    *   however it ends. A defect in what the subscription releases then fails the test. What it sent that `update` has
    *   not seen is dropped, as the run drops it, and a `hearNext` still waiting for it, or for its start, fails the
    *   test.
-   * - After a defect of the program, `hearNext` fails with the defect, also when it was already waiting for its
-   *   message. One whose message is applied returns it once the job of the message is done, though a fiber of the
-   *   program dies meanwhile, its message's model among them: the rehearsal then fails with the defect.
    * - Under a `TestClock`, move the clock while `hearNext` waits: race the call against `TestClock.adjust` in a loop.
    *   Time moved before the subscription starts to sleep does not count.
    *

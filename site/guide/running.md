@@ -114,9 +114,7 @@ no command and no subscription, and `onApplied` does not hear it. So the run sti
 
 When the run ends, because of a defect or of an interruption, it first stops applying messages: what is sent
 meanwhile is not applied. Then it stops its commands and its subscriptions, and waits until what they acquired is
-released. What the effects of a step had not started yet is not started. The rest of the order is unspecified. The end
-never begins inside a step: when a step meets a defect, the end begins once the call that applied it has told the
-listeners.
+released. What the effects of a step had not started yet is not started. The rest of the order is unspecified.
 
 A renderer is not stopped by the run: whoever started the program stops it, with what its bridge returns. A renderer
 that nothing stops still draws nothing new, since no state is made after the end.

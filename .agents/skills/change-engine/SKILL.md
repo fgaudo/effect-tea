@@ -18,7 +18,10 @@ testing tools are `src/testing/`. How the engine keeps each guarantee is
 2. List the premises the change rests on. Each is checked before the change is written, as `docs/premises.md` says.
 3. List the points where another fiber can run between a check and the act it guards (`docs/invariants.md`, "A check
    of what another fiber may change, and the act it guards, are one thunk"). Each leaves a test that fails without the
-   check, deterministic, of the core or with a gate, and a mutation that takes the check out.
+   check, deterministic, of the core or with a gate, and a mutation that takes the check out. List the entries that
+   the change adds or alters too, each against every cell of the table of the actors (`docs/invariants.md`, "Who may
+   act, and when"): an entry made during a step keeps the property of a step, and a cell that the change opens gets a
+   generator of the search, or a row of `contract.test.ts`.
 4. A tool that plays a program runs it on the engine: it decides at most when a command runs, when a subscription's
    message is heard and what fails the test, and makes no step, no scope of a subscription or a command, and no site of
    a defect (`docs/invariants.md`, "The testing tools behave like the engine").
@@ -73,7 +76,11 @@ is in the doc comments of `program.ts` and `compose.ts`, and no list of the guid
 `test/scheduled.test_scheduler.ts` in both its modes. A failure under `'inline'` is an order that Effect's own
 scheduler gives, but for where it preempts. One under `'queued'` alone rests on a fiber resumed later than Effect
 resumes it: still a finding, since that resumption is a premise of the tests alone. A finding goes in `ROADMAP.md`
-with its seed and path until a fix leaves a deterministic test of it, and is fixed by its form (`docs/premises.md`).
+with its seed and path until a fix leaves a deterministic test of it.
+
+A bug that the search did not find, met by a review, a user or a test written by hand, is a bug of the search first:
+its fix adds the generator that would have found it, in the cell of the table of the actors that it was in, and not
+only the test of its sequence (`docs/premises.md`, the rule of fixes).
 
 ## In the same commit
 

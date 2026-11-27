@@ -1,6 +1,6 @@
 ---
 name: premise-review
-description: How a review of the premises of @fgaudo/effect-tea is done: a reviewer that wrote none of the changes reads the invariants of docs/invariants.md, what they rest on (docs/premises.md) and the guide's "Guarantees" against the code, and reproduces what it finds with a failing test; then what becomes of its findings, its leads and what it ruled out, and how a finding is fixed by its form. Use before a release, over the changes of the engine, of the testing tools and of the bridges since the last review; over all of the code before the library is made known and before 1.0; or when the author asks whether an invariant still holds.
+description: How a review of the premises of @fgaudo/effect-tea is done: a reviewer that wrote none of the changes reads the invariants of docs/invariants.md, what they rest on (docs/premises.md) and the guide's "Guarantees" against the code, and reproduces what it finds with a failing test; then what becomes of its findings, its leads and what it ruled out, and how a finding is fixed, by the cell of the table of the actors that it was in. Use before a release, over the changes of the engine, of the testing tools and of the bridges since the last review; over all of the code before the library is made known and before 1.0; or when the author asks whether an invariant still holds.
 ---
 
 # A review of the premises
@@ -35,15 +35,18 @@ bridge" for the bridges, say what the library promises a user.
 
 THE KIND OF BUG: a change takes away a condition an invariant or a guarantee needs, written or unwritten, and no
 test fails until a run meets the case. It often does so where a value is taken to its end (none, the same state,
-a key that goes and comes back, a scope that closes), where a second actor comes (a fiber that ends while the run
-ends, a message sent while another is applied, a job the fiber of effects has not taken yet, a renderer that sends
-from a plain callback, a testing tool that runs what the engine runs), or where Effect does something its
-documentation does not promise. Commit f415d46 is one found and
-fixed, a defect lost as FiberMap closes: read it as the example, and do not report it again.
-Three forms of it went past three reviews, and a bug hunt found them (commit 73aeb05). Look for each:
-- An interruption by whoever runs the program, at any yield of Effect's scheduler: between a check and what it
-  guards, before a finalizer is added, at a step of a tool or of the run that no region nothing interrupts holds
-  whole. Found: a run interrupted as it began left a program begun and never stopped.
+a key that goes and comes back, a scope that closes), or where Effect does something its documentation does not
+promise. Commit f415d46 is one found and fixed, a defect lost as FiberMap closes: read it as the example, and do
+not report it again.
+Most of all it does so where a second actor comes. docs/invariants.md, "Who may act, and when", holds one table of
+the actors (the program's effects, the renderer, whoever runs the program, the scenario of a testing tool) by the
+moments they may act at (between two tasks, at a yield of Effect's scheduler, in a job of the fiber of effects, taken
+or not yet, in a callback of a step, in a wake of the finally, during the end). Read the code that keeps a row against each cell of that table: what the actor may do
+there, and whether the entry it makes keeps the property of a step ("A step, and who may enter it"). A cell that
+says "none yet" has no test: look there first. An actor or a moment that the table lacks is a finding of its own.
+Every bug of the hunt of 27 November 2026 that a review had missed was an act made whole only against the actor its
+author had in mind (commit 73aeb05, and the end of a run stopped from a listener).
+Two kinds of bug are of no cell. Look for each:
 - A cost in memory or in time that grows with the number of messages, or of keys, children or answers, with no need:
   a list copied at each message, a table that keeps what has ended. Found: applyAll, simulate and Stage copied their
   lists at each message.
@@ -110,8 +113,10 @@ Your last message says the branch, the commit and the findings in a few lines.
 - Run the reviewer's tests yourself, without their `test.failing` mark, and again on the commit of `main` the branch
   was cut from. A test that fails by an error of its own setup, not at its assertion, proves nothing.
 - A finding is an open problem of `ROADMAP.md`, and its test comes to `main` with its `test.failing` mark. Its fix,
-  by its form (`docs/premises.md`, the rule of fixes), removes the mark and the item in one commit, and names the form
-  and the places it checked: `startWith`, the engine's finalizer, `drive`, `simulate`, `rehearse`, and any added since.
+  by the rule of fixes of `docs/premises.md`, removes the mark and the item in one commit, names the cell of the table
+  that the bug was in, adds the generator of the search or the row of `contract.test.ts` that would have found it, and
+  names the places it checked: `startWith`, the engine's finalizer, `drive`, `simulate`, `rehearse`, and any added
+  since.
 - A fix or a design the report proposes is read against `docs/rejected.md`; one rejected is added there.
 - A suspect ruled out by a test, resting on what Effect or the JavaScript engine does without promising it, is a
   premise, added to `docs/premises.md` with its test. One ruled out by a stable API's documentation is no premise.

@@ -687,6 +687,46 @@ describe("drive's send, made by a wait that a step wakes", () => {
   })
 })
 
+// Found as the table of the actors was written (`docs/invariants.md`, "Who may act, and when"). A scenario is woken
+// inside a step where an option of the test's completes what it waits for, as `examples/bounce/bounce.test.ts` awaits a
+// `Deferred` that its `onApplied` completes: a `send` it makes there selects on the model of the state before the
+// step, and its dispatch waits behind the step, so it returns before `update` has seen its message.
+describe("drive's send, made by a scenario that onApplied wakes", () => {
+  type Row = Readonly<{ count: number; went: boolean }>
+  const row: Program<{ state: Row; model: Row; message: "Up" | "Go" }> = {
+    init: { state: { count: 0, went: false } },
+    update: (message) => (state) =>
+      message === "Up" ? { state: { ...state, count: state.count + 1 } } : { state: { ...state, went: true } },
+    subscriptions: () => [],
+    makeModel: (state) => state
+  }
+
+  // The waiting fiber is forked at once, so that it waits before the scenario dispatches.
+  test.failing("selects on the model of the step's state, and returns once update has seen its message", async () => {
+    const heard = Deferred.makeUnsafe<void>()
+    const selected: Array<Row> = []
+    const after = await Effect.runPromise(drive(
+      row,
+      Effect.fnUntraced(function*(driver) {
+        const waiting = yield* Effect.forkChild(
+          Deferred.await(heard).pipe(
+            Effect.andThen(driver.send((model) => {
+              selected.push(model)
+              return Opt.some<"Up" | "Go">("Go")
+            })),
+            Effect.andThen(driver.model)
+          ),
+          { startImmediately: true }
+        )
+        yield* Effect.sync(() => driver.dispatch("Up"))
+        return yield* Fiber.join(waiting)
+      }),
+      { onApplied: ({ message }) => void (message === "Up" && Deferred.doneUnsafe(heard, Exit.void)) }
+    ))
+    expect({ after, selected }).toEqual({ after: { count: 1, went: true }, selected: [{ count: 1, went: false }] })
+  })
+})
+
 // Found by the review of the premises of step 20: `drive` wakes its waits once the call that made a state has returned
 // (`settled`), and each wait it wakes reads the model of the moment it runs. So a first wait woken by a state, which
 // sends at once, makes a later state before a second wait woken by the same state looks: the second never looks at the

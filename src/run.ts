@@ -47,7 +47,8 @@ export interface App<Model, Message> {
    */
   readonly subscribe: (listener: () => void) => () => void
   /**
-   * The program's dispatch: it applies the message before it returns. It is the very same function for the whole run.
+   * The program's dispatch: it applies the message before it returns, or, where another message is being applied, as
+   * in a listener, right after that one. It is the very same function for the whole run.
    *
    * @see The guide, "Running".
    * @see The guide, "View".
@@ -72,7 +73,8 @@ export interface App<Model, Message> {
  * - `run` starts the subscriptions and the commands of the states, in their order, and dies with the defects of the
  *   program. It never succeeds: whoever runs the program ends it by interrupting `run`.
  * - A program started is run once: a second `run` dies. One whose `run` is interrupted before it begins is as one
- *   never run: its messages are applied with no effect, it reports no defect, and it may still be run.
+ *   never run: its messages are applied with no effect, and it reports no defect. Whether a later `run` of it dies
+ *   is unspecified.
  * - Nothing checks that `run` runs. Until it does, no defect is reported: from a defect on, the program applies no
  *   message, and `run` dies of it once it runs.
  * - An `init` that takes flags and throws is a defect in `'init'`: the handle is made all the same, `model()` throws
