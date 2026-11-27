@@ -299,6 +299,9 @@ type Event =
   // `released`: what died is a release, whose defect counts only once the scope it is in has closed (guide), which
   // the scenario does not see.
   | Readonly<{ _tag: "Died"; where: Where; how: Death; defect: string; released: boolean }>
+  // A fiber of the program that interrupts a command or a subscription once the run has stopped it: whether that is a
+  // defect is unspecified ("Guarantees"), so the cause may hold it, or not.
+  | Readonly<{ _tag: "Excused"; where: Where }>
 
 const listener = (born: number, session: number) => `${born}.${session}`
 
@@ -319,6 +322,15 @@ const decidedIn = (events: ReadonlyArray<Event>) => {
   let decided = decisions.get(events)
   if (decided === undefined) decisions.set(events, decided = new Map())
   return decided
+}
+
+/** What ended otherwise in a scenario before a death was decided for it, by its name. */
+const endings = new WeakMap<ReadonlyArray<Event>, Set<string>>()
+
+const endedIn = (events: ReadonlyArray<Event>) => {
+  let ended = endings.get(events)
+  if (ended === undefined) endings.set(events, ended = new Set())
+  return ended
 }
 
 /**
@@ -345,9 +357,11 @@ const dies = (events: Array<Event>, where: Where, how: Death, defect: string): E
         yield* Fiber.interrupt(joined)
         return yield* now(Fiber.join(joined))
       })
+    // The interrupter may run once the run has stopped the fiber, its effect ended: excused.
     case "isInterrupted":
       return Effect.withFiber((self) =>
         Effect.forkDetach(Effect.withFiber((interrupter) => {
+          if (endedIn(events).has(defect)) events.push({ _tag: "Excused", where })
           decidedIn(events).set(defect, { where, how, fiber: interrupter.id })
           return Fiber.interrupt(self)
         })).pipe(Effect.andThen(Effect.never))
@@ -360,18 +374,25 @@ const dies = (events: Array<Event>, where: Where, how: Death, defect: string): E
  * interruption by the fiber that decided it, and lets the fiber yield no more until it ends: the run learns of the
  * death there, and the scheduler would let another fiber run in between. A death decided earlier is no death if the
  * effect ends otherwise: one in a fiber of its own, as in a race, that the run interrupts before its effect learns
- * of it, or a failure on its way out that an interruption by the run takes the place of, at a yield.
+ * of it, or a failure on its way out that an interruption by the run takes the place of, at a yield. An effect that
+ * another fiber of the program interrupts, and that ended otherwise, was stopped by the run first, and its death is
+ * excused, whether the interruption was made already or comes later.
  */
 const endsAs = (events: Array<Event>, name: string) => <A, E>(exit: Exit.Exit<A, E>): Effect.Effect<void> =>
   Effect.suspend(() => {
+    if (Exit.isSuccess(exit)) return Effect.void
     const decided = decidedIn(events).get(name)
-    if (decided === undefined || Exit.isSuccess(exit)) return Effect.void
+    if (decided === undefined) {
+      endedIn(events).add(name)
+      return Effect.void
+    }
     const { where, how, fiber } = decided
     const died = exit.cause.reasons.some((reason) =>
       how === "defect"
         ? Cause.isDieReason(reason) && reason.defect === name
         : Cause.isInterruptReason(reason) && reason.fiberId === fiber
     )
+    if (!died && how === "isInterrupted") events.push({ _tag: "Excused", where })
     if (!died) return Effect.void
     return unpreempted.pipe(Effect.andThen(Effect.sync(() => {
       events.push({
@@ -985,6 +1006,22 @@ const listeners = (state: ListState) =>
 const deaths = (events: ReadonlyArray<Event>) =>
   events.flatMap((event) => event._tag === "Died" ? [`${event.where}: ${event.defect}`] : [])
 
+/**
+ * The defects of a cause, but for one of each death excused that is not among those expected where it stands: the run
+ * may report it, wherever, or not.
+ */
+const withoutExcused = (cause: ReadonlyArray<unknown>, events: ReadonlyArray<Event>) => {
+  const expected = deaths(events)
+  const excused = events.flatMap((event) => event._tag === "Excused" ? [`${event.where}: ${interrupted}`] : [])
+  const kept: Array<unknown> = []
+  for (const defect of cause) {
+    const at = typeof defect === "string" ? excused.indexOf(defect) : -1
+    if (defect !== expected[kept.length] && at !== -1) excused.splice(at, 1)
+    else kept.push(defect)
+  }
+  return kept
+}
+
 /** The subscriptions that hold what they acquired after the first `count` events. */
 const holding = (events: ReadonlyArray<Event>, count = events.length) => {
   const held = new Set<string>()
@@ -1555,7 +1592,7 @@ describe("Logs do not pile up in a span", () => {
 describe("Nothing ends in silence", () => {
   test("the defects of the cause are those that happened, self-interruptions too, each where, in order", () => {
     property(({ exit, events }) => {
-      expect(defects(exit)).toEqual(deaths(events))
+      expect(withoutExcused(defects(exit), events)).toEqual(deaths(events))
     })
   }, Infinity)
 

@@ -57,8 +57,8 @@ each bridge's to promise (see [view](./view.md#rules)).
     `'render'`.
   - A command or a subscription that the program interrupts is a defect too: one that interrupts itself (with
     `Effect.interrupt`, or by joining an interrupted fiber), or that another fiber of the program interrupts. Only the
-    run, and whoever runs it, interrupt them. Whether one that interrupts itself while the run stops it dies of a
-    defect is unspecified.
+    run, and whoever runs it, interrupt them. Whether one that interrupts itself, or that another fiber of the
+    program interrupts, while the run stops it dies of a defect is unspecified.
 - **A model is made only when it is read.** While a state is the current one, its model is made once, however many
   times it is read. So every read gives the very same model, and a bridge need not draw it again.
   - A model that throws is a defect in `'render'`, recorded where the model is read, once while its state is the

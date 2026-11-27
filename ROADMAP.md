@@ -25,16 +25,7 @@ A lead of the search (`bun run interleavings`) goes here with its seed and path,
 test of it. A finding of a review goes here with its `test.failing`, until its fix removes the mark and the item. A
 problem whose fix is due before a step of "Next, in order" leaves this list for a step of its own there.
 
-- **The search misses a subscription that another fiber of the program interrupts while the run stops it.** Found
-  under `'inline'` once `bun run interleavings` ran both modes, on 28 November 2026: seed 1587893998, path
-  `48:3:8:8:8:8:8:8:8:8:14:10:10:10:13:10:10:13:11:13:13:12:10:11:11:13:13:20:37:37:37:42:39:39:39:39:39:40:40:39:40:40:39:39:39:39:41:40:39:40:40:41:70:71:70:71:70:70:71:70:71:70:70:73:71:70:70:70:71:70:70`,
-  "the defects of the cause are those that happened". A subscription dies of a defect, and the run ends; another, whose
-  fate is `isInterrupted`, is stopped by the run as its detached interrupter interrupts it, which reaches the fiber
-  once its effect has ended, at its root. The run reports "interrupted by the program", as "Guarantees" says of a
-  fiber that another fiber of the program interrupts; the search records no death, since `endsAs` reads only the exit
-  of the effect. A reading, not a test yet: the fix decides first whether the run is right, then gives the search an
-  oracle that sees an interruption that reaches the root, or makes the case unspecified beside a self-interruption
-  while the run stops it, one sentence weighed. It is due before 0.11.0: the daily search fails on it now and then.
+None open.
 
 ## Leads
 
@@ -129,11 +120,12 @@ Done when what is listed is gone or the commit says why it stays, the list of mu
 Opus 5.5, `high`. Depends on 127. It reads the sentences that step 125 left and changed, which its commit lists.
 `promise-reading` over what changed since the last reading (`git log --grep "the promises read for 0.11.0"`, commit
 `5f13b2b`): the bug hunt of 27 November 2026, steps 118 to 123, the fix of step 121, a run stopped from a listener or
-from `onApplied` whose end waits for the step, and steps 125 to 127. Its readers list each sentence of the guide and
-of a doc comment that these commits added or changed, and the rules they changed against every example. One sentence
-is known to say more than the code does: a dispatch "applies the message before it returns", in the glossary, in the
-README and in the doc comment of `Dispatch`, which is false of one sent during a step, as "Guarantees" and the
-`dispatch` of an `App` say.
+from `onApplied` whose end waits for the step, steps 125 to 127, and the sentence of "Guarantees" that made a fiber that
+another fiber of the program interrupts as the run stops it unspecified. Its readers list each sentence of the guide and
+of a doc comment that these commits added or changed, and the rules they changed against every example. One sentence is
+known to say more than the code does: a dispatch "applies the message before it returns", in the glossary, in the README
+and in the doc comment of `Dispatch`, which is false of one sent during a step, as "Guarantees" and the `dispatch` of an
+`App` say.
 
 Done when each such promise has the test that would fail if it were false, or its sentence is cut or made unspecified
 as "What belongs here" in `AGENTS.md` says, no sentence read is false of the code, and no example breaks a rule read.

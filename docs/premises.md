@@ -184,10 +184,11 @@ reasoned. A new one is taken only where no design without it is as good (value 5
 - A guarantee says what it promises in the library's terms, never in those of a function of Effect (the order of the
   defects is no promise, since a user would rely on what `Cause.squash` returns). What keeps a guarantee may rest on a
   premise by the model, as the defect of a release does. What an open premise holds is kept by the engine and left by
-  the guide. Unspecified: the order of the defects; a fiber that interrupts itself as the run stops it, which is a
-  defect; and several releases of one command or one subscription that die, each of whose defects is in the cause, two
-  equal by `Equal` too ("Running", "The defects in the cause").
-  [`premises-and-range.md`](records/premises-and-range.md) sorted what fell with each premise of 23 November 2026.
+  the guide. Unspecified: the order of the defects; a fiber that interrupts itself, or that another fiber of the program
+  interrupts, as the run stops it, which is a defect where the interruption reaches the fiber before its root has ended;
+  and several releases of one command or one subscription that die, each of whose defects is in the cause, two equal by
+  `Equal` too ("Running", "The defects in the cause"). [`premises-and-range.md`](records/premises-and-range.md) sorted
+  what fell with each premise of 23 November 2026.
 - What the dependencies of development do is no premise, but for the bridges' renderers: the bridges are entries of
   the package, each names in its opening comment the versions it was checked with, and a daily job
   (`.github/workflows/renderers-latest.yml`) runs their premises' tests at the newest version the range accepts.

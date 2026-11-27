@@ -135,7 +135,7 @@ const stop = (): Promise<void> => {
 A defect met while the run ends joins the cause. The order of the defects in the cause is unspecified: rely on each
 defect being in the cause, not on its place. Several releases of one command or one subscription that die are the
 exception: the run dies, and which of their defects are in the cause is unspecified. Whether a command or a
-subscription that interrupts itself while the run stops it dies of a defect is in
+subscription that the program interrupts while the run stops it dies of a defect is in
 [what you can rely on](./guarantees.md#what-you-can-rely-on).
 
 ## Advice

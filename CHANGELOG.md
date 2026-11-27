@@ -46,6 +46,10 @@ version, and everything else, features included, the patch version.
   hold together ("Guarantees"); that the end of a run never begins inside a step ("Running"); and that a program whose
   `run` was interrupted before it began may still be run (`Started`).
   Upgrade: nothing to change in a program; start a program again to run it again.
+- **Breaking**: unspecified, and no longer promised: whether a command or a subscription that another fiber of the
+  program interrupts while the run stops it dies of a defect, as for one that interrupts itself ("Guarantees"). The run
+  reports it where the interruption reaches the fiber before it has ended.
+  Upgrade: nothing to change in a program.
 - The errors of `child`, `childWhen` and `childById`, and of `make`, `start`, `drive` and `rehearse` given a piece or
   `flags` that the program does not name, are at the option, and say what to write or the type it takes, in place of
   that it takes `never` or the error of another form.
