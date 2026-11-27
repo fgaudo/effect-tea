@@ -19,12 +19,12 @@ import * as Scope from "effect/Scope"
 import type { RunCommand } from "../command.ts"
 import { type Arrived, endedWith, fromCommand, fromDispatch, type Generation, type Source } from "../core.ts"
 import type * as Engine from "../engine.ts"
-import { commandFiber, type Deaths, stopping } from "../shell.ts"
+import { commandFiber, type Deaths, stopping, withExternalSpan } from "../shell.ts"
 import * as Ledger from "./ledger.ts"
 
 // What a `run` gives the fiber of the command it took: the effect `runCommand` returned, called in the thunk that took
-// it, the services of the call, which the effect runs with, and where the fiber leaves what the call does last, once
-// the answer is applied.
+// it, the services of the call, its span seen as an external one (`withExternalSpan`), which the effect runs with, and
+// where the fiber leaves what the call does last, once the answer is applied.
 type Given<Message, R> = Readonly<{
   ticket: Ledger.Ticket
   effect: Effect.Effect<Opt.Option<Message>, never, R | Scope.Scope>
@@ -335,7 +335,7 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
   // stops it are one primitive: the call cancels the command and stops its fiber, once it has begun, which may have
   // applied its answer already.
   const runFirst = (select: (command: Command) => boolean): Effect.Effect<Ran<Command>, never, CommandNeeds> =>
-    Effect.flatMap(Effect.context<CommandNeeds>(), (context) =>
+    Effect.flatMap(Effect.map(Effect.context<CommandNeeds>(), withExternalSpan), (context) =>
       Effect.acquireUseRelease(
         Effect.suspend(() => {
           if (dead()) return failedOr(Effect.never)

@@ -57,6 +57,8 @@ version, and everything else, features included, the patch version.
 - A call of `rehearse` that applied a message whose model throws could fail at once, before the job of its message,
   when the defect woke a `run` and its command answered on the same stack: it waits for that job, as its doc comment
   says.
+- What the commands and subscriptions of `rehearse` log no longer piles up as events of the test's span, which stays
+  the parent of the spans they open, as in the run.
 - "Composition" said that a child whose `flags` or `key` make a function anew starts again at each step: it does at
   each step that makes the parent's own state anew, and a step that leaves that state the very same keeps the child.
 - `InvariantDefect`, `ProgramDefect` and `CompositionDefect` can be passed where a class is asked for: to jest's

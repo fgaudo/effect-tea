@@ -32,9 +32,6 @@ What a task or a review found that no failing test shows and no user met ("How a
 the case of the inference matrix (`bun run inference --filter <case>`). None is a step of its own: they are weighed
 together before a release, and one not taken then goes to `docs/rejected.md`.
 
-- In `rehearse`, a command and a subscription run with the context of the call of `run`, not the run's external span
-  (`withExternalSpan`): their logs are events of the test's span. Shown by a count of that span's events over a long
-  rehearsal.
 - `Host`, shown again by `<Activity>`, draws the ended run's last model until the new run gives its own, and a handler
   of that frame sends to a stopped engine, which drops it; the old run's release may overlap the new run's start.
   Shown by a test of that frame, or a user's report of a lost click; the guide says nothing of it.

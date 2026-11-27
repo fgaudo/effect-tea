@@ -8,9 +8,11 @@ import * as Equal from "effect/Equal"
 import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import * as Hash from "effect/Hash"
+import * as Logger from "effect/Logger"
 import * as Opt from "effect/Option"
 import * as Predicate from "effect/Predicate"
 import type * as Scope from "effect/Scope"
+import type * as Tracer from "effect/Tracer"
 import { prioritizedSchedules } from "../../test/scheduled.test_scheduler.ts"
 import { child, childById, program } from "../compose.ts"
 import { ProgramDefect } from "../defect.ts"
@@ -225,6 +227,54 @@ describe("rehearse", () => {
     expect(note.pings).toBe(1)
     expect(note.saved).toEqual(Opt.some("milk"))
     expect(kept).toEqual(["milk"])
+  })
+
+  test("what it runs logs nothing into the span of whoever runs it, which stays the parent of their spans", async () => {
+    const times = 200
+    const parents: Array<string> = []
+    const listening: Array<string> = []
+    // Logs outside a span of its own, where the span is the one the rehearsal gives it, then opens one.
+    const logs = (into: Array<string>, name: string) =>
+      Effect.logInfo(name).pipe(
+        Effect.andThen(
+          Effect.orDie(Effect.currentSpan).pipe(
+            Effect.map((span) => void into.push(span.parent._tag === "Some" ? span.parent.value.spanId : "")),
+            Effect.withSpan(name)
+          )
+        )
+      )
+    const logging: Program<
+      { state: Readonly<{ count: number }>; model: number; message: "Next" | "Heard"; command: "Go"; key: "logs" }
+    > = {
+      init: { state: { count: 0 }, commands: ["Go"] },
+      update: (message) => (state) =>
+        message === "Next"
+          ? { state: { count: state.count + 1 }, commands: state.count + 1 < times ? ["Go"] : [] }
+          : { state },
+      runCommand: () => logs(parents, "Go").pipe(Effect.andThen(Effect.succeedSome<"Next">("Next"))),
+      subscriptions: () => ["logs" as const],
+      listen: () => Channel.forever(Channel.fromEffect(Effect.as(logs(listening, "Listen"), "Heard" as const))),
+      makeModel: ({ count }) => count
+    }
+    const caller = await Effect.runPromise(
+      rehearse(
+        logging,
+        Effect.fnUntraced(function*(rehearsal) {
+          for (let i = 0; i < times; i++) {
+            yield* rehearsal.run(() => true)
+            yield* rehearsal.hearNext(() => true)
+          }
+          return yield* Effect.orDie(Effect.currentSpan)
+        })
+      ).pipe(
+        Effect.withSpan("caller"),
+        Effect.provide(Logger.layer([Logger.tracerLogger]))
+      )
+    )
+    expect((caller as Tracer.NativeSpan).events).toEqual([])
+    expect(parents).toEqual(Array.from({ length: times }, () => caller.spanId))
+    expect(listening.length).toBeGreaterThanOrEqual(times)
+    expect(listening.every((parent) => parent === caller.spanId)).toBe(true)
   })
 
   test("a editor written as a plain object, without commands, needs no runCommand", async () => {

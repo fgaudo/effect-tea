@@ -13,7 +13,7 @@ import * as Scope from "effect/Scope"
 import type { Generation } from "../core.ts"
 import { type AnyProgram, type FlagsOption, listenOf, type Program, runCommandOf } from "../program.ts"
 import { partsOf, readEach } from "../run.ts"
-import { makeDeaths, startFiber } from "../shell.ts"
+import { makeDeaths, startFiber, withExternalSpan } from "../shell.ts"
 import { failure, type Names } from "./failure.ts"
 import * as Ledger from "./ledger.ts"
 import * as Stage from "./stage.ts"
@@ -448,7 +448,7 @@ const rehearsing = Effect.fnUntraced(function*<
   // did not hear is the next call's. A defect of the program, in whichever fiber, ends each wait until its message is
   // applied, as it ends the run; once applied, the call waits for the job of its message whole.
   const hearNext = Effect.fnUntraced(function*(select: (key: unknown) => boolean) {
-    const context = yield* Effect.context<SubscriptionNeeds>()
+    const context = withExternalSpan(yield* Effect.context<SubscriptionNeeds>())
     const heard = yield* Deferred.make<Told<Message>>()
     let entered: CallOf | undefined
     const [key, told] = yield* stage.submit(() => {

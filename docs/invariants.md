@@ -265,7 +265,8 @@ the engine and in the testing tools.
   rests on a premise of React.
 - **No span lives as long as the run**: the `run` and the engine's `effects` are untraced, and the run's fibers see the
   span of whoever runs it as an external one (`withExternalSpan`), since Effect keeps every log as an event of the
-  current span until it ends.
+  current span until it ends. So do the commands and subscriptions of `rehearse`, with the span of the call that runs
+  or starts them.
 
 ## How a check is built, and how the testing tools follow
 
