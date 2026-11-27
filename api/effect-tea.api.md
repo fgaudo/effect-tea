@@ -183,7 +183,7 @@ type CompositionFields = Readonly<{
 export type DeclareChild = <State, P extends AnyProgram>(program: CheckedChild<P>, ...options: AlwaysOptions<State, P>) => Child<State, P, "always">;
 
 // @public
-export type DeclareChildById = <State, Id, P extends AnyProgram>(program: CheckedChild<P>, options: ByIdOptions<State, Id, FlagsOf<P>> & ByIdForm<P> & Telling<State, P>) => ChildById<State, Id, P>;
+export type DeclareChildById = <State, P extends AnyProgram, Id = Refused<"listening is written after ids or flags, which give its id">>(program: CheckedChild<P>, options: ByIdOptions<State, Id, FlagsOf<P>> & ByIdForm<P> & Telling<State, P>) => ChildById<State, NoInfer<Id>, P>;
 
 // @public
 export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field<T, "state">>>(children: C) => ParentMaker<T, C>;

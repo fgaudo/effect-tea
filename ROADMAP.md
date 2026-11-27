@@ -32,10 +32,6 @@ What a task or a review found that no failing test shows and no user met ("How a
 the case of the inference matrix (`bun run inference --filter <case>`). None is a step of its own: they are weighed
 together before a release, and one not taken then goes to `docs/rejected.md`.
 
-- In the call of `withChildren`, `childById(program, { listening: (_, id) => …, ids })`, with `listening` written
-  before `ids`, types `id` as `any`, with no error; apart from it, with the state annotated in `ids` or in
-  `listening`, as the id. With TypeScript 5.9, 6.0 and 7.0, and with `childById` a function of the package (step 115):
-  a test of the types in the call of `withChildren`, with the options in that order, shows it.
 - Under jest's types, `expect(…).toThrow(InvariantDefect)` does not compile, since the constructor is private: a test
   of `examples/react-native` takes the error with a `try` and `toBeInstanceOf`. Under `bun:test` it compiles. A test
   of the types with `@types/jest` would show it.

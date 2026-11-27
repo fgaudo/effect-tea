@@ -2905,9 +2905,39 @@ describe("flags", () => {
           expectTypeOf(id).toEqualTypeOf<string>()
           return true
         }
-      })
+      }),
+      // A `listening` that takes the state alone may come first: it takes no id.
+      Quiet: childById(ticker, { listening: (state) => state.ticks > 0, ids: (state) => [state.ticks] })
     })
     expect(parent).toBeDefined()
+  })
+
+  test("a listening that takes the id is written after the ids or flags that give it", () => {
+    const { withChildren } = program<{ state: Ticks }>()
+    const listening = (_: Ticks, id: number) => id > 0
+    expect(withChildren({
+      // @ts-expect-error: before them, the id would be taken from nothing.
+      Rows: childById(ticker, { listening: (_, id) => id > 0, ids: (state) => [state.ticks] })
+    }))
+      .toBeDefined()
+    expect(withChildren({
+      // @ts-expect-error: whatever `listening` does with it.
+      Rows: childById(ticker, { listening: (_, id) => id !== undefined, ids: (state) => [state.ticks] })
+    }))
+      .toBeDefined()
+    expect(withChildren({
+      // @ts-expect-error: nor before `flags`.
+      Seeds: childById(seeded, { listening: (_, id) => id > 0, flags: (state) => [[state.ticks, 1] as const] })
+    }))
+      .toBeDefined()
+    type Rows = ChildById<Ticks, number, typeof ticker>
+    // @ts-expect-error: nor apart, where the type it is given names the id.
+    const rows: Rows = childById(ticker, { listening: (_, id) => id > 0, ids: (state) => [state.ticks] })
+    expect(rows).toBeDefined()
+    // With the id of `listening` annotated, or `ids`'s state, the order is free.
+    expect(withChildren({ Rows: childById(ticker, { listening, ids: (state) => [state.ticks] }) })).toBeDefined()
+    expectTypeOf(childById(ticker, { listening: (_, id) => id > 0, ids: (state: Ticks) => [state.ticks] }))
+      .toEqualTypeOf<ChildById<Ticks, number, typeof ticker>>()
   })
 
   test("a child with flags takes no key beside them, and the tell of children by id takes no id", () => {
@@ -2954,7 +2984,7 @@ describe("flags", () => {
     type Rule<Options, K extends string> = keyof NonNullable<NonNullable<Options>[K & keyof NonNullable<Options>]>
     type Always<P extends AnyProgram> = Parameters<typeof child<Ticks, P>>[1]
     type When<P extends AnyProgram> = Parameters<typeof childWhen<Ticks, P>>[1]
-    type ById<P extends AnyProgram> = Parameters<typeof childById<Ticks, unknown, P>>[1]
+    type ById<P extends AnyProgram> = Parameters<typeof childById<Ticks, P, unknown>>[1]
     expectTypeOf<Rule<Always<typeof ticker>, "there">>()
       .toEqualTypeOf<"a child that may not be there is declared with childWhen">()
     expectTypeOf<Rule<Always<typeof seeded>, "there">>()

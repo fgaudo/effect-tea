@@ -31,6 +31,13 @@ version, and everything else, features included, the patch version.
   takes.
   Upgrade: drop the second parameter of the `makeModel` of a program made with `make`, not `withChildren`, and its
   `onEvent: {}`.
+- **Breaking**: the id of `childById` is the one that its options give, never one taken from the type it is assigned
+  to. A `listening` that takes the id with no annotation is written after `ids` or `flags`: before them, it took the
+  id as `any` in the call of `withChildren`, with no error, and it does not compile now, there or apart from it. A
+  child declared apart with a type of literal ids, `ChildById<State, 1 | 2, P>`, takes `ids` that give them as such.
+  `DeclareChildById` takes its type parameters as `State`, `P`, then `Id`.
+  Upgrade: write `ids` or `flags` before a `listening` that takes the id; give literal ids with `as const`,
+  `ids: () => [1, 2] as const`.
 - The errors of `child`, `childWhen` and `childById`, and of `make`, `start`, `drive` and `rehearse` given a piece or
   `flags` that the program does not name, are at the option, and say what to write or the type it takes, in place of
   that it takes `never` or the error of another form.

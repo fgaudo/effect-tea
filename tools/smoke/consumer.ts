@@ -117,6 +117,11 @@ withChildren({
   Shown: childWhen(quiet, { there: (state) => state.fulls > 0 }),
   Started: child(greeter, { flags: (state) => state.fulls })
 })
+// The id is the one `ids` gives: a `listening` that takes it, written before them, would take it from nothing.
+withChildren({
+  // @ts-expect-error
+  Row: childById(counter, { listening: (_, id) => id > 0, ids: (state) => state.ids })
+})
 // Apart from it, the state is `unknown`.
 // @ts-expect-error
 child(quiet, { key: (state) => state.fulls })

@@ -1369,16 +1369,25 @@ export type DeclareChildWhen = <State, P extends AnyProgram>(
   options: WhenOptions<State, P>
 ) => Child<State, P, "sometimes">
 
+// `Id` is inferred from the options alone, never from the type a child is expected to have: in the call of
+// `withChildren`, that is the `any` of `Children`. TypeScript types the functions of the options in the order they are
+// written, and fixes `Id` at a `listening` that takes it with no annotation: before `ids` or `flags`, with no
+// inference, it is the default, which they then refuse. An annotation of a child declared apart gives no `Id` either:
+// literals that it would have kept are widened, and refused against it.
 /**
  * The type of `childById`.
  *
  * @group Types of the signatures
  * @see The guide, "Composition".
  */
-export type DeclareChildById = <State, Id, P extends AnyProgram>(
+export type DeclareChildById = <
+  State,
+  P extends AnyProgram,
+  Id = Refused<"listening is written after ids or flags, which give its id">
+>(
   program: CheckedChild<P>,
   options: ByIdOptions<State, Id, FlagsOf<P>> & ByIdForm<P> & Telling<State, P>
-) => ChildById<State, Id, P>
+) => ChildById<State, NoInfer<Id>, P>
 
 /**
  * Declares a child alone that is always there, for `withChildren`.
@@ -1507,9 +1516,10 @@ export const childWhen: DeclareChildWhen = ((
  * - `tell` gives one external message for all the children, which each is told as `child` says, in the order of
  *   the ids as `ids`, or `flags`, lists them. It takes no id.
  *
- * It takes `ids`, or `flags` for a program with flags, and does not compile without one, or with the other. Its
- * options take the parent's state as those of `child` do. The program is checked as `child` checks it, and `tell`
- * too. Nor does it compile for a type parameter, as `child` does not.
+ * It takes `ids`, or `flags` for a program with flags, and does not compile without one, or with the other. The id
+ * is the one they give: a `listening` that takes it with no annotation is written after them, and does not compile
+ * before. Its options take the parent's state as those of `child` do. The program is checked as `child` checks it,
+ * and `tell` too. Nor does it compile for a type parameter, as `child` does not.
  *
  * @param program - The program of each child.
  * @param options - The ids of the children in a state, `listening`, which says whether the child at an id listens,
