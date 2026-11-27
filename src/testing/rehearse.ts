@@ -357,7 +357,7 @@ const rehearsing = Effect.fnUntraced(function*<
   // the effect the call ends with. What `select` throws is the test's, and fails the call.
   const startOf = (select: (key: unknown) => boolean): readonly [Key, Generation] | Effect.Effect<never> => {
     const keys = Arr.fromIterable(engine.active().keys)
-    const matched = Arr.filter(keys, ([key]) => select(key))
+    const matched = keys.filter(([key]) => select(key))
     if (matched.length === 1) return matched[0]!
     return Effect.die(
       matched.length === 0 ? noKeyMatches(Arr.map(keys, ([key]) => key)) : keysMatch(Arr.map(matched, ([key]) => key))

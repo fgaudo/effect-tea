@@ -32,7 +32,10 @@ What a task or a review found that no failing test shows and no user met ("How a
 the case of the inference matrix (`bun run inference --filter <case>`). None is a step of its own: they are weighed
 together before a release, and one not taken then goes to `docs/rejected.md`.
 
-None.
+- The killer of the mutation "a description follows a wrapping that comes back to a value on its way" (`log.test.ts`,
+  "one whose wrapping comes back to a value on its way…") ran away once under `bun run mutations --jobs=4`, in step
+  108, and failed alone under `--discover`: under the mutation `describedAs` recurses with no end, and the memory guard
+  may end it before the stack does. Shown by a run of the mutations that prints "runs away under it" for it again.
 
 ## Next, in order
 
@@ -45,29 +48,13 @@ fails with, left a premise of tests alone. It reads nothing of an `Equal` or a `
 107 dropped the three premises that served that case alone, by the rule it left in `docs/premises.md` ("What no program
 that keeps the guide's rules can see").
 
-The steps below make 0.10.0, in this order. The one lead left was weighed for it, and taken as step 108: the fix is
-local, and takes a premise away (value 5 of "Deciding").
-
-### 108. No throw out of a callback given to Effect
-
-Opus 5.5, `high`; `change-engine`, with the second agent of "How the steps run". Depends on nothing.
-
-`reconcile` in `src/compose.ts` throws the `CompositionDefect` of an id listed twice inside the callback of
-`HashMap.mutate`, and `startOf` in `src/testing/rehearse.ts` lets what `select` throws leave `Arr.filter`. Each rests on
-Effect letting what a callback throws leave the call, a rule that Effect-TS/effect#10683 declined and that
-`docs/premises.md` lists nowhere. Move each throw into a loop of the library's own: `HashMap.beginMutation` and
-`HashMap.endMutation` around a `for` in `reconcile`, a `for` over the keys in `startOf`. Found by the review of step
-107, read in the source only.
-
-Done when: neither throw happens inside a callback given to Effect (a search of the two modules for a `throw`, or a
-call of the program's or the test's function, inside one shows none); the tests of an id listed twice and of a `select`
-that throws pass unchanged, or one is added where none exists; the checks of `change-engine` pass, its mutations
-killed; no changelog entry, since nothing a user sees changes.
+The steps below make 0.10.0, in this order. Step 108 took the one lead left: no function that may throw is called, and
+no iterable of a user's is iterated, by a function of Effect's over data (`docs/premises.md`, "Open").
 
 ### 109. A check of the upgrade to 0.10.0
 
 Sonnet 5.5, `medium`, for the agent that upgrades; Opus 5.5, `medium`, for the session that reads its report.
-`guide-reader`, "A check of an upgrade". Depends on 108.
+`guide-reader`, "A check of an upgrade". Depends on nothing.
 
 The section 0.10.0 of `CHANGELOG.md` has `**Breaking**` entries, and earlier checks' projects are kept in
 `D:/Project/effect-tea-readers/` (`booking-react`, `locker-react-native` with `locker-examiner`): point 1 of

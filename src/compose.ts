@@ -685,20 +685,21 @@ const make = (children: Readonly<Record<string, Declared>> | undefined, config: 
       if (Opt.isSome(before) && Object.is(now, listed(before.value))) continue
       const current = gathered.children[name] as HashMap.HashMap<unknown, Entry>
       let same = true
-      const next = HashMap.mutate(HashMap.empty<unknown, Entry>(), (kept) => {
-        for (const item of now) {
-          const [id, key] = child.flagged === true ? item as readonly [unknown, unknown] : [item, undefined]
-          if (HashMap.has(kept, id)) throw defectAt({ name, id }, `The children "${name}" list the same id twice`)
-          const found = HashMap.get(current, id)
-          if (Opt.isSome(found) && Equal.equals(found.value.key, key)) {
-            HashMap.set(kept, id, found.value)
-          } else {
-            same = false
-            HashMap.set(kept, id, startAt(gathered, { name, id }, key))
-            started = (started ?? new Set()).add(name)
-          }
+      // Not `HashMap.mutate`: this loop throws, and no callback given to Effect may (`docs/premises.md`, "Open").
+      const kept = HashMap.beginMutation(HashMap.empty<unknown, Entry>())
+      for (const item of now) {
+        const [id, key] = child.flagged === true ? item as readonly [unknown, unknown] : [item, undefined]
+        if (HashMap.has(kept, id)) throw defectAt({ name, id }, `The children "${name}" list the same id twice`)
+        const found = HashMap.get(current, id)
+        if (Opt.isSome(found) && Equal.equals(found.value.key, key)) {
+          HashMap.set(kept, id, found.value)
+        } else {
+          same = false
+          HashMap.set(kept, id, startAt(gathered, { name, id }, key))
+          started = (started ?? new Set()).add(name)
         }
-      })
+      }
+      const next = HashMap.endMutation(kept)
       if (!same || HashMap.size(next) !== HashMap.size(current)) {
         gathered.children = { ...gathered.children, [name]: next }
       }
@@ -750,7 +751,7 @@ const make = (children: Readonly<Record<string, Declared>> | undefined, config: 
     const changed = !Object.is(step.state, before)
     const started = changed ? reconcile(gathered, Opt.some(before)) : nothing
     const tells = step.tell ?? none
-    const bound = Arr.map(tells, (tell) => {
+    const bound = tells.map((tell) => {
       const place = placeOf(tell)
       const message = field(tell, "message")
       // Unreachable through the types: a step tells only the children that the parent declares.
@@ -795,11 +796,11 @@ const make = (children: Readonly<Record<string, Declared>> | undefined, config: 
       if (!started.has(name) && Opt.isSome(before) && Equal.equals(tell(before.value), tell(gathered.own))) continue
       const ids: ReadonlyArray<unknown> = child._tag === "Child"
         ? [undefined]
-        : Arr.map(
-          Arr.fromIterable((child.listed as (own: unknown) => Iterable<unknown>)(gathered.own)),
+        : Array.from(
+          (child.listed as (own: unknown) => Iterable<unknown>)(gathered.own),
           (item) => child.flagged === true ? (item as readonly [unknown, unknown])[0] : item
         )
-      const held = Opt.map(gathered.first, tell)
+      const held = Opt.isSome(gathered.first) ? Opt.some(tell(gathered.first.value)) : Opt.none()
       // The last pair compared: the children of one name are most often told one value after one other.
       let compared: readonly [unknown, unknown, boolean] | undefined
       // The value of the own state as it is: read again only once a child's answer made the parent take a step.
@@ -903,7 +904,10 @@ const make = (children: Readonly<Record<string, Declared>> | undefined, config: 
       : childOf(name).there === "always"
       ? () =>
         read({ name, id: undefined }, there({ name, id: undefined }, entryAt(slots, { name, id: undefined }), what))
-      : () => Opt.map(entryAt(slots, { name, id: undefined }), (entry) => read({ name, id: undefined }, entry))
+      : () => {
+        const entry = entryAt(slots, { name, id: undefined })
+        return Opt.isSome(entry) ? Opt.some(read({ name, id: undefined }, entry.value)) : Opt.none()
+      }
   const outputOf = (place: Place, entry: Entry) =>
     (childOf(place.name).program as unknown as Readonly<{ output: (state: unknown) => unknown }>).output(entry.state)
   const instanceOf = (_: Place, entry: Entry) => entry.instance
@@ -937,8 +941,8 @@ const make = (children: Readonly<Record<string, Declared>> | undefined, config: 
       if (!Object.hasOwn(programs, name)) throw new Error(`stateOf: "${name}" is no child`)
       const given = states[name]
       const places: ReadonlyArray<readonly [Place, unknown]> = isById(name)
-        ? Arr.map(
-          Arr.fromIterable(given as Iterable<readonly [unknown, unknown]>),
+        ? Array.from(
+          given as Iterable<readonly [unknown, unknown]>,
           ([id, childState]) => [{ name, id }, childState] as const
         )
         : [[{ name, id: undefined }, given]]

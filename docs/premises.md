@@ -156,7 +156,10 @@ reasoned. A new one is taken only where no design without it is as good (value 5
     that throw, `run` on a closed container, when a loser is interrupted, how the failures of cleanups combine). It
     holds no promise of the guide: only what the guide leaves unspecified, which the engine keeps as it is, or a test,
     a tool of development or a killer of a mutation. A promise that would rest on one is kept by another design, or
-    narrowed. A premise whose argument does not fit a sentence is open.
+    narrowed. A premise whose argument does not fit a sentence is open. Nothing rests on what Effect does with a
+    callback that throws: a function that may throw (the program's, a test's, or one that throws a defect of the
+    library's) is called, and an iterable of the program's or a test's is iterated, by a loop of the library's or a
+    method of an array, never by a function of Effect's over data (`Arr`, `Opt`, `HashMap`).
 - **The range of Effect is a caret from the lockfile's version**: no promise rests on what Effect may change within a
   major, and a patch may change what a minor may, so a narrower range kept nothing out. The daily jobs run the tests at
   the newest Effect the range accepts, and at what Effect has merged and not released (`upgrade-effect`, which says

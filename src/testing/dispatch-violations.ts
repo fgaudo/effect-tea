@@ -1,4 +1,3 @@
-import * as Arr from "effect/Array"
 import * as Equal from "effect/Equal"
 import { reject, type Step, type Update } from "../update.ts"
 
@@ -81,8 +80,8 @@ export const dispatchViolations = <State, Message, Command, Event>(
     withheld?: (message: Message, state: State) => boolean
   }>
 ): ReadonlyArray<DispatchViolation<Message>> => {
-  const shown = Arr.fromIterable(held)
-  const wrong = Arr.flatMap(shown, (message): ReadonlyArray<DispatchViolation<Message>> => {
+  const shown = Array.from(held)
+  const wrong = shown.flatMap((message): ReadonlyArray<DispatchViolation<Message>> => {
     const first = update(message)(state)
     if (first === reject) return [{ _tag: "Rejected", message }]
     // Sent again from the state it leaves, a step that does nothing does nothing again: `ActsTwice` has nothing to ask.
@@ -91,15 +90,12 @@ export const dispatchViolations = <State, Message, Command, Event>(
     const second = update(message)(first.state)
     return second !== reject && !doesNothing(second, first.state) ? [{ _tag: "ActsTwice", message }] : []
   })
-  const missing = Arr.flatMap(
-    Arr.fromIterable(candidates),
-    (message): ReadonlyArray<DispatchViolation<Message>> => {
-      const step = update(message)(state)
-      return step !== reject && !doesNothing(step, state) && !withheld(message, state)
-          && !Arr.some(shown, (each) => Equal.equals(each, message))
-        ? [{ _tag: "Missing", message }]
-        : []
-    }
-  )
+  const missing = Array.from(candidates).flatMap((message): ReadonlyArray<DispatchViolation<Message>> => {
+    const step = update(message)(state)
+    return step !== reject && !doesNothing(step, state) && !withheld(message, state)
+        && !shown.some((each) => Equal.equals(each, message))
+      ? [{ _tag: "Missing", message }]
+      : []
+  })
   return [...wrong, ...missing]
 }

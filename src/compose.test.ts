@@ -1663,6 +1663,28 @@ describe("what a declaration tells its children", () => {
     })
     expect(thrown(() => stateOf(raising, { condition: "b", ids: [1], bounces: 0 }))).toBeInstanceOf(CompositionDefect)
   })
+
+  test("what tell throws on the own state before the step, as a child starts, the step throws as it is", () => {
+    const failure = new Error("no word for it")
+    const Moving = program<{ state: Own; message: "Moved" }>()
+    // No child is there at the start, so nothing reads `tell` of the first state until the step starts one, and the
+    // state after the step gives a value.
+    const moving = Moving.withChildren({
+      Kid: Moving.childById(hearing, {
+        ids: (state) => state.ids,
+        tell: (state) => {
+          if (state.condition === "boom") throw failure
+          return { _tag: "Cond", value: state.condition }
+        }
+      })
+    }).make({
+      init: { state: { condition: "boom", ids: [], bounces: 0 } },
+      update: () => (state) => ({ state: { ...state, condition: "a", ids: [1] } }),
+      onEvent: { Kid: () => (state) => ({ state }) },
+      makeModel: () => null
+    })
+    expect(thrown(() => moving.update("Moved")(moving.init.state))).toBe(failure)
+  })
 })
 
 describe("what a declaration tells its children, over random histories", () => {
@@ -2156,6 +2178,28 @@ describe("what a parent reads of its children", () => {
       makeModel: () => null
     })
     expect(unread.makeModel(unread.init.state)).toBeNull()
+  })
+
+  test("what the model or the output of a child that may not be there throws, its parent's read throws as it is", () => {
+    const failure = new Error("burnt out")
+    const broken = program<{ state: Lamp; message: "Pressed"; output: boolean }>().make({
+      init: { state: { on: false } },
+      update: () => (state) => ({ state }),
+      output: () => {
+        throw failure
+      },
+      makeModel: () => {
+        throw failure
+      }
+    })
+    const Shelf = program<{ state: Readonly<{ lit: boolean }>; message: "Looked" }>()
+    const shelf = Shelf.withChildren({ Bulb: Shelf.child(broken, { there: (state) => state.lit }) }).make({
+      init: { state: { lit: true } },
+      update: (_, children) => () => ({ state: { lit: Opt.isSome(children.Bulb.output()) } }),
+      makeModel: (_, children) => children.Bulb()
+    })
+    expect(thrown(() => shelf.update("Looked")(shelf.init.state))).toBe(failure)
+    expect(thrown(() => shelf.makeModel(shelf.init.state))).toBe(failure)
   })
 })
 
