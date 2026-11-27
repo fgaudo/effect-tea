@@ -589,6 +589,15 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   move an error); a defect that names its key by its tags (as `describeKey`); and the name `runSubscription` (nothing
   is run). _Reopen if_ a key listed twice hides a mistake a set would have
   refused, or a test that gives `hear` a wrong key passes.
+- **An optional member that takes `undefined`, as one not given**, under `exactOptionalPropertyTypes`: `| undefined` on
+  each optional member of what `make`, `child`, `childWhen`, `childById`, `start` and the testing tools take, and on
+  the lists of a `Step`, so that `listening: paused ? undefined : (state) => …` compiles under that option as it does
+  without it. Spiked in step 117, 27 November 2026: the types took it with no other change, as the run already reads
+  `undefined` as a member not given, and the tests of the types failed without it. Undone by the owner the same day:
+  `undefined` is not a value of an option where it means nothing of its own, and only says that the option is not
+  given, which leaving it out says. Without the compiler's option, a consumer may still write it, and the run reads it
+  as a member left out, which stays unspecified. _Reopen if_ an option comes to have a meaning for `undefined` of its
+  own, or a user's program cannot be written without it.
 
 ## The bridges
 

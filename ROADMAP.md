@@ -51,47 +51,6 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
 
 ## Next, in order
 
-Step 117 comes, as steps 115 and 116 did, from a review of the API of `program`, which the owner asked of Fable 5.2
-on 27 November 2026 and decided with it the same day. Its probes were throwaway files, typechecked beside the examples
-with TypeScript 5.9.3, 6.0.3 and 7.0.2, with the same result under each: the step says what was probed, and what was
-not. It decides its points by "Deciding": where it decides against a point, it writes its entry of
-[`rejected.md`](docs/rejected.md), and is done. With them the owner added a sentence to the third value of
-`AGENTS.md`: small is counted in concepts, not in exports. Its changes go out with those of steps 111 to 116, in 0.11.0.
-
-### 117. An option or a piece given as `undefined` is one not given
-
-**Model and effort.** Opus 5.5, `medium`: one rule, applied to each optional member, with a test for each.
-
-**Depends on** no open step. Step 116 left two configs in `src/compose.ts`: `ProgramConfig`, the pieces of a
-program without children, made by `makeProgram`, and `ParentConfig`, made by `makeParent`. Each optional piece is typed
-once, for both, by `UpdateOf`, `ExternalHandlerOf`, `OutputHandlerOf`, `RunCommandOf` and `ListenOf`, which take the
-function the piece is. `makeProgram` already reads a piece given as `undefined` as one not given.
-
-**Why.** Under `exactOptionalPropertyTypes`, `child(clock, { listening: undefined })` and
-`make({ …, update: undefined })` do not compile. Probed: the error is the same for a member that is refused and for
-one that is not, so it comes from the option of the compiler, not from `Refused`. Without that option both compile,
-and the run reads `undefined` as a member not given. So what a consumer may write depends on an option of their
-compiler, and one under it cannot write `listening: hidden ? paused : undefined`. The owner asked why an optional
-member refuses `undefined`.
-
-**How.** By [`change-api`](.agents/skills/change-api/SKILL.md), and by
-[`change-engine`](.agents/skills/change-engine/SKILL.md) where the run of `src/compose.ts` changes.
-
-- Each optional member of what `make`, `child`, `childWhen` and `childById` take is typed with `| undefined`, one
-  typed `Refused<…>` too. `Refused` stays as it is: it refuses a value, and says why.
-- A required member takes no `undefined`, with the option of the compiler or without it: step 114 found a required
-  list typed `unknown` that took one, and `make` died of a `TypeError`.
-- The run reads `undefined` as a member not given, at each member: each place is read, since a spread or an
-  `Object.hasOwn` tells the two apart.
-- The options of `start` and of the testing tools are weighed by the same rule: taken, or left with the reason in the
-  commit.
-- One doc comment says the rule once, and the changelog has its entry.
-
-**Done when** a test of the types gives each optional member `undefined`, and a test of the run shows that it does
-what leaving the member out does; the inference matrix, which runs with `exactOptionalPropertyTypes` and without,
-reports no new lead; and `bun run typecheck`, `lint`, `test`, `test:node`, `interleavings`, `inference`,
-`inference --run`, `comments`, `api --check` and the smoke test pass.
-
 The next review of the premises reads the changes since the commit that closed step 99 (`git log --grep
 "the premises reviewed since step 65"`), and the next reading of the promises those since the commit that closed step
 100 (`git log --grep "the promises read since step 90"`). The review of the premises reads the premise that step 106
