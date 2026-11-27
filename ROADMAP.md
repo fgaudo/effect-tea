@@ -32,33 +32,64 @@ What a task or a review found that no failing test shows and no user met ("How a
 the case of the inference matrix (`bun run inference --filter <case>`). None is a step of its own: they are weighed
 together before a release, and one not taken then goes to `docs/rejected.md`.
 
-- **A throw that leaves a callback given to Effect, listed nowhere.** `reconcile` in `compose.ts` throws the
-  `CompositionDefect` of an id listed twice inside the callback of `HashMap.mutate`, and `startOf` in
-  `testing/rehearse.ts` lets what `select` throws leave `Arr.filter`: each rests on Effect letting what a callback
-  throws leave the call, a rule that Effect-TS/effect#10683 declined, and `docs/premises.md` lists neither. Found by
-  the review of step 107, read in the source only. A test of each in `test/premises.test.ts` would show it, or the
-  throw moved out of the callback, into a loop of the library's own, which needs no premise.
+None.
 
 ## Next, in order
 
-The readings due before the release after 0.9.0 are done (`release`, point 1 of "Releasing"): the review of the
-premises closed by step 99 (`git log --grep "the premises reviewed since step 65"`), and the reading of the promises
-closed by step 100 (`git log --grep "the promises read since step 90"`). The next of each reads the changes since its
-commit. The next review of the premises reads the premise that step 106 added by the model, that the `Fiber` a fork
-returns is the very one its effect sees as its own (`docs/premises.md`, "Code that a fiber runs on the stack"), and
-what `Effect.interruptible` fails with, left a premise of tests alone. It reads nothing of an `Equal` or a `Hash` of
-the program that throws: step 107 dropped the three premises that served that case alone, by the rule it left in
-`docs/premises.md` ("What no program that keeps the guide's rules can see").
+The readings due before 0.10.0 are done (`release`, point 1 of "Releasing"): the review of the premises closed by step
+99 (`git log --grep "the premises reviewed since step 65"`), and the reading of the promises closed by step 100 (`git
+log --grep "the promises read since step 90"`). The next of each reads the changes since its commit. The next review of
+the premises reads the premise that step 106 added by the model, that the `Fiber` a fork returns is the very one its
+effect sees as its own (`docs/premises.md`, "Code that a fiber runs on the stack"), and what `Effect.interruptible`
+fails with, left a premise of tests alone. It reads nothing of an `Equal` or a `Hash` of the program that throws: step
+107 dropped the three premises that served that case alone, by the rule it left in `docs/premises.md` ("What no program
+that keeps the guide's rules can see").
 
-No step is open.
+The steps below make 0.10.0, in this order. The one lead left was weighed for it, and taken as step 108: the fix is
+local, and takes a premise away (value 5 of "Deciding").
+
+### 108. No throw out of a callback given to Effect
+
+Opus 5.5, `high`; `change-engine`, with the second agent of "How the steps run". Depends on nothing.
+
+`reconcile` in `src/compose.ts` throws the `CompositionDefect` of an id listed twice inside the callback of
+`HashMap.mutate`, and `startOf` in `src/testing/rehearse.ts` lets what `select` throws leave `Arr.filter`. Each rests on
+Effect letting what a callback throws leave the call, a rule that Effect-TS/effect#10683 declined and that
+`docs/premises.md` lists nowhere. Move each throw into a loop of the library's own: `HashMap.beginMutation` and
+`HashMap.endMutation` around a `for` in `reconcile`, a `for` over the keys in `startOf`. Found by the review of step
+107, read in the source only.
+
+Done when: neither throw happens inside a callback given to Effect (a search of the two modules for a `throw`, or a
+call of the program's or the test's function, inside one shows none); the tests of an id listed twice and of a `select`
+that throws pass unchanged, or one is added where none exists; the checks of `change-engine` pass, its mutations
+killed; no changelog entry, since nothing a user sees changes.
+
+### 109. A check of the upgrade to 0.10.0
+
+Sonnet 5.5, `medium`, for the agent that upgrades; Opus 5.5, `medium`, for the session that reads its report.
+`guide-reader`, "A check of an upgrade". Depends on 108.
+
+The section 0.10.0 of `CHANGELOG.md` has `**Breaking**` entries, and earlier checks' projects are kept in
+`D:/Project/effect-tea-readers/` (`booking-react`, `locker-react-native` with `locker-examiner`): point 1 of
+"Releasing" in `release` asks for the check. Take the project that uses most of the names the breaking entries change,
+as point 1 of the check says; one that uses none runs its tests on the new version and starts no agent.
+
+Done when: the upgraded copy compiles and passes its tests and its acceptance tests, or each gap the agent met is fixed
+in the changelog or a doc comment, or is a line of this file; the skill's entry for the application says the check.
+
+### 110. Release 0.10.0
+
+Opus 5.5, `medium`; `release`, points 2 to 4 of "Releasing". Depends on 109.
+
+Done when: the checks of point 2 pass, every mutation killed, `bun run interleavings` run and the site built with no
+warning; `CHANGELOG.md` dates the section; the commit `release 0.10.0` is tagged `v0.10.0`, locally; "For the owner"
+says so.
 
 ## For the owner
 
 What leaves this machine, or decides what the project is ("Deciding" in `AGENTS.md`): an agent prepares it, and the
 owner does it.
 
-- **0.9.0** is committed and tagged `v0.9.0`, locally, on 26 November 2026, after the checks of point 2 of
-  "Releasing" passed on it: the owner pushes the commit and the tag, which deploys the site, and publishes the package.
 - **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
   decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API, after a
   reading of the promises and a review of the premises over everything. Until then, releases stay at 0.x.
