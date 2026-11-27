@@ -57,17 +57,27 @@ const expectedSpellings = 13
 // aliases over the children, 8,969.
 const misprintBound = 7000
 
-// What is wrong in what a consumer's TypeScript prints of the errors of `misprint.ts`, as the lines to print.
-const misprintProblemsOf = (printed: string) => {
+// What is wrong in what a consumer's TypeScript prints of the errors of `misprint.ts`, as the lines to print. The error
+// of the child's options says the type that `flags` takes: TypeScript 7 prints the last overload alone, whose form,
+// before step 111, said that `flags` takes `never`. TypeScript 5.9 and 6.0 print every overload, with its program,
+// which the count of programs and the bound leave out.
+const misprintProblemsOf = (printed: string, source: string) => {
   const problems: Array<string> = []
   const errors = printed.match(/^misprint\.ts\(\d+,\d+\): error TS\d+:/gm)?.length ?? 0
   const total = printed.match(/error TS/g)?.length ?? 0
-  if (errors !== 6 || total !== 6) {
-    problems.push(`misprint.ts has ${errors} errors of its own and ${total} in all, not 6 and 6:\n${printed}`)
+  if (errors !== 7 || total !== 7) {
+    problems.push(`misprint.ts has ${errors} errors of its own and ${total} in all, not 7 and 7:\n${printed}`)
   }
-  const programs = printed.match(/\bProgram</g)?.length ?? 0
+  const line = source.split("\n").findIndex((text) => text.startsWith("export const greeted"))
+  const blocks = printed.split(/^(?=misprint\.ts\()/m)
+  const isGreeted = (block: string) => block.startsWith(`misprint.ts(${line + 1},`)
+  if (!blocks.some((block) => isGreeted(block) && /'Option<number>' is not assignable to type 'number'/.test(block))) {
+    problems.push("misprint.ts prints no error of greeted that says the type its flags take")
+  }
+  const rest = blocks.filter((block) => !isGreeted(block)).join("")
+  const programs = rest.match(/\bProgram</g)?.length ?? 0
   if (programs > 0) problems.push(`misprint.ts prints a program ${programs} times`)
-  const bytes = new TextEncoder().encode(printed).length
+  const bytes = new TextEncoder().encode(rest).length
   if (bytes > misprintBound) problems.push(`misprint.ts prints ${bytes} bytes, more than ${misprintBound}`)
   return problems
 }
@@ -259,7 +269,7 @@ const command = Command.make(
           cwd: dir
         })
       )
-      const problems = misprintProblemsOf(stdout)
+      const problems = misprintProblemsOf(stdout, yield* fs.readFileString(join(dir, "misprint.ts")))
       yield* Console.log(`typescript ${exact}, the errors of misprint.ts: ${problems.length === 0 ? "ok" : "failed"}`)
       if (problems.length > 0) {
         failed.push(`typescript ${exact}, the errors of misprint.ts`)

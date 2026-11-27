@@ -3,6 +3,13 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
+## 0.10.1 (unreleased)
+
+### Changed
+
+- The error of `child` given an option of the wrong type, as `flags` that give an `Option`, says the type that option
+  takes, in place of the error of another form of `child`, that it takes `never`.
+
 ## 0.10.0 (2026-11-27)
 
 ### Added

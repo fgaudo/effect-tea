@@ -1,8 +1,8 @@
-// Six type errors a consumer may write over a parent's state, messages, commands, keys and services, in a tree of
+// Seven type errors a consumer may write over a parent's state, messages, commands, keys and services, in a tree of
 // parents that holds every exported program of `consumer.ts` with keys or commands, a parent of parents, and a child
-// that needs other services, and over what a function written apart reads of children of that tree and tells them.
-// `smoke.ts` typechecks it with no truncation, and bounds what TypeScript prints: each child's program printed with its
-// parent's types would multiply it at each level of the tree.
+// that needs other services, over what a function written apart reads of children of that tree and tells them, and in
+// the options of a child. `smoke.ts` typechecks it with no truncation, and bounds what TypeScript prints: each child's
+// program printed with its parent's types would multiply it at each level of the tree.
 import {
   type CommandOf,
   type CommandServicesOf,
@@ -17,7 +17,7 @@ import * as Arr from "effect/Array"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Opt from "effect/Option"
-import { app, lamps, outer, relay, served } from "./consumer.js"
+import { app, greeter, lamps, outer, relay, served } from "./consumer.js"
 
 class Clock extends Context.Service<Clock, { readonly now: Effect.Effect<number> }>()("Clock") {}
 
@@ -66,3 +66,7 @@ export const telling: number = tell
 declare const outputs: OutputsOf<typeof told>
 
 export const reading: number = outputs
+
+// A child with flags given an `Option` of them, as a child that may not be there is given them by `there`: `smoke.ts`
+// holds that the error says the type that `flags` takes.
+export const greeted = treeOf.child(greeter, { flags: (state) => Opt.some(state.n) })

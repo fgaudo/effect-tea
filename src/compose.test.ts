@@ -2851,6 +2851,22 @@ describe("flags", () => {
       .toHaveLength(2)
   })
 
+  test("a child is declared in one form, always there or not", () => {
+    const { child, withChildren } = program<{ state: Ticks }>()
+    const optionsOf = (open: boolean) => (open ? { there: (state: Ticks) => state.ticks > 0 } : undefined)
+    const eitherOf = (open: boolean) => (open ? { there: () => true } : { key: (state: Ticks) => state.ticks })
+    const flaggedOf = (open: boolean) => (open ? { there: () => Opt.some(1) } : { flags: () => 1 })
+    const seedOf = (open: boolean) => (open ? () => Opt.some(1) : undefined)
+    // @ts-expect-error: options that may be missing would run the child as always there.
+    expect(withChildren({ Kid: child(ticker, optionsOf(true)) })).toBeDefined()
+    // @ts-expect-error: so would options of either form.
+    expect(withChildren({ Kid: child(ticker, eitherOf(true)) })).toBeDefined()
+    // @ts-expect-error: with flags too.
+    expect(withChildren({ Kid: child(seeded, flaggedOf(true)) })).toBeDefined()
+    // @ts-expect-error: and a `there` that may be missing.
+    expect(withChildren({ Kid: child(seeded, { there: seedOf(true) }) })).toBeDefined()
+  })
+
   test("the functions of a child's options take the parent's state, without annotations", () => {
     type Shown = Readonly<{ open: boolean; generation: number; seed: Opt.Option<number> }>
     const { child } = program<{ state: Shown }>()

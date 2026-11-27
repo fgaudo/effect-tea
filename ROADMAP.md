@@ -32,13 +32,16 @@ What a task or a review found that no failing test shows and no user met ("How a
 the case of the inference matrix (`bun run inference --filter <case>`). None is a step of its own: they are weighed
 together before a release, and one not taken then goes to `docs/rejected.md`.
 
-None open.
+- `child(program, { flags })` for a program without flags, `{ key }` beside a `there` or `flags` for one with flags,
+  and `childById` given `ids` for one with flags or `flags` for one without, print that the option takes `never` (or
+  `undefined`), the first with its `state` typed `any`; `childById` reports its last overload whichever option is
+  wrong, which a third overload, as `child` has since step 111, would fix. A probe of each call, `tsc` on it, shows it.
 
 ## Next, in order
 
-Steps 111 to 113 come from the report of an application moved to 0.10.0, weighed on 27 November 2026
-([`application-report-0.10.md`](docs/records/application-report-0.10.md)), and run in the order of their numbers. Each
-decides its point by "Deciding": a step that decides against its point writes its entry of
+Steps 112 and 113 come from the report of an application moved to 0.10.0, weighed on 27 November 2026
+([`application-report-0.10.md`](docs/records/application-report-0.10.md)), as step 111 did, and run in the order of
+their numbers. Each decides its point by "Deciding": a step that decides against its point writes its entry of
 [`rejected.md`](docs/rejected.md), and is done. Their changes go out together, in the release after 0.10.0.
 
 The next review of the premises reads the changes since the commit that closed step 99 (`git log --grep
@@ -48,40 +51,6 @@ added by the model, that the `Fiber` a fork returns is the very one its effect s
 "Code that a fiber runs on the stack"), and what `Effect.interruptible` fails with, left a premise of tests alone. It
 reads nothing of an `Equal` or a `Hash` of the program that throws: step 107 dropped the three premises that served
 that case alone, by the rule it left in `docs/premises.md` ("What no program that keeps the guide's rules can see").
-
-### 111. An error of `child` that names the option that is wrong
-
-**Model and effort.** Opus 5.5, `high`: the types of an export.
-
-**Depends on** no other step.
-
-**Why.** `child(program, { flags })`, where `flags` gives an `Option` of the child's flags, prints `TS2769`, "The last
-overload gave the following error", and that the function "is not assignable to type 'never'"
-([`application-report-0.10.md`](docs/records/application-report-0.10.md), point 1). `DeclareChild` has two overloads,
-and the compiler reports the last one, which takes no `flags`: nothing in the error says that the flags are of the
-wrong type, nor that a child that may not be there is declared with `there`. An agent that upgraded found the fix in
-the changelog alone, and whoever writes `flags` for a child that may not be there meets the same error.
-
-**How.** A spike first, on a branch ([`change-api`](.agents/skills/change-api/SKILL.md)). Forms to weigh, none
-decided:
-
-- one signature for `child`, whose `There` is read from the options that it is given, as `forwardTo` reads its result
-  from what it is given, so that the compiler has no other overload to report;
-- the two overloads kept, with a property whose type says what to write in place of `flags?: never` and of
-  `there?: never`, as `FlagsChecked` says it for `childById`.
-
-Another order of the overloads only moves the fault to `there`. Weigh with each form: the state that
-`(state) => …` is given, with no annotation; the tags of a literal that `tell` returns (the comment of `Telling` in
-`src/compose.ts`); a function over any program, written as an overload over erased types ("Composition"); what a
-hover and the declarations print (`bun run api`); and `childById`, whose two overloads are read in the same way. Read
-first `rejected.md`: "`forwardTo` dual", "Checks that hold for a type parameter", "`DeclareChild<State>` in place of
-`DeclareChild<T>`" and "A parent's children declared in the call of `make`".
-
-**Done when** a test of the types holds that `flags` which give an `Option` of the child's flags do not compile, nor a
-`there` that gives a boolean for a child with flags; what the compiler prints of the first names `flags` or says what
-to write, and is held where the smoke test holds what `tools/smoke/misprint.ts` prints, with its bound; and the
-checks of `change-api` pass, with a changelog entry where the declarations change. If no form prints better: an entry
-of `rejected.md`, with what each form printed.
 
 ### 112. A parent on React Native, whose page comes and goes
 

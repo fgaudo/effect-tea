@@ -1346,7 +1346,10 @@ type AlwaysOptions<State, P> = [FlagsOf<P>] extends [never] ? [
   : [
     options:
       & Readonly<{
-        /** The child's flags in a state: other flags, by `Equal`, start it again. */
+        /**
+         * The child's flags in a state: other flags, by `Equal`, start it again. A child that may not be there is given
+         * them by `there`.
+         */
         flags: (state: State) => FlagsOf<P>
         there?: never
         key?: never
@@ -1397,6 +1400,16 @@ type FlagsChecked<P, Flagged extends boolean> = [FlagsOf<P>] extends [never]
   : Flagged extends true ? unknown
   : { readonly "a child with flags is declared with its flags": FlagsOf<P> }
 
+// Options of either form, for the last overload of `DeclareChild`: of a call that matches no overload, the compiler
+// reports the last one, and against both forms its error is at the option that is wrong. A call that matches it alone
+// is given options that may be of either form, which the run would tell apart only as it reads them: what it returns is
+// no child, and `withChildren` refuses it.
+type EitherOptions<State, P> = [FlagsOf<P>] extends [never] ? [options?: OneOf<State, P>] : [options: OneOf<State, P>]
+
+type OneOf<State, P> =
+  | Exclude<AlwaysOptions<State, P>[0], undefined>
+  | (SometimesOptions<State, P> & Listening<State> & Telling<State, P>)
+
 /**
  * The function of `program` that declares a child alone: always there, or there in the states its options say.
  *
@@ -1412,6 +1425,10 @@ export type DeclareChild<T extends DeclaredTypes> = {
     program: CheckedChild<P>,
     options: SometimesOptions<Field<T, "state">, P> & Listening<Field<T, "state">> & Telling<Field<T, "state">, P>
   ): Child<Field<T, "state">, P, "sometimes">
+  <P extends AnyProgram>(
+    program: CheckedChild<P>,
+    ...options: EitherOptions<Field<T, "state">, P>
+  ): { readonly "a child is declared in one form, always there or not": never }
 }
 
 /**

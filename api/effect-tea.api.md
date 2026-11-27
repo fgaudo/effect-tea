@@ -164,6 +164,9 @@ type Config<State, C, Own, OwnCommand, Event, Model, Ran, Heard, OwnKey, Externa
 export type DeclareChild<T extends DeclaredTypes> = {
     <P extends AnyProgram>(program: CheckedChild<P>, ...options: AlwaysOptions<Field<T, "state">, P>): Child<Field<T, "state">, P, "always">;
     <P extends AnyProgram>(program: CheckedChild<P>, options: SometimesOptions<Field<T, "state">, P> & Listening<Field<T, "state">> & Telling<Field<T, "state">, P>): Child<Field<T, "state">, P, "sometimes">;
+    <P extends AnyProgram>(program: CheckedChild<P>, ...options: EitherOptions<Field<T, "state">, P>): {
+        readonly "a child is declared in one form, always there or not": never;
+    };
 };
 
 // @public
@@ -198,6 +201,9 @@ export type DefectSite = "init" | "update" | "subscriptions" | "subscription" | 
 
 // @public
 export type Dispatch<Message> = (message: Message) => void;
+
+// @public (undocumented)
+type EitherOptions<State, P> = [FlagsOf<P>] extends [never] ? [options?: OneOf<State, P>] : [options: OneOf<State, P>];
 
 // @public
 export type EventOf<P> = Returned<P, "events">;
@@ -486,6 +492,9 @@ type OfInstance = Readonly<{
     instance: number;
     id?: unknown;
 }>;
+
+// @public (undocumented)
+type OneOf<State, P> = Exclude<AlwaysOptions<State, P>[0], undefined> | (SometimesOptions<State, P> & Listening<State> & Telling<State, P>);
 
 // @public
 type OnEventOf<State, C, Command, Event> = [keyof OnEvents<State, C, Command, Event>] extends [never] ? Readonly<{
