@@ -30,7 +30,7 @@ bridges/
 ├─ snabbdom-preload.ts       what bun test loads first (bunfig.toml), so that snabbdom loads without a DOM
 ├─ react.ts                  View, Host, HostProps, Fork, and Draw for a program started apart
 ├─ snabbdom.test.ts          the snabbdom bridge's tests, in a DOM
-├─ snabbdom-testing.test.ts  the tests of messagesSentBy, without a DOM
+├─ snabbdom-testing.test.ts  the tests of messagesSentBy, without a DOM, and against snabbdom, in a DOM
 ├─ react.test.ts             the React bridge's tests, beside snabbdom over one run, in a DOM
 ├─ browser.test.ts           what only a real browser shows: bun run test:browsers alone
 ├─ fast-refresh.test.ts      React under Fast Refresh, in a page of its own: bun run test:browsers alone

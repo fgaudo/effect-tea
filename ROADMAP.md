@@ -56,24 +56,6 @@ It reads nothing of an `Equal` or a `Hash` of the program that throws: step 107 
 premises that served that case alone, by the rule it left in `docs/premises.md` ("What no program that keeps the
 guide's rules can see").
 
-### 119. What `messagesSentBy` takes of snabbdom is a premise, with a test against snabbdom itself
-
-Opus 5.5, `medium`. Depends on nothing. `messagesSentBy` (`bridges/snabbdom-testing.ts`) imitates how snabbdom calls a
-listener, which snabbdom does without promising it: its tests checked it against what was expected, never against
-snabbdom, and it called a listener drawn by a `thunk` with the wrong node until commit `73aeb05`.
-
-- An entry of `docs/premises.md`, beside the two premises of the bridge to snabbdom: what `messagesSentBy` takes of
-  snabbdom (a listener called with its node as `this` and as its second argument, a list of them in order, a `thunk`
-  drawn as `copyToThunk` draws it).
-- Its test, in `bridges/snabbdom-testing.test.ts`: small trees made by fast-check (thunks, thunks in thunks, lists of
-  listeners, comments and text), drawn by snabbdom in happy-dom, as `bridges/snabbdom.test.ts` draws, and each listener
-  called by a click there, each giving what `messagesSentBy` gives. The deterministic test of the thunk stays, the
-  killer of its mutation.
-- No rule for every imitation of a dependency: this is the one, the scheduler has `test/effect-scheduler.test.ts`, and
-  `premise-review` reads the premises at each release.
-
-Done when the premise names its test, and the test fails once by hand with the thunk drawn as before `73aeb05`.
-
 ### 120. A table of the names of children, in the test of the types
 
 Opus 5.5, `medium`. Depends on nothing. The test of `compose.test.ts` that refuses a child named by a number becomes a
@@ -86,7 +68,7 @@ Done when each name of the table is refused or routed, and the lead of `__proto_
 
 ### 121. The review of the premises reads every form of this bug hunt, over all the code
 
-Opus 5.5, `high`. Depends on 119 and 120, so that it reads the code they leave. The bug hunt of 27 November 2026
+Opus 5.5, `high`. Depends on 120, so that it reads the code it leaves. The bug hunt of 27 November 2026
 found four bugs in code that three reviews of the premises had in their scope (21, 24 and 26 November): their brief
 named none of the four forms, and read the changes since the last review, of the engine and the testing tools alone.
 
@@ -108,7 +90,7 @@ owner does it.
 - **0.10.0** is published. It holds the first bug of the hunt of 27 November 2026, as 0.8.0 and 0.9.0 do: a `run`
   interrupted as it begins may leave a program that applies messages and reports none of their defects.
 - **0.11.0** is not released: the bug hunt of 27 November 2026 reopened its section of `CHANGELOG.md`, and took out the
-  tag `v0.11.0` that pointed to commit `acbada3`, before its fixes. It is released, by `release`, once steps 119 to
+  tag `v0.11.0` that pointed to commit `acbada3`, before its fixes. It is released, by `release`, once steps 120 and
   121 and the reading of the promises are done.
 - **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
   decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API, after a

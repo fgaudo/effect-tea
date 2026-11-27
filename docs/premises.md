@@ -117,6 +117,13 @@ afresh) is none of its own.
   included**: so the bridge's module of the controlled elements (`controlledModule`) forgets an element drawn without a
   `value` or a `checked`. snabbdom skips the hooks of a vnode whose `data` is `undefined`, and `h` gives every vnode
   data: both are read in its source. Its test, in `bridges/snabbdom.test.ts`, fails with a vnode made with no data.
+- **snabbdom calls a listener with its node as `this` and as its second argument, a list of them in order, and the
+  listeners of a `thunk` with the thunk, which `copyToThunk` gives the data, the children and the text of the node its
+  function draws**: so `messagesSentBy` (`bridges/snabbdom-testing.ts`) finds without a DOM what a view sends, calling
+  each listener as snabbdom would. snabbdom's README says only that a listener gets its event: the rest is read in its
+  source (`eventlisteners.js`, `thunk.js`). Its test, in `bridges/snabbdom-testing.test.ts`, draws trees of thunks,
+  lists, comments and text with snabbdom, calls each listener by an event, and fails with a thunk drawn as its
+  function's node.
 - **A controlled input keeps what is typed, its caret and its selection when a store read with `useSyncExternalStore`
   is updated during its `onChange`**: so the bridge to React draws a text field as React's documentation draws a
   controlled one, from the run's model. Agreed by the owner on 20 November 2026. react.dev states it of a state
