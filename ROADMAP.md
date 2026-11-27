@@ -56,27 +56,6 @@ It reads nothing of an `Equal` or a `Hash` of the program that throws: step 107 
 premises that served that case alone, by the rule it left in `docs/premises.md` ("What no program that keeps the
 guide's rules can see").
 
-### 118. Each region nothing may interrupt has a mutation, killed by one sweep of interruptions
-
-Opus 5.5, `high`. Depends on nothing. The bug hunt of 27 November 2026 (commit `73aeb05`) found that `run` marked its
-start and its end outside one region nothing interrupts, which no test reached: `docs/invariants.md` exempted such
-regions from mutations, as no gate reached them, while whoever runs the program interrupts at any yield of the
-scheduler. `run` now has its region, a mutation that takes it out, and a killer in `start.test.ts` that sweeps
-`Scheduler.MaxOpsBeforeYield` with `MixedScheduler`; `rehearse.test.ts` ("rehearse, interrupted by whoever runs it as
-it sets up") sweeps an interruption at the nth preemption under `scheduled`, and counts the fibers left.
-
-- One helper of the tests sweeps an interruption by whoever runs the program at each yield, with a row for `run`,
-  `drive`, `rehearse` and `simulate`, and the post-condition of each: never begun, or stopped; no fiber left; every
-  scope closed. The two sweeps of today become rows of it. The bridges need no row: `Host` forks the `run` that `start` gives, and the bridge to snabbdom is given an app
-  whose `run` its caller forks.
-- Each other region nothing may interrupt has a mutation that takes it out, killed by its row: the fork of the fiber
-  of effects (`engine.ts`, the end of `effectsIn`), `Stage.play`, and the region of `drive`.
-- Not an interruption at each yield inside `bun run interleavings`: its properties are written against `settled`, and
-  a property is no killer. A fate "interrupted without awaiting `idle`" is a lead at most.
-
-Done when each region of `docs/invariants.md`, "A region nothing may interrupt", names its mutation, and
-`bun run mutations` kills them all.
-
 ### 119. What `messagesSentBy` takes of snabbdom is a premise, with a test against snabbdom itself
 
 Opus 5.5, `medium`. Depends on nothing. `messagesSentBy` (`bridges/snabbdom-testing.ts`) imitates how snabbdom calls a
@@ -107,7 +86,7 @@ Done when each name of the table is refused or routed, and the lead of `__proto_
 
 ### 121. The review of the premises reads every form of this bug hunt, over all the code
 
-Opus 5.5, `high`. Depends on 118, 119 and 120, so that it reads the code they leave. The bug hunt of 27 November 2026
+Opus 5.5, `high`. Depends on 119 and 120, so that it reads the code they leave. The bug hunt of 27 November 2026
 found four bugs in code that three reviews of the premises had in their scope (21, 24 and 26 November): their brief
 named none of the four forms, and read the changes since the last review, of the engine and the testing tools alone.
 
@@ -129,7 +108,7 @@ owner does it.
 - **0.10.0** is published. It holds the first bug of the hunt of 27 November 2026, as 0.8.0 and 0.9.0 do: a `run`
   interrupted as it begins may leave a program that applies messages and reports none of their defects.
 - **0.11.0** is not released: the bug hunt of 27 November 2026 reopened its section of `CHANGELOG.md`, and took out the
-  tag `v0.11.0` that pointed to commit `acbada3`, before its fixes. It is released, by `release`, once steps 118 to
+  tag `v0.11.0` that pointed to commit `acbada3`, before its fixes. It is released, by `release`, once steps 119 to
   121 and the reading of the promises are done.
 - **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
   decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API, after a

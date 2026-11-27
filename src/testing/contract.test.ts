@@ -9,7 +9,9 @@ import * as Equal from "effect/Equal"
 import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import * as Hash from "effect/Hash"
+import * as Metric from "effect/Metric"
 import * as Opt from "effect/Option"
+import * as Scheduler from "effect/Scheduler"
 import type * as Scope from "effect/Scope"
 import { ProgramDefect } from "../defect.ts"
 import type { Applied, Ignored } from "../engine.ts"
@@ -2163,4 +2165,151 @@ describe("a message heard while the job of its own start is under way", () => {
   test("hearNext waiting for the job that opens its call fails as soon as another fiber of the test's dies", async () => {
     expect(await waitingPastBoom((rehearsal) => rehearsal.hearNext((key) => key === "b"))).toEqual(Opt.some("command"))
   })
+})
+
+// Whoever runs the program may interrupt it at any yield of the scheduler: the run, and each tool, holds its start and
+// its end in a region nothing interrupts, and an interruption before it or inside what it restores must leave nothing
+// behind. Effect's own scheduler is made to yield each fiber at each operation (`Scheduler.MaxOpsBeforeYield`), and
+// runs a batch of tasks only when the test runs it: interrupted once `batches` have run, the fiber of whoever runs it
+// has done at most as many operations, one in each batch where it was not waiting. The fibers left are counted as that
+// fiber ends, as whoever awaits the interruption would see them; what is held, once every task has run, since only a
+// fiber counted then could still release it.
+describe("the run and each tool, interrupted by whoever runs it at any yield of the scheduler", () => {
+  type Held = Program<{ state: number; model: number; message: "Break"; command: "Hold"; key: "held" }>
+  // What the program holds as it runs: a command and a subscription, each until it is interrupted. `reached` says
+  // that the setup is over: the scenario has begun, or, where there is none, the command has started.
+  type Seen = { held: number; reached: boolean; applied: number }
+  const holding = (seen: Seen, reached: boolean) =>
+    Effect.acquireUseRelease(
+      Effect.sync(() => {
+        seen.held += 1
+        if (reached) seen.reached = true
+      }),
+      () => Effect.never,
+      () =>
+        Effect.sync(() => {
+          seen.held -= 1
+        })
+    )
+  const held = (seen: Seen, scenario: boolean): Held => ({
+    init: { state: 0, commands: ["Hold"] },
+    update: () => () => {
+      seen.applied += 1
+      throw new Error("a rule of the program broken")
+    },
+    runCommand: () => holding(seen, !scenario),
+    subscriptions: () => ["held"],
+    listen: () => Channel.fromEffectDone(holding(seen, false)),
+    makeModel: (state) => state
+  })
+  const scenario = (seen: Seen) =>
+    Effect.sync(() => {
+      seen.reached = true
+    }).pipe(Effect.andThen(Effect.never))
+  // Each row gives what whoever runs it runs, and, for the run, what its handle says once it has ended.
+  type Row = (seen: Seen) => Readonly<{ effect: Effect.Effect<unknown, unknown>; after?: () => string }>
+  // Runs `effect` until `batches` of tasks have run, or none is left, interrupts it, and runs it to its end. It
+  // gives how many batches ran before the interruption, and how many fibers were left as the fiber ended: those left
+  // once every task has run, where the interruption came before the effect began.
+  const interruptedAfter = (effect: Effect.Effect<unknown, unknown>, batches: number) => {
+    let live = 0
+    const metrics: Metric.FiberRuntimeMetricsService = {
+      recordFiberStart: () => {
+        live += 1
+      },
+      recordFiberEnd: () => {
+        live -= 1
+      }
+    }
+    let left: number | undefined
+    const tasks: Array<() => void> = []
+    const scheduler = new Scheduler.MixedScheduler("async", (task) => (tasks.push(task), () => undefined))
+    const fiber = Effect.runFork(
+      effect.pipe(
+        Effect.onExit(() =>
+          Effect.sync(() => {
+            left = live
+          })
+        ),
+        Effect.provideService(Metric.FiberRuntimeMetrics, metrics),
+        Effect.provideService(Scheduler.MaxOpsBeforeYield, 1)
+      ),
+      { scheduler }
+    )
+    let ran = 0
+    while (ran < batches && tasks.length > 0) {
+      tasks.shift()?.()
+      ran += 1
+    }
+    fiber.interruptUnsafe()
+    while (tasks.length > 0) tasks.shift()?.()
+    return { ran, exit: fiber.pollUnsafe(), left: left ?? live }
+  }
+  const outcome = (row: Row, batches: number) => {
+    const seen: Seen = { held: 0, reached: false, applied: 0 }
+    const { after, effect } = row(seen)
+    const { exit, left, ran } = interruptedAfter(effect, batches)
+    const held = seen.held
+    const ended = exit === undefined
+      ? "never ended"
+      : Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)
+      ? left === 0 && held === 0 ? (after?.() ?? "stopped") : `${left} fibers left, ${held} held`
+      : Exit.isSuccess(exit)
+      ? "succeeded"
+      : `died of ${Cause.prettyErrors(exit.cause).map(({ message }) => message).join(", ")}`
+    return { ran, reached: seen.reached, ended }
+  }
+  // Every batch of the setup, then once it is over: the last interruption meets what runs as the setup is done.
+  const sweep = (row: Row) => {
+    const quiet = outcome(row, Number.POSITIVE_INFINITY)
+    const outcomes = Array.from({ length: quiet.ran }, (_, index) => outcome(row, index + 1).ended)
+    return { reached: quiet.reached, outcomes: [...outcomes, quiet.ended] }
+  }
+  const rows: ReadonlyArray<readonly [string, Row]> = [
+    [
+      "run",
+      (seen) => {
+        const { app, run } = start(held(seen, false))
+        return {
+          effect: run,
+          // Once interrupted, the handle applies a message only where the run never began, and a later run then
+          // reports its defect; where it began, it applies none, and a later run is refused.
+          after: () => {
+            app.dispatch("Break")
+            const { exit } = interruptedAfter(run, Number.POSITIVE_INFINITY)
+            const defects = exit !== undefined && Exit.isFailure(exit)
+              ? Cause.prettyErrors(exit.cause).map(({ message }) => message)
+              : []
+            const runOnce = defects.some((message) => message.includes("run once"))
+            const reported = defects.some((message) => message.includes("A defect in update"))
+            return seen.applied === 0 && runOnce
+              ? "stopped"
+              : seen.applied === 1 && reported
+              ? "never begun"
+              : `applied ${seen.applied}, then ${defects.join(", ")}`
+          }
+        }
+      }
+    ],
+    ["drive", (seen) => ({ effect: drive(held(seen, true), () => scenario(seen)) })],
+    ["rehearse", (seen) => ({ effect: rehearse(held(seen, true), () => scenario(seen)) })],
+    [
+      "simulate",
+      (seen) => {
+        const program = held(seen, false)
+        return { effect: simulate(program, [], program.init) }
+      }
+    ]
+  ]
+  for (const [name, row] of rows) {
+    test(
+      `${name}: never begun, or stopped, with no fiber left and nothing held, wherever the interruption reaches it`,
+      () => {
+        const { reached, outcomes } = sweep(row)
+        expect(outcomes.filter((ended) => ended !== "stopped" && ended !== "never begun")).toEqual([])
+        expect({ reached, sweeps: outcomes.length > 1 }).toEqual({ reached: true, sweeps: true })
+      },
+      Number.POSITIVE_INFINITY
+    )
+  }
 })

@@ -2864,8 +2864,8 @@ export const mutations: ReadonlyArray<Mutation> = [
       + "(restore: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>) =>\n",
     killedBy: [
       [
-        "src/start.test.ts",
-        "whose run is interrupted at any yield of the scheduler as it begins, is as one never run or stopped, never applying a message with no run to report its defect"
+        "src/testing/contract.test.ts",
+        "run: never begun, or stopped, with no fiber left and nothing held, wherever the interruption reaches it"
       ]
     ]
   },
@@ -2877,12 +2877,67 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "",
     killedBy: [
       [
-        "src/start.test.ts",
-        "whose run is interrupted at any yield of the scheduler as it begins, is as one never run or stopped, never applying a message with no run to report its defect"
+        "src/testing/contract.test.ts",
+        "run: never begun, or stopped, with no fiber left and nothing held, wherever the interruption reaches it"
       ]
     ]
   },
   // The testing tools (`docs/records/synchronous-dispatch.md`, stage 2).
+  {
+    name: "a stage makes its scope and starts its effects outside a region nothing interrupts",
+    file: "src/testing/stage.ts",
+    from: "    Effect.uninterruptibleMask(Effect.fnUntraced(function*(restore) {\n",
+    to: "    ((region) => Effect.suspend(() => region((effect) => effect)))(Effect.fnUntraced(function*("
+      + "restore: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>) {\n",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "rehearse: never begun, or stopped, with no fiber left and nothing held, wherever the interruption reaches it"
+      ],
+      [
+        "src/testing/contract.test.ts",
+        "simulate: never begun, or stopped, with no fiber left and nothing held, wherever the interruption reaches it"
+      ],
+      [
+        "src/testing/contract.test.ts",
+        "rehearse fails, as the run dies, in a command, on a command interrupting itself as whoever runs it interrupts it"
+      ],
+      [
+        "src/testing/contract.test.ts",
+        "simulate fails, as the run dies, in a command, on a command interrupting itself as whoever runs it interrupts it"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a subscription it started is released when whoever runs the rehearsal interrupts it"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "interrupted by whoever runs it, it fails on a defect of what a subscription releases"
+      ],
+      [
+        "src/testing/rehearse.test.ts",
+        "a scenario interrupted by whoever runs it stops the fiber of effects at once, its job under way included"
+      ]
+    ]
+  },
+  {
+    name: "drive forks its run, and stops it, outside a region nothing interrupts",
+    file: "src/testing/drive.ts",
+    from: "  return yield* Effect.uninterruptibleMask(Effect.fnUntraced(function*(restore) {\n",
+    to: "  return yield* ((region) => Effect.suspend(() => region((effect) => effect)))(Effect.fnUntraced(function*("
+      + "restore: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>) {\n",
+    killedBy: [
+      [
+        "src/testing/contract.test.ts",
+        "drive: never begun, or stopped, with no fiber left and nothing held, wherever the interruption reaches it"
+      ],
+      [
+        "src/testing/contract.test.ts",
+        "the run dies in a command, on a command interrupting itself as whoever runs it interrupts it"
+      ],
+      ["src/testing/drive.test.ts", "fails on a defect of what a subscription releases"]
+    ]
+  },
   {
     name: "rehearse keeps only the program's defects",
     file: "src/testing/rehearse.ts",

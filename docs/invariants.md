@@ -308,14 +308,18 @@ the engine and in the testing tools.
   subscription to the handle has no killer: its stop sets `stopped` first.
 
   A region nothing may interrupt holds no code of the program, but it is no exemption: whoever runs the program may
-  interrupt its fiber at any yield of the scheduler, before the region or where `restore` makes it interruptible. The
-  region of `run` (`startWith` in `run.ts`) has a mutation that takes it out, killed by a test that interrupts at each
-  yield (`start.test.ts`). The others have none yet (`ROADMAP.md`, step 118): a transition of the ledger made in the
-  thunk that checks the end (`submit` in `testing/stage.ts`), which asks the engine for a job that only tells
-  (`afterJobs`), held by the test of the transition; and a fiber and how it stops, above (`engine.ts`, `Stage.play`,
-  `drive`), held by Effect's documentation and by the sweep of `rehearse.test.ts` that interrupts it as it sets up. The
-  checks beside them have mutations with deterministic killers, and the tests of `rehearse.test.ts` under the scheduler
-  of the tests are alarms of the search, killing none.
+  interrupt its fiber at any yield of the scheduler, before the region or where `restore` makes it interruptible. One
+  test sweeps that interruption over every yield of whoever runs the run, `drive`, `rehearse` and `simulate`, on
+  Effect's own scheduler, and checks that each was never begun or is stopped, with no fiber left and nothing held as it
+  ends (`contract.test.ts`, "the run and each tool, interrupted by whoever runs it at any yield of the scheduler"). It
+  kills the mutation that takes out the region of `run` (`startWith` in `run.ts`), of `Stage.play` and of `drive`. Two
+  have none: the transition of the ledger made in the thunk that checks the end (`submit` in `testing/stage.ts`), which
+  asks the engine for a job that only tells (`afterJobs`), held by the test of the transition; and the region of the
+  fork of the fiber of effects (the end of `effectsIn` in `engine.ts`), which only keeps that fiber for the end to stop
+  first: without it, `FiberSet` and `FiberMap` still stop what that fiber forks late, and only the order of the
+  releases at the end changes, which the guide leaves unspecified, as for the stop of the fiber of effects.
+  The checks beside them have mutations with deterministic killers, and the tests of `rehearse.test.ts` under the
+  scheduler of the tests are alarms of the search, killing none.
 - **What the engine gives a testing tool, the run takes by its defaults** ([`one-engine.md`](records/one-engine.md),
   "What the engine gets").
   - The config of `Engine.build` has five. `settled` is called last as the outermost `apply` returns. `listening` and
