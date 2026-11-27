@@ -38,10 +38,157 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
 - Under jest's types, `expect(…).toThrow(InvariantDefect)` does not compile, since the constructor is private: a test
   of `examples/react-native` takes the error with a `try` and `toBeInstanceOf`. Under `bun:test` it compiles. A test
   of the types with `@types/jest` would show it.
+- `childById` with one list for every program: `ids`, and `flags: (state, id) => FlagsOf<P>`, required exactly when the
+  program has flags, in place of the two lists and `ByIdForm`. `flags` would then be in `childById` what it is in
+  `child`, the flags of a child. Probed by the review that steps 115 to 117 come from, with a signature declared and no
+  body, with TypeScript 5.9, 6.0 and 7.0: the `Id`, inferred from `ids` alone, types the `id` of `listening` and of
+  `flags`, and `flags` is refused for a program without flags, and required for one with. Against it: a step of the
+  parent's own would read and compare the flags of each child listed, where the very same list skips them today
+  (`rejected.md`, "A declared `tell` that takes the id of a child", refused for such a cost), and a parent that keeps
+  its children in an array would look each id up in it, a cost that grows with the square of their number. A measure
+  of both forms at 1,000 and 10,000 children, with the state as an array and as a `HashMap`, would show it.
 
 ## Next, in order
 
-No step is open. The changes of steps 111 to 114 go out together, in 0.11.0.
+Steps 115 to 117 come from a review of the API of `program`, which the owner asked of Fable 5.2 on 27 November 2026 and
+decided with it the same day. Its probes were throwaway files, typechecked beside the examples with TypeScript 5.9.3,
+6.0.3 and 7.0.2, with the same result under each: a step that rests on one says what was probed, and what was not.
+The steps run in the order of their numbers, and each decides its points by "Deciding": a step that decides against
+its point writes its entry of [`rejected.md`](docs/rejected.md), and is done. With them the owner added a sentence to
+the third value of `AGENTS.md`: small is counted in concepts, not in exports. Their changes go out with those of steps
+111 to 114, in 0.11.0.
+
+### 115. `child`, `childWhen` and `childById` as functions of the package
+
+**Model and effort.** Opus 5.5, `high`: the types of three exports, and an inference of TypeScript that their form
+rests on.
+
+**Depends on** no other step.
+
+**Why.** `program<T>()` returns the functions that declare children beside the two ways to make a program. So a program
+without children is handed what only a parent uses, and a parent takes a line that destructures them, bound to a state
+that their calls do not show. They are returned by `program<T>()` only so that their options know the parent's state
+(`rejected.md`, "`child`, `childById`, `input` and `inputById` as free functions"), which was reasoned and not probed.
+The probe found that, in the call of `withChildren`, they read that state from the type that `withChildren` expects.
+
+**How.** By [`change-api`](.agents/skills/change-api/SKILL.md) and
+[`change-engine`](.agents/skills/change-engine/SKILL.md).
+
+- `child`, `childWhen` and `childById` are exports of the package. Each keeps its one signature, with the parent's
+  state as a type parameter in place of `T`: `<State, P>(program, …options) => Child<State, P, 'always'>`, and
+  `<State, Id, P>` for `childById`. `program<T>()` returns `make` and `withChildren`, and nothing else:
+
+  ```ts
+  export const app = program<{ state: Own }>()
+    .withChildren({ Clock: child(Clock.clock, { listening: (state) => Opt.isNone(state.about) }) })
+    .make({ init: { state: { about: Opt.none() } }, makeModel: (_, children) => children.Clock() })
+  ```
+
+- **Probed**, with signatures declared and no body. In the call of `withChildren`, the `state` of an option is the
+  parent's with no annotation, for `child`, `childWhen` and `childById`, of a program with flags and of one without,
+  with the options chosen by a conditional over `P` as they are today. The `id` of a `listening` written after `ids` is
+  the id. The literal of a `tell` keeps its tags where its type is the conditional of `Telling`, and loses them where
+  it is a function type alone.
+- **A child declared apart** from `withChildren`, as `examples/list` declares its stopwatches for `halting.ts`, has a
+  `state` of `unknown` without an annotation, and does not compile: a form refused, never taken wrongly. With
+  `(state: Own)` it compiles, and `withChildren` takes it. The doc comments of the three functions say so, and
+  "Structuring a program" where it shows children declared apart.
+- **Not probed**, and done first, before the rest: `CheckedChild<P>` beside a `State` that is inferred; what a
+  consumer's declarations print (`bun run smoke`, with `misprint.ts`); and the inference matrix, with the three
+  functions as uses of their own.
+- **If the state does not reach an option** in the call of `withChildren`, with one of the three compilers, the
+  functions are not exports. A second function, `parent<T>()`, returns them with `parentProgram`, which takes the
+  children and gives the parent's `make`, and `program<T>()` returns `make` alone: `withChildren`, destructured, does
+  not say what has the children. The step writes what failed in `rejected.md`.
+- The types that only name the three functions (`DeclareChild`, `DeclareChildWhen`, `DeclareChildById`) stay only
+  where a consumer's declarations would spell out a signature without them (`change-api`, "Report it").
+- The lead of a `listening` written before `ids` is read again, in the call of `withChildren` and apart from it, and
+  its line under "Leads" says what is found.
+- **Weighed with the owner, and not taken.** Each gets its entry of `rejected.md`, and the entry of the free functions
+  is rewritten:
+  - A second function beside `program`, `parent<T>()` or `parentProgram<T>()`, while the three functions are exports.
+    It would take the same types by the same signature: a program and a parent differ by the children, and the API
+    forks there.
+  - The functions given to a callback, `withChildren(({ child }) => ({ … }))`. Probed: it holds, with the state, the
+    messages and the model of `examples/pages` the very same and the tags of a `tell` kept, and children declared
+    apart are read from `ParentMaker<T, infer C>`. It is a callback for what an import does.
+  - The children in the call that names the types, `program<T>(children)`. TypeScript infers no type argument once one
+    is given (microsoft/TypeScript#26242), so the children fall to their constraint, and lose their names.
+  - The children and the pieces in one call, as two arguments. Probed: the children fall to their constraint there
+    too.
+  - `program` as the name of `withChildren`, one word for two signatures, which a module that imports `program` cannot
+    destructure; and `children`, the word of what a parent's pieces take last.
+
+**Done when** tests of the types hold, for each of the three functions, and for a program with flags and one without,
+that the state reaches an option in the call of `withChildren`; that a child declared apart compiles with its state
+annotated and not without, and that `withChildren` takes it; and that `withChildren` refuses a child declared for
+another state. `program<T>()` gives no `child`. The examples, the guide, the tutorial, the README and the skill write
+the new form, and the changelog has the breaking entry with its `Upgrade:`. `bun run typecheck`, `lint`, `test`,
+`test:node`, `interleavings`, `inference`, `inference --run`, `comments`, `api --check` and the smoke test, with
+TypeScript 5.9, 6.0 and 7.0, pass.
+
+### 116. A program without children and a parent, each with types and a `make` of its own
+
+**Model and effort.** Opus 5.5, `high`: `src/compose.ts`, which keeps the invariants of a parent, and the types of
+`make`.
+
+**Depends on** 115, which changes what `program<T>()` returns.
+
+**Why.** One `Config`, of twelve type parameters, types the pieces of a program without children and those of a
+parent, and one `make` runs both. So the `update` of a program without children is typed
+`(message, ...children: Reading<None>) => (state) => Transition<…, TellOf<None>>`, its `makeModel` is given a second
+argument, `{}`, and the run asks whether the program is composed at eight places. The two differ by what a user
+writes, so by the third value they are two, each plain: it is one mechanism fewer (value 5), and the errors and hovers
+of a program without children name its own pieces alone.
+
+**How.** By [`change-engine`](.agents/skills/change-engine/SKILL.md) and
+[`change-api`](.agents/skills/change-api/SKILL.md).
+
+- A program without children: its pieces are those of `Program` (`Shape`, in `src/program.ts`), each required exactly
+  when its type is named, as today. No `Reading`, no `TellOf`, and no `children` in `makeModel`. Its `make` is a
+  function of its own, which fills in what the config leaves out.
+- A parent: its pieces take `children: OutputsOf<C>` as a plain last parameter, with no rest tuple, and `onEvent`,
+  `NoClash` and `NoKeyClash` are its alone. Its `make` no longer asks whether it is composed.
+- What makes a piece required exactly when its type is named, and refused otherwise, is written once, for both.
+- Nothing that the guide or a doc comment promises changes. What a consumer can notice is read in the diff of
+  `api/*.api.md`, and gets its changelog entry: a hover or an error that prints another type is not one.
+- Not a goal: a lower count of the smoke test (`change-api`, "No new type for how a consumer's types print").
+
+**Done when** `Reading` is gone, and no branch of the run asks whether a program has children; the tests pass as they
+are, but for those that read a printed type; each mutation of `src/compose.ts` is still killed (`bun run mutations`);
+the inference matrix reports no new lead; and `bun run typecheck`, `lint`, `test`, `test:node`, `interleavings`,
+`inference`, `inference --run`, `comments`, `api --check` and the smoke test, with TypeScript 5.9, 6.0 and 7.0, pass.
+
+### 117. An option or a piece given as `undefined` is one not given
+
+**Model and effort.** Opus 5.5, `medium`: one rule, applied to each optional member, with a test for each.
+
+**Depends on** 115 and 116, which write the types it changes.
+
+**Why.** Under `exactOptionalPropertyTypes`, `child(clock, { listening: undefined })` and
+`make({ …, update: undefined })` do not compile. Probed: the error is the same for a member that is refused and for
+one that is not, so it comes from the option of the compiler, not from `Refused`. Without that option both compile,
+and the run reads `undefined` as a member not given. So what a consumer may write depends on an option of their
+compiler, and one under it cannot write `listening: hidden ? paused : undefined`. The owner asked why an optional
+member refuses `undefined`.
+
+**How.** By [`change-api`](.agents/skills/change-api/SKILL.md), and by
+[`change-engine`](.agents/skills/change-engine/SKILL.md) where the run of `src/compose.ts` changes.
+
+- Each optional member of what `make`, `child`, `childWhen` and `childById` take is typed with `| undefined`, one
+  typed `Refused<…>` too. `Refused` stays as it is: it refuses a value, and says why.
+- A required member takes no `undefined`, with the option of the compiler or without it: step 114 found a required
+  list typed `unknown` that took one, and `make` died of a `TypeError`.
+- The run reads `undefined` as a member not given, at each member: each place is read, since a spread or an
+  `Object.hasOwn` tells the two apart.
+- The options of `start` and of the testing tools are weighed by the same rule: taken, or left with the reason in the
+  commit.
+- One doc comment says the rule once, and the changelog has its entry.
+
+**Done when** a test of the types gives each optional member `undefined`, and a test of the run shows that it does
+what leaving the member out does; the inference matrix, which runs with `exactOptionalPropertyTypes` and without,
+reports no new lead; and `bun run typecheck`, `lint`, `test`, `test:node`, `interleavings`, `inference`,
+`inference --run`, `comments`, `api --check` and the smoke test pass.
 
 The next review of the premises reads the changes since the commit that closed step 99 (`git log --grep
 "the premises reviewed since step 65"`), and the next reading of the promises those since the commit that closed step

@@ -38,9 +38,10 @@ changing an invariant, a premise or the API if that is what it takes.
    you". Three things are axioms, never checked: the functions of a program are pure, a user's values are immutable
    (none that a user gives the library, or takes from it, is mutated once made, nested objects included), and a model
    holds no function.
-3. **The public API is small, clear and symmetric.** Few concepts. One word for each concept, and one concept for each
-   word: the guide's glossary is the dictionary. A name says what the thing is to a user, the same role has the same
-   form, and a thing is done one way. Users judge the library by its API first.
+3. **The public API is small, clear and symmetric.** Few concepts. Small is counted in concepts, not in exports: two
+   functions of one plain signature each are smaller than one whose signature a conditional type chooses. One word for
+   each concept, and one concept for each word: the guide's glossary is the dictionary. A name says what the thing is
+   to a user, the same role has the same form, and a thing is done one way. Users judge the library by its API first.
 4. **The design is coherent and pure.** A concept is treated alike wherever it appears, and has a module of its own.
 5. **The implementation is simple.** Fewer mechanisms, less code, fewer premises (`docs/premises.md`).
 6. **It is fast enough.** A cost in memory or in time that grows with no need is a bug, and counts as 1. Anything else
