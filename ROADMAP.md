@@ -49,9 +49,9 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
 
 ## Next, in order
 
-The next review of the premises, and the next reading of the promises, read the changes since the commit that did
-both before 0.11.0 (`git log --grep "the promises read for 0.11.0"`), and are due before the release after it. The
-review of the premises reads nothing of an `Equal` or a `Hash` of the program that throws: step 107 dropped the three
+The next reading of the promises reads the changes since the commit that read them before 0.11.0
+(`git log --grep "the promises read for 0.11.0"`), and is due before 0.12.0. The next review of the premises is step
+121, over all of the code. It reads nothing of an `Equal` or a `Hash` of the program that throws: step 107 dropped the three
 premises that served that case alone, by the rule it left in `docs/premises.md` ("What no program that keeps the
 guide's rules can see").
 
@@ -76,15 +76,62 @@ it sets up") sweeps an interruption at the nth preemption under `scheduled`, and
 Done when each region of `docs/invariants.md`, "A region nothing may interrupt", names its mutation, and
 `bun run mutations` kills them all.
 
+### 119. What `messagesSentBy` takes of snabbdom is a premise, with a test against snabbdom itself
+
+Opus 5.5, `medium`. Depends on nothing. `messagesSentBy` (`bridges/snabbdom-testing.ts`) imitates how snabbdom calls a
+listener, which snabbdom does without promising it: its tests checked it against what was expected, never against
+snabbdom, and it called a listener drawn by a `thunk` with the wrong node until commit `73aeb05`.
+
+- An entry of `docs/premises.md`, beside the two premises of the bridge to snabbdom: what `messagesSentBy` takes of
+  snabbdom (a listener called with its node as `this` and as its second argument, a list of them in order, a `thunk`
+  drawn as `copyToThunk` draws it).
+- Its test, in `bridges/snabbdom-testing.test.ts`: small trees made by fast-check (thunks, thunks in thunks, lists of
+  listeners, comments and text), drawn by snabbdom in happy-dom, as `bridges/snabbdom.test.ts` draws, and each listener
+  called by a click there, each giving what `messagesSentBy` gives. The deterministic test of the thunk stays, the
+  killer of its mutation.
+- No rule for every imitation of a dependency: this is the one, the scheduler has `test/effect-scheduler.test.ts`, and
+  `premise-review` reads the premises at each release.
+
+Done when the premise names its test, and the test fails once by hand with the thunk drawn as before `73aeb05`.
+
+### 120. A table of the names of children, in the test of the types
+
+Opus 5.5, `medium`. Depends on nothing. The test of `compose.test.ts` that refuses a child named by a number becomes a
+table of names: a number, a number in quotes, `""`, `constructor`, `"a-b"` and `__proto__`. Each is refused by the
+types, or compiles and is one child to `make` as to the types, its messages, events, commands and keys routed to it.
+`__proto__` is the lead of "Leads": the table shows it or closes it, and one shown is refused as the numbers are, in
+the breaking entry of 0.12.0.
+
+Done when each name of the table is refused or routed, and the lead of `__proto__` is gone from "Leads".
+
+### 121. The review of the premises reads every form of this bug hunt, over all the code
+
+Opus 5.5, `high`. Depends on 118, 119 and 120, so that it reads the code they leave. The bug hunt of 27 November 2026
+found four bugs in code that three reviews of the premises had in their scope (21, 24 and 26 November): their brief
+named none of the four forms, and read the changes since the last review, of the engine and the testing tools alone.
+
+- `premise-review`: its "THE KIND OF BUG" names the four forms: an interruption by whoever runs the program at a yield
+  of the scheduler; a cost that grows with the number of messages; a name that the types drop and `make` does not; a
+  tool that imitates a dependency. Its reviewers read four areas apart: the engine, the testing tools, the types of
+  composition, and the bridges. It reads all of the code before the library is made known, as before 1.0.
+- Then one review over all of the code, one reviewer for each form rather than each area, as the skill says otherwise:
+  each finding an open problem with its `test.failing`, each fix by its form. It is the review of the premises due
+  before 0.12.0. A review over all the code is made again while the last one confirmed a bug.
+
+Done when the skill names the four forms and the four areas, and a review over all of the code confirms no bug.
+
 ## For the owner
 
 What leaves this machine, or decides what the project is ("Deciding" in `AGENTS.md`): an agent prepares it, and the
 owner does it.
 
-- **0.10.0** is committed and tagged `v0.10.0`, locally, on 27 November 2026, after the checks of point 2 of
-  "Releasing" passed on it: the owner pushes the commit and the tag, which deploys the site, and publishes the package.
-- **0.11.0** is committed and tagged `v0.11.0`, locally, on 27 November 2026, after the readings of point 1 and the
-  checks of point 2 of "Releasing" passed on it: the owner pushes it, and publishes it, after 0.10.0.
+- **0.10.0** is published. It holds the first bug of the hunt of 27 November 2026, as 0.8.0 and 0.9.0 do: a `run`
+  interrupted as it begins may leave a program that applies messages and reports none of their defects.
+- **0.11.0** is committed and tagged `v0.11.0`, locally, and holds that bug too. The agent's choice: publish no 0.11.0
+  alone, and publish 0.12.0 once steps 118 to 121 and the reading of the promises are done, so that users upgrade
+  once from 0.10.0, through the breaking changes of both, to a version with the fix. Publishing 0.11.0 now gives users
+  its changes a few days sooner, with the bug, and a second upgrade after. Either can be undone only until it is
+  published.
 - **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
   decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API, after a
   reading of the promises and a review of the premises over everything. Until then, releases stay at 0.x.
