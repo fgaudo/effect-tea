@@ -56,7 +56,9 @@ An entry for the guide names its pages.
    goes in `ROADMAP.md`, and is weighed before the release.
 3. In `CHANGELOG.md`, replace `(unreleased)` with the date: `## 0.6.0 (2026-10-23)`.
 4. Commit that change alone, `release <version>`, and tag it `v<version>` (a lightweight tag). The owner pushes the
-   commit and the tag ("Deciding" in `AGENTS.md`); the tag deploys the site (`.github/workflows/docs.yml`).
+   commit and the tag ("Deciding" in `AGENTS.md`); the tag deploys the site (`.github/workflows/docs.yml`). The
+   version is released once the owner has published it, not before: a change that needs an entry before then reopens
+   its section, `(unreleased)` again with the same version, and deletes the tag, which this point makes again.
 5. The owner publishes the package: never run `npm publish` or `bun publish`.
 
 ## What the package contains

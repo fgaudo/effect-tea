@@ -49,9 +49,10 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
 
 ## Next, in order
 
-The next reading of the promises reads the changes since the commit that read them before 0.11.0
-(`git log --grep "the promises read for 0.11.0"`), and is due before 0.12.0. The next review of the premises is step
-121, over all of the code. It reads nothing of an `Equal` or a `Hash` of the program that throws: step 107 dropped the three
+0.11.0 is not released: the readings made for it, in commit `5f13b2b`, are made again before it, over what
+came after them. The next reading of the promises reads the changes since that commit
+(`git log --grep "the promises read for 0.11.0"`). The next review of the premises is step 121, over all of the code.
+It reads nothing of an `Equal` or a `Hash` of the program that throws: step 107 dropped the three
 premises that served that case alone, by the rule it left in `docs/premises.md` ("What no program that keeps the
 guide's rules can see").
 
@@ -100,7 +101,7 @@ Opus 5.5, `medium`. Depends on nothing. The test of `compose.test.ts` that refus
 table of names: a number, a number in quotes, `""`, `constructor`, `"a-b"` and `__proto__`. Each is refused by the
 types, or compiles and is one child to `make` as to the types, its messages, events, commands and keys routed to it.
 `__proto__` is the lead of "Leads": the table shows it or closes it, and one shown is refused as the numbers are, in
-the breaking entry of 0.12.0.
+the breaking entry of 0.11.0.
 
 Done when each name of the table is refused or routed, and the lead of `__proto__` is gone from "Leads".
 
@@ -116,7 +117,7 @@ named none of the four forms, and read the changes since the last review, of the
   composition, and the bridges. It reads all of the code before the library is made known, as before 1.0.
 - Then one review over all of the code, one reviewer for each form rather than each area, as the skill says otherwise:
   each finding an open problem with its `test.failing`, each fix by its form. It is the review of the premises due
-  before 0.12.0. A review over all the code is made again while the last one confirmed a bug.
+  before 0.11.0. A review over all the code is made again while the last one confirmed a bug.
 
 Done when the skill names the four forms and the four areas, and a review over all of the code confirms no bug.
 
@@ -127,11 +128,9 @@ owner does it.
 
 - **0.10.0** is published. It holds the first bug of the hunt of 27 November 2026, as 0.8.0 and 0.9.0 do: a `run`
   interrupted as it begins may leave a program that applies messages and reports none of their defects.
-- **0.11.0** is committed and tagged `v0.11.0`, locally, and holds that bug too. The agent's choice: publish no 0.11.0
-  alone, and publish 0.12.0 once steps 118 to 121 and the reading of the promises are done, so that users upgrade
-  once from 0.10.0, through the breaking changes of both, to a version with the fix. Publishing 0.11.0 now gives users
-  its changes a few days sooner, with the bug, and a second upgrade after. Either can be undone only until it is
-  published.
+- **0.11.0** is not released: the bug hunt of 27 November 2026 reopened its section of `CHANGELOG.md`, and took out the
+  tag `v0.11.0` that pointed to commit `acbada3`, before its fixes. It is released, by `release`, once steps 118 to
+  121 and the reading of the promises are done.
 - **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
   decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API, after a
   reading of the promises and a review of the premises over everything. Until then, releases stay at 0.x.

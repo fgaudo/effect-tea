@@ -3,28 +3,7 @@
 Versions follow [semantic versioning](https://semver.org): before 1.0, a breaking change raises the minor
 version, and everything else, features included, the patch version.
 
-## 0.12.0 (unreleased)
-
-### Changed
-
-- **Breaking**: a child's name written as a number, `withChildren({ 1: … })`, does not compile. The parent's types did
-  not see such a child, though `make` routed to it.
-  Upgrade: write the name in quotes, `{ "1": … }`.
-
-### Fixed
-
-- A `run` interrupted as it began, at a yield of Effect's scheduler, could leave a program that had begun and was never
-  stopped: it went on applying messages, a defect of a later one was reported nowhere, and a second `run` died as one
-  run twice. A run that has begun now always stops the program as it ends.
-- `applyAll`, `simulate` and `rehearse` copied the lists they return at each message, so a test of many messages took
-  time quadratic in their number: they now take linear time.
-- `messagesSentBy`, of `./snabbdom/testing`, called a listener drawn by a `thunk` with the node the thunk's function
-  gave, where snabbdom calls it with the thunk's node: a handler that read the node's key or data sent one message in
-  the test and another in the browser. It calls it with the thunk's node, as snabbdom does.
-- The comment of `Host`, of `./react`, said that once a `makeModel` throws it draws the model it drew last: it draws the
-  last model that did not throw, which it may not have drawn yet, as two messages in one task make two models.
-
-## 0.11.0 (2026-11-27)
+## 0.11.0 (unreleased)
 
 ### Added
 
@@ -62,6 +41,9 @@ version, and everything else, features included, the patch version.
 - **Breaking**: `run` and `runAll` of `rehearse` whose answer is applied wait for the job of the answer, as `send` does,
   though a fiber of the program dies meanwhile, the answer's model among them. `run` failed with the defect at once.
   Upgrade: a test that expects such a `run` to fail with the defect expects the rehearsal to fail with it.
+- **Breaking**: a child's name written as a number, `withChildren({ 1: … })`, does not compile. The parent's types did
+  not see such a child, though `make` routed to it.
+  Upgrade: write the name in quotes, `{ "1": … }`.
 - The errors of `child`, `childWhen` and `childById`, and of `make`, `start`, `drive` and `rehearse` given a piece or
   `flags` that the program does not name, are at the option, and say what to write or the type it takes, in place of
   that it takes `never` or the error of another form.
@@ -75,6 +57,16 @@ version, and everything else, features included, the patch version.
   each step that makes the parent's own state anew, and a step that leaves that state the very same keeps the child.
 - `InvariantDefect`, `ProgramDefect` and `CompositionDefect` can be passed where a class is asked for: to jest's
   `toThrow`, as "Testing" writes it, and to Effect's `Match.instanceOf` and `Schema.instanceOf`.
+- A `run` interrupted as it began, at a yield of Effect's scheduler, could leave a program that had begun and was never
+  stopped: it went on applying messages, a defect of a later one was reported nowhere, and a second `run` died as one
+  run twice. A run that has begun now always stops the program as it ends.
+- `applyAll`, `simulate` and `rehearse` copied the lists they return at each message, so a test of many messages took
+  time quadratic in their number: they now take linear time.
+- `messagesSentBy`, of `./snabbdom/testing`, called a listener drawn by a `thunk` with the node the thunk's function
+  gave, where snabbdom calls it with the thunk's node: a handler that read the node's key or data sent one message in
+  the test and another in the browser. It calls it with the thunk's node, as snabbdom does.
+- The comment of `Host`, of `./react`, said that once a `makeModel` throws it draws the model it drew last: it draws the
+  last model that did not throw, which it may not have drawn yet, as two messages in one task make two models.
 
 ## 0.10.0 (2026-11-27)
 
