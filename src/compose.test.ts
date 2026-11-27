@@ -3712,13 +3712,88 @@ describe("what the types reject", () => {
     })
   })
 
-  test("a child's name written as a number does not compile, which the types of the parent would not see", () => {
-    const { withChildren } = program<{ state: Ticks; message: Readonly<{ _tag: "1" }> }>()
-    // @ts-expect-error: a child's name is a string.
-    withChildren({ 1: child(plain) })
-    const quoted = withChildren({ "1": child(plain) })
-    // @ts-expect-error: `1` is a child's name, in quotes.
-    quoted.make({ init: { state: noTicks }, update: () => (state) => ({ state }), makeModel: () => null })
+  describe("a name of a child is refused by the types, or is one child to both the types and make", () => {
+    type Echoes = Readonly<{ echoes: number }>
+    const echo: Program<
+      { state: Echoes; model: number; message: "Ping"; command: "Pong"; event: "Pinged"; key: "echo" }
+    > = {
+      init: { state: { echoes: 0 } },
+      update: () => ({ echoes }) => ({ state: { echoes: echoes + 1 }, commands: ["Pong"], events: ["Pinged"] }),
+      runCommand: () => Effect.succeedSome("Ping" as const),
+      subscriptions: () => ["echo" as const],
+      listen: () => Channel.fromEffect(Effect.succeed("Ping" as const)).pipe(Channel.concatWith(() => Channel.never)),
+      makeModel: ({ echoes }) => echoes
+    }
+    const Named = program<{ state: Readonly<{ heard: number }> }>()
+    const init = { state: { heard: 0 } }
+    const heard = () => (state: Readonly<{ heard: number }>) => ({ state: { heard: state.heard + 1 } })
+    // What the parent does with the child's message, its event, its command, its key and its model, untyped: each case
+    // writes the message, the handler of the event and the model by the name, which the types check.
+    const routed = (parent: AnyProgram & Readonly<{ runCommand: any; listen: any }>, name: string, step: any) => {
+      const done = accepted(step)
+      expect(Object.keys(done.state.children)).toEqual([name])
+      expect(stateAt<Echoes>(done.state.children[name]).echoes).toBe(1)
+      expect(done.state.own.heard).toBe(1)
+      expect(done.commands).toEqual([{ _tag: name, instance: 1, command: "Pong" }])
+      const answer = { _tag: name, instance: 1, message: "Ping" }
+      expect(Effect.runSync(parent.runCommand(done.commands[0]))).toEqual(Opt.some(answer))
+      const keys = parent.subscriptions(done.state)
+      expect(keys).toEqual([{ _tag: name, instance: 1, key: "echo" }])
+      expect(Effect.runSync(Channel.runHead(parent.listen(keys[0])))).toEqual(Opt.some(answer))
+      expect(parent.makeModel(done.state)).toBe(1)
+    }
+
+    test("a number does not compile, which the types of the parent would not see", () => {
+      // @ts-expect-error: a child's name is a string.
+      Named.withChildren({ 1: child(echo) })
+    })
+
+    test("__proto__ does not compile, which JavaScript makes the prototype, where make would see no child", () => {
+      expect(Object.keys({ __proto__: child(echo) })).toEqual([])
+      // @ts-expect-error: a child is not named `__proto__`.
+      Named.withChildren({ __proto__: child(echo) })
+      // @ts-expect-error: nor in quotes.
+      Named.withChildren({ "__proto__": child(echo) })
+      // Names that are not known may be any string, and compile.
+      const wide: Readonly<Record<string, Child<Readonly<{ heard: number }>, typeof echo, "always">>> = {}
+      Named.withChildren(wide)
+    })
+
+    test("a number in quotes is one child", () => {
+      const parent = Named.withChildren({ "1": child(echo) }).make({
+        init,
+        onEvent: { "1": heard },
+        makeModel: (_, children) => children["1"]()
+      })
+      routed(parent, "1", parent.update({ _tag: "1", message: "Ping" })(parent.init.state))
+    })
+
+    test("the empty string is one child", () => {
+      const parent = Named.withChildren({ "": child(echo) }).make({
+        init,
+        onEvent: { "": heard },
+        makeModel: (_, children) => children[""]()
+      })
+      routed(parent, "", parent.update({ _tag: "", message: "Ping" })(parent.init.state))
+    })
+
+    test("a name that a plain object inherits is one child", () => {
+      const parent = Named.withChildren({ constructor: child(echo) }).make({
+        init,
+        onEvent: { constructor: heard },
+        makeModel: (_, children) => children.constructor()
+      })
+      routed(parent, "constructor", parent.update({ _tag: "constructor", message: "Ping" })(parent.init.state))
+    })
+
+    test("a name that is no identifier is one child", () => {
+      const parent = Named.withChildren({ "a-b": child(echo) }).make({
+        init,
+        onEvent: { "a-b": heard },
+        makeModel: (_, children) => children["a-b"]()
+      })
+      routed(parent, "a-b", parent.update({ _tag: "a-b", message: "Ping" })(parent.init.state))
+    })
   })
 
   test("an own command cannot take the name of a child, whose interpreter would receive it", () => {

@@ -1222,6 +1222,7 @@ export interface ProgramMaker<T extends DeclaredTypes> {
    * The options of a child declared in this call are typed by the parent's own state. A child declared for another
    * state does not compile here, nor does the `make` it gives for a child whose program is a type parameter, as
    * `child` does not. A name is a string: one written as a number, `{ 1: … }`, does not compile, and `{ "1": … }` does.
+   * Nor does a child named `__proto__`, which JavaScript makes the prototype of the object.
    *
    * @param children - The children, by name: `{ Clock: child(…), Row: childById(…) }`.
    * @returns `make`, which makes the parent.
@@ -1560,14 +1561,18 @@ export const childById: DeclareChildById = ((
  * @see The guide, "Composition".
  */
 export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field<T, "state">>>(
-  children: C & NamedByStrings<C>
+  children: C & NamedAsMakeReads<C>
 ) => ParentMaker<T, C>
 
 /**
- * A child's name written as a number does not compile: TypeScript keys it by a number and JavaScript by a string, so
- * the types of the parent, which read the names as strings, would not see a child that `make` routes to.
+ * A name that `make` would not read as the types do does not compile. One written as a number: TypeScript keys it by a
+ * number and JavaScript by a string, so the types of the parent, which read the names as strings, would not see a child
+ * that `make` routes to. And `__proto__`: JavaScript makes `{ __proto__: … }` the prototype of the object, so `make`
+ * would see no child where the types see one.
  */
-type NamedByStrings<C> = [Exclude<keyof C, string>] extends [never] ? unknown
+type NamedAsMakeReads<C> = [Exclude<keyof C, string>] extends [never]
+  ? [Extract<keyof C, "__proto__">] extends [never] ? unknown
+  : Refused<"a child is not named __proto__, which JavaScript makes the prototype">
   : Refused<"a child's name is a string: write a number in quotes">
 
 /**

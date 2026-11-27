@@ -42,10 +42,10 @@ together before a release, and one not taken then goes to `docs/rejected.md`.
 - `Host`, shown again by `<Activity>`, draws the ended run's last model until the new run gives its own, and a handler
   of that frame sends to a stopped engine, which drops it; the old run's release may overlap the new run's start.
   Shown by a test of that frame, or a user's report of a lost click; the guide says nothing of it.
-- A child named `__proto__`, `withChildren({ __proto__: child(p) })`, compiles, while JavaScript's object literal sets
-  the prototype with it: `Object.keys` and `Object.hasOwn` (`compose.ts`, where `make` reads the children) see no
-  child, and the types see one. The mirror of the numeric names `withChildren` now refuses. Shown by a test of
-  `make` with that child, beside the test of names in `compose.test.ts`; `""`, `constructor` and `"a-b"` compile too.
+- A union of children objects passes `NamedAsMakeReads` (`compose.ts`): `keyof ({ 1: c } | { a: c })` is `never`, so a
+  name written as a number, or `__proto__`, compiles there, and the types and `make` disagree again; a fix distributes
+  over the union. A symbol key is refused with the message of numbers. Shown by a test of the types with such a union;
+  no page teaches the form.
 
 ## Next, in order
 
@@ -56,21 +56,11 @@ It reads nothing of an `Equal` or a `Hash` of the program that throws: step 107 
 premises that served that case alone, by the rule it left in `docs/premises.md` ("What no program that keeps the
 guide's rules can see").
 
-### 120. A table of the names of children, in the test of the types
-
-Opus 5.5, `medium`. Depends on nothing. The test of `compose.test.ts` that refuses a child named by a number becomes a
-table of names: a number, a number in quotes, `""`, `constructor`, `"a-b"` and `__proto__`. Each is refused by the
-types, or compiles and is one child to `make` as to the types, its messages, events, commands and keys routed to it.
-`__proto__` is the lead of "Leads": the table shows it or closes it, and one shown is refused as the numbers are, in
-the breaking entry of 0.11.0.
-
-Done when each name of the table is refused or routed, and the lead of `__proto__` is gone from "Leads".
-
 ### 121. The review of the premises reads every form of this bug hunt, over all the code
 
-Opus 5.5, `high`. Depends on 120, so that it reads the code it leaves. The bug hunt of 27 November 2026
-found four bugs in code that three reviews of the premises had in their scope (21, 24 and 26 November): their brief
-named none of the four forms, and read the changes since the last review, of the engine and the testing tools alone.
+Opus 5.5, `high`. Depends on nothing. The bug hunt of 27 November 2026 found four bugs in code that three reviews of
+the premises had in their scope (21, 24 and 26 November): their brief named none of the four forms, and read the
+changes since the last review, of the engine and the testing tools alone.
 
 - `premise-review`: its "THE KIND OF BUG" names the four forms: an interruption by whoever runs the program at a yield
   of the scheduler; a cost that grows with the number of messages; a name that the types drop and `make` does not; a
@@ -90,8 +80,8 @@ owner does it.
 - **0.10.0** is published. It holds the first bug of the hunt of 27 November 2026, as 0.8.0 and 0.9.0 do: a `run`
   interrupted as it begins may leave a program that applies messages and reports none of their defects.
 - **0.11.0** is not released: the bug hunt of 27 November 2026 reopened its section of `CHANGELOG.md`, and took out the
-  tag `v0.11.0` that pointed to commit `acbada3`, before its fixes. It is released, by `release`, once steps 120 and
-  121 and the reading of the promises are done.
+  tag `v0.11.0` that pointed to commit `acbada3`, before its fixes. It is released, by `release`, once step 121 and the
+  reading of the promises are done.
 - **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
   decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API, after a
   reading of the promises and a review of the premises over everything. Until then, releases stay at 0.x.

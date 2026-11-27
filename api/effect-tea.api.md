@@ -189,7 +189,7 @@ export type DeclareChild = <State, P extends AnyProgram>(program: CheckedChild<P
 export type DeclareChildById = <State, P extends AnyProgram, Id = Refused<"listening is written after ids or flags, which give its id">>(program: CheckedChild<P>, options: ByIdOptions<State, Id, FlagsOf<P>> & ByIdForm<P> & Telling<State, P>) => ChildById<State, NoInfer<Id>, P>;
 
 // @public
-export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field<T, "state">>>(children: C & NamedByStrings<C>) => ParentMaker<T, C>;
+export type DeclareChildren<T extends DeclaredTypes> = <C extends Children<Field<T, "state">>>(children: C & NamedAsMakeReads<C>) => ParentMaker<T, C>;
 
 // @public
 export type DeclareChildWhen = <State, P extends AnyProgram>(program: CheckedChild<P>, options: WhenOptions<State, P>) => Child<State, P, "sometimes">;
@@ -458,7 +458,7 @@ type Named<T, K extends "model", Inferred> = T extends {
 } ? V : Inferred;
 
 // @public
-type NamedByStrings<C> = [Exclude<keyof C, string>] extends [never] ? unknown : Refused<"a child's name is a string: write a number in quotes">;
+type NamedAsMakeReads<C> = [Exclude<keyof C, string>] extends [never] ? [Extract<keyof C, "__proto__">] extends [never] ? unknown : Refused<"a child is not named __proto__, which JavaScript makes the prototype"> : Refused<"a child's name is a string: write a number in quotes">;
 
 // @public
 type NameOf<To> = [To] extends [string] ? To : To extends Readonly<{

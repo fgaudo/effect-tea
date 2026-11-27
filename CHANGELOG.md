@@ -42,8 +42,9 @@ version, and everything else, features included, the patch version.
   though a fiber of the program dies meanwhile, the answer's model among them. `run` failed with the defect at once.
   Upgrade: a test that expects such a `run` to fail with the defect expects the rehearsal to fail with it.
 - **Breaking**: a child's name written as a number, `withChildren({ 1: … })`, does not compile. The parent's types did
-  not see such a child, though `make` routed to it.
-  Upgrade: write the name in quotes, `{ "1": … }`.
+  not see such a child, though `make` routed to it. Nor does a child named `__proto__`, which JavaScript makes the
+  prototype of the object: the types saw a child that `make` did not.
+  Upgrade: write a number in quotes, `{ "1": … }`, and give the child named `__proto__` another name.
 - The errors of `child`, `childWhen` and `childById`, and of `make`, `start`, `drive` and `rehearse` given a piece or
   `flags` that the program does not name, are at the option, and say what to write or the type it takes, in place of
   that it takes `never` or the error of another form.
