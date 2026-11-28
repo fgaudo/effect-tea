@@ -736,8 +736,8 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   `failure.ts`, all of the rule written again, to guard how a value is named in an error, which `String` would pass all
   the same. _Reopen if_ a tool is found to name a value by another function, or oxlint merges the options of a rule
   across overrides.
-- **What would have kept out the bugs of the hunt of 27 November 2026, in three forms**, weighed after it with a second
-  opinion. Taken instead: steps 118 to 121 of `ROADMAP.md`.
+- **What would have kept out the bugs of the hunt of 27 November 2026, in four forms**, the first three weighed after it
+  with a second opinion, the fourth on 28 November 2026. Taken instead: steps 118 to 121 of `ROADMAP.md`.
   - An axis of names in the inference matrix, and a rule of review for each `& string` over keys. Names cross no other
     axis, the matrix runs by hand and not in the CI, and every `& string` of `src/` is `keyof C & string` of the
     children, whose one door, `withChildren`, refuses what it drops. A table of names in the test of the types instead
@@ -745,10 +745,19 @@ what its "Reopen if" names, or by another new fact, which the proposal names ("H
   - oxlint's `oxc/no-accumulating-spread`, against the lists copied at each message. Run on the three sites as they
     were before the fix, it reports none of them (closures called for each message, a copy behind `appendStep`), and its
     one report today is the idiomatic `reduce` of `examples/cart/cart.test.ts`. A count in the benchmark sees no copy
-    either, and a test of times was not taken. _Reopen if_ a quadratic cost is found in a form the rule sees.
+    either. _Reopen if_ a quadratic cost is found in a form the rule sees.
   - A hunt for bugs as a procedure of its own, before each release. `premise-review` is one already: reviewers apart,
     each finding a test that fails. What it lacked was its brief and its scope, which step 121 widens. _Reopen if_ a
     review over all of the code misses a bug that a reader with another brief then finds.
+  - A test of the time that `applyAll`, `simulate` and `rehearse` take, given N and then 2N messages, against the lists
+    copied at each message: a lead of the reading of the promises for 0.11.0. Weighing it, a benchmark by hand found one
+    more site of the same cost, the pending commands of `rehearse`'s ledger, copied at each step and at each take
+    (64,000 messages whose commands ran at the end: 9.9 s, and 1.9 s once fixed). A test of times would not have found
+    it, since it holds only the sites it drives, and this one needs commands left pending. A bug found is held by a
+    test (`AGENTS.md`, "Tests"), and here only one of times would see it, which costs more than it protects (value 7):
+    tens of thousands of messages at each run, on Bun and on Node, and a ratio of times that the machine's load moves,
+    to hold what a comment at each site says and a diff that copies again would show. _Reopen if_ a cost that grows
+    with no need comes back at a site whose comment says why, or a user meets one.
 
 ## The documentation
 

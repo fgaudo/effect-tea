@@ -1,4 +1,3 @@
-import * as Arr from "effect/Array"
 import * as Opt from "effect/Option"
 import type { Generation } from "../core.ts"
 
@@ -12,6 +11,29 @@ export type Ticket = number
 
 /** A command a step decided, with the handle of the fiber the engine started for it, which waits for a `run`. */
 export type Owed<Command, P> = Readonly<{ command: Command; handle: P }>
+
+type List<A> = Readonly<{ head: A; tail: List<A> }> | undefined
+
+/**
+ * The commands pending, as two lists whose cells the ledgers before share: the oldest first in `front`, the newest
+ * first in `back`, turned over into `front` once `front` has none left. A step's commands copy nothing, and a take
+ * copies the commands older than the one it takes, and turns `back` over at most once for the takes that follow, since
+ * the stage keeps one ledger: arrays would copy them all at each step and at each take, which a test that leaves many
+ * commands pending would pay for quadratically.
+ */
+export type Pending<Command, P> = Readonly<{ front: List<Owed<Command, P>>; back: List<Owed<Command, P>> }>
+
+const reversed = <A>(list: List<A>): List<A> => {
+  let turned: List<A> = undefined
+  for (let cell = list; cell !== undefined; cell = cell.tail) turned = { head: cell.head, tail: turned }
+  return turned
+}
+
+const arrayOf = <A>(list: List<A>): Array<A> => {
+  const items: Array<A> = []
+  for (let cell = list; cell !== undefined; cell = cell.tail) items.push(cell.head)
+  return items
+}
 
 /** A message an opened start sent, and whether it was its last, its end value. */
 export type Sent<M> = Readonly<{ message: M; last: boolean }>
@@ -51,7 +73,7 @@ export type Hearing<S, W, M> =
  * their start included.
  */
 export type Ledger<Command, P, S, W, M> = Readonly<{
-  pending: ReadonlyArray<Owed<Command, P>>
+  pending: Pending<Command, P>
   underWay: ReadonlyMap<Ticket, Owed<Command, P>>
   cancelled: ReadonlyArray<Owed<Command, P>>
   taken: Ticket
@@ -63,7 +85,7 @@ export type Ledger<Command, P, S, W, M> = Readonly<{
 }>
 
 export const start = <Command, P, S, W, M>(): Ledger<Command, P, S, W, M> => ({
-  pending: [],
+  pending: { front: undefined, back: undefined },
   underWay: new Map(),
   cancelled: [],
   taken: 0,
@@ -78,11 +100,18 @@ export const start = <Command, P, S, W, M>(): Ledger<Command, P, S, W, M> => ({
 export const owe = <Command, P, S, W, M>(
   ledger: Ledger<Command, P, S, W, M>,
   owed: ReadonlyArray<Owed<Command, P>>
-): Ledger<Command, P, S, W, M> => owed.length === 0 ? ledger : { ...ledger, pending: [...ledger.pending, ...owed] }
+): Ledger<Command, P, S, W, M> =>
+  owed.length === 0 ? ledger : {
+    ...ledger,
+    pending: {
+      front: ledger.pending.front,
+      back: owed.reduce<List<Owed<Command, P>>>((back, head) => ({ head, tail: back }), ledger.pending.back)
+    }
+  }
 
 /** The commands pending, oldest first, without their handles. */
 export const pendingOf = <Command, P, S, W, M>(ledger: Ledger<Command, P, S, W, M>): ReadonlyArray<Command> =>
-  ledger.pending.map(({ command }) => command)
+  [...arrayOf(ledger.pending.front), ...arrayOf(reversed(ledger.pending.back))].map(({ command }) => command)
 
 export type Taken<Command, P> = Readonly<{ ticket: Ticket; command: Command; handle: P }>
 
@@ -95,13 +124,24 @@ export const take = <Command, P, S, W, M>(
   ledger: Ledger<Command, P, S, W, M>,
   select: (command: Command) => boolean
 ): Opt.Option<readonly [Taken<Command, P>, Ledger<Command, P, S, W, M>]> => {
-  const index = ledger.pending.findIndex(({ command }) => select(command))
-  if (index === -1) return Opt.none()
-  const owed = ledger.pending[index] as Owed<Command, P>
+  const skipped: Array<Owed<Command, P>> = []
+  let { front, back } = ledger.pending
+  for (;;) {
+    if (front === undefined && back !== undefined) {
+      front = reversed(back)
+      back = undefined
+    }
+    if (front === undefined) return Opt.none()
+    if (select(front.head.command)) break
+    skipped.push(front.head)
+    front = front.tail
+  }
+  const owed = front.head
+  const rest = skipped.reduceRight<List<Owed<Command, P>>>((tail, head) => ({ head, tail }), front.tail)
   const ticket = ledger.taken + 1
   return Opt.some([{ ticket, command: owed.command, handle: owed.handle }, {
     ...ledger,
-    pending: Arr.remove(ledger.pending, index),
+    pending: { front: rest, back },
     underWay: new Map([...ledger.underWay, [ticket, owed]]),
     taken: ticket
   }])

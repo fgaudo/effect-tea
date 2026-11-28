@@ -68,8 +68,9 @@ version, and everything else, features included, the patch version.
 - A `run` interrupted as it began, at a yield of Effect's scheduler, could leave a program that had begun and was never
   stopped: it went on applying messages, a defect of a later one was reported nowhere, and a second `run` died as one
   run twice. A run that has begun now always stops the program as it ends.
-- `applyAll`, `simulate` and `rehearse` copied the lists they return at each message, so a test of many messages took
-  time quadratic in their number: they now take linear time.
+- `applyAll`, `simulate` and `rehearse` copied the lists they return at each message, and `rehearse` its pending
+  commands at each message and at each `run`, so a test of many messages took time quadratic in their number for those
+  copies alone. They copy them no more.
 - `messagesSentBy`, of `./snabbdom/testing`, called a listener drawn by a `thunk` with the node the thunk's function
   gave, where snabbdom calls it with the thunk's node: a handler that read the node's key or data sent one message in
   the test and another in the browser. It calls it with the thunk's node, as snabbdom does.

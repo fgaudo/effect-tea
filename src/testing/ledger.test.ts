@@ -51,8 +51,26 @@ describe("the commands", () => {
   test("the commands of a step follow those pending, each with the handle of its fiber", () => {
     const owed = Ledger.owe(empty, [{ command: "C", handle: "c" }])
     expect(Ledger.pendingOf(owed)).toEqual(["A", "B", "A", "C"])
-    expect(owed.pending.map(({ handle }) => handle)).toEqual(["a1", "b", "a2", "c"])
+    const [first, one] = taken(owed, () => true)
+    const [second, two] = taken(one, () => true)
+    const [third, three] = taken(two, () => true)
+    const [fourth] = taken(three, () => true)
+    expect([first, second, third, fourth].map(({ handle }) => handle)).toEqual(["a1", "b", "a2", "c"])
     expect(Ledger.owe(empty, [])).toBe(empty)
+  })
+
+  test("a take after a step's commands keeps the order of those older and newer than the one it takes", () => {
+    const [, afterB] = taken(empty, (command) => command === "B")
+    const owed = Ledger.owe(afterB, [{ command: "C", handle: "c" }, { command: "D", handle: "d" }])
+    expect(Ledger.pendingOf(owed)).toEqual(["A", "A", "C", "D"])
+    const [c, afterC] = taken(owed, (command) => command === "C")
+    expect(c.handle).toBe("c")
+    expect(Ledger.pendingOf(afterC)).toEqual(["A", "A", "D"])
+    const later = Ledger.owe(afterC, [{ command: "A", handle: "a3" }])
+    const [a, afterA] = taken(later, (command) => command === "A")
+    expect(a.handle).toBe("a1")
+    expect(Ledger.pendingOf(afterA)).toEqual(["A", "D", "A"])
+    expect(Ledger.pendingOf(owed)).toEqual(["A", "A", "C", "D"])
   })
 
   test("a command interrupted is cancelled with the handle of its fiber, and settled by no answer after", () => {

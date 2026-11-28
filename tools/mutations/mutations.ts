@@ -1491,7 +1491,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "rehearse's take leaves its command pending",
     file: "src/testing/ledger.ts",
-    from: "pending: Arr.remove(ledger.pending, index),",
+    from: "pending: { front: rest, back },",
     to: "pending: ledger.pending,",
     killedBy: [
       [

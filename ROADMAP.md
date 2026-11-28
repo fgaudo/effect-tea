@@ -36,11 +36,7 @@ the library owes, and to whom" in `AGENTS.md`). None is a step of its own: they 
 and one not taken then goes to `docs/rejected.md`.
 
 Those found before the reading of the promises for 0.11.0 were weighed on 27 November 2026, and the last of them taken
-on 28 November 2026. The reading found one:
-
-- The lists that `applyAll`, `simulate` and `rehearse` return are built in linear time, as a Fixed entry of 0.11.0
-  says, and no test holds it: a benchmark of `tools/bench/`, or a test whose clock is what is tested, given N and then
-  2N messages, would.
+on 28 November 2026. The one the reading found was weighed and rejected that day (`docs/rejected.md`). None open.
 
 ## Next, in order
 
