@@ -3276,8 +3276,11 @@ describe("rehearse, with a value that throws as it is named", () => {
 
 describe("rehearse, as a call that has applied its message meets a defect", () => {
   type Count = Readonly<{ count: number }>
-  // The model of the state that `Tick` makes throws: a defect recorded in the thunk that applies the message, before
-  // the call is told what it heard.
+  const rendered = (exit: Exit.Exit<unknown, unknown>) => {
+    const defect = Exit.isFailure(exit) ? exit.cause.reasons.find(Cause.isDieReason)?.defect : undefined
+    return defect instanceof ProgramDefect && defect.where
+  }
+  // The model of the state that `Tick` makes throws: a defect recorded in the thunk that applies the message.
   const program: Program<{ state: Count; model: Count; message: "Tick"; key: "k" }> = {
     init: { state: { count: 0 } },
     update: () => (state) => ({ state: { count: state.count + 1 } }),
@@ -3289,25 +3292,18 @@ describe("rehearse, as a call that has applied its message meets a defect", () =
     }
   }
 
-  test("a hearNext whose message's model throws returns the message, and the rehearsal fails", async () => {
-    let heard: Opt.Option<Exit.Exit<"Tick">> = Opt.none()
+  test("a rehearsal whose hearNext hears a message whose model throws fails with the defect", async () => {
     const exit = await Effect.runPromiseExit(rehearse(
       program,
-      Effect.fnUntraced(function*(rehearsal) {
-        heard = Opt.some(yield* Effect.exit(rehearsal.hearNext((key) => key === "k")))
-      })
+      (rehearsal) => Effect.exit(rehearsal.hearNext((key) => key === "k"))
     ))
-    expect(heard).toEqual(Opt.some(Exit.succeed("Tick")))
-    expect(Exit.isFailure(exit)).toBe(true)
+    expect(rendered(exit)).toBe("render")
   })
 
-  // Found by the review of the testing tools of 27 November 2026. `Fetch` answers `Done` once `answer` is done, and
-  // `Done` makes a state whose model throws, starts `Note` and takes `ticks` away. The run waits for its command in a
-  // race with a death (`runFirst` in `stage.ts`), until the thunk of the answer has told it what it left to do: so the
-  // defect recorded in that thunk leaves the call to the job of its answer, which releases `ticks` and owes `Note`.
+  // `Fetch` answers `Done` once `answer` is done, and `Done` makes a state whose model throws, starts `Note` and takes
+  // `ticks` away.
   const answered = (
-    answer: Deferred.Deferred<void>,
-    released: Array<boolean>
+    answer: Deferred.Deferred<void>
   ): Program<{ state: Count; model: Count; message: "Tick" | "Done"; command: "Fetch" | "Note"; key: "ticks" }> => ({
     init: { state: { count: 0 }, commands: ["Fetch"] },
     update: (message) => (state) =>
@@ -3315,83 +3311,25 @@ describe("rehearse, as a call that has applied its message meets a defect", () =
     runCommand: (command) =>
       command === "Fetch" ? Effect.as(Deferred.await(answer), Opt.some("Done" as const)) : Effect.succeedNone,
     subscriptions: ({ count }) => count === 0 ? ["ticks" as const] : [],
-    listen: () =>
-      Channel.succeed<"Tick" | "Done">("Tick").pipe(
-        Channel.concatWith(() => Channel.never),
-        Channel.onExit(() => Effect.sync(() => released.push(true)))
-      ),
+    listen: () => Channel.succeed<"Tick" | "Done">("Tick").pipe(Channel.concatWith(() => Channel.never)),
     makeModel: (state) => {
       if (state.count === 1) throw new Error("model")
       return state
     }
   })
 
-  test("a run whose answer's model throws returns its command once the job of the answer is done", async () => {
-    const released: Array<boolean> = []
-    const seen: Array<unknown> = []
+  test("a rehearsal whose run is answered by a message whose model throws fails with the defect", async () => {
     const exit = await Effect.runPromiseExit(Effect.gen(function*() {
       const answer = yield* Deferred.make<void>()
       return yield* rehearse(
-        answered(answer, released),
+        answered(answer),
         Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext((key) => key === "ticks")
-          // Started on this stack, the call waits for its command's fiber before the command answers.
-          const running = yield* Effect.forkChild(Effect.exit(rehearsal.run((command) => command === "Fetch")), {
-            startImmediately: true
-          })
           yield* Deferred.succeed(answer, undefined)
-          const ran = yield* Fiber.join(running)
-          seen.push(ran, [...released], yield* rehearsal.state, yield* rehearsal.pending)
+          yield* Effect.exit(rehearsal.run((command) => command === "Fetch"))
         })
       )
     }))
-    expect(seen).toEqual([Exit.succeed("Fetch"), [true], { count: 1 }, ["Note"]])
-    expect(Exit.isFailure(exit)).toBe(true)
-  })
-
-  test("a runAll whose answer's model throws fails with the defect once the job of the answer is done", async () => {
-    const released: Array<boolean> = []
-    const seen: Array<unknown> = []
-    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
-      const answer = yield* Deferred.make<void>()
-      return yield* rehearse(
-        answered(answer, released),
-        Effect.fnUntraced(function*(rehearsal) {
-          yield* rehearsal.hearNext((key) => key === "ticks")
-          // Started on this stack, the call waits for its command's fiber before the command answers.
-          const running = yield* Effect.forkChild(Effect.exit(rehearsal.runAll), { startImmediately: true })
-          yield* Deferred.succeed(answer, undefined)
-          const ran = yield* Fiber.join(running)
-          const defect = Exit.isFailure(ran) ? ran.cause.reasons.find(Cause.isDieReason)?.defect : undefined
-          seen.push(defect instanceof ProgramDefect && defect.where, [...released], yield* rehearsal.pending)
-        })
-      )
-    }))
-    expect(seen).toEqual(["render", [true], ["Note"]])
-    expect(Exit.isFailure(exit)).toBe(true)
-  })
-
-  // The death that the model of `Done` records completes as the thunk returns, inside `send`, and wakes there the
-  // `run` that waits on `Fetch`: it fails, and lets `Fetch` answer on that stack, an answer that the dead run drops.
-  test("a send whose message's model throws waits for its job, though an answer is applied on its stack", async () => {
-    const seen: Array<unknown> = []
-    const exit = await Effect.runPromiseExit(Effect.gen(function*() {
-      const answer = yield* Deferred.make<void>()
-      return yield* rehearse(
-        answered(answer, []),
-        Effect.fnUntraced(function*(rehearsal) {
-          yield* Effect.forkChild(
-            Effect.exit(rehearsal.run((command) => command === "Fetch")).pipe(
-              Effect.andThen(Deferred.succeed(answer, undefined))
-            ),
-            { startImmediately: true }
-          )
-          seen.push(yield* Effect.exit(rehearsal.send(() => Opt.some("Done" as const))), yield* rehearsal.pending)
-        })
-      )
-    }))
-    expect(seen).toEqual([Exit.void, ["Note"]])
-    expect(Exit.isFailure(exit)).toBe(true)
+    expect(rendered(exit)).toBe("render")
   })
 })
 

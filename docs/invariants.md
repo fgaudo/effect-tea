@@ -444,11 +444,9 @@ a row of `contract.test.ts` (`ROADMAP.md`). "Unspecified" is a cell that no page
   `drive` reads each model in order, from a place of its own among the models `drive` read (`place` in `drive.ts`),
   never only the latest; the models are kept from the oldest place a wait holds, and a wait lets go of its place however
   it ends. Each thunk of `rehearse` writes the ledger before it completes a `Deferred`, gives a fiber its effect or asks
-  a start for a message: that order has no mutation, since no deterministic test reaches it. A thunk that applies a
-  message tells a call before it only where the call then waits on that message (`applyFor`): the `hearNext` that hears
-  it, and the `run` whose command answers, which awaits nothing of it before the command's fiber has ended. The calls
-  told that a start has ended are told once its end value is applied, so that none sends before it (`hearHeld`). Each
-  of these orders has a mutation. That the effects of a step start only once its call has returned rests on the queue
+  a start for a message: that order has no mutation, since no deterministic test reaches it. The calls told that a
+  start has ended are told once its end value is applied, so that none sends before it (`hearHeld`): that order has a
+  mutation. That the effects of a step start only once its call has returned rests on the queue
   resuming the fiber of effects in a task, which the guide leaves unspecified. The release of the snabbdom bridge's
   subscription to the handle has no killer: its stop sets `stopped` first.
   A region nothing may interrupt holds no code of the program, but it is no exemption: whoever runs the program may
@@ -495,17 +493,14 @@ a row of `contract.test.ts` (`ROADMAP.md`). "Unspecified" is a cell that no page
   - `rehearse` runs through the handle the run makes (`partsOf` in `run.ts`), and decides only what the test decides:
     when a command runs, and when a subscription's message is heard. A call that applies a message gives it to the
     engine's `send` in a thunk of its own, reads what it came to (`stepped`), and waits for a job that only tells
-    (`after`), so each call is whole for the test. A call waits in two ways only, both given by `testing/stage.ts`, and
-    the lint keeps `rehearse.ts` and `simulate.ts` from awaiting a `Deferred` of their own, but where a start's fiber
-    waits for an ask (`nextAsk`), which is no call's wait. Before it has applied anything (a start, a subscription's
-    message, a command, the job that opens a `hearNext`), it fails as soon as any fiber dies, as the run dies at once
-    (`waiting`, `afterJobs`, `runFirst`), but where it was told what it heard: a `hearNext`, and a `run` whose command
-    answers, are told before the message is applied (`applyFor`), so that a death that the message meets, as a defect of
-    its model, leaves each to its message. Once it has applied its message, it waits for the job whole, though another
-    fiber dies (what `apply`, `applyFor` and `dispatch` give, and `runFirst` once told): the job of a step applied
-    before the first defect goes on whole, its commands owed and its starts opened, for as long as a release holds it.
-    Whether such a call fails with the defect or returns first is no promise: the doc comment of `Rehearsal` leaves it
-    unspecified, and the rehearsal fails with the defect either way.
+    (`after`), so each call is whole for the test. A call waits in one way, given by `testing/stage.ts`, and the lint
+    keeps `rehearse.ts` and `simulate.ts` from awaiting a `Deferred` of their own, but where a start's fiber waits for
+    an ask (`nextAsk`), which is no call's wait. Until its message is applied (a start, a subscription's message, a
+    command, the job that opens a `hearNext`), it fails as soon as any fiber dies, as the run dies at once (`waiting`,
+    `afterJobs`, `runFirst`). Once its message is applied, it waits for the job whole, though another fiber dies (what
+    `apply` and `dispatch` give, and `runFirst` once the command has answered), as the run's dispatch returns: the job
+    of a step applied before the first defect goes on whole, its commands owed and its starts opened, for as long as a
+    release holds it.
     The fiber of effects dies of nothing: what it and the end tell a call is data, which the call makes its error of in
     its own fiber, and a tool names a value in its errors by one function (`failure` in `testing/failure.ts`), which
     throws nothing. What a value throws as it is named is a failure of the test, no defect: the tool's error comes

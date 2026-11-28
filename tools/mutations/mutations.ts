@@ -2142,7 +2142,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the fiber of effects releases the gone keys of a job one after the other",
-    guarantees: ["Subscriptions follow their keys"],
     file: "src/engine.ts",
     from: "      { concurrency: \"unbounded\", discard: true }\n",
     to: "      { discard: true }\n",
@@ -2315,7 +2314,6 @@ export const mutations: ReadonlyArray<Mutation> = [
   },
   {
     name: "the end of the engine stops its fibers one after the other",
-    guarantees: ["Nothing outlives what acquired it"],
     file: "src/engine.ts",
     from: "Effect.forEach(running, stopping, { concurrency: \"unbounded\", discard: true })",
     to: "Effect.forEach(running, stopping, { discard: true })",
@@ -3045,18 +3043,6 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "a call of rehearse reads what the message given last came to",
-    file: "src/testing/stage.ts",
-    from: "    const { arrived } = own\n",
-    to: "    const { arrived } = arrival\n",
-    killedBy: [
-      [
-        "src/testing/rehearse.test.ts",
-        "a send whose message's model throws waits for its job, though an answer is applied on its stack"
-      ]
-    ]
-  },
-  {
     name: "rehearse reads the model after the first defect",
     file: "src/testing/rehearse.ts",
     from: "model: deadOr(Effect.sync(() => app.model())),",
@@ -3071,8 +3057,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a call of rehearse waits on through another fiber's death",
     file: "src/testing/stage.ts",
-    from:
-      "    Effect.raceFirst(\n      wait,\n      Effect.andThen(register.died, Effect.suspend(() => told() ? wait : failedOr(Effect.never)))\n    )",
+    from: "    Effect.raceFirst(wait, Effect.andThen(register.died, failedOr(Effect.never)))",
     to: "    wait",
     killedBy: [
       [
@@ -3414,100 +3399,11 @@ export const mutations: ReadonlyArray<Mutation> = [
     ]
   },
   {
-    name: "a call of rehearse told what it heard fails at a death that comes as its message is applied",
-    file: "src/testing/stage.ts",
-    from: "Effect.suspend(() => told() ? wait : failedOr(Effect.never))",
-    to: "failedOr(Effect.never)",
-    killedBy: [
-      [
-        "src/testing/rehearse.test.ts",
-        "a hearNext whose message's model throws returns the message, and the rehearsal fails"
-      ],
-      [
-        "src/testing/rehearse.test.ts",
-        "a run whose answer's model throws returns its command once the job of the answer is done"
-      ],
-      [
-        "src/testing/rehearse.test.ts",
-        "a runAll whose answer's model throws fails with the defect once the job of the answer is done"
-      ]
-    ]
-  },
-  {
-    name: "the job that opens a hearNext fails it at a death that comes as its message is applied",
-    file: "src/testing/rehearse.ts",
-    from: "      }, heard)\n",
-    to: "      })\n",
-    killedBy: [
-      [
-        "src/testing/rehearse.test.ts",
-        "a hearNext whose message's model throws returns the message, and the rehearsal fails"
-      ]
-    ]
-  },
-  {
-    name: "a hearNext is told what it heard once its message is applied",
-    file: "src/testing/stage.ts",
-    from:
-      "    tell(Effect.flatten(Deferred.await(applied)))\n    Deferred.doneUnsafe(applied, Exit.succeed(apply(source, message)))\n",
-    to:
-      "    Deferred.doneUnsafe(applied, Exit.succeed(apply(source, message)))\n    tell(Effect.flatten(Deferred.await(applied)))\n",
-    killedBy: [
-      [
-        "src/testing/rehearse.test.ts",
-        "a hearNext whose message's model throws returns the message, and the rehearsal fails"
-      ],
-      [
-        "src/testing/rehearse.test.ts",
-        "a run whose answer's model throws returns its command once the job of the answer is done"
-      ],
-      [
-        "src/testing/rehearse.test.ts",
-        "a runAll whose answer's model throws fails with the defect once the job of the answer is done"
-      ]
-    ]
-  },
-  {
-    name: "a run of rehearse fails at a death that comes once its answer is applied",
-    file: "src/testing/stage.ts",
-    from: "orDead(answered(taking), () => Deferred.isDoneUnsafe(taking.answer))",
-    to: "orDead(answered(taking))",
-    killedBy: [
-      [
-        "src/testing/rehearse.test.ts",
-        "a run whose answer's model throws returns its command once the job of the answer is done"
-      ],
-      [
-        "src/testing/rehearse.test.ts",
-        "a runAll whose answer's model throws fails with the defect once the job of the answer is done"
-      ]
-    ]
-  },
-  {
-    name: "a run of rehearse is told what its command left once the answer is applied",
-    file: "src/testing/stage.ts",
-    from: "applyFor(fromCommand, message, (applied) => Deferred.doneUnsafe(answer, Exit.succeed(applied)))",
-    to: "Deferred.doneUnsafe(answer, Exit.succeed(apply(fromCommand, message)))",
-    killedBy: [
-      [
-        "src/testing/rehearse.test.ts",
-        "a run whose answer's model throws returns its command once the job of the answer is done"
-      ],
-      [
-        "src/testing/rehearse.test.ts",
-        "a runAll whose answer's model throws fails with the defect once the job of the answer is done"
-      ]
-    ]
-  },
-  {
     name: "rehearse tells the calls waiting on a start that it has ended before its end value is applied",
     file: "src/testing/rehearse.ts",
-    from: "        Deferred.doneUnsafe(call.heard, Exit.succeed({ _tag: \"Heard\", message, applied }))\n"
-      + "      })\n"
-      + "      for (const { heard } of told) Deferred.doneUnsafe(heard, Exit.succeed(ended))\n",
-    to: "        for (const { heard } of told) Deferred.doneUnsafe(heard, Exit.succeed(ended))\n"
-      + "        Deferred.doneUnsafe(call.heard, Exit.succeed({ _tag: \"Heard\", message, applied }))\n"
-      + "      })\n",
+    from: "      const applied = stage.apply({ _tag: \"Subscription\", key, generation }, message)\n",
+    to: "      for (const { heard } of told) Deferred.doneUnsafe(heard, Exit.succeed(ended))\n"
+      + "      const applied = stage.apply({ _tag: \"Subscription\", key, generation }, message)\n",
     killedBy: [
       [
         "src/testing/rehearse.test.ts",

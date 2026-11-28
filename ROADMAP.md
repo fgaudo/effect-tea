@@ -46,9 +46,9 @@ Those found before 0.11.0 were weighed on 27 November 2026. Open:
 
 0.11.0 is not released: the readings made for it, in commit `5f13b2b`, are made again before it, over what came after
 them. Step 121 made the review of the premises again, over all of the code; the reading of the promises is step 124,
-after step 127, so that it is not made a third time. A review of the premises reads nothing of an `Equal` or a `Hash` of
-the program that throws: step 107 dropped the three premises that served that case alone, by the rule it left in
-`docs/premises.md` ("What no program that keeps the guide's rules can see").
+made once every step before it was done, so that it is not made a third time. A review of the premises reads nothing
+of an `Equal` or a `Hash` of the program that throws: step 107 dropped the three premises that served that case alone,
+by the rule it left in `docs/premises.md` ("What no program that keeps the guide's rules can see").
 
 The owner's rule of 27 November 2026 says what the library owes, and to whom (`AGENTS.md`, "Deciding"): to a program
 written as the guide teaches, and nothing to a form that no page shows. Steps 122 and 123 took out what the code held
@@ -68,56 +68,12 @@ acts and in a callback of a step, and finds the bug that step 121 fixed under `'
 a woken fiber in a task of its own. The same opinion weighed what the library promises: the bugs of the week broke
 promises that users build on ("Nothing ends in silence"), so fewer promises would not have kept them out; but each
 promise of an order across fibers costs a sentence, a test, a mutation, and a constraint on every later fix. Step 125
-weighed those alone, and its commit lists each sentence with its verdict: four made unspecified, which step 127 follows
+weighed those alone, and its commit lists each sentence with its verdict: four made unspecified, which step 127 followed
 into the code.
-
-### 127. What served only a promise cut goes
-
-Opus 5.5, `high`. Depends on nothing. The tests, the mutations and the mechanisms that served only a promise that step
-125 made unspecified are taken out, under the search in which whoever runs the program now stops the run (step 126).
-Step 125 listed them, by the promise cut:
-
-- **Whether a call of `rehearse` that has applied its message as a fiber of the program dies fails or returns**
-  (`Rehearsal`). The rehearsal fails with the defect either way, and a call that waits before it has applied anything
-  still fails as a fiber dies, which its doc comment promises. What served the promise alone, if reading
-  `testing/stage.ts` and `rehearse.ts` confirms it:
-  - The mechanisms: a call told before its message is applied (`applyFor`), the `told` of `orDead` and of `waiting`,
-    the `heard` that `hearNext` gives `afterJobs`, and the `answer` of a `run` completed before its answer is applied
-    (`answering`, `answered`, `runFirst`). One way of waiting for every call, the simpler of the two, takes their
-    place: raced with a death throughout, or whole once the message is applied.
-  - The mutations "a call of rehearse told what it heard fails at a death that comes as its message is applied", "the
-    job that opens a hearNext fails it at a death that comes as its message is applied", "a hearNext is told what it
-    heard once its message is applied", "a run of rehearse fails at a death that comes once its answer is applied" and
-    "a run of rehearse is told what its command left once the answer is applied".
-  - The tests of `rehearse.test.ts` "a hearNext whose message's model throws returns the message, and the rehearsal
-    fails", "a run whose answer's model throws returns its command once the job of the answer is done" and "a runAll
-    whose answer's model throws fails with the defect once the job of the answer is done", but for what each checks of
-    the rehearsal's own failure.
-  - The mutation "a call of rehearse reads what the message given last came to" stays, with the box of each call that
-    it takes out: its one killer, "a send whose message's model throws waits for its job, though an answer is applied
-    on its stack", asserts the promise cut, and is written again to assert what the box is for.
-  - The sentences of `docs/invariants.md` that say them: in "How a check is built", "A thunk that applies a message
-    tells a call before it only where…", and in "The testing tools behave like the engine", "but where it was told
-    what it heard…" to "…fails with the defect either way".
-- **A program whose `run` was interrupted before it began may still be run** (`Started`). No mechanism served it: the
-  region of `startWith` keeps that a run that began stops the program. Two assertions did: the last clause of
-  `start.test.ts`, "whose run is interrupted before it begins, is as one never run: … and a later run starts the
-  commands that waited, then dies of the defect", and the `after` of the row "run" of the sweep of `contract.test.ts`,
-  which tells a run that never began by a later run that reports the defect, where the message applied tells it alone.
-- **The subscriptions that one state stops release what they hold together** ("Guarantees"). Nothing goes: the engine
-  keeps it for what the stops of a job cost (`docs/invariants.md`), with its tests. The mutation "the fiber of effects
-  releases the gone keys of a job one after the other" no longer names "Subscriptions follow their keys" in its
-  `guarantees`. Its twin of the end, "the end of the engine stops its fibers one after the other", names "Nothing
-  outlives what acquired it", of which no sentence says that the end stops its fibers together: weighed alike.
-- **The end of a run never begins inside a step** ("Running"). Nothing goes: the invariant holds "One message at a
-  time" and "Nothing ends in silence" of the step under way, and its two mutations name the first.
-
-Done when what is listed is gone or the commit says why it stays, the list of mutations matches, the checks of
-`change-engine` pass, and the search passes a thousand runs, its seeds named.
 
 ### 124. The reading of the promises for 0.11.0
 
-Opus 5.5, `high`. Depends on 127. It reads the sentences that step 125 left and changed, which its commit lists.
+Opus 5.5, `high`. Depends on nothing. It reads the sentences that step 125 left and changed, which its commit lists.
 `promise-reading` over what changed since the last reading (`git log --grep "the promises read for 0.11.0"`, commit
 `5f13b2b`): the bug hunt of 27 November 2026, steps 118 to 123, the fix of step 121, a run stopped from a listener or
 from `onApplied` whose end waits for the step, steps 125 to 127, and the sentence of "Guarantees" that made a fiber that

@@ -2452,8 +2452,9 @@ describe("the run and each tool, interrupted by whoever runs it at any yield of 
         const { app, run } = start(held(seen, false))
         return {
           effect: run,
-          // Once interrupted, the handle applies a message only where the run never began, and a later run then
-          // reports its defect; where it began, it applies none, and a later run is refused.
+          // Once interrupted, a handle whose later run is refused had begun, and applies no message; one that
+          // applies it never began. The later run reads only the invariant of `begun` in `startWith`, set inside the
+          // region alone: what it does where the run never began is unspecified.
           after: () => {
             app.dispatch("Break")
             const { exit } = interruptedAfter(run, Number.POSITIVE_INFINITY)
@@ -2461,10 +2462,9 @@ describe("the run and each tool, interrupted by whoever runs it at any yield of 
               ? Cause.prettyErrors(exit.cause).map(({ message }) => message)
               : []
             const runOnce = defects.some((message) => message.includes("run once"))
-            const reported = defects.some((message) => message.includes("A defect in update"))
             return seen.applied === 0 && runOnce
               ? "stopped"
-              : seen.applied === 1 && reported
+              : seen.applied === 1 && !runOnce
               ? "never begun"
               : `applied ${seen.applied}, then ${defects.join(", ")}`
           }

@@ -158,7 +158,7 @@ export type Rehearsal<
 }
 
 // What a call of `hearNext` is told: the message it heard, by the thunk that applies it, with how the call waits for
-// its job (`applyFor` of the stage); that its start has ended; or that its start was stopped while it waited, its key
+// its job (`apply` of the stage); that its start has ended; or that its start was stopped while it waited, its key
 // gone or the rehearsal ended. Data alone, told by the fiber of effects and by the end, where nothing builds a text:
 // the call makes its error of it.
 type Told<Message> =
@@ -273,19 +273,17 @@ const rehearsing = Effect.fnUntraced(function*<
     )
   // In a thunk that has checked the end: while a call waits on the start and a message it sent is not heard, the
   // first call hears the first message, applied as `hear` would apply it, and is told so with how it waits for the job
-  // of the message, whole; its last one tells the calls still waiting that it has ended. A call interrupted once it is
-  // told is told all the same: what the message applies, it applies whole. The call that hears is told before its
-  // message is applied, and waits on it; those told of the end, once it is applied, so that none of them sends before
-  // the end value is applied.
+  // of the message; its last one tells the calls still waiting that it has ended. A call interrupted once it is told
+  // is told all the same: what the message applies, it applies whole. The calls are told once the message is applied,
+  // so that none of those told of the end sends before the end value is applied.
   const hearHeld = (key: Key, generation: Generation) => {
     while (true) {
       const found = Ledger.hear(stage.ledger, generation)
       if (Opt.isNone(found)) return
       const { call, sent: { message }, ended: told } = found.value
       stage.ledger = found.value.ledger
-      stage.applyFor({ _tag: "Subscription", key, generation }, message, (applied) => {
-        Deferred.doneUnsafe(call.heard, Exit.succeed({ _tag: "Heard", message, applied }))
-      })
+      const applied = stage.apply({ _tag: "Subscription", key, generation }, message)
+      Deferred.doneUnsafe(call.heard, Exit.succeed({ _tag: "Heard", message, applied }))
       for (const { heard } of told) Deferred.doneUnsafe(heard, Exit.succeed(ended))
     }
   }
@@ -457,7 +455,7 @@ const rehearsing = Effect.fnUntraced(function*<
       const opening = stage.afterJobs(() => {
         if (engine.ended()) return
         opened = openFor(generation, call, context)
-      }, heard)
+      })
       return Effect.andThen(
         opening,
         Effect.suspend(() => Effect.map(toldOf(call, opened), (told) => [key, told] as const))
