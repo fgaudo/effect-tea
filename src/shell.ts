@@ -190,7 +190,10 @@ export interface Deaths {
    * effect ends: for what a function of the program throws where plain code calls it, outside any fiber of the run.
    */
   readonly record: (cause: Cause.Cause<unknown>) => void
-  /** Succeeds once a defect has been recorded. */
+  /**
+   * Succeeds once a defect has been recorded, on the stack that records it, a step's too: what must not wake inside a
+   * step waits on the engine's `died`.
+   */
   readonly died: Effect.Effect<void>
   /** The defects recorded so far, in the order they died. */
   readonly all: () => ReadonlyArray<Cause.Die>
@@ -198,27 +201,16 @@ export interface Deaths {
   readonly dead: () => boolean
   /** Whether `defect` has been recorded, by its identity, never by `Equal`. */
   readonly has: (defect: unknown) => boolean
-  /**
-   * From now on, a defect recorded does not complete `died` until `release`: the thunk that applies a message holds
-   * it, so that what waits on `died` never resumes inside a step.
-   */
-  readonly hold: () => void
-  /** Ends `hold`, and completes `died` when a defect was recorded meanwhile. */
-  readonly release: () => void
 }
 
 // Plain code: a program is started, and its register made, outside any fiber.
 export const makeDeaths = (keeps: (defect: unknown) => boolean): Deaths => {
   let register = Core.noDeaths
   const died = Deferred.makeUnsafe<void>()
-  let held = false
-  let owed = false
   const record = (cause: Cause.Cause<unknown>) => {
     const before = register
     register = Core.record(register, cause, keeps)
-    if (register === before) return
-    if (held) owed = true
-    else Deferred.doneUnsafe(died, Exit.void)
+    if (register !== before) Deferred.doneUnsafe(died, Exit.void)
   }
   return {
     recorded: (self) =>
@@ -230,16 +222,7 @@ export const makeDeaths = (keeps: (defect: unknown) => boolean): Deaths => {
     died: Deferred.await(died),
     all: () => register,
     dead: () => register.length > 0,
-    has: (defect) => Core.hasDied(register, defect),
-    hold: () => {
-      held = true
-    },
-    release: () => {
-      held = false
-      if (!owed) return
-      owed = false
-      Deferred.doneUnsafe(died, Exit.void)
-    }
+    has: (defect) => Core.hasDied(register, defect)
   }
 }
 

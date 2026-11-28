@@ -685,10 +685,38 @@ describe("drive's send, made by a wait that a step wakes", () => {
     ))
     expect(after).toEqual({ count: 1, went: true })
   })
+
+  // The driver's dispatch waits for nothing, as the run's does: woken inside the step, it would send during it, and
+  // return before `onApplied` has heard its message.
+  test("the driver's dispatch, made by a wait that a step wakes, returns once onApplied has heard its message", async () => {
+    const heard: Array<"Up" | "Go"> = []
+    const seen = await Effect.runPromise(drive(
+      row,
+      Effect.fnUntraced(function*(driver) {
+        const waiting = yield* Effect.forkChild(
+          driver.waitFor(({ count }) => count === 1 ? Opt.some(count) : Opt.none()).pipe(
+            Effect.andThen(Effect.sync(() => {
+              driver.dispatch("Go")
+              return [...heard]
+            }))
+          ),
+          { startImmediately: true }
+        )
+        yield* Effect.sync(() => driver.dispatch("Up"))
+        return yield* Fiber.join(waiting)
+      }),
+      {
+        onApplied: ({ message }) => {
+          heard.push(message)
+        }
+      }
+    ))
+    expect(seen).toEqual(["Up", "Go"])
+  })
 })
 
 // Found by the review of the premises of step 20: `drive` wakes its waits once the call that made a state has returned
-// (`settled`), and each wait it wakes reads the model of the moment it runs. So a first wait woken by a state, which
+// (`owe`), and each wait it wakes reads the model of the moment it runs. So a first wait woken by a state, which
 // sends at once, makes a later state before a second wait woken by the same state looks: the second never looks at the
 // model that woke it.
 describe("drive's waits, woken by one state, the first of which sends", () => {

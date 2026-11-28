@@ -98,6 +98,11 @@ export interface Started<Model, Message, R = never> {
   readonly run: Effect.Effect<never, never, R>
 }
 
+/** What `startWith` gives a testing tool: the program started, and the engine's `owe`. */
+export type Running<Model, Message, R = never> =
+  & Started<Model, Message, R>
+  & Readonly<{ owe: (owed: () => void) => void }>
+
 type Made<State, Model> =
   | Readonly<{ state: State; made: true; model: Model }>
   | Readonly<{ state: State; made: false; defect: unknown }>
@@ -130,7 +135,6 @@ export const partsOf = <State, Model, Message, Command, CommandServices, Subscri
   }>,
   options: RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>,
   deaths: Shell.Deaths,
-  settled: () => void,
   fibers: Engine.Fibers<Message, Command, R, Key> & Engine.Told<State, Command, Key, Event>
 ): Parts<State, Model, Message, R, Key> => {
   const { flags, ...runOptions } = options
@@ -172,7 +176,6 @@ export const partsOf = <State, Model, Message, Command, CommandServices, Subscri
     ...fibers,
     deaths,
     rendered: isThrown,
-    settled,
     init,
     update: program.update,
     subscriptions: program.subscriptions
@@ -204,8 +207,8 @@ export const partsOf = <State, Model, Message, Command, CommandServices, Subscri
  * `start`, with its options as one value, recording what the program dies of in `deaths`: for a testing tool, which
  * passes the options on as it got them, and reads what the fibers died of. `began` is called once the run has started
  * the effects of the first state, on the run's own stack: a fiber forked for the run starts when the scheduler says,
- * and one interrupted before it begins leaves the program as it was, not stopped. `settled` is called as each call
- * that applies messages returns, once its step is done (`Engine.build`).
+ * and one interrupted before it begins leaves the program as it was, not stopped. It gives the engine's `owe` too, for
+ * a tool that wakes what waits on a step, which calls what it is given at once where `init` threw.
  */
 export const startWith = <State, Model, Message, Command, CommandServices, SubscriptionServices, Flags, Key>(
   program: Program<{
@@ -220,14 +223,13 @@ export const startWith = <State, Model, Message, Command, CommandServices, Subsc
   }>,
   options: RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>,
   deaths: Shell.Deaths,
-  began: () => void = () => undefined,
-  settled: () => void = () => undefined
-): Started<Model, Message, Needed<Command, CommandServices, Key, SubscriptionServices>> => {
+  began: () => void = () => undefined
+): Running<Model, Message, Needed<Command, CommandServices, Key, SubscriptionServices>> => {
   const fibers: Engine.Fibers<Message, Command, CommandServices | SubscriptionServices, Key> = {
     runCommand: runCommandOf(program),
     listen: listenOf(program)
   }
-  const { app, engine, end } = partsOf(program, options, deaths, settled, fibers)
+  const { app, engine, end } = partsOf(program, options, deaths, fibers)
   // The effects of the states, until a defect: the scope's end stops the engine, interrupts its fibers and waits for
   // them, and what they die of is in the register. With no engine, `init` threw, and the register holds its defect.
   const effects: Effect.Effect<void, never, Exclude<CommandServices | SubscriptionServices, Scope.Scope>> =
@@ -259,7 +261,11 @@ export const startWith = <State, Model, Message, Command, CommandServices, Subsc
   // What `Needed` leaves out is never asked: a program without commands calls no `runCommand`, one without keys no
   // `listen`. And the run never succeeds: its effects succeed only once the register holds a defect, which the read
   // puts in what it fails with.
-  return { app, run: run as Effect.Effect<never, never, Needed<Command, CommandServices, Key, SubscriptionServices>> }
+  return {
+    app,
+    run: run as Effect.Effect<never, never, Needed<Command, CommandServices, Key, SubscriptionServices>>,
+    owe: engine === undefined ? (owed) => owed() : engine.owe
+  }
 }
 
 /**
@@ -345,8 +351,10 @@ export const start = <
   ...[options = {}]: [Flags] extends [never]
     ? [options?: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>>]
     : [options: RunOptions<NoInfer<State>, NoInfer<Message>, NoInfer<Command>> & FlagsOption<NoInfer<Flags>>]
-): Started<Model, Message, Needed<Command, CommandServices, Key, SubscriptionServices>> =>
-  startWith(program, options, Shell.makeDeaths(() => true))
+): Started<Model, Message, Needed<Command, CommandServices, Key, SubscriptionServices>> => {
+  const { app, run } = startWith(program, options, Shell.makeDeaths(() => true))
+  return { app, run }
+}
 
 // What a run needs of the services a program names: none of a program without commands, nor without keys, which runs
 // no `runCommand`, or no `listen`. A program typed `Program<{ …; commandServices: Db }>` without commands gives

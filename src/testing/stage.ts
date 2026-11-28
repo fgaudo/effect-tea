@@ -170,9 +170,9 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
   // Given once, by `on`, before anything below that reads it runs: the engine's thunk and its jobs run only once the
   // engine is made, and a call only once the stage is.
   let engine: Engine.Engine<State, Message, never, Key>
-  // A death fails the wait (`waiting`).
+  // A death fails the wait (`waiting`), once no step is under way.
   const orDead = <A, E, R>(wait: Effect.Effect<A, E, R>) =>
-    Effect.raceFirst(wait, Effect.andThen(register.died, failedOr(Effect.never)))
+    Effect.raceFirst(wait, Effect.andThen(engine.died, failedOr(Effect.never)))
   const submit = <A, E, R>(decide: () => Effect.Effect<A, E, R>, refused: Effect.Effect<A, E, R> = Effect.interrupt) =>
     Effect.suspend(() => engine.ended() ? refused : decide())
   // Added to in place, and copied as they are read: a copy at each message would make a long test quadratic.
@@ -183,8 +183,9 @@ export const make = <State, Message, Command, Event, CommandServices, Key, S = n
   const undelivered = new Set<Deferred.Deferred<void>>()
   // What the engine's thunk tells of the message `apply` gives it, read by `apply` as `send` returns: what it came to,
   // told only once its state is current, with its keys. Written only by `stepped`, on this stack. A message applied on
-  // this stack before `send` returns, as a command's answer that the release of a death wakes, leaves what it came to
-  // in its place: the run has died then, and whether the call fails with the defect or returns is unspecified.
+  // this stack before `send` returns, as a command's answer that the wake of a death resumes as the call returns,
+  // leaves what it came to in its place: the run has died then, and whether the call fails with the defect or returns
+  // is unspecified.
   let arrival: Opt.Option<Arrived<State, Command, Event>> = Opt.none()
   const stepped = (step: Engine.Stepped<State, Command, Key, Event>) => {
     if (step._tag === "Arrived") {

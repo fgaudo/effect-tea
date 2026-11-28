@@ -331,7 +331,7 @@ const rehearsing = Effect.fnUntraced(function*<
   }
   // The handle the run makes, `init` called with the flags and a defect of it recorded in `'init'`, over the engine
   // with the rehearsal's fibers. An `init` that threw leaves no engine: the rehearsal fails with the register.
-  const { app, engine } = partsOf(program, { flags }, register, () => undefined, {
+  const { app, engine } = partsOf(program, { flags }, register, {
     ...staging.told,
     listening,
     released

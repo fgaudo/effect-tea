@@ -1771,7 +1771,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "a death recorded signals nobody",
     guarantees: ["Nothing ends in silence"],
     file: "src/shell.ts",
-    from: "    else Deferred.doneUnsafe(died, Exit.void)\n",
+    from: "    if (register !== before) Deferred.doneUnsafe(died, Exit.void)\n",
     to: "",
     killedBy: [
       ["src/run.test.ts", "a defect in a command ends the run, which dies with it and with where it happened"],
@@ -1792,9 +1792,10 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a death recorded while a call applies signals nobody",
     guarantees: ["Nothing ends in silence"],
-    file: "src/shell.ts",
-    from: "      owed = false\n      Deferred.doneUnsafe(died, Exit.void)\n",
-    to: "      owed = false\n",
+    file: "src/engine.ts",
+    from: "  const outside: Effect.Effect<void> = Effect.callback<void>((resume) => owe(() => resume(Effect.void)))\n",
+    to:
+      "  const outside: Effect.Effect<void> = Effect.callback<void>((resume) => applying ? undefined : resume(Effect.void))\n",
     killedBy: [
       [
         "src/run.test.ts",
@@ -2610,14 +2611,55 @@ export const mutations: ReadonlyArray<Mutation> = [
       ]
     ]
   },
-  // The engine in two halves (`docs/records/store-and-effects.md`): the register held while a call applies, the jobs
-  // offered as the outermost call returns, the `catch` of its loop, and a program started that is run once.
+  // The engine in two halves (`docs/records/store-and-effects.md`): what the outermost call owes as it returns, each
+  // entry that owes it, the `catch` of its loop, and a program started that is run once.
+  {
+    name: "what is owed during a step is done inside it",
+    guarantees: ["One message at a time, in the order they were sent", "Nothing ends in silence"],
+    file: "src/engine.ts",
+    from: "    if (applying) owed.push(thunk)\n    else thunk()\n",
+    to: "    thunk()\n",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "owe calls what it is given at once outside a step, and in one once its call has applied every message and told every listener"
+      ],
+      [
+        "src/engine.test.ts",
+        "died wakes no fiber inside a step: a defect a listener throws completes it once every listener is told"
+      ],
+      [
+        "src/start.test.ts",
+        "never begins inside a step that whoever runs stops it in: a later listener's defect is in its cause"
+      ],
+      ["src/testing/drive.test.ts", "returns once update has seen its message, as it promises"]
+    ]
+  },
+  {
+    name: "the outermost call does nothing of what it owes as it returns",
+    guarantees: ["One message at a time, in the order they were sent", "Nothing ends in silence"],
+    file: "src/engine.ts",
+    from: "      for (const thunk of due) thunk()\n",
+    to: "",
+    killedBy: [
+      [
+        "src/engine.test.ts",
+        "owe calls what it is given at once outside a step, and in one once its call has applied every message and told every listener"
+      ],
+      ["src/engine.test.ts", "a step applied before the first defect goes on whole: its commands still start"],
+      [
+        "src/engine.test.ts",
+        "died wakes no fiber inside a step: a defect a listener throws completes it once every listener is told"
+      ],
+      ["src/testing/drive.test.ts", "returns once update has seen its message, as it promises"]
+    ]
+  },
   {
     name: "died wakes a fiber inside a step",
     guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
-    from: "    deaths.hold()\n",
-    to: "",
+    from: "    died: Effect.andThen(died, outside),\n",
+    to: "    died,\n",
     killedBy: [
       [
         "src/engine.test.ts",
@@ -2629,8 +2671,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "an end that whoever runs the program makes during a step begins inside it",
     guarantees: ["One message at a time, in the order they were sent", "Nothing ends in silence"],
     file: "src/engine.ts",
-    from: "      if (!applying) {\n",
-    to: "      if (true) {\n",
+    from: "      owe(() => {\n        stopped = true\n",
+    to: "      ((thunk: () => void) => thunk())(() => {\n        stopped = true\n",
     killedBy: [
       [
         "src/start.test.ts",
@@ -2650,8 +2692,8 @@ export const mutations: ReadonlyArray<Mutation> = [
     name: "the jobs of a call are not offered as it returns",
     guarantees: ["One message at a time, in the order they were sent"],
     file: "src/engine.ts",
-    from: "      offer()\n      deaths.release()\n",
-    to: "      deaths.release()\n",
+    from: "    applying = true\n    owed.push(offer)\n",
+    to: "    applying = true\n",
     killedBy: [
       ["src/engine.test.ts", "a step applied before the first defect goes on whole: its commands still start"],
       [
@@ -2795,8 +2837,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a job that only tells, asked outside a step, waits for the next call",
     file: "src/engine.ts",
-    from: "      if (!applying) offer()\n",
-    to: "",
+    from: "      owe(offer)\n    },\n    owe,\n",
+    to: "    },\n    owe,\n",
     killedBy: [
       [
         "src/engine.test.ts",
@@ -3057,7 +3099,7 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "a call of rehearse waits on through another fiber's death",
     file: "src/testing/stage.ts",
-    from: "    Effect.raceFirst(wait, Effect.andThen(register.died, failedOr(Effect.never)))",
+    from: "    Effect.raceFirst(wait, Effect.andThen(engine.died, failedOr(Effect.never)))",
     to: "    wait",
     killedBy: [
       [
@@ -3556,20 +3598,20 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "drive wakes its waits inside the step",
     file: "src/testing/drive.ts",
-    from: "    told = true\n    trim()\n  })",
-    to: "    told = true\n    trim()\n    settled()\n  })",
+    from: "    owe(wake)\n",
+    to: "    wake()\n",
     killedBy: [
       [
         "src/testing/drive.test.ts",
-        "returns once update has seen its message, as it promises"
+        "the driver's dispatch, made by a wait that a step wakes, returns once onApplied has heard its message"
       ]
     ]
   },
   {
     name: "a call of drive's scenario made during a step acts inside it",
     file: "src/testing/drive.ts",
-    from: "    hearing === 0 ? Effect.void : Deferred.await(",
-    to: "    true ? Effect.void : Deferred.await(",
+    from: "  const outside: Effect.Effect<void> = Effect.callback<void>((resume) => owe(() => resume(Effect.void)))\n",
+    to: "  const outside: Effect.Effect<void> = Effect.void\n",
     killedBy: [
       [
         "src/testing/contract.test.ts",
@@ -3582,18 +3624,6 @@ export const mutations: ReadonlyArray<Mutation> = [
       [
         "src/testing/contract.test.ts",
         "model, made during the step, does what it does right after the outermost call"
-      ]
-    ]
-  },
-  {
-    name: "the engine never tells whoever runs it that a call has applied its messages",
-    file: "src/engine.ts",
-    from: "      deaths.release()\n      settled()\n",
-    to: "      deaths.release()\n",
-    killedBy: [
-      [
-        "src/testing/drive.test.ts",
-        "returns once update has seen its message, as it promises"
       ]
     ]
   },
@@ -3612,8 +3642,8 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "drive keeps every model it reads",
     file: "src/testing/drive.ts",
-    from: "    told = true\n    trim()\n",
-    to: "    told = true\n",
+    from: "    models.push(model)\n    trim()\n",
+    to: "    models.push(model)\n",
     killedBy: [
       [
         "src/testing/drive.test.ts",
@@ -3636,8 +3666,10 @@ export const mutations: ReadonlyArray<Mutation> = [
   {
     name: "drive goes on after a defect of the program until the scenario ends",
     file: "src/testing/drive.ts",
-    from: "      deaths,\n      began,\n      settled\n    )",
-    to: "      { ...deaths, died: Effect.never },\n      began,\n      settled\n    )",
+    from:
+      "    startWith(program, options as RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>, deaths, began)",
+    to:
+      "    startWith(\n      program,\n      options as RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>,\n      { ...deaths, died: Effect.never },\n      began\n    )",
     killedBy: [
       ["src/testing/drive.test.ts", "a defect of the program fails the scenario"],
       [

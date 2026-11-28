@@ -7,9 +7,7 @@
 // waits.
 import * as Arr from "effect/Array"
 import * as Cause from "effect/Cause"
-import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
-import * as Exit from "effect/Exit"
 import type * as Fiber from "effect/Fiber"
 import * as FiberMap from "effect/FiberMap"
 import * as FiberSet from "effect/FiberSet"
@@ -210,7 +208,10 @@ export interface Engine<State, Message, R = never, K = never> {
    * for them, whose defects are in the register. Run once.
    */
   readonly effects: Effect.Effect<void, never, Exclude<R, Scope.Scope> | Scope.Scope>
-  /** Succeeds once a fiber of the run, or a function of the program called in the thunk, has recorded a defect. */
+  /**
+   * Succeeds once a fiber of the run, or a function of the program called in the thunk, has recorded a defect, and no
+   * step is under way: a defect recorded during a step wakes nothing before the outermost call returns.
+   */
   readonly died: Effect.Effect<void>
   /**
    * Applies nothing sent once no step is under way, then interrupts the fiber of effects and waits for it to end. The
@@ -228,8 +229,14 @@ export interface Engine<State, Message, R = never, K = never> {
    */
   readonly after: (done: () => void) => void
   /**
-   * Marks the end, as `stop` does first: from then on nothing sent is applied. Asked during a step, it waits for the
-   * outermost call to return. `marked` is called in the thunk that marks it, and throws nothing.
+   * Calls `owed` once no step is under way: at once outside a step, and otherwise as the outermost call returns, once
+   * its steps are done, after what it owed before. Where a testing tool wakes what waits on a step, so that nothing it
+   * wakes acts inside a step. `owed` throws nothing.
+   */
+  readonly owe: (owed: () => void) => void
+  /**
+   * Marks the end, as `stop` does first: from then on nothing sent is applied. Asked during a step, it is marked as
+   * the outermost call returns (`owe`). `marked` is called in the thunk that marks it, and throws nothing.
    */
   readonly end: (marked?: () => void) => Effect.Effect<void>
   /** Whether the end is marked. */
@@ -278,11 +285,6 @@ type Parts<State, Message, Command, R, K, Event = unknown> =
      * and taken as they are: those of a model, which `start` records where it is read. By default, none.
      */
     rendered?: (defect: unknown) => boolean
-    /**
-     * Called last as the outermost `apply` returns, once its jobs are offered and the register released: where a
-     * testing tool wakes what waits on a new state, so that nothing it wakes runs inside a step. It throws nothing.
-     */
-    settled?: () => void
     init: Step<State, Command>
     update: Update<State, Message, Command, Event>
     subscriptions: Subscriptions<State, K>
@@ -356,7 +358,6 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
   const {
     deaths,
     rendered = () => false,
-    settled = () => undefined,
     stepped = () => undefined,
     released = () => undefined,
     init: first,
@@ -378,6 +379,17 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
   // The messages sent while one is being applied, applied after it, in the order they were sent.
   const pending: Array<Readonly<{ message: Message; source: Core.Source<K> }>> = []
   let applying = false
+  // What the outermost call owes as it returns: the offer of its jobs first, then, in the order owed, the wake of what
+  // waits on a death, the mark of an end, and what a testing tool wakes. Owed outside a step, it is done at once. So
+  // neither the fiber of effects, nor the end, nor a fiber that waits begins inside a step, wherever Effect resumes a
+  // fiber that a step woke, and what is owed during the call comes after its jobs, as it would right after the call.
+  let owed: Array<() => void> = []
+  const owe = (thunk: () => void) => {
+    if (applying) owed.push(thunk)
+    else thunk()
+  }
+  // What a fiber that a step may resume waits on: it goes on once no step is under way.
+  const outside: Effect.Effect<void> = Effect.callback<void>((resume) => owe(() => resume(Effect.void)))
   const listeners = new Set<() => void>()
   // The jobs not offered yet, in the order of the states, and the queue the fiber of effects takes them from, once
   // `effects` has made it. The thunk only adds to `waiting`: they are offered once, as the outermost `apply` returns.
@@ -386,22 +398,17 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
   let jobs: Queue.Queue<Job<Command, K>> | undefined
   // Stopped first as the run ends, and awaited: nothing forks a fiber while the end reads those to interrupt.
   let effects: Fiber.Fiber<unknown, never> | undefined
-  // Completed as the outermost `apply` returns, for an end that came during it.
-  let returned: Deferred.Deferred<void> | undefined
-  // An end that comes during a step waits for the outermost call to return, as one of a defect does (`hold`): whoever
-  // runs the program may stop it on the stack of a listener, where a `Deferred` it waits for was completed. Asked again
-  // once the call has returned, since another may have begun before the end resumed. `marked` runs in the thunk that
-  // marks it, for what must be read as the end is marked, with no fiber between.
+  // An end that comes during a step is marked as the outermost call returns, in the thunk it owes: whoever runs the
+  // program may stop it on the stack of a listener, where a `Deferred` it waits for was completed. `marked` runs in
+  // that thunk, for what must be read as the end is marked, with no fiber between.
   const end = (marked: () => void = () => undefined): Effect.Effect<void> =>
-    Effect.suspend(() => {
-      if (!applying) {
+    Effect.callback<void>((resume) =>
+      owe(() => {
         stopped = true
         marked()
-        return Effect.void
-      }
-      returned ??= Deferred.makeUnsafe<void>()
-      return Effect.andThen(Deferred.await(returned), end(marked))
-    })
+        resume(Effect.void)
+      })
+    )
   const stop = Effect.andThen(end(), Effect.suspend(() => effects === undefined ? Effect.void : stopping(effects)))
   // A function of the program, called in the thunk: what it throws is recorded where it happened, and the step stops
   // there. It is never thrown to whoever sent the message, whose fiber would take it for its own.
@@ -417,6 +424,13 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
       recordThrown(deaths, where, thrown, details, wrapped)
       return Opt.none()
     }
+  }
+  // The jobs that wait go to the fiber of effects, once there is one.
+  const offer = () => {
+    if (jobs === undefined || waiting.length === 0) return
+    const taken = waiting
+    waiting = []
+    Queue.offerAllUnsafe(jobs, taken)
   }
   // Decided from the step alone: a step that stops, starts and commands nothing leaves the fiber of effects nothing to
   // do, and costs no job.
@@ -481,18 +495,11 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
       }
     }
   }
-  // The jobs that wait go to the fiber of effects, once there is one.
-  const offer = () => {
-    if (jobs === undefined || waiting.length === 0) return
-    const taken = waiting
-    waiting = []
-    Queue.offerAllUnsafe(jobs, taken)
-  }
   const apply = (message: Message, source: Core.Source<K>) => {
     pending.push({ message, source })
     if (applying) return
     applying = true
-    deaths.hold()
+    owed.push(offer)
     try {
       // The one check of the end is here, before each message, a message sent after the end included: what is left
       // once it has stopped the engine is dropped.
@@ -508,16 +515,11 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
     } finally {
       pending.length = 0
       applying = false
-      // What the outermost call owes as it returns, once every message sent during it is applied and every listener
-      // told: one offer of its jobs, then the end, when a defect was recorded meanwhile or whoever runs the program
-      // stopped it. So neither the fiber of effects nor the end begins inside a step, wherever a fiber that waits is
-      // resumed.
-      offer()
-      deaths.release()
-      settled()
-      const waits = returned
-      returned = undefined
-      if (waits !== undefined) Deferred.doneUnsafe(waits, Exit.void)
+      // Once every message sent during the call is applied and every listener told. A thunk that applies a message
+      // makes an outermost call of its own, which does what it owes as it returns, before the next thunk here.
+      const due = owed
+      owed = []
+      for (const thunk of due) thunk()
     }
   }
   const sending = (source: Core.Source<K>) => (message: Message) => Effect.sync(() => apply(message, source))
@@ -629,15 +631,15 @@ export const build = <State, Message, Command, R, K, Event = unknown>(
     },
     dispatch: (message) => apply(message, Core.fromDispatch),
     effects: effectsIn,
-    died,
+    died: Effect.andThen(died, outside),
     stop,
     send: apply,
     active: () => active,
     after: (done) => {
       waiting.push({ gone: [], fresh: [], commands: [], done })
-      // In a step, the outermost call offers it as it returns, as it offers the jobs of its steps.
-      if (!applying) offer()
+      owe(offer)
     },
+    owe,
     end,
     ended: () => stopped
   }

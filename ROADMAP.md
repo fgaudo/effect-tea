@@ -35,12 +35,7 @@ the case of the inference matrix (`bun run inference --filter <case>`). A form t
 the library owes, and to whom" in `AGENTS.md`). None is a step of its own: they are weighed together before a release,
 and one not taken then goes to `docs/rejected.md`.
 
-Those found before 0.11.0 were weighed on 27 November 2026. Open:
-
-- **One list of what the outermost call owes as it returns**, in place of its four defenses in the `finally` of `apply`
-  in `engine.ts` (the offer of the jobs, `hold` and `release` of `died`, `settled` of `drive`, `returned` of the end),
-  with the end marked in that flush itself. Fewer mechanisms, by value 5. Shown by a wake that the search finds and no
-  defense covers, or a change that needs a fifth line in that `finally`.
+Those found before 0.11.0 were weighed on 27 November 2026, and the last of them taken on 28 November 2026. None open.
 
 ## Next, in order
 

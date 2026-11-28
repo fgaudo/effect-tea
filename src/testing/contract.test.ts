@@ -2236,7 +2236,7 @@ describe("whoever runs the program, during the end of the run", () => {
 })
 
 // A command that a service of the test's holds, as "Testing tools" holds one, freed by a wait of the scenario that
-// `settled` wakes, as the call that applied a poke returns, or by the scenario once the dispatch of the poke has
+// the call that applied a poke wakes as it returns (`owe`), or by the scenario once the dispatch of the poke has
 // returned: its answer is applied in an outermost call of its own either way, and wakes the waits of its state.
 describe("the program's effects, in a wake of the finally, under drive", () => {
   class Disk extends Context.Service<Disk, { readonly store: Effect.Effect<void> }>()("Disk") {}

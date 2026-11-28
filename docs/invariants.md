@@ -105,8 +105,8 @@ for itself, and how a check is built, in the engine and in the testing tools.
   - A dispatch sent once the end has stopped the engine applies nothing, and throws nothing.
   - What the loop of `apply` meets thrown outside the program's functions, by the engine or by what `recordThrown` reads
     of a message, its `catch` records as it is, after the defect it was saying, and the run dies of it. Its `finally`
-    resets `applying`, offers the jobs and releases the register; the `catch` throws nothing, so the `finally` has no
-    mutation.
+    resets `applying` and does what the call owes; the `catch` throws nothing, so what is in the `finally` rather than
+    after the `try` has no mutation, only what it does.
 - **A subscription never ends in silence**: its end value is a message (or `never`). An ended subscription keeps its
   key among the active ones until the key goes away and comes back: never restart it automatically, which would loop
   on one that ends at once. What the end of a stream means is the caller's decision, and the type asks for it
@@ -215,10 +215,10 @@ for itself, and how a check is built, in the engine and in the testing tools.
     for it (`stop`), so that nothing forks while it reads the sets, interrupts the other fibers and waits for their
     releases, which record what they die of as they end. The stop of the fiber of effects has no mutation: the end
     interrupts every fiber at once after it, so only the scheduler of the tests reaches what it keeps. The end never
-    begins inside a step: the outermost `apply` holds the register (`hold` of `Deaths`), and a defect recorded meanwhile
-    completes `died` only as it returns (`release`); an end that comes during a step, as whoever runs the program stops
-    it on the stack of a listener that completed what it waits for, waits for the same return (`end`, `returned`), in
-    the run, in its finalizer and in `Stage.play`. It may begin on the stack of the dispatch, once it has applied.
+    begins inside a step: what waits on a death waits on the engine's `died`, which resumes it, for a defect recorded
+    during a step, only as the outermost call returns, and an end that comes during a step, as whoever runs the program
+    stops it on the stack of a listener that completed what it waits for, is marked as that call returns (`end`, `owe`),
+    in the run, in its finalizer and in `Stage.play`. It may begin on the stack of the dispatch, once it has applied.
   - From the first defect on, the run applies no message: it calls no `update`, checked in the thunk (`arrive` in
     `core.ts`, called by `applyOne`), the only check. A defect in the thunk stops the step there: one of `update`
     changes nothing, and one of `onApplied` or of `subscriptions` leaves the state and its keys as they were, tells no
@@ -246,8 +246,8 @@ for itself, and how a check is built, in the engine and in the testing tools.
 
 A step is what one message comes to: the check of a death and of the message's start, `update`, the option that hears
 it, the new state with its keys, and the notice of each listener (`applyOne` in `engine.ts`). The outermost call of
-`apply` does the step of its message, then that of each message sent meanwhile, and gives out in its `finally` what
-they left: the jobs, the death, the wakes.
+`apply` does the step of its message, then that of each message sent meanwhile, and does in its `finally` what they
+owe: the offer of the jobs, the wake of a death, the mark of an end, the wakes of a tool (`owe`).
 
 A step calls code that is not the engine's: `update` and `subscriptions`, the options, a tool's `stepped`, and the
 listeners. That code may call the engine back, and may wake a fiber that does, on the same stack, since a fiber that
@@ -260,10 +260,12 @@ which `run` begins once: a run begun inside a step is a form that no page shows.
 
 - A message (`dispatch`, `send`, an answer, a subscription's message) waits in `pending` behind the step, and is
   applied before the call returns, in the order sent.
-- The end (`end`, and so `stop`, the engine's finalizer, the run's own end and that of `Stage.play`) waits for
-  `returned`.
+- The end (`end`, and so `stop`, the engine's finalizer, the run's own end and that of `Stage.play`) is marked as the
+  outermost call returns.
 - A job that only tells (`after`) is offered with the jobs of the call.
-- The jobs, `died`, `settled` and `returned` go out in the `finally` alone, in that order, once `applying` is reset.
+- What an entry owes (`owe`) is done in the `finally` alone, once `applying` is reset, and at once outside a step:
+  the offer of the jobs first, then, in the order owed, the wake of what waits on `died`, the mark of an end, and the
+  waits of `drive`. A thunk owed there that applies a message makes an outermost call of its own, before the next thunk.
 
 Three entries act at once instead:
 
@@ -271,13 +273,14 @@ Three entries act at once instead:
   option, and the new one in a notice.
 - A listener stopped is told no more, of the notice under way either, and one added is told from the next (`tell`).
 - A defect recorded (a throw of the code that a step calls, `die`, a fiber that dies there) is in the register at once:
-  no message applies from it on, those that wait in `pending` included (`arrive`). Its end waits, as every end does
-  (`hold`, `release`).
+  no message applies from it on, those that wait in `pending` included (`arrive`). What waits on the engine's `died`
+  wakes as the call returns: a fiber that the register's own `died` resumes inside the step only owes its resumption
+  (`outside`).
 
 A tool that plays a program owes the same of its own entries: a call of a scenario made during a step does what it
 does right after the outermost call. `rehearse` and `simulate` give a scenario no way into a step. `drive` does,
-through the options it takes, which it calls knowing that a step is under way (`heard` in `drive.ts`): a call of its
-driver made while one is called waits for the outermost call to return, as an end does (`outside`), and then acts.
+through the options it takes: a call of its driver made during a step waits for the outermost call to return, as an
+end does (`outside` in `drive.ts`, over `owe`), and then acts.
 
 ### Who may act, and when
 
@@ -290,8 +293,8 @@ Four actors enter the engine, each at six moments:
   command, and where a tool is told (`released`, the `done` of a job that only tells). A message sent there is the
   outermost call of its own, and its job is offered after the one under way.
 - **In a callback of a step**: on the stack of an option, of a notice, or of a fiber that one of them wakes.
-- **In a wake of the `finally`**: on the stack of what `died`, `settled` or `returned` resume as the outermost call
-  returns, its steps done. A message sent there is the outermost call of its own.
+- **In a wake of the `finally`**: on the stack of what the outermost call owes as it returns, its steps done (`owe`):
+  what waits on `died` or on an end, and the waits of `drive`. A message sent there is the outermost call of its own.
 - **During the end**: from the mark of the end (`stopped`) until the run, or the tool, has ended.
 
 Each cell names what reaches it: the search (`src/interleaving.test.ts`), the sweep (`src/testing/contract.test.ts`,
@@ -317,9 +320,9 @@ a row of `contract.test.ts` (`ROADMAP.md`). "Unspecified" is a cell that no page
   - In a callback of a step, an effect acts only where a listener or an option wakes it: no page shows one. A message
     that it would send there waits in `pending`, as any does.
   - In a wake of the `finally`, an end that a defect begins stops them on the stack of the dispatch (`start.test.ts`,
-    "the end of a run"). A command that a service of the test's holds, freed by a scenario of `drive` that `settled`
-    woke, answers there, in an outermost call of its own, as one freed right after the call does (`contract.test.ts`,
-    "the program's effects, in a wake of the finally, under drive").
+    "the end of a run"). A command that a service of the test's holds, freed by a scenario of `drive` that the return of
+    the call woke, answers there, in an outermost call of its own, as one freed right after the call does
+    (`contract.test.ts`, "the program's effects, in a wake of the finally, under drive").
   - During the end, one sends, dies or interrupts itself as it is stopped, or waits for the release of another
     (`run.test.ts`; `contract.test.ts`, "an end where the release of a fiber waits for the release of another"; the
     search, "once the run has ended, the subscriptions and the commands have released all").
@@ -354,7 +357,7 @@ a row of `contract.test.ts` (`ROADMAP.md`). "Unspecified" is a cell that no page
     generator, so a failure that only they meet is no finding.
   - In a wake of the `finally`, the run ends itself as `died` wakes it (`engine.test.ts`, "died wakes no fiber inside a
     step: a defect a listener throws completes it once every listener is told"; `start.test.ts`, "the end of a run"),
-    and `drive`, which runs the run, interrupts it as its scenario returns from a wait that `settled` woke
+    and `drive`, which runs the run, interrupts it as its scenario returns from a wait that the return of the call woke
     (`drive.test.ts`, "drive's send, made by a wait that a step wakes").
   - During the end, a second interruption of the run, as a `stop` of "Running" called twice makes, ends with the first
     once the run has ended (`contract.test.ts`, "whoever runs the program, during the end of the run").
@@ -372,10 +375,10 @@ a row of `contract.test.ts` (`ROADMAP.md`). "Unspecified" is a cell that no page
     `examples/bounce/bounce.test.ts` awaits a `Deferred` that its `onApplied` completes: each call of its driver does
     what it does right after the outermost call (`contract.test.ts`, "the scenario of drive, in a callback of a step").
     `rehearse` and `simulate` take no option, and tell a scenario nothing in a step: no entry.
-  - In a wake of the `finally`, the waits of `drive` go on as `settled` wakes them (`drive.test.ts`, "drive's send,
-    made by a wait that a step wakes"), and a `run` of `rehearse` that waits for its command fails as `died` wakes it
-    (`rehearse.test.ts`, "a send whose message's model throws waits for its job, though an answer is applied on its
-    stack").
+  - In a wake of the `finally`, the waits of `drive` go on as the return of the call wakes them (`drive.test.ts`,
+    "drive's send, made by a wait that a step wakes"), and a `run` of `rehearse` that waits for its command fails as
+    `died` wakes it (`rehearse.test.ts`, "a send whose message's model throws waits for its job, though an answer is
+    applied on its stack").
   - During the end, a fiber of the test's calls once the tool has ended (`contract.test.ts`, "a fiber of the test's
     that sends once the tool has ended"), and a command answers as the end is marked (`rehearse.test.ts`, "rehearse, as
     its end is marked while a command left under way answers").
@@ -436,11 +439,16 @@ a row of `contract.test.ts` (`ROADMAP.md`). "Unspecified" is a cell that no page
   nothing interrupts: Effect's forks and races make it so, as documented. What cannot be one thunk with its check, as
   the first step of an effect of the program, is no act the guide promises about.
 
-  A thunk writes first and offers or completes last. In the engine, the jobs are offered and `died` completed in one
-  place, the `finally` of the outermost `apply`, once every step of the call is written and every listener told, and
-  `drive` wakes its waits there too (`settled`), so the engine and the tools wake no fiber inside a step: one that a
-  callback of the step wakes enters as "A step, and who may enter it" says. Each has a mutation, whose killers
-  rest on a fiber resumed on the stack of whoever completes its `Deferred`, a premise of the tests alone. A wait of
+  A thunk writes first and offers or completes last. In the engine, what a step leaves to offer or to wake is owed, and
+  done in one place, the `finally` of the outermost `apply`, once every step of the call is written and every listener
+  told (`owe`): the jobs offered, what waits on `died`, the mark of an end, and the waits of `drive`. So the engine and
+  the tools wake no fiber inside a step: one that a callback of the step wakes enters as "A step, and who may enter it"
+  says. The check of `owe`, its loop in the `finally`, and each entry that owes have a mutation, whose killers rest on
+  a fiber resumed on the stack of whoever completes its `Deferred`, a premise of the tests alone. `rehearse` and
+  `simulate` race the engine's `died` too (`orDead` in `testing/stage.ts`), and that choice has no mutation: with the
+  register's own, a call would fail on the step's stack, where nothing that a scenario may do shows it, since every
+  call of a rehearsal checks the register first and a command is pending only once the fiber of effects has done its
+  job, in a task of its own. A wait of
   `drive` reads each model in order, from a place of its own among the models `drive` read (`place` in `drive.ts`),
   never only the latest; the models are kept from the oldest place a wait holds, and a wait lets go of its place however
   it ends. Each thunk of `rehearse` writes the ledger before it completes a `Deferred`, gives a fiber its effect or asks
@@ -465,18 +473,19 @@ a row of `contract.test.ts` (`ROADMAP.md`). "Unspecified" is a cell that no page
   scheduler of the tests are alarms of the search, killing none.
 - **What the engine gives a testing tool, the run takes by its defaults** ([`one-engine.md`](records/one-engine.md),
   "What the engine gets").
-  - The config of `Engine.build` has five. `settled` is called last as the outermost `apply` returns. `listening` and
+  - The config of `Engine.build` has four. `listening` and
     `answering` say what the fiber of a start and of a command run: the job calls each where it forks the fiber, and the
     fiber runs what it returns in its root, through `startFiber` and `commandFiber` of `shell.ts` (a subscription or a
     command in a scope of its own, dying in its site, its last message or answer sent after that scope); the config
     takes them or `runCommand` and `listen`, never both. `stepped` is told in the thunk what each message came to and
     the keys of each new state once they are the active ones. `released` is told once the stops of a job have ended,
     before its starts.
-  - The engine gives five more: `after`, a job that only tells, done once every job before it is; `send`, which applies
-    a message as its source sends it; `active`, the keys of the current state; and `end` and `ended`, which mark the
-    end, once no step is under way, and read it by plain code.
-  - The run gives none of them: `drive` gives `settled`, `rehearse` all but `settled`, and `simulate` `stepped`,
-    `listening` and `answering`. They add no premise, and each has a test in `engine.test.ts` and a mutation.
+  - The engine gives six more: `after`, a job that only tells, done once every job before it is; `owe`, what is done
+    once no step is under way, where `drive` wakes its waits, which `startWith` gives it; `send`, which applies a
+    message as its source sends it; `active`, the keys of the current state; and `end` and `ended`, which mark the end,
+    once no step is under way, and read it by plain code.
+  - The run gives none of them: `drive` gives none either, `rehearse` all, and `simulate` `stepped`, `listening` and
+    `answering`. They add no premise, and each has a test in `engine.test.ts` and a mutation.
 - **The testing tools behave like the engine** where it is deterministic, with the test as the scheduler ("Testing
   tools" in the guide), since a tool that plays a program runs it on the engine. `rehearse` and `simulate` run on the
   engine itself (`Engine.build`), with the register of the run, so the thunk, the jobs, the fibers, their roots and

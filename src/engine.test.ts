@@ -1674,6 +1674,34 @@ describe("what a testing tool is given", () => {
     ])
   })
 
+  // A listener owes a thunk, then sends: the thunk is called once that message is applied and every listener told of
+  // it, before the call returns. One owed outside a step is called at once.
+  test("owe calls what it is given at once outside a step, and in one once its call has applied every message and told every listener", async () => {
+    const lines = await run(Effect.fnUntraced(function*(deaths: Deaths) {
+      const log: Array<string> = []
+      const engine = yield* Engine.make<Seen, Order, number, never, string>({
+        deaths,
+        init: { state: { keys: [], works: 0 } },
+        update,
+        subscriptions: ({ keys }) => keys,
+        listening: () => Effect.never,
+        answering: () => Effect.void
+      })
+      engine.subscribe(() => {
+        const { works } = engine.current()
+        log.push(`told ${works}`)
+        if (works !== 1) return
+        engine.owe(() => log.push(`owed at ${engine.current().works}`))
+        engine.dispatch({ _tag: "Work" })
+      })
+      engine.owe(() => log.push("owed outside"))
+      engine.dispatch({ _tag: "Work" })
+      log.push("returned")
+      return log
+    }))
+    expect(lines).toEqual(["owed outside", "told 1", "told 2", "owed at 2", "returned"])
+  })
+
   test("send applies a message at once as its source sends it, and active gives the keys of the current state, each with its start", async () => {
     const outcome = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const heard: Array<string> = []

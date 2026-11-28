@@ -13,7 +13,7 @@ import { endedWith } from "../core.ts"
 import type { Dispatch } from "../dispatch.ts"
 import type { RunOptions } from "../engine.ts"
 import type { FlagsOption, Program } from "../program.ts"
-import { type App, readEach, type Started, startWith } from "../run.ts"
+import { type App, readEach, type Running, startWith } from "../run.ts"
 import { type Deaths, makeDeaths } from "../shell.ts"
 
 /**
@@ -78,11 +78,11 @@ type Place<Model> = Readonly<{
 // Plain code: the program started, the handle there before any fiber, so that the driver's dispatch is the program's
 // from the scenario's first step, and `init` has been called before it begins, as in `rehearse`. Told of every state,
 // `drive` reads the model of each one, in the listener, on whatever stack made the state, and wakes the waits only once
-// the call that applied it has returned, its step done, as the engine offers its jobs: so a wait it wakes runs outside
-// the step, wherever Effect resumes it, and a `send` it makes is applied before it returns. A model that throws is
-// recorded once, in `'render'`, where it is read (`readEach`, as `rehearse` reads them).
+// the call that applied it has returned, its step done, as the engine offers its jobs (`owe`): so a wait it wakes runs
+// outside the step, wherever Effect resumes it, and a `send` it makes is applied before it returns. A model that throws
+// is recorded once, in `'render'`, where it is read (`readEach`, as `rehearse` reads them).
 const driven = <Model, Message, R>(
-  starting: (deaths: Deaths, began: () => void, settled: () => void, heard: Heard) => Started<Model, Message, R>
+  starting: (deaths: Deaths, began: () => void) => Running<Model, Message, R>
 ) => {
   // What the program's fibers die of, the defects of `makeModel` a read meets included, as `drive` ends with it.
   const deaths = makeDeaths(() => true)
@@ -118,49 +118,31 @@ const driven = <Model, Message, R>(
     }
   }
   let changed = Deferred.makeUnsafe<void>()
-  // Whether a state was made since the waits were last woken.
+  // Whether a wake of the waits is owed: one for every state made before it is done.
   let told = false
-  // How many options of the test's are being called, each in a step: a call of the scenario made there, on the stack of
-  // a fiber that an option woke, waits for the outermost call to return (`outside`), and then does what it does right
-  // after it, as an end made during a step waits in the engine.
-  let hearing = 0
-  let returned: Deferred.Deferred<void> | undefined
-  const heard: Heard = (option) => (value) => {
-    hearing += 1
-    try {
-      return option(value)
-    } finally {
-      hearing -= 1
-    }
-  }
-  const outside: Effect.Effect<void> = Effect.suspend(() =>
-    hearing === 0 ? Effect.void : Deferred.await(returned ??= Deferred.makeUnsafe<void>())
-  )
-  const settled = () => {
-    const waits = returned
-    returned = undefined
-    if (told) {
-      told = false
-      const woken = changed
-      changed = Deferred.makeUnsafe<void>()
-      Deferred.doneUnsafe(woken, Effect.void)
-    }
-    if (waits !== undefined) Deferred.doneUnsafe(waits, Effect.void)
+  const wake = () => {
+    told = false
+    const woken = changed
+    changed = Deferred.makeUnsafe<void>()
+    Deferred.doneUnsafe(woken, Effect.void)
   }
   // Said once the run has started the effects of the first state, unless the program has died by then: of `init`, of
   // its first keys, of its first model, or of what the first state started. The check and the notice are one thunk.
-  const { app, run } = starting(
+  const { app, run, owe } = starting(
     deaths,
     () => {
       if (!deaths.dead()) Deferred.doneUnsafe(running, Effect.void)
-    },
-    settled,
-    heard
+    }
   )
+  // A call of the scenario made during a step, on the stack of a fiber that an option of the test's woke, waits for
+  // the outermost call to return, and then does what it does right after it, as an end made during a step does.
+  const outside: Effect.Effect<void> = Effect.callback<void>((resume) => owe(() => resume(Effect.void)))
   const { first, unsubscribe } = readEach(app, (model) => {
     models.push(model)
-    told = true
     trim()
+    if (told) return
+    told = true
+    owe(wake)
   })
   if (Opt.isSome(first)) models.push(first.value)
   const now: Shown<Model, Message> = {
@@ -171,9 +153,6 @@ const driven = <Model, Message, R>(
   }
   return { deaths, began: Deferred.await(running), now, outside, run, unsubscribe }
 }
-
-// An option of the test's, called so that `drive` knows that a step is under way.
-type Heard = <A>(option: (heard: A) => undefined) => (heard: A) => undefined
 
 // The services that the run `startWith` gives needs, as `run.ts` says where it writes them.
 type Needed<Command, CommandServices, Key, SubscriptionServices> = Exclude<
@@ -259,26 +238,10 @@ export const drive = Effect.fnUntraced(function*<
     Model,
     Message,
     Needed<Command, CommandServices, Key, SubscriptionServices>
-  >((
-    deaths,
-    began,
-    settled,
-    heard
-  ) => {
-    // The rest of the options keeps the flags the parameter's type requires.
-    const { onApplied, onIgnored, ...rest } = options as RunOptions<State, Message, Command>
-    return startWith(
-      program,
-      {
-        ...rest,
-        ...(onApplied === undefined ? {} : { onApplied: heard(onApplied) }),
-        ...(onIgnored === undefined ? {} : { onIgnored: heard(onIgnored) })
-      },
-      deaths,
-      began,
-      settled
-    )
-  })
+  >((deaths, began) =>
+    // The options keep the flags the parameter's type requires.
+    startWith(program, options as RunOptions<State, Message, Command> & Readonly<{ flags?: unknown }>, deaths, began)
+  )
   // The first model `select` maps to `Some`, the current one or a later one, each read in order from the wait's place:
   // what the waits wait on is taken before the models are read, in one step, so that no state made in between is
   // missed. The place is taken where nothing interrupts, so that a wait that runs out of patience at once still lets
