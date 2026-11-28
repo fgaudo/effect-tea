@@ -84,7 +84,7 @@ version.
      program; 35 of 35 acceptance tests passed, once 2 failures, both of the tests, were fixed; the project is kept at
      `D:/Project/effect-tea-readers/booking-react`, with its acceptance tests; brought to the package of step 87 on
      2026-11-26, it used none of the names that step changed, and passed its 21 tests and the 35 acceptance tests as
-     it was).
+     it was; so again at 0.11.0 on 2026-11-28, with `effect` raised to 4.1.6, each test file run alone).
    - a locker pickup screen: a part of an application in React Native whose header counts the pickups, a code typed
      and checked, a `Switch`, an unlock that may fail, a door feed that ends and is listened to anew on a reconnect,
      and a next pickup that starts over, under React Native's jest preset (2026-11-26, package, one program; 41 of 41
@@ -92,7 +92,8 @@ version.
      `D:/Project/effect-tea-readers/locker-react-native`, with its acceptance tests; upgraded from 0.9.0 to 0.10.0 on
      2026-11-27 from the changelog alone, the one entry it used, of `hear`, applied from its text, it passed its 34
      tests and the 41 acceptance tests; the agent left `effect` below the new peer range, whose entry was then marked
-     breaking).
+     breaking; brought to 0.11.0 on 2026-11-28, it used none of the names that release changed, and passed its 34
+     tests and the 41 acceptance tests as it was).
 4. Make the project, from the repository's root, with the versions the repository is developed with:
 
    ```bash

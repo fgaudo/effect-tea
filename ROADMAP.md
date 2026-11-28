@@ -43,7 +43,7 @@ on 28 November 2026. The one the reading found was weighed and rejected that day
 None. The readings for 0.11.0 are done over all that came after commit `5f13b2b`: the review of the premises in step
 121, commit `9534de9`, and the reading of the promises in the commit "The promises read again for 0.11.0"
 (`git log --grep "The promises read again for 0.11.0"`). The next readings start from those two commits, and are due
-before the release that follows 0.11.0. 0.11.0 is released next, by `release` ("For the owner").
+before the release that follows 0.11.0. 0.11.0 is prepared and tagged ("For the owner").
 
 ## For the owner
 
@@ -54,9 +54,9 @@ owner does it.
   interrupted as it begins may leave a program that applies messages and reports none of their defects. It holds the
   bug that the review of step 121 found too: a run stopped from a listener may end inside the step, and lose the
   defect of a later listener.
-- **0.11.0** is not released: the bug hunt of 27 November 2026 reopened its section of `CHANGELOG.md`, and took out the
-  tag `v0.11.0` that pointed to commit `acbada3`, before its fixes. Its readings are done: an agent prepares the
-  release by `release`, and the owner pushes it.
+- **0.11.0** is tagged `v0.11.0`, on the commit `release 0.11.0` of 28 November 2026, and waits for the owner to push
+  the commit and the tag, and to publish the package. The owner's application on 0.10.0 was brought to it by an agent
+  from the changelog alone, and the projects of the earlier readers' checks ran on it as they were.
 - **1.0.** Not before the library has been made known and used by others for at least one or two months, as the owner
   decided on 20 November 2026: only then may 1.0 be decided, with what its users have asked of the API, after a
   reading of the promises and a review of the premises over everything. Until then, releases stay at 0.x.

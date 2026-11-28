@@ -22,10 +22,9 @@ version, and everything else, features included, the patch version.
   `make` and `withChildren`. In the call of `withChildren`, their options take the parent's state with no annotation;
   a child declared apart from it names that state, `(state: Own) => …`, and `withChildren` refuses a child declared for
   another state. `DeclareChild`, `DeclareChildWhen` and `DeclareChildById` take no type argument.
-  Upgrade: import `child`, `childWhen` and `childById` from `@fgaudo/effect-tea`, and write
-  `program<{ state: Own }>().withChildren({ Clock: child(clock) })` in place of a line that destructures them; a child
-  declared apart annotates the state in its options; `DeclareChild<T>`, `DeclareChildWhen<T>` and
-  `DeclareChildById<T>` become `DeclareChild`, `DeclareChildWhen` and `DeclareChildById`.
+  Upgrade: import `child`, `childWhen` and `childById` from `@fgaudo/effect-tea`, not from `program<…>()`, whose
+  `withChildren` stays; a child declared apart annotates the state in each option that takes it, `(state: Own) => …`;
+  `DeclareChild<T>`, `DeclareChildWhen<T>` and `DeclareChildById<T>` lose their type argument.
 - **Breaking**: the `makeModel` of a program without children takes its state alone, as its other pieces do: one
   written with a second parameter, which was `{}`, does not compile, nor does an empty `onEvent`, which only a parent
   takes.
