@@ -1,13 +1,14 @@
-// A dispatch is a plain function, which applies its message before it returns. A view draws a model and sends its
-// program's messages through `dispatch`. A parent's view gives each child's view a dispatch of its own, which wraps the
-// child's messages as the parent receives them, with the instance they are for where the view names it. Kept while
-// anyone holds it, it is the same function every time it is asked for, so that a renderer can skip a child whose model
-// has not changed.
+// A dispatch is a plain function, which applies its message before it returns, or, where another message is being
+// applied, right after that one. A view draws a model and sends its program's messages through `dispatch`. A parent's
+// view gives each child's view a dispatch of its own, which wraps the child's messages as the parent receives them,
+// with the instance they are for where the view names it. Kept while anyone holds it, it is the same function every
+// time it is asked for, so that a renderer can skip a child whose model has not changed.
 import * as Equal from "effect/Equal"
 import * as Hash from "effect/Hash"
 
 /**
- * Applies a message to the running program, before it returns, and returns nothing.
+ * Applies a message to the running program before it returns, or, where another message is being applied, right after
+ * that one, and returns nothing.
  *
  * - It needs no services. A handler of any renderer calls it as it is. Effect code calls it in an `Effect.sync`.
  * - When a handler returns, `update` has seen its message, and the model is the new one. What the message starts, its

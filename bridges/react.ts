@@ -180,7 +180,8 @@ const report = (error: unknown): void => {
  *   platform has no `reportError`, as React Native, it is reported as React reports an error itself.
  *   Whatever `fork` handles around the run is not thrown or reported again.
  * - A `makeModel` that throws is such a defect, thrown once: until the run has ended, `Host` draws the last model that
- *   did not throw, which it may not have drawn yet. A first model that throws reaches the boundary as `Host` first renders, and the run never starts.
+ *   did not throw, which it may not have drawn yet. A first model that throws reaches the boundary as `Host` first
+ *   renders, and the run never starts.
  *
  * @example
  * ```tsx

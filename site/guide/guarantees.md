@@ -140,7 +140,8 @@ each bridge's to promise (see [view](./view.md#rules)).
 
 The library's tests check each guarantee. [`src/interleaving.test.ts`][interleaving] checks most of them at once,
 under random orders of clicks, texts typed into a controlled element, command answers, subscription messages and ends,
-releases, defects, and interruptions by the program. What a screen then shows of a controlled element is the business
-of the bridges, and their tests check it in a DOM (see [their tests](./writing-a-bridge.md#their-tests)).
+releases, defects, interruptions by the program, and stops by whoever runs it. What a screen then shows of a
+controlled element is the business of the bridges, and their tests check it in a DOM (see
+[their tests](./writing-a-bridge.md#their-tests)).
 
 [interleaving]: https://github.com/fgaudo/effect-tea/tree/main/src/interleaving.test.ts

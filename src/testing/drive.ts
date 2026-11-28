@@ -183,8 +183,8 @@ type Needed<Command, CommandServices, Key, SubscriptionServices> = Exclude<
  * - When the scenario ends, or when whoever runs `drive` interrupts it, `drive` interrupts the run and waits for it.
  *   It then fails, as the run dies, on a defect of what the program releases as it stops.
  * - A defect of the program fails `drive` with the `ProgramDefect` the run dies with. The defect comes first in the
- *   cause, before what the scenario ended with, a defect of what it releases too, and also when a wait matched a
- *   model read before it.
+ *   cause, before what the scenario ended with, a defect of what the program releases too, and also when a wait
+ *   matched a model read before it.
  *
  * @returns What `scenario` returns, once the program has stopped.
  *

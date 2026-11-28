@@ -39,16 +39,15 @@ version, and everything else, features included, the patch version.
   Upgrade: write `ids` or `flags` before a `listening` that takes the id; give literal ids with `as const`,
   `ids: () => [1, 2] as const`.
 - **Breaking**: unspecified, and no longer promised: whether a call of `rehearse` that has applied its message, or its
-  command's answer, as a fiber of the program dies fails with the defect or returns. `run` and `runAll`, which failed
-  at once, now wait for the job of the answer, as `hearNext` did; the rehearsal fails with the defect, as before.
+  command's answer, as a fiber of the program dies fails with the defect or returns, where `run` and `runAll` failed
+  with it at once. The rehearsal fails with the defect, as before.
   Upgrade: a test that expects such a call to fail with the defect expects the rehearsal to fail with it.
 - **Breaking**: unspecified, and no longer promised: that the subscriptions that one state stops release what they
   hold together ("Guarantees"); that the end of a run never begins inside a step ("Running"); and that a program whose
   `run` was interrupted before it began may still be run (`Started`).
   Upgrade: nothing to change in a program; start a program again to run it again.
 - **Breaking**: unspecified, and no longer promised: whether a command or a subscription that another fiber of the
-  program interrupts while the run stops it dies of a defect, as for one that interrupts itself ("Guarantees"). The run
-  reports it where the interruption reaches the fiber before it has ended.
+  program interrupts while the run stops it dies of a defect, as for one that interrupts itself ("Guarantees").
   Upgrade: nothing to change in a program.
 - The errors of `child`, `childWhen` and `childById`, and of `make`, `start`, `drive` and `rehearse` given a piece or
   `flags` that the program does not name, are at the option, and say what to write or the type it takes, in place of
@@ -79,8 +78,9 @@ version, and everything else, features included, the patch version.
 - A run that whoever runs it stopped from a listener, as a test does that awaits a `Deferred` the listener completes,
   could lose what the step still owed, against "Guarantees": a later listener's defect was reported nowhere, and a
   message an earlier listener sent in that step was not applied.
-- The comment of the `dispatch` of an `App` said only that it applies its message before it returns: one sent while
-  another is being applied, as a listener sends one, is applied right after that one, as "Guarantees" says.
+- The comments of the `dispatch` of an `App` and of `Dispatch`, and the glossary, said first, or only, that a dispatch
+  applies its message before it returns: one sent while another is being applied, as a listener sends one, is applied
+  right after that one, as "Guarantees" says.
 - A scenario of `drive` that an option woke inside a step, as a test does that awaits a `Deferred` its `onApplied`
   completes, acted on the state of before that step: its `send` selected on the model of before, and returned before
   `update` had seen its message, against the comment of `Driver`, and `waitFor` and `model` read that model too. Each

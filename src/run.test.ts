@@ -159,6 +159,34 @@ describe("the handle a renderer gets", () => {
     expect(seen).toEqual([0, 1, true])
   })
 
+  test("model() is what the program's makeModel makes of the current state, a parent's too", async () => {
+    type Row = Readonly<{ count: number }>
+    type Bump = Readonly<{ _tag: "Bump" }>
+    const row = program<{ state: Row; model: Readonly<{ count: number; bump: Bump }>; message: Bump }>().make({
+      init: { state: { count: 0 } },
+      update: () => (state) => ({ state: { count: state.count + 1 } }),
+      makeModel: ({ count }) => ({ count, bump: { _tag: "Bump" } })
+    })
+    type Rows = Readonly<{ ids: ReadonlyArray<number> }>
+    const rows = program<{ state: Rows; message: Readonly<{ _tag: "Added" }> }>().withChildren({
+      Row: childById(row, { ids: (state) => state.ids })
+    }).make({
+      init: { state: { ids: [] } },
+      update: () => (state) => ({ state: { ids: [...state.ids, state.ids.length + 1] } }),
+      makeModel: (state, children) => state.ids.map((id) => children.Row(id))
+    })
+    const states: Array<Parameters<typeof rows.makeModel>[0]> = []
+    const { app, run } = start(rows, { onApplied: ({ after }) => void states.push(after) })
+    const fiber = Effect.runFork(run)
+    app.dispatch({ _tag: "Added" })
+    app.dispatch({ _tag: "Added" })
+    app.dispatch({ _tag: "Row", id: 2, message: { _tag: "Bump" } })
+    const model = app.model()
+    expect(wheres(await interrupted(fiber))).toEqual([])
+    expect(model).toEqual(rows.makeModel(Opt.getOrThrow(Arr.last(states))))
+    expect(model.map(({ count }) => count)).toEqual([0, 1])
+  })
+
   test("a model is made only when read, once for each state", async () => {
     const made: Array<number> = []
     const { app, run } = start({ ...counter, makeModel: ({ count }) => (made.push(count), { count }) })
@@ -1390,6 +1418,21 @@ describe("defects", () => {
     ])
   })
 
+  test("a defect in update names a message with data by its tag alone, never by its data", async () => {
+    type Saved = Readonly<{ _tag: "Saved"; name: string }>
+    const saving = program<{ state: Count; model: Model; message: Saved }>().make({
+      init: { state: { count: 0 } },
+      update: boom,
+      makeModel: counter.makeModel
+    })
+    const { app, run } = start(saving)
+    const fiber = Effect.runFork(run)
+    app.dispatch({ _tag: "Saved", name: "Ada" })
+    const exit = await ended(fiber)
+    const thrown = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
+    expect(thrown instanceof ProgramDefect && [thrown.on, thrown.message.includes("Ada")]).toEqual(["Saved", false])
+  })
+
   test("defect in update dies in update, on its message, with the InvariantDefect as its cause", async () => {
     const exit = await sentIncrement({ ...counter, update: () => () => defect("An increment cannot arrive") })
     const thrown = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
@@ -2013,12 +2056,14 @@ describe("subscriptions", () => {
   })
 
   test("listen takes the key alone: it does not see the state", () => {
-    const seeing: Keyed = {
-      ...counter,
+    const seeing = program<{ state: Count; model: Model; message: Message; key: "k" }>().make({
+      init: { state: { count: 0 } },
+      update: () => (state) => ({ state }),
       subscriptions: () => ["k"],
       // @ts-expect-error: a key carries everything its subscription needs.
-      listen: (_: string, state: Count) => Channel.end<Message>(state.count > 0 ? "Increment" : "Same")
-    }
+      listen: (_: "k", state: Count) => Channel.end<Message>(state.count > 0 ? "Increment" : "Same"),
+      makeModel: counter.makeModel
+    })
     expect(seeing).toBeDefined()
   })
 

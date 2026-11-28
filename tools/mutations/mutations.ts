@@ -307,7 +307,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     from: "self.pipe(diesIn(where, details), deaths.recorded, Scope.provide(scope))",
     to: "self.pipe(diesIn(where, details), deaths.recorded)",
     killedBy: [
-      ["src/engine.test.ts", "a command's scope closes before its answer is applied"],
+      ["src/engine.test.ts", "a command's scope closes once it has ended, and before its answer is applied"],
       [
         "src/run.test.ts",
         "what a subscription acquires is released when its key goes away, apart from the next message"
@@ -2221,7 +2221,7 @@ export const mutations: ReadonlyArray<Mutation> = [
     to: "job.fresh.length > 0",
     killedBy: [
       ["src/engine.test.ts", "its commands still run"],
-      ["src/engine.test.ts", "a command's scope closes before its answer is applied"]
+      ["src/engine.test.ts", "a command's scope closes once it has ended, and before its answer is applied"]
     ]
   },
   {

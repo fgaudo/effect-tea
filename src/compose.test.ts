@@ -1069,7 +1069,7 @@ describe("the instance of a child", () => {
     expect(error).toMatchObject({ child: "Row", id: 9, message: "The instance of \"Row\", which is not in this state" })
   })
 
-  test("a subscription's message carries its instance, and is rejected once that instance is gone", () => {
+  test("a subscription's message carries its instance, and is rejected once that instance is gone, by id and alone", () => {
     const first = after(added(1)).state
     const key = Opt.getOrThrow(Arr.head(rowList.subscriptions(first)))
     expect(key).toEqual({ _tag: "Row", id: 1, instance: 1, key: "bumps" })
@@ -1079,6 +1079,13 @@ describe("the instance of a child", () => {
     expect(rowList.update(message)(first)).not.toBe(reject)
     const again = applyAll(rowList.update, [{ _tag: "Removed", id: 1 }, added(1)], first).state
     expect(rowList.update(message)(again)).toBe(reject)
+    const opened = singleAfter("Opened").state
+    const alone = Opt.getOrThrow(Arr.head(single.subscriptions(opened)))
+    expect(alone).toEqual({ _tag: "One", instance: 1, key: "bumps" })
+    const heard = Opt.getOrThrow(Effect.runSync(Channel.runHead(single.listen(alone))))
+    expect(heard).toEqual({ _tag: "One", instance: 1, message: { _tag: "Bumped" } })
+    expect(single.update(heard)(opened)).not.toBe(reject)
+    expect(single.update(heard)(singleAfter("Opened", "Closed", "Opened").state)).toBe(reject)
   })
 })
 

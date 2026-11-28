@@ -738,7 +738,7 @@ describe("drop by start, against the keys of the current state", () => {
 })
 
 describe("commands and scopes", () => {
-  test("a command's scope closes before its answer is applied", async () => {
+  test("a command's scope closes once it has ended, and before its answer is applied", async () => {
     const log = await run(Effect.fnUntraced(function*(deaths: Deaths) {
       const log: Array<string> = []
       const answered = yield* Deferred.make<void>()
@@ -747,7 +747,11 @@ describe("commands and scopes", () => {
         init: { state: { done: false } },
         runCommand: () =>
           Effect.acquireRelease(Effect.sync(() => log.push("acquire")), () => Effect.sync(() => log.push("release")))
-            .pipe(Effect.as(Opt.some("Done" as const))),
+            .pipe(
+              Effect.andThen(Effect.yieldNow),
+              Effect.andThen(Effect.sync(() => log.push("work"))),
+              Effect.as(Opt.some("Done" as const))
+            ),
         update: (message) => () =>
           message === "Run" ? { state: { done: false }, commands: ["Work"] } : { state: { done: true } },
         subscriptions: () => [],
@@ -762,7 +766,7 @@ describe("commands and scopes", () => {
       yield* Deferred.await(answered)
       return log
     }))
-    expect(log).toEqual(["applied Run", "acquire", "release", "applied Done"])
+    expect(log).toEqual(["applied Run", "acquire", "work", "release", "applied Done"])
   })
 
   // `Run` and `Fork` start a command that answers `Done`, `Hold` one that never ends; `Listen` starts the
@@ -863,6 +867,25 @@ describe("commands and scopes", () => {
       expect(lines).toEqual(["applied Listen", "acquire subscription", "applied Stop", "release subscription"])
     })
   }
+
+  test("what a subscription acquires is released when it ends, though its key stays", async () => {
+    const ending = ({ resource }: Track): Subscription<Signal, Scope.Scope> =>
+      Channel.fromEffectDone(resource("subscription").pipe(Effect.as<Signal>("Done")))
+    const lines = await run(Effect.fnUntraced(function*(deaths: Deaths) {
+      const { log, send } = yield* tracked(deaths, ending)
+      send("Listen")
+      yield* log.reached("applied Done")
+      yield* log.reached("release subscription")
+      return [...log.lines]
+    }))
+    expect([...lines].sort()).toEqual([
+      "acquire subscription",
+      "applied Done",
+      "applied Listen",
+      "release subscription"
+    ])
+    expect(lines.indexOf("acquire subscription")).toBeLessThan(lines.indexOf("release subscription"))
+  })
 
   // Holds what it acquires in an effect that never ends, and notes its interruption.
   const holding = ({ note, resource }: Track): Subscription<Signal, Scope.Scope> =>

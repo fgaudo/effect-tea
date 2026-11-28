@@ -381,6 +381,25 @@ describe("drive", () => {
     expect(saved).toBe("milk")
   })
 
+  test("a subscription's message that update rejects is ignored, as when the program runs", async () => {
+    type Ticks = Readonly<{ count: number }>
+    const ticking: Program<{ state: Ticks; model: number; message: "Late" | "Tick"; key: "ticks" }> = {
+      init: { state: { count: 0 } },
+      update: (message) => ({ count }) => message === "Late" ? reject : { state: { count: count + 1 } },
+      subscriptions: () => ["ticks"],
+      listen: () => Channel.mapDone(Channel.succeed<"Late" | "Tick">("Late"), (): "Late" | "Tick" => "Tick"),
+      makeModel: ({ count }) => count
+    }
+    const ignored: Array<unknown> = []
+    const count = await Effect.runPromise(drive(
+      ticking,
+      (driver) => driver.waitFor((count) => count === 1 ? Opt.some(count) : Opt.none()),
+      { onIgnored: ({ message, origin }) => void ignored.push([message, origin._tag]) }
+    ))
+    expect(count).toBe(1)
+    expect(ignored).toEqual([["Late", "Subscription"]])
+  })
+
   test("a program whose commands acquire needs no scope: each command has its own", async () => {
     const released: Array<string> = []
     type Holding = Readonly<{ count: number }>

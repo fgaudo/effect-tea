@@ -1018,6 +1018,66 @@ describe("Host", () => {
       }
     })
 
+    // A subscription sends two messages in one task: the first makes a model that React reads in its notice without
+    // drawing it, the second one that throws. It yields first, so that it sends them in `settle`, inside an act.
+    test("a makeModel that throws leaves the last model that did not throw drawn, though Host had not drawn it", async () => {
+      const thrown = new Error("A model that cannot be made")
+      const gate = Deferred.makeUnsafe<void>()
+      const twice = {
+        ...counter,
+        subscriptions: () => ["twice" as const],
+        listen: () =>
+          Channel.unwrap(
+            Effect.acquireRelease(Effect.void, () => Deferred.await(gate)).pipe(
+              Effect.andThen(Effect.yieldNow),
+              Effect.as(
+                Channel.fromIterable(["Increment", "Increment"] as const).pipe(
+                  Channel.concatWith(() => Channel.never)
+                )
+              )
+            )
+          ),
+        makeModel: (state: Parameters<typeof counter.makeModel>[0]) => {
+          if (state.count > 1) {
+            drawnAsItThrew.push(...drawn)
+            throw thrown
+          }
+          return counter.makeModel(state)
+        }
+      }
+      const caught: Array<unknown> = []
+      const drawn: Array<number> = []
+      const drawnAsItThrew: Array<number> = []
+      const root = createRoot(page(), { onCaughtError: (error) => void caught.push(error) })
+      roots.push(root)
+      let fiber: Fiber.Fiber<void, unknown> | undefined
+      await acting(() =>
+        root.render(createElement(
+          Boundary,
+          null,
+          host({
+            program: twice,
+            fork: (effect) => {
+              fiber = heldFork(effect)
+              return fiber
+            },
+            view: (model, dispatch) => {
+              drawn.push(model.count)
+              return counterView(model, dispatch)
+            }
+          })
+        ))
+      )
+      await started()
+      expect([element("output").textContent, caught.length]).toEqual(["1", 0])
+      expect([new Set(drawnAsItThrew), drawn.at(-1)]).toEqual([new Set([0]), 1])
+      Deferred.doneUnsafe(gate, Exit.void)
+      await acting(() => settle())
+      if (fiber !== undefined) await Effect.runPromise(Fiber.await(fiber))
+      await acting(async () => {})
+      expect((caught[0] as ProgramDefect).where).toBe("render")
+    })
+
     test("gives what it dies of once Host has unmounted to reportError", async () => {
       const reported = witness<unknown>()
       const reportError = globalThis.reportError

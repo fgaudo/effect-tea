@@ -448,21 +448,21 @@ describe("how a stopped subscription ends", () => {
     expect(applied).toEqual([{ after: { listening: false }, commands: ["Note"] }])
   })
 
-  // The call that sent it returns, as the run's dispatch does; what is asked after it fails with the defect, and so
-  // does the rehearsal.
+  // Whether the call that sent it returns is unspecified; what is asked after it fails with the defect, and so does
+  // the rehearsal.
   test("rehearse applies the message whose release dies whole, as the run does, its commands owed", async () => {
     const seen: Array<unknown> = []
     const exit = await Effect.runPromiseExit(rehearse(
       noting,
       Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.hearNext((key) => key === "ticks")
-        const sent = yield* Effect.exit(rehearsal.send(() => Opt.some("Stop")))
+        yield* Effect.exit(rehearsal.send(() => Opt.some("Stop")))
         const after = yield* Effect.exit(rehearsal.send(() => Opt.some("Tick")))
-        seen.push(Exit.isSuccess(sent), yield* rehearsal.state, yield* rehearsal.pending, reasonsOf(after))
+        seen.push(yield* rehearsal.state, yield* rehearsal.pending, reasonsOf(after))
       })
     ))
     expect(reasonsOf(exit)).toEqual(["release"])
-    expect(seen).toEqual([true, { listening: false }, ["Note"], ["release"]])
+    expect(seen).toEqual([{ listening: false }, ["Note"], ["release"]])
   })
 
   // A `hearNext` waiting when the key goes away fails with what its subscription ended with, the interruption by the
@@ -1295,29 +1295,23 @@ describe("a defect of makeModel", () => {
   // `Go` starts `Note` and takes `ticks` away, on a state whose model throws: `drive` reads the model in its listener,
   // on the stack of the step, and the run takes what a listener throws for a defect without raising it into the step,
   // so the step goes on whole, its commands started and the subscription it stops released.
-  const noting = (
-    released: Array<boolean>
-  ): Program<{ state: Count; model: number; message: "Go" | "Tick"; command: "Note"; key: "ticks" }> => ({
+  const noting: Program<{ state: Count; model: number; message: "Go" | "Tick"; command: "Note"; key: "ticks" }> = {
     init: { state: { count: 0 } },
     update: (message) => ({ count }) =>
       message === "Go" ? { state: { count: count + 1 }, commands: ["Note"] } : { state: { count } },
     runCommand: () => Effect.succeedNone,
     subscriptions: ({ count }) => count === 0 ? ["ticks" as const] : [],
-    listen: () =>
-      Channel.succeed<"Go" | "Tick">("Tick").pipe(
-        Channel.concatWith(() => Channel.never),
-        Channel.onExit(() => Effect.sync(() => released.push(true)))
-      ),
+    listen: () => Channel.succeed<"Go" | "Tick">("Tick").pipe(Channel.concatWith(() => Channel.never)),
     makeModel: ({ count }) => {
       if (count > 0) throw new Error("boom")
       return count
     }
-  })
+  }
 
   test("in the run, the message whose model dies is applied whole, with its commands", async () => {
     const applied: Array<unknown> = []
     const exit = await Effect.runPromiseExit(drive(
-      noting([]),
+      noting,
       (driver) => Effect.andThen(driver.send(() => Opt.some("Go")), Effect.never),
       {
         onApplied: ({ message, after, commands }) => {
@@ -1329,23 +1323,21 @@ describe("a defect of makeModel", () => {
     expect(applied).toEqual([{ after: { count: 1 }, commands: ["Note"] }])
   })
 
-  // The call that sent it returns, as the run's dispatch does, once the subscription the state stops is released; what
-  // is asked after it fails with the defect, and so does the rehearsal.
+  // Whether the call that sent it returns is unspecified; what is asked after it fails with the defect, and so does
+  // the rehearsal.
   test("rehearse applies the message whose model dies whole, as the run does, its commands owed", async () => {
-    const released: Array<boolean> = []
     const seen: Array<unknown> = []
     const exit = await Effect.runPromiseExit(rehearse(
-      noting(released),
+      noting,
       Effect.fnUntraced(function*(rehearsal) {
         yield* rehearsal.hearNext((key) => key === "ticks")
-        const sent = yield* Effect.exit(rehearsal.send(() => Opt.some("Go")))
-        seen.push(Exit.isSuccess(sent), [...released])
+        yield* Effect.exit(rehearsal.send(() => Opt.some("Go")))
         const after = yield* Effect.exit(rehearsal.model)
         seen.push(yield* rehearsal.state, yield* rehearsal.pending, reasons(after))
       })
     ))
     expect(reasons(exit)).toEqual(["render"])
-    expect(seen).toEqual([true, [true], { count: 1 }, ["Note"], ["render"]])
+    expect(seen).toEqual([{ count: 1 }, ["Note"], ["render"]])
   })
 
   const reasons = (exit: Exit.Exit<unknown, unknown>) =>
